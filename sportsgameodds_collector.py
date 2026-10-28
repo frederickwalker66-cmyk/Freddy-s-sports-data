@@ -194,6 +194,7 @@ def normalize_event(event, received_at):
 
 def get_page(api_key, leagues, limit, cursor=None):
     params = {"leagueID": ",".join(leagues), "oddsAvailable": "true",
+              "started": "false", "live": "false", "ended": "false", "cancelled": "false",
               "includeAltLines": "false", "bookmakerID": "draftkings",
               "limit": str(limit)}
     if cursor:
@@ -249,7 +250,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", default="snapshots")
     parser.add_argument("--leagues", default="NBA,MLB,NFL")
-    parser.add_argument("--limit", type=int, default=25)
+    parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--max-pages", type=int, default=1)
     args = parser.parse_args(argv)
     leagues = tuple(part.strip().upper() for part in args.leagues.split(",") if part.strip())
@@ -263,7 +264,15 @@ def main(argv=None):
         return 2
     started = datetime.now(timezone.utc)
     try:
-        quotes, pages, reasons = collect(key, leagues, args.max_pages, args.limit)
+        # A combined multi-league page can overrepresent one league.
+        # Query all three separately while limiting total credit exposure.
+        quotes, pages, reasons = [], [], Counter()
+        for league in leagues:
+            league_quotes, league_pages, league_skips = collect(
+                key, (league,), args.max_pages, args.limit)
+            quotes.extend(league_quotes)
+            pages.extend(dict(page, league=league) for page in league_pages)
+            reasons.update(league_skips)
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -280,6 +289,7 @@ def main(argv=None):
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
         "leagues": leagues, "pages": pages,
         "event_credits_upper_bound": sum(p["events_returned"] for p in pages),
+        "leagues_queried_separately": True,
         "quotes_recorded": len(quotes), "skipped": dict(sorted(reasons.items())),
         "file": path.name, "source_identity_crosswalk_verified": False,
         "independently_reverified_draftkings_prices": 0,
