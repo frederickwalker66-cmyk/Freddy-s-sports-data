@@ -23,6 +23,13 @@ class OfficialSourceTests(unittest.TestCase):
                 return b"%PDF-1.7 fictional fixture"
             raise ValueError("unknown fixture URL")
         def fake_json(url):
+            if "/commonallplayers?" in url:
+                headers = ["PERSON_ID", "DISPLAY_FIRST_LAST", "TEAM_ID",
+                           "TEAM_ABBREVIATION", "ROSTERSTATUS"]
+                rows = [[i, f"NBA Fixture {i}", 1610612737 + (i % 30),
+                         "ABC", "1"] for i in range(1, 321)]
+                return {"resultSets": [{"name": "CommonAllPlayers",
+                                        "headers": headers, "rowSet": rows}]}
             if "/teams?" in url:
                 return {"teams": [{"id": i, "name": f"Team {i}"} for i in range(100, 125)]}
             if "/roster?" in url:
@@ -38,6 +45,9 @@ class OfficialSourceTests(unittest.TestCase):
             report = refresh("2026-10-28", d, fake_fetch, fake_json)
             self.assertEqual(report["sources"]["nba"]["status"], "evidence_downloaded")
             self.assertFalse(report["sources"]["nba"]["player_status_parsed"])
+            self.assertEqual(report["sources"]["nba_player_index"]["status"], "evidence_downloaded")
+            self.assertEqual(report["sources"]["nba_player_index"]["player_count"], 320)
+            self.assertFalse(report["sources"]["nba_player_index"]["provider_id_crosswalk_verified"])
             self.assertEqual(report["sources"]["mlb_roster"]["fetched_teams"], 25)
             self.assertFalse(report["sources"]["mlb_roster"]["provider_id_crosswalk_verified"])
             self.assertFalse(report["sources"]["mlb_lineups"]["lineups_confirmed_as_playing"])
@@ -52,8 +62,23 @@ class OfficialSourceTests(unittest.TestCase):
         with TemporaryDirectory() as d:
             report = refresh("2026-10-28", d, error, error)
             self.assertEqual(report["sources"]["nba"]["status"], "unavailable")
+            self.assertEqual(report["sources"]["nba_player_index"]["status"], "unavailable")
             self.assertEqual(report["sources"]["mlb_roster"]["status"], "unavailable")
             self.assertEqual(report["sources"]["mlb_lineups"]["status"], "unavailable")
+            self.assertEqual(report["player_props_cleared"], 0)
+
+    def test_incomplete_nba_roster_cannot_pass(self):
+        def error(*args, **kwargs):
+            raise RuntimeError("offline")
+        def bad_json(url):
+            if "commonallplayers" in url:
+                return {"resultSets": [{"name": "CommonAllPlayers",
+                                        "headers": ["PERSON_ID"],
+                                        "rowSet": []}]}
+            raise RuntimeError("offline")
+        with TemporaryDirectory() as d:
+            report = refresh("2026-10-28", d, error, bad_json)
+            self.assertEqual(report["sources"]["nba_player_index"]["status"], "unavailable")
             self.assertEqual(report["player_props_cleared"], 0)
 
 if __name__ == "__main__":
