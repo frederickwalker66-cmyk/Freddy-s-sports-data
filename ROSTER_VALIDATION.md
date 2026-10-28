@@ -78,3 +78,13 @@ python challenger_audit.py --input snapshots/<snapshot>.jsonl \
 **This does not parse NBA per-player injury statuses, create NBA/NFL roster syncs, or independently verify cross-provider player IDs or game-day active players.** The NFL source remains `not_connected`. MLB rosters and batting-order snapshots are official **evidence** but are not automatically reconciled to SharpAPI IDs or cleared for wagering. The pipeline preserves zero certified picks and zero automated bets.
 
 Official reports change during the day. A 2-hour freshness requirement for manually checked status does not replace an immediate before-bet recheck, particularly in the minutes before tipoff, kickoff or first pitch. No live betting readiness or automated bet placement is implied.
+
+## NBA/MLB priority integration — October 28, 2026
+
+GitHub now includes a *separate official-data collection workflow* at [Refresh official NBA and MLB source evidence](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/refresh-nba-mlb-evidence.yml). This is independent of SharpAPI quotas and does not run the odds collector. It runs on manual dispatch or a scheduled three-times-daily UTC cadence, and archives evidence for seven days.
+
+NBA: The official injury report PDF is captured. The script also attempts the explicit 2026-27 season `stats.nba.com/stats/commonallplayers` index to obtain NBA-native player IDs and official team assignments. Network blocks or missing/incomplete data yield `nba_player_index.status = unavailable`; never treat the mere presence of a URL as a verified roster. NBA injury reports do not include all healthy players and cannot, by themselves, clear participation.
+
+MLB: The 2026 official 30-team active roster data and available game box-score/lineup evidence are captured through `statsapi.mlb.com`. The October 28 live run 40772850855 confirmed 30/30 team rosters and one game's box-score evidence. A complete *download* does not establish a confirmed starting lineup or source-to-odds ID mapping.
+
+Independent research audits require a reviewed player-ID crosswalk from SharpAPI to official NBA/MLB player IDs. Each per-player game-day participation check must also be explicitly reviewed, and late scratches can override older reports. Odds remain research-only; **zero qualified selections and zero automated bets**.
