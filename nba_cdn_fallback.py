@@ -1,8 +1,7 @@
-"""Official NBA CDN game-day player/team evidence; NOT a complete roster.
+"""NBA live game-day player evidence with a strict date-checked mirror fallback.
 
-NBA liveData boxscores may omit players before tipoff and can reflect substitutions
-or inactive listings. This module deliberately never certifies participation,
-player-ID crosswalks, or sportsbook props.
+Neither CDN nor NBA mediaops mirror data is a complete roster, a provider ID
+crosswalk, or evidence that a player is cleared to participate or wager on.
 """
 from datetime import date
 import json
@@ -10,41 +9,62 @@ from urllib.request import Request, urlopen
 
 SCOREBOARD = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
 BOXSCORE_PREFIX = "https://cdn.nba.com/static/json/liveData/boxscore/boxscore_"
-HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json",
-           "Referer": "https://www.nba.com/"}
+MIRROR_SCOREBOARD = "https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/scoreboard/todaysScoreboard_00.json"
+MIRROR_BOXSCORE_PREFIX = "https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/boxscore/boxscore_"
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+           "Accept": "application/json, text/plain, */*",
+           "Origin": "https://www.nba.com",
+           "Referer": "https://www.nba.com/",
+           "Accept-Language": "en-US,en;q=0.9"}
+
+
+def _allowed_source(url):
+    if url in (SCOREBOARD, MIRROR_SCOREBOARD):
+        return True
+    for prefix in (BOXSCORE_PREFIX, MIRROR_BOXSCORE_PREFIX):
+        if url.startswith(prefix) and url.endswith(".json"):
+            gid = url[len(prefix):-5]
+            return len(gid) == 10 and gid.isdigit()
+    return False
 
 
 def fetch_json(url):
-    if not (url == SCOREBOARD or
-            (url.startswith(BOXSCORE_PREFIX)
-             and url.endswith(".json")
-             and url[len(BOXSCORE_PREFIX):-5].isdigit()
-             and len(url[len(BOXSCORE_PREFIX):-5]) == 10)):
+    if not _allowed_source(url):
         raise ValueError("unsupported NBA source URL")
     with urlopen(Request(url, headers=HEADERS), timeout=12) as response:
         data = response.read(5_000_001)
     if len(data) > 5_000_000:
-        raise ValueError("NBA CDN response too large")
+        raise ValueError("NBA live response too large")
     result = json.loads(data)
     if not isinstance(result, dict):
         raise ValueError("invalid NBA response shape")
     return result
 
 
+def _current_scoreboard(day, json_fetcher):
+    failures = []
+    for url in (SCOREBOARD, MIRROR_SCOREBOARD):
+        try:
+            board = json_fetcher(url).get("scoreboard")
+            if not isinstance(board, dict):
+                raise ValueError("missing scoreboard")
+            actual = board.get("gameDate")
+            if not isinstance(actual, str) or actual[:10] != day:
+                raise ValueError("stale_or_wrong_scoreboard_date")
+            games = board.get("games")
+            if not isinstance(games, list) or not 1 <= len(games) <= 20:
+                raise ValueError("NBA scoreboard empty or invalid")
+            return games, url
+        except Exception as exc:
+            failures.append({"source": url, "error_type": type(exc).__name__})
+    raise ValueError("no verified same-day NBA scoreboard from available sources")
+
+
 def collect_game_day_players(day, json_fetcher=fetch_json):
-    """Return an attributed evidence snapshot, never a vetted roster manifest."""
+    """Return source-attributed game evidence; do not auto-approve any prop."""
     date.fromisoformat(day)
-    url = SCOREBOARD
-    board = json_fetcher(url).get("scoreboard")
-    if not isinstance(board, dict):
-        raise ValueError("missing NBA scoreboard")
-    actual_date = board.get("gameDate", "")
-    if not isinstance(actual_date, str) or actual_date[:10] != day:
-        raise ValueError("NBA scoreboard date mismatch")
-    games = board.get("games")
-    if not isinstance(games, list) or not 1 <= len(games) <= 20:
-        raise ValueError("NBA scoreboard empty or invalid")
-    output = {"game_date": day, "source_url": url, "games": [],
+    games, scoreboard_url = _current_scoreboard(day, json_fetcher)
+    output = {"game_date": day, "source_url": scoreboard_url, "games": [],
               "crosswalk_verified": False, "complete_rosters_verified": False,
               "game_day_active_verified": False}
     errors = []
@@ -53,11 +73,22 @@ def collect_game_day_players(day, json_fetcher=fetch_json):
         if not isinstance(gid, str) or len(gid) != 10 or not gid.isdigit():
             errors.append("invalid_game_id")
             continue
-        boxurl = BOXSCORE_PREFIX + gid + ".json"
+        box = None
+        boxurl = None
+        for prefix in (BOXSCORE_PREFIX, MIRROR_BOXSCORE_PREFIX):
+            candidate_url = prefix + gid + ".json"
+            try:
+                item = json_fetcher(candidate_url).get("game")
+                if not isinstance(item, dict) or item.get("gameId") != gid:
+                    raise ValueError("NBA game ID does not match boxscore")
+                box, boxurl = item, candidate_url
+                break
+            except Exception:
+                continue
+        if box is None:
+            errors.append({"game_id": gid, "error_type": "boxscore_unavailable_or_mismatch"})
+            continue
         try:
-            box = json_fetcher(boxurl).get("game")
-            if not isinstance(box, dict) or box.get("gameId") != gid:
-                raise ValueError("game ID does not match boxscore")
             teams = []
             for side in ("homeTeam", "awayTeam"):
                 team = box.get(side)
@@ -84,8 +115,8 @@ def collect_game_day_players(day, json_fetcher=fetch_json):
                               "players": players})
             output["games"].append({"game_id": gid, "game_status": box.get("gameStatus"),
                                     "boxscore_url": boxurl, "teams": teams})
-        except (ValueError, KeyError, TypeError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-            errors.append({"game_id": gid, "error_type": type(exc).__name__})
+        except (ValueError, KeyError, TypeError):
+            errors.append({"game_id": gid, "error_type": "invalid_boxscore_player_data"})
     output["requested_games"] = len(games)
     output["fetched_games"] = len(output["games"])
     output["player_entries"] = sum(len(t["players"]) for g in output["games"] for t in g["teams"])
