@@ -206,7 +206,7 @@ def get_page(api_key, leagues, limit, cursor=None):
             payload = json.load(response)
     except HTTPError as exc:
         # Never log credentials, raw provider response, or request headers.
-        raise RuntimeError("SportsGameOdds HTTP " + str(exc.code)) from None
+        raise RuntimeError("SportsGameOdds HTTP " + str(exc.code) + (" (check stored API key validity)" if exc.code == 401 else "")) from None
     except (URLError, TimeoutError, OSError, ValueError):
         raise RuntimeError("SportsGameOdds request failed") from None
     if not isinstance(payload, dict) or payload.get("success") is False or not isinstance(payload.get("data"), list):
@@ -258,7 +258,7 @@ def main(argv=None):
         parser.error("Allowed leagues: NBA,MLB,NFL")
     if not 1 <= args.limit <= MAX_EVENTS_PER_PAGE or not 1 <= args.max_pages <= MAX_PAGES:
         parser.error("Limits: 1-25 events per page, 1-3 pages")
-    key = os.environ.get("SPORTSGAMEODDS_API_KEY")
+    key = (os.environ.get("SPORTSGAMEODDS_API_KEY") or "").strip()
     if not key:
         print("SportsGameOdds GitHub secret not supplied to the job", file=sys.stderr)
         return 2
