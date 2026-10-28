@@ -1,0 +1,34 @@
+name: Validate NBA MLB research integrity (offline)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, challenger-001-validation-20261028]
+    paths:
+      - 'official_source_refresh.py'
+      - 'roster_validation.py'
+      - 'availability_validation.py'
+      - 'challenger_audit.py'
+      - 'tests/**'
+      - '.github/workflows/validate-data.yml'
+  pull_request:
+    paths:
+      - 'official_source_refresh.py'
+      - 'roster_validation.py'
+      - 'availability_validation.py'
+      - 'challenger_audit.py'
+      - 'tests/**'
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile Python validation files
+        run: python -m compileall -q .
+      - name: Run offline validation fixtures (no API keys or bets)
+        run: python -m unittest discover -s tests -v
