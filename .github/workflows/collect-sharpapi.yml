@@ -31,11 +31,31 @@ jobs:
           fi
       - name: Collect research odds
         run: python collector.py --output-dir snapshots --max-pages 4
+      - name: Supreme Validation — enforce research intake quarantine
+        run: |
+          snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
+          test -n "$snapshot"
+          # No independently reviewed schedule is provided, so every
+          # observation must be quarantined. Raw collection remains intact.
+          python challenger_audit.py --input "$snapshot" --output-dir validation_output
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("validation_output/report.json").read_text())
+          assert report["observations"] == report["staged_for_research_only"] + report["quarantined"]
+          assert report["staged_for_research_only"] == 0
+          assert report["bet_ready_selections"] == 0
+          assert report["certified_challenger_predictions"] == 0
+          assert report["certified_champion_001_predictions"] == 0
+          assert report["automated_bets_placed"] == 0
+          PY
       - name: Upload research artifacts (not to public GitHub source)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sharpapi-pregame-${{ github.run_id }}
-          path: snapshots/
+          path: |
+            snapshots/
+            validation_output/
           retention-days: 30
           if-no-files-found: warn
