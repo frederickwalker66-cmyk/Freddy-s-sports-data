@@ -1,13 +1,21 @@
 name: SportsGameOdds DraftKings research feed
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'sportsgameodds_collector.py'
+      - 'daily_research_audit.py'
+      - 'tests/**'
+      - '.github/workflows/collect-sportsgameodds.yml'
   pull_request:
     paths:
       - 'sportsgameodds_collector.py'
+      - 'daily_research_audit.py'
       - 'tests/**'
       - '.github/workflows/collect-sportsgameodds.yml'
   schedule:
-    - cron: '15 21 * * *' # Default OFF; enable only after verifying credit budget.
+    - cron: '0 1,13 * * *' # Two UTC daily windows (9 p.m./9 a.m. Eastern in EDT)
 permissions:
   contents: read
 jobs:
@@ -22,7 +30,7 @@ jobs:
       - name: Test all ingestion and validation fixtures
         run: python -m unittest discover -s tests -v
   research-collect:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && vars.ENABLE_SGO_SCHEDULE == 'true')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
@@ -40,7 +48,7 @@ jobs:
             exit 1
           fi
       - name: Collect DraftKings-labeled source odds (credit capped)
-        run: python sportsgameodds_collector.py --output-dir snapshots --leagues NBA,MLB,NFL --max-pages 1 --limit 25
+        run: python sportsgameodds_collector.py --output-dir snapshots --leagues NBA,MLB,NFL --max-pages 1 --limit 8
       - name: Enforce independent schedule and roster quarantine
         shell: bash
         run: |
@@ -60,6 +68,14 @@ jobs:
           assert summary['automated_bets_placed'] == 0
           assert summary['champion_001_modified'] is False
           PY
+      - name: Generate conservative daily research-quality report
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
+          python daily_research_audit.py --odds "$snapshot" \\
+            --validation validation_sgo/report.json \\
+            --output validation_sgo/daily_research_report.json
       - name: Save odds and quarantine evidence as workflow artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,5 +84,5 @@ jobs:
           path: |
             snapshots/sportsgameodds_dk_*
             validation_sgo/
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: warn
