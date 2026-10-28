@@ -13,6 +13,7 @@ import time
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
+from nba_cdn_fallback import collect_game_day_players
 
 NBA_INDEX = "https://official.nba.com/nba-injury-report-2026-27-season/"
 NBA_STATS = "https://stats.nba.com/stats/commonallplayers"
@@ -143,6 +144,28 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
     except Exception as exc:
         report["sources"]["nba_player_index"] = {
             "status": "unavailable", "error_type": type(exc).__name__,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
+    # Independent NBA CDN box-score fallback. This is *game-day evidence*,
+    # not an exhaustive 30-team player roster or verified game-day availability.
+    # Always check the date; a stale scoreboard can never masquerade as today.
+    try:
+        nba_game_evidence = collect_game_day_players(date, json_fetcher)
+        (root / "nba_game_day_player_evidence.json").write_text(
+            json.dumps(nba_game_evidence, indent=2), encoding="utf-8")
+        report["sources"]["nba_cdn_game_players"] = {
+            "status": nba_game_evidence["status"],
+            "fetched_games": nba_game_evidence["fetched_games"],
+            "requested_games": nba_game_evidence["requested_games"],
+            "player_entries": nba_game_evidence["player_entries"],
+            "errors": nba_game_evidence["errors"][:10],
+            "full_league_roster_verified": False,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
+    except Exception as exc:
+        report["sources"]["nba_cdn_game_players"] = {
+            "status": "unavailable", "error_type": type(exc).__name__,
+            "full_league_roster_verified": False,
             "provider_id_crosswalk_verified": False,
             "game_day_active_verified": False}
     # MLB active rosters use native MLB IDs. These IDs are NOT the odds-provider IDs.
