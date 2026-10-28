@@ -51,6 +51,20 @@ jobs:
           # No verified roster feed is connected: no prop can be cleared.
           assert report["independently_reviewed_roster_entries_available"] == 0
           assert report["roster_refresh_automated"] is False
+          assert report["independently_reviewed_game_day_status_entries"] == 0
+          assert report["game_day_status_sync_automated"] is False
+          PY
+      - name: Fetch official roster, injury and lineup evidence (not bet-ready)
+        if: always()
+        run: |
+          python official_source_refresh.py --outdir official_sources
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("official_sources/source_refresh_report.json").read_text())
+          assert report["player_props_cleared"] == 0
+          assert report["model_probabilities_generated"] == 0
+          assert report["champion_001_modified"] is False
           PY
       - name: Upload research artifacts (not to public GitHub source)
         if: always()
@@ -60,5 +74,6 @@ jobs:
           path: |
             snapshots/
             validation_output/
+            official_sources/
           retention-days: 30
           if-no-files-found: warn
