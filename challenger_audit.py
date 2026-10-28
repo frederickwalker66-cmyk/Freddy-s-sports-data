@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 from roster_validation import check_player_roster, load_rosters
+from availability_validation import check_availability, load_availability
 
 
 def parse_utc(value):
@@ -62,8 +63,9 @@ def valid_number(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def validate(row, events, rosters=None):
+def validate(row, events, rosters=None, availability=None):
     rosters = rosters if rosters is not None else {}
+    availability = availability if availability is not None else {}
     reasons = []
     if not isinstance(row, dict):
         return ["invalid_record"]
@@ -128,17 +130,19 @@ def validate(row, events, rosters=None):
         if not valid_number(row.get("line")):
             reasons.append("invalid_player_line")
         reasons.extend(check_player_roster(row, rosters))
+        reasons.extend(check_availability(row, availability))
     elif player_prop is not False:
         reasons.append("unknown_prop_class")
     return sorted(set(reasons))
 
 
-def audit(rows, events, rosters=None):
+def audit(rows, events, rosters=None, availability=None):
     rosters = rosters if rosters is not None else {}
+    availability = availability if availability is not None else {}
     staged, quarantined = [], []
     causes, leagues, families, staged_families, quarantined_families = Counter(), Counter(), Counter(), Counter(), Counter()
     for row in rows:
-        reasons = validate(row, events, rosters)
+        reasons = validate(row, events, rosters, availability)
         leagues[row.get("league", "unknown") if isinstance(row, dict) else "unknown"] += 1
         causes.update(reasons)
         family = market_family(row)
@@ -157,6 +161,9 @@ def audit(rows, events, rosters=None):
         "independently_reviewed_roster_entries_available": len(rosters),
         "roster_refresh_automated": False,
         "max_roster_age_seconds": 86400,
+        "independently_reviewed_game_day_status_entries": len(availability),
+        "game_day_status_sync_automated": False,
+        "max_game_day_status_age_seconds": 7200,
         "staged_for_research_only": len(staged),
         "quarantined": len(quarantined),
         "quarantine_causes": dict(sorted(causes.items())),
@@ -188,13 +195,15 @@ def main(argv=None):
     p.add_argument("--input", required=True, help="SharpAPI JSONL snapshot")
     p.add_argument("--schedule", default=None, help="Independently reviewed event schedule manifest; if absent, all observations are quarantined")
     p.add_argument("--rosters", default=None, help="Externally reviewed official roster and provider-ID manifest; no manifest quarantines all player props")
+    p.add_argument("--availability", default=None, help="Externally verified game-day injury and lineup status manifest; absent means player props quarantined")
     p.add_argument("--output-dir", default="research_output")
     args = p.parse_args(argv)
     events = load_schedule(args.schedule)
     rosters = load_rosters(args.rosters)
+    availability = load_availability(args.availability)
     with Path(args.input).open(encoding="utf-8") as f:
         rows = [json.loads(line) for line in f if line.strip()]
-    staged, quarantined, report = audit(rows, events, rosters)
+    staged, quarantined, report = audit(rows, events, rosters, availability)
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     write_jsonl(out / "research_only.jsonl", staged)
