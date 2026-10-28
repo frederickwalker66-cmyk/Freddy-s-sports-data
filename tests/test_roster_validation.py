@@ -50,9 +50,10 @@ class RosterTests(unittest.TestCase):
 
     def test_properly_verified_roster_can_stage_research_only(self):
         rows = {("nba", "provider-123"): roster()}
-        self.assertEqual(validate(prop(), EVENTS, rows), [])
+        # Roster-only certification never clears an injury/lineup check.
+        self.assertIn("game_day_status_not_verified", validate(prop(), EVENTS, rows))
         stage, quarantine, report = audit([prop()], EVENTS, rows)
-        self.assertEqual((len(stage), len(quarantine)), (1, 0))
+        self.assertEqual((len(stage), len(quarantine)), (0, 1))
         self.assertEqual(report["bet_ready_selections"], 0)
 
     def test_traded_or_wrong_team_quarantined(self):
