@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 NBA_INDEX = "https://official.nba.com/nba-injury-report-2026-27-season/"
+NBA_STATS = "https://stats.nba.com/stats/commonallplayers"
 MLB = "https://statsapi.mlb.com/api/v1"
 
 def fetch(url, max_bytes=5_000_000, timeout=20):
@@ -26,7 +27,15 @@ def fetch(url, max_bytes=5_000_000, timeout=20):
         return data
 
 def get_json(url):
-    obj = json.loads(fetch(url))
+    if url.startswith("https://stats.nba.com/"):
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; FreddyResearchRoster/1.0)", "Referer": "https://www.nba.com/", "Origin": "https://www.nba.com", "x-nba-stats-origin": "stats", "x-nba-stats-token": "true", "Accept": "application/json"})
+        with urlopen(req, timeout=10) as response:
+            raw = response.read(5_000_001)
+            if len(raw) > 5_000_000:
+                raise ValueError("oversized NBA roster result")
+        obj = json.loads(raw)
+    else:
+        obj = json.loads(fetch(url))
     if not isinstance(obj, dict):
         raise ValueError("unexpected official JSON shape")
     return obj
@@ -86,6 +95,56 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
     except (Exception) as exc:
         report["sources"]["nba"] = {"status": "unavailable", "error_type": type(exc).__name__,
                                     "player_status_parsed": False, "roster_synced": False}
+    # NBA official stats player/team ID index. Some data-center IPs are blocked by
+    # stats.nba.com; blocked/incomplete results remain unavailable, NOT valid rosters.
+    try:
+        year = int(date[:4]) if int(date[5:7]) >= 7 else int(date[:4]) - 1
+        season = f"{year}-{(year + 1) % 100:02d}"
+        url = NBA_STATS + "?" + urlencode({"IsOnlyCurrentSeason": 1,
+                                            "LeagueID": "00", "Season": season})
+        data = json_fetcher(url)
+        sets = data.get("resultSets")
+        if not isinstance(sets, list):
+            raise ValueError("NBA current-player result sets absent")
+        table = next((t for t in sets if t.get("name") == "CommonAllPlayers"), None)
+        if not isinstance(table, dict):
+            raise ValueError("NBA current-player data missing")
+        headers = table.get("headers")
+        rows = table.get("rowSet")
+        required = ("PERSON_ID", "DISPLAY_FIRST_LAST", "TEAM_ID",
+                    "TEAM_ABBREVIATION", "ROSTERSTATUS")
+        if not isinstance(headers, list) or not all(h in headers for h in required):
+            raise ValueError("NBA required roster columns missing")
+        if not isinstance(rows, list) or len(rows) < 300:
+            raise ValueError("NBA current roster unexpectedly incomplete")
+        indices = [headers.index(h) for h in required]
+        players = []
+        for record in rows:
+            if not isinstance(record, list) or len(record) != len(headers):
+                raise ValueError("NBA malformed roster row")
+            pid, name, tid, abbrev, status = (record[i] for i in indices)
+            if not isinstance(pid, int) or not isinstance(name, str):
+                raise ValueError("NBA invalid player identification")
+            if not isinstance(tid, int) or tid <= 0:
+                continue
+            players.append({"official_player_id": pid, "player_name": name,
+                            "official_team_id": tid, "team_abbreviation": abbrev,
+                            "roster_status": status})
+        if len(players) < 300:
+            raise ValueError("NBA team assignments unexpectedly incomplete")
+        (root / "nba_current_season_player_index.json").write_text(json.dumps(
+            {"season": season, "retrieved_at_utc": current.isoformat(),
+             "source_url": url, "players": players}, indent=2))
+        report["sources"]["nba_player_index"] = {
+            "status": "evidence_downloaded", "season": season,
+            "player_count": len(players), "source_url": url,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
+    except Exception as exc:
+        report["sources"]["nba_player_index"] = {
+            "status": "unavailable", "error_type": type(exc).__name__,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
     # MLB active rosters use native MLB IDs. These IDs are NOT the odds-provider IDs.
     try:
         teams_url = MLB + "/teams?" + urlencode({"sportId": 1, "season": int(date[:4])})
