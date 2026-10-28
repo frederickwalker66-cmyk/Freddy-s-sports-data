@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
-      SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY || secrets.SPORTSGAMEODDS_KEY || secrets.SPORTS_GAME_ODDS_API_KEY || secrets.SPORTSGAMEODDS || secrets.SPORTS_GAME_ODDS }}
+      SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY || secrets.SPORTSGAMEODDS_KEY || secrets.SPORTS_GAME_ODDS_API_KEY || secrets.SPORTSGAMEODDS || secrets.SPORTS_GAME_ODDS || secrets.SPORTSGAMESODD || secrets.SPORTSGAMESODDS || secrets.SPORTS_GAMES_ODD || secrets.SPORTS_GAMES_ODDS || secrets.SPORTSGAMEODD || secrets.SPORTS_GAME_ODD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
