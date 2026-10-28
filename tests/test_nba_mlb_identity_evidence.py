@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from nba_cdn_fallback import BOXSCORE_PREFIX, SCOREBOARD, collect_game_day_players
+from nba_cdn_fallback import (BOXSCORE_PREFIX, SCOREBOARD, MIRROR_SCOREBOARD, MIRROR_BOXSCORE_PREFIX, collect_game_day_players)
 from mlb_identity_audit import reconcile
 from official_source_refresh import refresh
 
@@ -46,6 +46,32 @@ class NBAFallbackTests(unittest.TestCase):
         self.assertEqual(data["status"], "partial")
         self.assertEqual(data["fetched_games"], 0)
         self.assertFalse(data["game_day_active_verified"])
+
+    def test_blocked_cdn_uses_mirror_only_for_same_day(self):
+        def mirror(url):
+            if url == SCOREBOARD or url.startswith(BOXSCORE_PREFIX):
+                raise PermissionError("blocked CDN")
+            if url == MIRROR_SCOREBOARD:
+                return self.mock_sources(SCOREBOARD)
+            if url == MIRROR_BOXSCORE_PREFIX + "0022600001.json":
+                return self.mock_sources(BOXSCORE_PREFIX + "0022600001.json")
+            raise ValueError("unexpected URL")
+        result = collect_game_day_players("2026-10-28", mirror)
+        self.assertEqual(result["source_url"], MIRROR_SCOREBOARD)
+        self.assertEqual(result["player_entries"], 2)
+        self.assertFalse(result["complete_rosters_verified"])
+        self.assertFalse(result["crosswalk_verified"])
+
+    def test_stale_mirror_is_rejected_even_if_reachable(self):
+        def stale(url):
+            if url == SCOREBOARD:
+                raise PermissionError("blocked CDN")
+            if url == MIRROR_SCOREBOARD:
+                return {"scoreboard": {"gameDate": "2026-10-27",
+                    "games": [{"gameId": "0022600001"}]}}
+            raise ValueError("invalid URL")
+        with self.assertRaises(ValueError):
+            collect_game_day_players("2026-10-28", stale)
 
     def test_source_refresh_keeps_game_evidence_unverified(self):
         def offline(*args, **kwargs):
