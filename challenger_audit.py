@@ -1,7 +1,7 @@
 """Read-only Challenger-001 intake validation; never generates or places bets.
 
-An independently sourced, reviewed event schedule manifest is REQUIRED.
-Passing these checks permits research staging, not tradable odds or predictions.
+Without an independently reviewed game schedule ALL observations are quarantined.
+Passing these checks permits research staging only; independent sportsbook price verification and independently generated probabilities remain REQUIRED before betting.
 """
 import argparse
 from collections import Counter
@@ -21,12 +21,14 @@ def parse_utc(value):
 
 
 def load_schedule(path):
+    if path is None:
+        return {}  # Missing independent schedule: quarantine every record.
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data.get("events"), list):
         raise ValueError("schedule.events must be a list")
     events = {}
     for row in data["events"]:
-        if not isinstance(row, dict) or not all(row.get(k) for k in
+        if not isinstance(row, dict) or not all(isinstance(row.get(k), str) and row.get(k).strip() for k in
             ("event_id", "league", "home_team", "away_team", "start_utc", "source_url")):
             raise ValueError("incomplete independently sourced event manifest")
         if row["event_id"] in events:
@@ -69,7 +71,7 @@ def validate(row, events):
         reasons.append("bad_record_type")
     if row.get("certified_prediction") is not False or row.get("model_probability") is not None:
         reasons.append("unexpected_prediction_field")
-    if not row.get("event_id") or not row.get("market_type") or not row.get("selection"):
+    if not all(isinstance(row.get(k), str) and row.get(k).strip() for k in ("event_id", "market_type", "selection")):
         reasons.append("missing_market_identity")
     if row.get("is_main_line") is not True or row.get("is_alternate_line") is not False:
         reasons.append("not_confirmed_primary_line")
@@ -81,7 +83,7 @@ def validate(row, events):
         decimal = row.get("odds_decimal")
         if isinstance(decimal, bool) or not isinstance(decimal, (int, float)) or not math.isfinite(decimal) or abs(decimal - expected) > 0.025:
             reasons.append("inconsistent_decimal_odds")
-    event = events.get(row.get("event_id"))
+    event = events.get(row.get("event_id")) if isinstance(row.get("event_id"), str) else None
     if event is None:
         reasons.append("independent_schedule_unknown")
     elif any(row.get(k) != event[k] for k in ("league", "home_team", "away_team")):
@@ -91,7 +93,7 @@ def validate(row, events):
         collected_time = parse_utc(row.get("recorded_at"))
         provider_start = parse_utc(row.get("event_start_time"))
         age = (collected_time - source_time).total_seconds()
-        if age < 0 or age > 900:
+        if age < 0 or age > 120:
             reasons.append("quote_too_old_or_future")
         if event is not None:
             independent_start = parse_utc(event["start_utc"])
@@ -117,9 +119,11 @@ def validate(row, events):
         reasons.append("unsupported_player_prop_side")
     player_prop = row.get("is_player_prop")
     if player_prop is True:
-        if not row.get("player_name") or not row.get("player_id"):
+        if (not isinstance(row.get("player_name"), str) or not row["player_name"].strip()
+                or isinstance(row.get("player_id"), bool) or not isinstance(row.get("player_id"), (str, int))
+                or not str(row["player_id"]).strip()):
             reasons.append("unresolved_player_identity")
-        if not row.get("market_type", "").startswith("player_"):
+        if not isinstance(row.get("market_type"), str) or not row["market_type"].startswith("player_"):
             reasons.append("player_market_mismatch")
         if not valid_number(row.get("line")):
             reasons.append("invalid_player_line")
@@ -133,7 +137,8 @@ def audit(rows, events):
     causes, leagues, families, staged_families, quarantined_families = Counter(), Counter(), Counter(), Counter(), Counter()
     for row in rows:
         reasons = validate(row, events)
-        leagues[row.get("league", "unknown") if isinstance(row, dict) else "unknown"] += 1
+        league = row.get("league") if isinstance(row, dict) else None
+        leagues[league if isinstance(league, str) else "unknown"] += 1
         causes.update(reasons)
         family = market_family(row)
         families[family] += 1
@@ -146,6 +151,8 @@ def audit(rows, events):
     summary = {
         "mode": "challenger_001_research_only",
         "observations": len(rows),
+        "max_research_quote_age_seconds": 120,
+        "independent_schedule_events_available": len(events),
         "staged_for_research_only": len(staged),
         "quarantined": len(quarantined),
         "quarantine_causes": dict(sorted(causes.items())),
@@ -175,7 +182,7 @@ def write_jsonl(path, records):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input", required=True, help="SharpAPI JSONL snapshot")
-    p.add_argument("--schedule", required=True, help="Independently reviewed event schedule manifest")
+    p.add_argument("--schedule", default=None, help="Independently reviewed event schedule manifest; if absent, all observations are quarantined")
     p.add_argument("--output-dir", default="research_output")
     args = p.parse_args(argv)
     events = load_schedule(args.schedule)
