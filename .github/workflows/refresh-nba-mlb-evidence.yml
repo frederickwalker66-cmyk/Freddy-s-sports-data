@@ -1,0 +1,46 @@
+name: Refresh official NBA and MLB source evidence
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh-nba-mlb-evidence.yml'
+  schedule:
+    # 12:00, 16:00 and 19:00 Eastern during daylight saving.
+    # GitHub scheduled jobs may run late; source age is always checked.
+    - cron: '0 16,20,23 * * *'
+permissions:
+  contents: read
+jobs:
+  official-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run independent code checks
+        run: python -m unittest discover -s tests -v
+      - name: Retrieve official NBA and MLB evidence
+        run: python official_source_refresh.py --outdir official_sources
+      - name: Verify report never promotes bets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('official_sources/source_refresh_report.json').read_text())
+          assert report['player_props_cleared'] == 0
+          assert report['model_probabilities_generated'] == 0
+          assert report['champion_001_modified'] is False
+          for name, source in report['sources'].items():
+              print(name, source['status'])
+          PY
+      - name: Save evidence and source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-nba-mlb-${{ github.run_id }}
+          path: official_sources/
+          retention-days: 7
+          if-no-files-found: warn
