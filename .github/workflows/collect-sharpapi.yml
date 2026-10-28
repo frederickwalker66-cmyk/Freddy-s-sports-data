@@ -48,6 +48,9 @@ jobs:
           assert report["certified_challenger_predictions"] == 0
           assert report["certified_champion_001_predictions"] == 0
           assert report["automated_bets_placed"] == 0
+          # No verified roster feed is connected: no prop can be cleared.
+          assert report["independently_reviewed_roster_entries_available"] == 0
+          assert report["roster_refresh_automated"] is False
           PY
       - name: Upload research artifacts (not to public GitHub source)
         if: always()
