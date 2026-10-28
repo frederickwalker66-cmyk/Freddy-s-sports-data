@@ -51,7 +51,7 @@ def latest_nba_report(index_html, today):
         p = urlparse(url)
         if p.hostname != "ak-static.cms.nba.com":
             continue
-        m = re.search(r"Injury-Report_(\\d{4}-\\d{2}-\\d{2})_(\\d{2})_(\\d{2})(AM|PM)\\.pdf$", p.path)
+        m = re.search(r"Injury-Report_(\d{4}-\d{2}-\d{2})_(\d{2})_(\d{2})(AM|PM)\.pdf$", p.path)
         if m and m.group(1) == today:
             hour = int(m.group(2)) % 12 + (12 if m.group(4) == "PM" else 0)
             minute = int(m.group(3))
@@ -103,8 +103,8 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
             try:
                 data = json_fetcher(url)
                 players = data.get("roster")
-                if not isinstance(players, list):
-                    raise ValueError("MLB roster response incomplete")
+                if not isinstance(players, list) or not players:
+                    raise ValueError("MLB roster response incomplete or empty")
                 active.append({"team_id": tid, "team_name": team.get("name"),
                                "source_url": url,
                                "players": [{"official_player_id": p.get("person", {}).get("id"),
