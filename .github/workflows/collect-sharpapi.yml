@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 22
     env:
-      SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+      SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY || secrets.SHARPAPIKEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "$SHARPAPI_KEY" ]; then
-            echo 'SharpAPI secret missing: create SHARPAPI_KEY in repository Actions secrets.' >&2
+            echo 'SharpAPI secret unavailable: check SHARPAPI_KEY or SHARPAPIKEY in repository Actions secrets.' >&2
             exit 1
           fi
       - name: Collect research odds
