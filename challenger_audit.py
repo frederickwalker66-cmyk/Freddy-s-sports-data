@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import json
 import math
 from pathlib import Path
+from roster_validation import check_player_roster, load_rosters
 
 
 def parse_utc(value):
@@ -61,7 +62,8 @@ def valid_number(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def validate(row, events):
+def validate(row, events, rosters=None):
+    rosters = rosters if rosters is not None else {}
     reasons = []
     if not isinstance(row, dict):
         return ["invalid_record"]
@@ -125,16 +127,18 @@ def validate(row, events):
             reasons.append("player_market_mismatch")
         if not valid_number(row.get("line")):
             reasons.append("invalid_player_line")
+        reasons.extend(check_player_roster(row, rosters))
     elif player_prop is not False:
         reasons.append("unknown_prop_class")
     return sorted(set(reasons))
 
 
-def audit(rows, events):
+def audit(rows, events, rosters=None):
+    rosters = rosters if rosters is not None else {}
     staged, quarantined = [], []
     causes, leagues, families, staged_families, quarantined_families = Counter(), Counter(), Counter(), Counter(), Counter()
     for row in rows:
-        reasons = validate(row, events)
+        reasons = validate(row, events, rosters)
         leagues[row.get("league", "unknown") if isinstance(row, dict) else "unknown"] += 1
         causes.update(reasons)
         family = market_family(row)
@@ -150,6 +154,9 @@ def audit(rows, events):
         "observations": len(rows),
         "max_research_quote_age_seconds": 120,
         "independent_schedule_events_available": len(events),
+        "independently_reviewed_roster_entries_available": len(rosters),
+        "roster_refresh_automated": False,
+        "max_roster_age_seconds": 86400,
         "staged_for_research_only": len(staged),
         "quarantined": len(quarantined),
         "quarantine_causes": dict(sorted(causes.items())),
@@ -180,12 +187,14 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input", required=True, help="SharpAPI JSONL snapshot")
     p.add_argument("--schedule", default=None, help="Independently reviewed event schedule manifest; if absent, all observations are quarantined")
+    p.add_argument("--rosters", default=None, help="Externally reviewed official roster and provider-ID manifest; no manifest quarantines all player props")
     p.add_argument("--output-dir", default="research_output")
     args = p.parse_args(argv)
     events = load_schedule(args.schedule)
+    rosters = load_rosters(args.rosters)
     with Path(args.input).open(encoding="utf-8") as f:
         rows = [json.loads(line) for line in f if line.strip()]
-    staged, quarantined, report = audit(rows, events)
+    staged, quarantined, report = audit(rows, events, rosters)
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     write_jsonl(out / "research_only.jsonl", staged)
