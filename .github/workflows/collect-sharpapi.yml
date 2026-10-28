@@ -66,6 +66,50 @@ jobs:
           assert report["model_probabilities_generated"] == 0
           assert report["champion_001_modified"] is False
           PY
+      - name: Audit candidate MLB source-to-provider IDs (manual review only)
+        if: always()
+        run: |
+          snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
+          if [ -n "$snapshot" ] && [ -f official_sources/mlb_active_rosters.json ]; then
+            python mlb_identity_audit.py \
+              --odds "$snapshot" \
+              --mlb-rosters official_sources/mlb_active_rosters.json \
+              --output validation_output/mlb_crosswalk_review_candidates.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("validation_output/mlb_crosswalk_review_candidates.json").read_text())
+          assert result["crosswalk_independently_verified"] is False
+          assert result["bet_ready_selections"] == 0
+          assert result["certified_champion_001_predictions"] == 0
+          assert result["champion_001_modified"] is False
+          PY
+          else
+            echo "MLB evidence unavailable; zero candidate IDs approved."
+          fi
+      - name: Generate manual-review-only MLB player ID candidates
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' 2>/dev/null | sort | tail -n 1 || true)
+          if [ -n "$snapshot" ] && [ -s official_sources/mlb_active_rosters.json ]; then
+            python mlb_identity_audit.py --odds "$snapshot" \
+              --mlb-rosters official_sources/mlb_active_rosters.json \
+              --output official_sources/mlb_id_review_candidates.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('official_sources/mlb_id_review_candidates.json').read_text())
+          assert report['crosswalk_independently_verified'] is False
+          assert report['bet_ready_selections'] == 0
+          assert report['certified_champion_001_predictions'] == 0
+          assert report['champion_001_modified'] is False
+          PY
+          else
+            mkdir -p official_sources
+            echo '{"status":"not_generated_missing_snapshot_or_roster","crosswalk_independently_verified":false,"bet_ready_selections":0}' > official_sources/mlb_id_review_candidates.json
+          fi
       - name: Upload research artifacts (not to public GitHub source)
         if: always()
         uses: actions/upload-artifact@v4

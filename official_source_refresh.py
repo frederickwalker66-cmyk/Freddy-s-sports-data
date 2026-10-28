@@ -13,6 +13,7 @@ import time
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
+from nba_cdn_fallback import collect_game_day_players
 
 NBA_INDEX = "https://official.nba.com/nba-injury-report-2026-27-season/"
 NBA_STATS = "https://stats.nba.com/stats/commonallplayers"
@@ -68,7 +69,7 @@ def latest_nba_report(index_html, today):
                 items.append((hour, minute, url))
     return max(items)[2] if items else None
 
-def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=get_json):
+def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=get_json, nba_game_fetcher=None):
     root = Path(outdir)
     root.mkdir(parents=True, exist_ok=True)
     current = datetime.now(timezone.utc)
@@ -145,6 +146,63 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
             "status": "unavailable", "error_type": type(exc).__name__,
             "provider_id_crosswalk_verified": False,
             "game_day_active_verified": False}
+    # Independent NBA CDN box-score fallback. This is *game-day evidence*,
+    # not an exhaustive 30-team player roster or verified game-day availability.
+    # Always check the date; a stale scoreboard can never masquerade as today.
+    try:
+        nba_game_evidence = collect_game_day_players(date, json_fetcher)
+        (root / "nba_game_day_player_evidence.json").write_text(
+            json.dumps(nba_game_evidence, indent=2), encoding="utf-8")
+        report["sources"]["nba_cdn_game_players"] = {
+            "status": nba_game_evidence["status"],
+            "fetched_games": nba_game_evidence["fetched_games"],
+            "requested_games": nba_game_evidence["requested_games"],
+            "player_entries": nba_game_evidence["player_entries"],
+            "errors": nba_game_evidence["errors"][:10],
+            "full_league_roster_verified": False,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
+    except Exception as exc:
+        report["sources"]["nba_cdn_game_players"] = {
+            "status": "unavailable", "error_type": type(exc).__name__,
+            "full_league_roster_verified": False,
+            "provider_id_crosswalk_verified": False,
+            "game_day_active_verified": False}
+    # NBA CDN game-day boxscores are an independent fallback when the NBA Stats
+    # player index times out. They cover games only, NOT complete active rosters.
+    # Offline fixtures can inject a fetcher without making outbound requests.
+    if nba_game_fetcher is None and fetcher is fetch and json_fetcher is get_json:
+        nba_game_fetcher = collect_game_day_players
+    if nba_game_fetcher is None:
+        report["sources"]["nba_game_day"] = {
+            "status": "not_attempted_in_fixture", "complete_rosters_verified": False,
+            "provider_id_crosswalk_verified": False, "game_day_active_verified": False}
+    else:
+        try:
+            game_evidence = nba_game_fetcher(date)
+            if not isinstance(game_evidence, dict):
+                raise ValueError("invalid NBA game evidence")
+            status = game_evidence.get("status")
+            if status not in ("evidence_downloaded", "partial"):
+                raise ValueError("invalid NBA game evidence status")
+            # Even a perfect game-day response cannot clear a player prop.
+            game_evidence["crosswalk_verified"] = False
+            game_evidence["complete_rosters_verified"] = False
+            game_evidence["game_day_active_verified"] = False
+            (root / "nba_game_day_evidence.json").write_text(
+                json.dumps(game_evidence, indent=2), encoding="utf-8")
+            report["sources"]["nba_game_day"] = {
+                "status": status, "fetched_games": game_evidence.get("fetched_games", 0),
+                "player_entries": game_evidence.get("player_entries", 0),
+                "complete_rosters_verified": False,
+                "provider_id_crosswalk_verified": False,
+                "game_day_active_verified": False}
+        except Exception as exc:
+            report["sources"]["nba_game_day"] = {
+                "status": "unavailable", "error_type": type(exc).__name__,
+                "complete_rosters_verified": False,
+                "provider_id_crosswalk_verified": False,
+                "game_day_active_verified": False}
     # MLB active rosters use native MLB IDs. These IDs are NOT the odds-provider IDs.
     try:
         teams_url = MLB + "/teams?" + urlencode({"sportId": 1, "season": int(date[:4])})

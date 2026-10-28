@@ -88,3 +88,12 @@ NBA: The official injury report PDF is captured. The script also attempts the ex
 MLB: The 2026 official 30-team active roster data and available game box-score/lineup evidence are captured through `statsapi.mlb.com`. The October 28 live run 40772850855 confirmed 30/30 team rosters and one game's box-score evidence. A complete *download* does not establish a confirmed starting lineup or source-to-odds ID mapping.
 
 Independent research audits require a reviewed player-ID crosswalk from SharpAPI to official NBA/MLB player IDs. Each per-player game-day participation check must also be explicitly reviewed, and late scratches can override older reports. Odds remain research-only; **zero qualified selections and zero automated bets**.
+
+## Challenger review: NBA CDN game evidence and MLB identity candidates
+
+The `nba-mlb-player-evidence-20261028` review branch adds two strictly research-only paths:
+
+1. When `stats.nba.com` cannot provide a complete season player index, `official_source_refresh.py` separately attempts today's `cdn.nba.com` scoreboard and per-game boxscores. Game-day NBA player and team IDs are source-attributed in `nba_game_day_evidence.json` when available. These snapshots do **not** establish a complete roster or game-day participation. Stale scoreboard dates, missing game IDs, failed boxscore reads, and provider-to-league ID ambiguity are rejected or marked partial. The game-day collection status is written under `nba_game_day` in the source report.
+2. After odds collection, `mlb_identity_audit.py` examines MLB player prop observations against downloaded official active rosters. It emits `mlb_id_review_candidates.json` only as potential exact-name-and-team matches, with the SharpAPI ID and candidate official MLB ID recorded separately. Duplicate names, unknown player IDs, and team mismatches are unresolved. **No generated candidate is an independently verified crosswalk.**
+
+Both paths are diagnostic and must not populate a betting approval manifest automatically. A real confirmed provider-ID crosswalk, NBA full-roster data, per-game verified player participation, fresh and independent DraftKings quotes, and validated model probabilities are still required. On all paths, `bet_ready_selections` and `player_props_cleared` remain **zero**; Champion-001 is unchanged. The scheduled collector frequency and betting automation are not modified on this review branch.

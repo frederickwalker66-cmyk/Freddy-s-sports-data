@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/refresh-nba-mlb-evidence.yml'
+  pull_request:
+    paths:
+      - 'official_source_refresh.py'
+      - 'nba_cdn_fallback.py'
+      - 'mlb_identity_audit.py'
+      - 'tests/**'
+      - '.github/workflows/refresh-nba-mlb-evidence.yml'
   schedule:
     # 12:00, 16:00 and 19:00 Eastern during daylight saving.
     # GitHub scheduled jobs may run late; source age is always checked.
