@@ -57,7 +57,7 @@ def _current_scoreboard(day, json_fetcher):
             return games, url
         except Exception as exc:
             failures.append({"source": url, "error_type": type(exc).__name__})
-    raise ValueError("no verified same-day NBA scoreboard from available sources")
+    raise ValueError("NBA scoreboard date mismatch or source unavailable; no verified same-day game evidence")
 
 
 def collect_game_day_players(day, json_fetcher=fetch_json):
