@@ -150,7 +150,7 @@ def normalize_event(event, received_at):
                 player_id = odd["playerID"]
                 player = players.get(player_id)
                 if isinstance(player, dict):
-                    player_name = player.get("name")
+                    player_name = long_name(player)
                 if not isinstance(player_name, str) or not player_name.strip():
                     drops["player_name_missing"] += 1
                     continue
@@ -209,7 +209,7 @@ def get_page(api_key, leagues, limit, cursor=None):
         raise RuntimeError("SportsGameOdds HTTP " + str(exc.code)) from None
     except (URLError, TimeoutError, OSError, ValueError):
         raise RuntimeError("SportsGameOdds request failed") from None
-    if not isinstance(payload, dict) or payload.get("success") is not True or not isinstance(payload.get("data"), list):
+    if not isinstance(payload, dict) or payload.get("success") is False or not isinstance(payload.get("data"), list):
         raise RuntimeError("SportsGameOdds reported an error or unexpected schema")
     return payload
 
