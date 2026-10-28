@@ -36,6 +36,29 @@ def load_schedule(path):
     return events
 
 
+def market_family(row):
+    """Classify recorded source markets; does not certify sportsbook availability."""
+    if not isinstance(row, dict):
+        return "unknown"
+    market = row.get("market_type")
+    league = row.get("league")
+    if not isinstance(market, str):
+        return "unknown"
+    if market.startswith("player_"):
+        return "player_prop"
+    if (market == "point_spread" and league in ("nba", "nfl")) or (market == "run_line" and league == "mlb"):
+        return "spread"
+    if market == "moneyline":
+        return "moneyline"
+    if market.startswith("total_"):
+        return "total"
+    return "other"
+
+
+def valid_number(value):
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+
+
 def validate(row, events):
     reasons = []
     if not isinstance(row, dict):
@@ -78,13 +101,27 @@ def validate(row, events):
                 reasons.append("not_verified_pregame")
     except (TypeError, ValueError, OverflowError):
         reasons.append("invalid_timestamp")
+    family = market_family(row)
+    if family in ("unknown", "other"):
+        reasons.append("unsupported_market_family")
+    if family == "spread":
+        if row.get("is_player_prop") is not False:
+            reasons.append("spread_prop_flag_mismatch")
+        if row.get("selection_type") not in ("home", "away"):
+            reasons.append("spread_team_side_missing")
+        if not valid_number(row.get("line")):
+            reasons.append("invalid_spread_line")
+    if family == "player_prop" and row.get("is_player_prop") is not True:
+        reasons.append("player_market_flag_mismatch")
+    if family == "player_prop" and row.get("selection_type") not in ("over", "under", "yes", "no"):
+        reasons.append("unsupported_player_prop_side")
     player_prop = row.get("is_player_prop")
     if player_prop is True:
         if not row.get("player_name") or not row.get("player_id"):
             reasons.append("unresolved_player_identity")
         if not row.get("market_type", "").startswith("player_"):
             reasons.append("player_market_mismatch")
-        if isinstance(row.get("line"), bool) or not isinstance(row.get("line"), (int, float)):
+        if not valid_number(row.get("line")):
             reasons.append("invalid_player_line")
     elif player_prop is not False:
         reasons.append("unknown_prop_class")
@@ -93,15 +130,19 @@ def validate(row, events):
 
 def audit(rows, events):
     staged, quarantined = [], []
-    causes, leagues = Counter(), Counter()
+    causes, leagues, families, staged_families, quarantined_families = Counter(), Counter(), Counter(), Counter(), Counter()
     for row in rows:
         reasons = validate(row, events)
         leagues[row.get("league", "unknown") if isinstance(row, dict) else "unknown"] += 1
         causes.update(reasons)
+        family = market_family(row)
+        families[family] += 1
         if reasons:
             quarantined.append({"observation": row, "reasons": reasons})
+            quarantined_families[family] += 1
         else:
             staged.append(row)
+            staged_families[family] += 1
     summary = {
         "mode": "challenger_001_research_only",
         "observations": len(rows),
@@ -109,6 +150,11 @@ def audit(rows, events):
         "quarantined": len(quarantined),
         "quarantine_causes": dict(sorted(causes.items())),
         "by_league": dict(sorted(leagues.items())),
+        "observed_market_families": dict(sorted(families.items())),
+        "staged_research_market_families": dict(sorted(staged_families.items())),
+        "quarantined_market_families": dict(sorted(quarantined_families.items())),
+        "collected_player_prop_observations": families["player_prop"],
+        "collected_spread_and_run_line_observations": families["spread"],
         "independently_reverified_sportsbook_prices": 0,
         "certified_challenger_predictions": 0,
         "certified_champion_001_predictions": 0,
