@@ -65,3 +65,38 @@ seasons, evaluate calibration versus a no-vig market baseline, account for
 vig and price movement, verify player availability and genuine available
 checkout odds, and demonstrate stable out-of-sample value. Keep the original
 Champion-001 frozen and shadow wager amount at $0 pending validation.
+
+
+## Retrospective feature-research stage (not training-ready)
+
+The historical workflow also runs `challenger_research_features.py` after
+collecting ESPN scoreboard final results. It writes:
+
+- `challenger_history/retrospective_candidates.jsonl`: rolling five-game
+  team win rate and scoring margin, using only games whose start precedes the
+  candidate game's start by **at least 48 hours**. Both teams must have at
+  least three eligible prior games. Every candidate is explicitly tagged
+  `qualified_for_challenger_backtest: false`.
+- `challenger_history/retrospective_coverage.json`: per-league candidate
+  counts, exclusions and an explicit **zero qualified training examples**.
+
+The 48-hour embargo is **assumed**, not independently established source
+publication time. These are retrospective features calculated from final
+score archives retrieved afterward, not timestamped pregame snapshots. ESPN
+scores are a useful separate research source but **not official league
+adjudication**. This candidate output must **never** be renamed or mapped
+directly to `historical_results.jsonl` as though it passed the certified
+input requirements. Soccer three-way markets are excluded; player props are
+not modeled. All historical odds and injuries remain unavailable in this
+research-only candidate set.
+
+To advance to genuine training, independently confirm event identity,
+historical pregame source timestamps, real pregame team/player features,
+outcome timing and provenance, and separate sportsbook snapshots. Until
+then, Challenger-001 has no certified forecasts and Champion-001 stays frozen.
+
+Run on an existing historical research export:
+
+```bash
+python challenger_research_features.py --results challenger_history/results.jsonl --output-dir challenger_history
+```
