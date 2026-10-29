@@ -8,7 +8,8 @@ relabeling October 2026 archived results as February 2026 pregame knowledge.
 
 `.github/workflows/challenger-prospective-pregame.yml`:
 on pull requests, runs **offline safety tests only**. When merged to `main`,
-or manually dispatched, it can:
+manually dispatched, or triggered by GitHub's **13:15 and 20:15 UTC daily**
+cron schedule (subject to GitHub queue delays), it can:
 
 1. Read the latest successful **existing** SharpAPI DraftKings-labeled odds
    artifact, SportsGameOdds artifact, and official NBA/MLB evidence artifact.
@@ -64,3 +65,9 @@ reference **existing saved artifacts**. No credentials are needed.
 games and seasons, independently adjudicate outcomes after settlement, and run
 leakage-free walk-forward out-of-sample backtests and calibration. The frozen
 Champion-001 may not be replaced without demonstrated improvement.
+
+**Retention and cadence limitation:** GitHub Actions artifacts expire after 90 days,
+so this is prospective evidence collection over a rolling window, **not yet a
+multi-season permanent training archive**. Scheduled runs can be delayed, and
+late quotes or events already in progress are rejected. A separately secured,
+durable historical data store will be needed for multi-season research.
