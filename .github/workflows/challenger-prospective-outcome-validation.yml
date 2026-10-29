@@ -1,0 +1,100 @@
+name: Challenger-001 prospective outcome linkage validation (research only)
+on:
+  workflow_dispatch:
+  schedule:
+    # Twice daily after US late games and the following morning; GitHub may delay.
+    - cron: '15 4,15 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_prospective_outcome_validation.py'
+      - 'tests/test_challenger_prospective_outcome_validation.py'
+      - '.github/workflows/challenger-prospective-outcome-validation.yml'
+  pull_request:
+    paths:
+      - 'challenger_prospective_outcome_validation.py'
+      - 'tests/test_challenger_prospective_outcome_validation.py'
+      - '.github/workflows/challenger-prospective-outcome-validation.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test all source-integrity, prospective timing and betting safeguards
+        run: python -m unittest discover -s tests -v
+  link-archived-pregame-to-published-outcomes:
+    if: github.event_name != 'pull_request'
+    needs: safety-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read existing prospective artifacts without any odds API requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p snapshots
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow challenger-prospective-pregame.yml --branch main \
+            --status success --limit 14 --json databaseId --jq '.[].databaseId')
+          valid=()
+          for rid in "${ids[@]}"; do
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "challenger-prospective-evidence-$rid" \
+                 --dir "snapshots/$rid"; then
+              if [[ -f "snapshots/$rid/prospective_event_evidence.jsonl" && \
+                    -f "snapshots/$rid/historical_published_results.jsonl" ]]; then
+                valid+=("$rid")
+              fi
+            fi
+          done
+          if (( ${#valid[@]} == 0 )); then
+            echo 'No complete prospective archives yet. No results will be invented.'
+            exit 1
+          fi
+          echo "latest=${valid[0]}" >> "$GITHUB_ENV"
+          echo "Archives downloaded: ${#valid[@]}"
+      - name: Link prior snapshots to published finals, never promote to training
+        run: |
+          python challenger_prospective_outcome_validation.py \
+            --snapshot-root snapshots \
+            --outcomes "snapshots/$latest/historical_published_results.jsonl" \
+            --output-dir prospective_validation
+      - name: Check zero certified training and betting predictions
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path('prospective_validation/validation_readiness.json').read_text())
+          for key in ('independently_adjudicated_outcomes', 'verified_historical_training_examples',
+                      'certified_champion_001_predictions', 'certified_challenger_001_predictions',
+                      'bet_ready_selections', 'automated_bets_placed'):
+              assert report[key] == 0, (key, report[key])
+          assert report['model_accuracy_established'] is False
+          assert report['champion_001_modified'] is False
+          for line in Path('prospective_validation/linked_pregame_outcomes.jsonl').read_text().splitlines():
+              row=json.loads(line)
+              assert row['qualified_for_challenger_backtest'] is False
+              assert row['model_prediction_at_capture'] is None
+              assert row['bet_ready'] is False and row['champion_001_modified'] is False
+          print('Validated outcome linkage, research only:', report['by_status'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: challenger-prospective-outcome-validation-${{ github.run_id }}
+          path: prospective_validation/
+          retention-days: 90
+          if-no-files-found: warn
