@@ -81,6 +81,54 @@ class SecondaryAuditTests(unittest.TestCase):
         self.assertEqual(len(urls), 1)
         self.assertIn("sportId=1", urls[0])
 
+    def test_archive_parser_rejects_nonfinal_and_preserves_source_distinction(self):
+        payload = {"league": {"id": "nba"}, "events": [
+            {"id": "nba-a", "date": "2026-02-01T22:00:00Z",
+             "status": "Final", "teams": {"home": {"name": "New York Knicks"},
+             "away": {"name": "Boston Celtics"}},
+             "scores": {"total": {"home": 101, "away": 99}}},
+            {"id": "nba-b", "date": "2026-02-02T22:00:00Z",
+             "status": "Scheduled", "teams": {"home": {"name": "New York Knicks"},
+             "away": {"name": "Boston Celtics"}}}
+        ]}
+        games = independent_games("nba", payload)
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0]["home_score"], 101)
+        nba_row = dict(self.row, league="nba", home_team="New York Knicks",
+                       away_team="Boston Celtics", home_score=101, away_score=99,
+                       event_start_utc="2026-02-01T22:00:00Z")
+        nba_candidate = dict(self.candidate, league="nba")
+        checks, report = audit([nba_row], [nba_candidate], "nba", payload,
+                               "https://cache.sportsblaze.com/schedule/nba/2025")
+        self.assertEqual(checks[0]["result_check_status"], "published_result_cross_checked")
+        self.assertEqual(report["secondary_source_class"], "third_party_sportsblaze_published_archive")
+        self.assertEqual(report["verified_pregame_training_examples"], 0)
+        self.assertEqual(report["bet_ready_selections"], 0)
+
+    def test_nba_uses_season_archive_when_current_nba_cdn_lacks_games(self):
+        nba_row = dict(self.row, league="nba", event_start_utc="2026-02-01T22:00:00Z")
+        seen = []
+        def fake(url):
+            seen.append(url)
+            if "cdn.nba.com" in url:
+                return {"leagueSchedule": {"gameDates": [{"games": []}]}}
+            return {"league": {"id": "nba"}, "events": [
+                {"id": "archived", "date": "2026-02-01T22:00:00Z",
+                 "status": "Final", "teams": {"home": {"name": "New York Yankees"},
+                 "away": {"name": "Boston Red Sox"}},
+                 "scores": {"total": {"home": 5, "away": 3}}}]}
+        payload, source = evidence_request("nba", [nba_row], fetcher=fake)
+        self.assertEqual(source, "https://cache.sportsblaze.com/schedule/nba/2025")
+        self.assertEqual(len(seen), 2)
+        self.assertEqual(len(independent_games("nba", payload)), 1)
+
+    def test_nba_no_historical_source_fails_closed(self):
+        nba_row = dict(self.row, league="nba", event_start_utc="2026-02-01T22:00:00Z")
+        def fake(_url):
+            return {"leagueSchedule": {"gameDates": [{"games": []}]}}
+        with self.assertRaises(ValueError):
+            evidence_request("nba", [nba_row], fetcher=fake)
+
 
 if __name__ == "__main__":
     unittest.main()
