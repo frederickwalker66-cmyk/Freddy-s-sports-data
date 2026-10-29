@@ -66,11 +66,31 @@ jobs:
           fi
           echo "latest=${valid[0]}" >> "$GITHUB_ENV"
           echo "Archives downloaded: ${#valid[@]}"
-      - name: Link prior snapshots to published finals, never promote to training
+      - name: Collect recent public ESPN finals without paid sportsbook API calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          today_et="$(TZ=America/New_York date +%F)"
+          python historical_outcomes.py \
+            --leagues NBA,NFL,MLB,NHL,NCAAF,NCAAB,MLS,UEFA_CHAMPIONS_LEAGUE \
+            --days 3 --end-date "$today_et" --output-dir published_recent
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          coverage=json.loads(Path('published_recent/coverage.json').read_text())
+          requested=sum(x['days_attempted'] for x in coverage['by_league'].values())
+          success=sum(x['days_ok'] for x in coverage['by_league'].values())
+          assert requested == 24, requested
+          if success == 0:
+              raise SystemExit('No ESPN source days succeeded; cannot update final results')
+          print(f"Fresh ESPN source days: {success}/{requested}; failures are reported, never guessed")
+          PY
+      - name: Link archived pregame evidence to fresh and archived published results
         run: |
           python challenger_prospective_outcome_validation.py \
             --snapshot-root snapshots \
-            --outcomes "snapshots/$latest/historical_published_results.jsonl" \
+            --outcomes-root snapshots \
+            --outcomes published_recent/results.jsonl \
             --output-dir prospective_validation
       - name: Check zero certified training and betting predictions
         run: |
@@ -95,6 +115,8 @@ jobs:
         if: always()
         with:
           name: challenger-prospective-outcome-validation-${{ github.run_id }}
-          path: prospective_validation/
+          path: |
+            prospective_validation/
+            published_recent/coverage.json
           retention-days: 90
           if-no-files-found: warn

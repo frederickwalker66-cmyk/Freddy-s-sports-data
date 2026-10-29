@@ -82,6 +82,30 @@ class ValidationTests(unittest.TestCase):
         rows, _ = reconcile([snapshot()], [outcome(), other], NOW)
         self.assertEqual(rows[0]["status"], "ambiguous_or_mismatched_published_final")
 
+    def test_identical_later_archive_results_do_not_look_ambiguous(self):
+        older = outcome()
+        newer = outcome()
+        newer["retrieved_at_utc"] = "2026-10-31T01:00:00Z"
+        rows, report = reconcile([snapshot()], [older, newer], NOW)
+        self.assertEqual(rows[0]["status"], "linked_to_espn_published_final_only")
+        self.assertEqual(rows[0]["published_outcome"]["consistent_archive_observations"], 2)
+        self.assertEqual(report["verified_historical_training_examples"], 0)
+
+    def test_revised_final_score_is_quarantined(self):
+        revised = outcome()
+        revised["home_score"] = 109
+        revised["retrieved_at_utc"] = "2026-10-31T01:00:00Z"
+        rows, report = reconcile([snapshot()], [outcome(), revised], NOW)
+        self.assertEqual(rows[0]["status"], "ambiguous_or_mismatched_published_final")
+        self.assertIsNone(rows[0]["published_outcome"])
+        self.assertFalse(report["model_accuracy_established"])
+
+    def test_multiple_observations_with_same_id_but_different_teams_fail(self):
+        other = outcome()
+        other["home_team"] = "Boston Celtics"
+        rows, _ = reconcile([snapshot()], [outcome(), other], NOW)
+        self.assertEqual(rows[0]["status"], "ambiguous_or_mismatched_published_final")
+
     def test_invalid_outcome_does_not_create_false_final(self):
         other = outcome()
         other["retrieved_at_utc"] = "2026-10-29T23:00:00Z"

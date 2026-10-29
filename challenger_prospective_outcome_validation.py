@@ -110,18 +110,28 @@ def reconcile(snapshots, outcomes, now):
         final_rows = result_by_key.get((league, event_id), [])
         status = "awaiting_published_final" if not final_rows else "ambiguous_or_mismatched_published_final"
         final_score = None
-        if len(final_rows) == 1:
-            final = final_rows[0]
-            same_teams = (norm(final["home_team"]) == norm(snap["home_team"])
-                          and norm(final["away_team"]) == norm(snap["away_team"]))
-            starts_agree = abs((instant(final["event_start_utc"])
-                                - instant(snap["event_start_utc"])).total_seconds()) <= 1800
-            if same_teams and starts_agree and instant(final["retrieved_at_utc"]) > captured:
+        if final_rows:
+            # Repeated ESPN archives are normal. Accept repeated *identical*
+            # published finals, but never silently pick among conflicting scores
+            # or team identities. No sportsbook or model data is involved.
+            signature = {(norm(g["home_team"]), norm(g["away_team"]),
+                          g["home_score"], g["away_score"], g["result"]) for g in final_rows}
+            same_teams = all(
+                norm(g["home_team"]) == norm(snap["home_team"]) and
+                norm(g["away_team"]) == norm(snap["away_team"]) for g in final_rows)
+            starts_agree = all(
+                abs((instant(g["event_start_utc"]) -
+                     instant(snap["event_start_utc"])).total_seconds()) <= 1800
+                for g in final_rows)
+            later_final = all(instant(g["retrieved_at_utc"]) > captured for g in final_rows)
+            if len(signature) == 1 and same_teams and starts_agree and later_final:
+                final = min(final_rows, key=lambda g: instant(g["retrieved_at_utc"]))
                 status = "linked_to_espn_published_final_only"
                 final_score = {"home": final["home_score"], "away": final["away_score"],
                                "result": final["result"],
                                "published_retrieved_at_utc": final["retrieved_at_utc"],
-                               "source_url": final["source_url"]}
+                               "source_url": final["source_url"],
+                               "consistent_archive_observations": len(final_rows)}
         linked.append({
             "league": league, "espn_event_id": event_id, "status": status,
             "snapshot_completed_at_utc": captured.isoformat(),
@@ -153,7 +163,8 @@ def reconcile(snapshots, outcomes, now):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--snapshot-root", required=True)
-    p.add_argument("--outcomes", required=True)
+    p.add_argument("--outcomes", help="Optional freshly collected published outcomes JSONL")
+    p.add_argument("--outcomes-root", help="Optional archived historical results folder")
     p.add_argument("--output-dir", default="prospective_validation")
     args = p.parse_args()
     root = Path(args.snapshot_root)
@@ -163,7 +174,20 @@ def main():
     rows = []
     for path in paths:
         rows.extend(load_jsonl(path))
-    linked, report = reconcile(rows, load_jsonl(args.outcomes), datetime.now(timezone.utc))
+    outcome_paths = []
+    if args.outcomes_root:
+        outcome_paths.extend(sorted(
+            Path(args.outcomes_root).rglob("historical_published_results.jsonl")))
+    if args.outcomes:
+        outcome_paths.append(Path(args.outcomes))
+    if not outcome_paths:
+        raise SystemExit("No published result inputs supplied")
+    outcomes = []
+    for path in outcome_paths:
+        outcomes.extend(load_jsonl(path))
+    linked, report = reconcile(rows, outcomes, datetime.now(timezone.utc))
+    report["published_outcome_archives_scanned"] = len(outcome_paths)
+    report["published_source_scope"] = "ESPN archive observations only; no independent final certification"
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "linked_pregame_outcomes.jsonl").write_text(
