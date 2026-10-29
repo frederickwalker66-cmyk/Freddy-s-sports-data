@@ -18,7 +18,7 @@ cron schedule (subject to GitHub queue delays), it can:
 2. Fetch **today's** pregame public ESPN schedules for NBA, NFL, MLB, NHL,
    NCAAF, NCAAB, MLS and UEFA Champions League; each receipt has a UTC time.
 3. Fetch **14 prior calendar days** of public completed scores for leagues with upcoming games, with a **35-day NFL/NCAAF** lookback,
-   with source URLs and retrieval times. The capped maximum is **112 standard-league + 70 football** prior-score requests when all eight leagues are active, plus eight schedule requests. No inactive-league history requests are needed. All failures appear in the coverage report.
+   with source URLs and retrieval times. The capped maximum is **84 standard-league + 70 football** prior-score requests when all eight leagues are active, plus eight schedule requests. No inactive-league history requests are needed. All failures appear in the coverage report.
 4. For a **future** game, construct at most five previous-game outcomes for
    each team, requiring three prior games and excluding results from
    games started less than 48 hours before the upcoming event.
