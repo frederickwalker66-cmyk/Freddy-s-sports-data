@@ -1,0 +1,65 @@
+name: Challenger-001 historical outcomes and walk-forward diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'historical_outcomes.py'
+      - 'challenger_elo_walkforward.py'
+      - 'tests/test_challenger_history.py'
+      - '.github/workflows/challenger-history.yml'
+  pull_request:
+    paths:
+      - 'historical_outcomes.py'
+      - 'challenger_elo_walkforward.py'
+      - 'tests/test_challenger_history.py'
+      - '.github/workflows/challenger-history.yml'
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Execute research safety and leakage fixtures
+        run: python -m unittest discover -s tests -v
+  archival-research:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch 21 days of independent published final scores across eight configured leagues
+        run: python historical_outcomes.py --days 21 --output-dir challenger_history
+      - name: Run separate historical baseline walk-forward diagnostic
+        run: python challenger_elo_walkforward.py --results challenger_history/results.jsonl --output challenger_history/walkforward_diagnostic.json
+      - name: Enforce zero certified picks and unmodified Champion
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          history=json.loads(Path('challenger_history/coverage.json').read_text())
+          report=json.loads(Path('challenger_history/walkforward_diagnostic.json').read_text())
+          assert history['certified_champion_001_predictions']==0
+          assert history['bet_ready_selections']==0
+          assert history['champion_001_modified'] is False
+          for key in ('certified_champion_001_predictions','certified_challenger_predictions','positive_ev_bets_certified','bet_ready_selections','automated_bets_placed'):
+              assert report[key]==0
+          assert report['champion_001_modified'] is False
+          PY
+      - name: Archive historical evidence and transparent diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-001-history-${{ github.run_id }}
+          path: challenger_history/
+          retention-days: 30
+          if-no-files-found: warn
