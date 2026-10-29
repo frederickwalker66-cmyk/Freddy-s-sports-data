@@ -17,9 +17,8 @@ cron schedule (subject to GitHub queue delays), it can:
    call the paid sports odds APIs directly or consume their credits.
 2. Fetch **today's** pregame public ESPN schedules for NBA, NFL, MLB, NHL,
    NCAAF, NCAAB, MLS and UEFA Champions League; each receipt has a UTC time.
-3. Fetch up to **14 prior calendar days** of public completed scores per league,
-   with source URLs and retrieval times (maximum 112 scoreboard requests plus
-   eight schedule requests). All failures appear in the coverage report.
+3. Fetch **14 prior calendar days** of public completed scores for leagues with upcoming games, with a **35-day NFL/NCAAF** lookback,
+   with source URLs and retrieval times. The capped maximum is **84 standard-league + 70 football** prior-score requests when all eight leagues are active, plus eight schedule requests. No inactive-league history requests are needed. All failures appear in the coverage report.
 4. For a **future** game, construct at most five previous-game outcomes for
    each team, requiring three prior games and excluding results from
    games started less than 48 hours before the upcoming event.
@@ -71,3 +70,20 @@ so this is prospective evidence collection over a rolling window, **not yet a
 multi-season permanent training archive**. Scheduled runs can be delayed, and
 late quotes or events already in progress are rejected. A separately secured,
 durable historical data store will be needed for multi-season research.
+
+### Rolling evaluation window (October 29 update)
+
+The outcome-linkage workflow reads up to the **latest 90 successful prospective
+capture runs** (previously 14). With two captures per day, this is approximately
+45 days of archives in the steady state, not 90 days of guaranteed coverage.
+It reports the number of valid, unavailable/incomplete, and pre-baseline
+archives in the GitHub Actions job summary. Missing runs, canceled schedules,
+expired artifacts and missing results remain missing, never reconstructed.
+This larger window raises download volume, and the Actions job has a 25-minute
+limit. Artifact retention remains **90 days**; it is not an indefinite archive.
+
+This stage only generates untrained $0 research forecasts. NFL and college
+football may still have insufficient games in the extended lookback, especially
+early in a season. Prospective snapshots and ESPN-published final links alone
+do not establish qualified historical training rows, independent results
+adjudication, calibrated forecasts, or expected value.
