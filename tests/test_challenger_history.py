@@ -98,11 +98,11 @@ class EloTests(unittest.TestCase):
                    when="2026-01-01T13:00:00+00:00")
         g3=outcome(3,home="A",away="D",score_h=101,score_a=90,
                    when="2026-01-04T13:00:00+00:00")
-        a,_=embargoed_forecasts([validate_game(v) for v in (g1,g2,g3)])
-        b,_=embargoed_forecasts([validate_game(v) for v in (opposite,g2,g3)])
+        a,_=embargoed_forecasts([validate_game(v)[1:] for v in (g1,g2,g3)])
+        b,_=embargoed_forecasts([validate_game(v)[1:] for v in (opposite,g2,g3)])
         self.assertEqual(a[1][0],b[1][0])
         self.assertNotEqual(a[2][0],b[2][0])
         self.assertFalse(evaluate([g1,g2])["by_league"]["nba"][
             "historical_final_publication_timestamp_verified"])
         with self.assertRaises(ValueError):
-            embargoed_forecasts([validate_game(g1)],lag_hours=0)
+            embargoed_forecasts([validate_game(g1)[1:]],lag_hours=0)
