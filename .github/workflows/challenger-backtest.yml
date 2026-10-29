@@ -1,0 +1,48 @@
+name: Challenger-001 isolated historical backtest (research only)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_backtest.py'
+      - 'tests/test_challenger_backtest.py'
+      - '.github/workflows/challenger-backtest.yml'
+  pull_request:
+    paths:
+      - 'challenger_backtest.py'
+      - 'tests/test_challenger_backtest.py'
+      - '.github/workflows/challenger-backtest.yml'
+permissions:
+  contents: read
+jobs:
+  challenger-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline tests (all fixtures synthetic; no API keys)
+        run: python -m unittest discover -s tests -v
+      - name: Check independent historical input and produce fail-closed report
+        run: python challenger_backtest.py --output challenger_results/backtest_report.json
+      - name: Verify no certified picks or production changes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("challenger_results/backtest_report.json").read_text())
+          assert r["certified_champion_001_predictions"]==0
+          assert r["certified_challenger_001_predictions"]==0
+          assert r["bet_ready_selections"]==r["automated_bets_placed"]==0
+          assert r["champion_001_modified"] is False
+          assert r["historical_sources_independently_audited"] is False
+          print("Challenger stage:", r["result"])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: challenger-001-readiness-${{ github.run_id }}
+          path: challenger_results/backtest_report.json
+          retention-days: 30
+          if-no-files-found: error
