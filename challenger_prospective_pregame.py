@@ -20,11 +20,93 @@ from historical_outcomes import collect, parse_time
 from independent_schedule_review import SOURCES, ingest_schedule
 
 LEAGUES = tuple(SOURCES)
-MAX_HISTORY_DAYS = 21
+MAX_HISTORY_DAYS = 35
+FOOTBALL_HISTORY_DAYS = 35
+FOOTBALL_LEAGUES = {"nfl", "ncaaf"}
 MIN_PRIOR = 3
 WINDOW = 5
 LAG_HOURS = 48
 ALLOWED_ODDS_SOURCES = {"sharpapi_rest", "sportsgameodds_v2"}
+
+
+
+def planned_history(schedule, now, end_date, regular_days=14,
+                    football_days=FOOTBALL_HISTORY_DAYS, collector=collect):
+    """Collect prior scores only for leagues with future games, with longer football history.
+
+    This is prospective research: no historical result is promoted to verified
+    training, and no fallback invents missing game-day source data.
+    """
+    if (not isinstance(schedule, dict) or not isinstance(schedule.get("events"), list)
+            or now.tzinfo is None or not 1 <= regular_days <= MAX_HISTORY_DAYS
+            or not regular_days <= football_days <= MAX_HISTORY_DAYS):
+        raise ValueError("invalid history collection plan")
+    active = set()
+    for event in schedule["events"]:
+        if not isinstance(event, dict) or event.get("league") not in LEAGUES:
+            continue
+        if event.get("status") != "scheduled":
+            continue
+        try:
+            if parse_time(event["start_utc"]) > now:
+                active.add(event["league"])
+        except (KeyError, ValueError, TypeError):
+            continue
+    regular = tuple(l for l in LEAGUES if l in active and l not in FOOTBALL_LEAGUES)
+    football = tuple(l for l in LEAGUES if l in active and l in FOOTBALL_LEAGUES)
+    stats = {
+        league: {"days_attempted": 0, "days_ok": 0, "days_failed": 0,
+                 "completed_games": 0, "draws": 0, "error_types": {},
+                 "skip_reason": "no_future_scheduled_event" if league not in active else None}
+        for league in LEAGUES
+    }
+    records, batches, requests = [], [], 0
+    for leagues, days in ((regular, regular_days), (football, football_days)):
+        if not leagues:
+            continue
+        batch, report = collector(leagues, days, end_date)
+        if not isinstance(batch, list) or not isinstance(report, dict):
+            raise ValueError("invalid history source response")
+        if set(report.get("by_league", {})) != set(leagues):
+            raise ValueError("missing per-league source coverage")
+        for league in leagues:
+            row = report["by_league"][league]
+            if (row.get("days_attempted") != days or
+                    row.get("days_ok", -1) + row.get("days_failed", -1) != days):
+                raise ValueError("inconsistent source coverage counters")
+            stats[league] = dict(row, skip_reason=None)
+        records.extend(batch)
+        requests += len(leagues) * days
+        batches.append({"leagues": list(leagues), "days": days,
+                        "requests_attempted": len(leagues) * days})
+    seen = set()
+    for row in records:
+        key = (row.get("league"), str(row.get("espn_event_id")))
+        if key in seen or key[0] not in active or not key[1].isdigit():
+            raise ValueError("duplicate or mismatched historical game")
+        seen.add(key)
+    records.sort(key=lambda r: (r["event_start_utc"], r["league"], r["espn_event_id"]))
+    report = {
+        "source": "ESPN published-score research; not league-adjudicated",
+        "generated_at_utc": now.isoformat(),
+        "end_date_et": end_date.isoformat(),
+        "leagues": list(LEAGUES),
+        "leagues_with_upcoming_events": sorted(active),
+        "days_by_league": {
+            league: (football_days if league in FOOTBALL_LEAGUES else regular_days)
+            if league in active else 0 for league in LEAGUES},
+        "daily_requests_maximum": requests,
+        "collection_batches": batches,
+        "by_league": stats,
+        "total_completed_results": len(records),
+        "independently_officially_adjudicated_results": 0,
+        "certified_champion_001_predictions": 0,
+        "certified_challenger_001_predictions": 0,
+        "bet_ready_selections": 0,
+        "champion_001_modified": False,
+        "warning": "Source gaps are reported, never imputed. A longer lookback does not certify training data or model predictions.",
+    }
+    return records, report
 
 
 def name_key(value):
@@ -290,13 +372,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date-et")
     parser.add_argument("--history-days", type=int, default=14)
+    parser.add_argument("--football-history-days", type=int, default=FOOTBALL_HISTORY_DAYS)
     parser.add_argument("--sharp-jsonl")
     parser.add_argument("--sgo-jsonl")
     parser.add_argument("--official-report")
     parser.add_argument("--output-dir", default="prospective_pregame")
     args = parser.parse_args(argv)
     if not 1 <= args.history_days <= MAX_HISTORY_DAYS:
-        parser.error("history-days must be 1 to 21")
+        parser.error("history-days must be 1 to 35")
+    if not args.history_days <= args.football_history_days <= MAX_HISTORY_DAYS:
+        parser.error("football-history-days must be between history-days and 35")
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
     utc_now = datetime.now(timezone.utc)
@@ -304,7 +389,8 @@ def main(argv=None):
     # This makes no SharpAPI/SportsGameOdds calls and cannot retrieve paid odds.
     schedule = ingest_schedule(day, now=utc_now)
     prior_day = date.fromisoformat(day) - timedelta(days=1)
-    results, coverage = collect(LEAGUES, args.history_days, prior_day)
+    results, coverage = planned_history(schedule, utc_now, prior_day,
+                                        args.history_days, args.football_history_days)
     finish = datetime.now(timezone.utc)
     odds = read_jsonl(args.sharp_jsonl) + read_jsonl(args.sgo_jsonl)
     official = read_report(args.official_report)
