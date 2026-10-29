@@ -100,3 +100,45 @@ Run on an existing historical research export:
 ```bash
 python challenger_research_features.py --results challenger_history/results.jsonl --output-dir challenger_history
 ```
+
+## Expanding-window Challenger-001 research evaluator (B+ readiness)
+
+`challenger_rolling_validation.py` is an independent additional stage. It
+reuses the existing *offline* ridge-logistic moneyline research baseline, but
+repeatedly fits separate league models on expanding previously settled training
+windows. Default requirements: **200 historical training examples, 50 fresh
+test examples in each of at least three disjoint chronological folds** per
+league (at least ~350 examples plus any necessary result-availability buffer).
+Tests cannot mix games from the same UTC event date across folds.
+
+**As-of integrity:**
+- Prior labels join training only if their result verification timestamp is no
+  later than the *earliest actual snapshot* used for the next test window.
+- All future/unfinished rows are excluded when running an audit.
+- Dataset must contain one row per league/game, a consistent pregame feature
+  schema and *home-perspective* binary win labels. Mixed away-side labels are
+  rejected rather than assuming their feature signs can be inverted.
+- Quarantined research rows explicitly marked
+  `qualified_for_challenger_backtest: false` are never admitted.
+- Fold-level Brier, log loss, directional accuracy and training-prior
+  baselines are reported separately, plus test-count-weighted summary metrics.
+- No stored fitted model, certified predictions, player props, betting orders,
+  or edits to Champion-001 are produced.
+
+Run it with genuinely sourced historical-as-of examples:
+
+```sh
+python challenger_rolling_validation.py --input historical_results.jsonl \
+  --output challenger_results/rolling_validation_report.json
+```
+
+The GitHub Actions historical workflow runs this and the existing holdout
+validator, and uploads both reports. **Because the repository still lacks
+independently audited historical-as-of training data, the live workflow must
+report `blocked_insufficient_rolling_origin_evidence` and zero certified
+predictions.** Synthetic fixtures in tests show the code is functional,
+not that real sports outcomes have been validated. Even passing three folds
+does not establish calibration, outperforming no-vig closing prices,
+reliability, positive EV, or a B+ performance grade. Permanent, audited,
+multi-season input data and forward-only out-of-sample performance comparisons
+remain requirements before a model can be graded or promoted.
