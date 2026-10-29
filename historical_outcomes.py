@@ -116,7 +116,7 @@ def collect(leagues,days,end_date,fetcher=fetch_json,clock=None,pause_seconds=0.
                     row=normalize_game(game,league,url,now)
                     if row is None:continue
                     # Never trust the endpoint to stay inside the requested date window.
-                    if row["event_start_utc"][:10]!=day.isoformat():continue
+                    if parse_time(row["event_start_utc"]).astimezone(ZoneInfo("America/New_York")).date()!=day:continue
                     key=(league,row["espn_event_id"])
                     if key in seen:continue
                     seen.add(key);rows.append(row)
