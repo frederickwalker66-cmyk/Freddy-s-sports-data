@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - 'challenger_backtest.py'
+      - 'challenger_rolling_validation.py'
       - 'tests/test_challenger_backtest.py'
+      - 'tests/test_challenger_rolling_validation.py'
       - '.github/workflows/challenger-backtest.yml'
   pull_request:
     paths:
       - 'challenger_backtest.py'
+      - 'challenger_rolling_validation.py'
       - 'tests/test_challenger_backtest.py'
+      - 'tests/test_challenger_rolling_validation.py'
       - '.github/workflows/challenger-backtest.yml'
 permissions:
   contents: read
@@ -27,6 +31,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Check independent historical input and produce fail-closed report
         run: python challenger_backtest.py --output challenger_results/backtest_report.json
+      - name: Run expanding-window research validator (fail closed without authentic history)
+        run: python challenger_rolling_validation.py --output challenger_results/rolling_validation_report.json
       - name: Verify no certified picks or production changes
         run: |
           python - <<'PY'
@@ -38,11 +44,20 @@ jobs:
           assert r["bet_ready_selections"]==r["automated_bets_placed"]==0
           assert r["champion_001_modified"] is False
           assert r["historical_sources_independently_audited"] is False
-          print("Challenger stage:", r["result"])
+          w=json.loads(Path("challenger_results/rolling_validation_report.json").read_text())
+          assert w["certified_champion_001_predictions"]==0
+          assert w["certified_challenger_001_predictions"]==0
+          assert w["bet_ready_selections"]==w["automated_bets_placed"]==0
+          assert w["champion_001_modified"] is False
+          assert w["historical_sources_independently_audited"] is False
+          assert w["result"]=="blocked_insufficient_rolling_origin_evidence"
+          print("Challenger backtest:", r["result"], "rolling-origin:", w["result"])
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: challenger-001-readiness-${{ github.run_id }}
-          path: challenger_results/backtest_report.json
+          path: |
+            challenger_results/backtest_report.json
+            challenger_results/rolling_validation_report.json
           retention-days: 30
           if-no-files-found: error
