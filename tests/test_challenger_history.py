@@ -2,7 +2,7 @@
 import unittest
 from datetime import date,datetime,timezone
 from historical_outcomes import normalize_game,collect,scoreboard_url,LEAGUES
-from challenger_elo_walkforward import evaluate,pregame_probability
+from challenger_elo_walkforward import evaluate,pregame_probability,embargoed_forecasts,validate_game
 
 NOW=datetime(2026,10,29,20,tzinfo=timezone.utc)
 def game(eid="22",when="2026-10-29T01:00:00Z",hs="102",as_="98",post=True):
@@ -86,3 +86,23 @@ class EloTests(unittest.TestCase):
         a=evaluate([g1,g2],min_games=0,min_eval=1)["by_league"]["nba"]["diagnostic_brier"]
         b=evaluate([g2,g1],min_games=0,min_eval=1)["by_league"]["nba"]["diagnostic_brier"]
         self.assertEqual(a,b)
+
+    def test_previous_score_unavailable_for_nearby_start(self):
+        # Same team starts a second event one hour later. The first result
+        # must NOT affect its second pregame forecast.
+        g1=outcome(1,home="A",away="B",score_h=100,score_a=90,
+                   when="2026-01-01T12:00:00+00:00")
+        opposite=outcome(1,home="A",away="B",score_h=90,score_a=100,
+                         when="2026-01-01T12:00:00+00:00")
+        g2=outcome(2,home="A",away="C",score_h=101,score_a=90,
+                   when="2026-01-01T13:00:00+00:00")
+        g3=outcome(3,home="A",away="D",score_h=101,score_a=90,
+                   when="2026-01-04T13:00:00+00:00")
+        a,_=embargoed_forecasts([validate_game(v)[1:] for v in (g1,g2,g3)])
+        b,_=embargoed_forecasts([validate_game(v)[1:] for v in (opposite,g2,g3)])
+        self.assertEqual(a[1][0],b[1][0])
+        self.assertNotEqual(a[2][0],b[2][0])
+        self.assertFalse(evaluate([g1,g2])["by_league"]["nba"][
+            "historical_final_publication_timestamp_verified"])
+        with self.assertRaises(ValueError):
+            embargoed_forecasts([validate_game(g1)[1:]],lag_hours=0)
