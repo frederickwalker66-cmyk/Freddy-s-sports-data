@@ -5,7 +5,7 @@ pregame feature was available or promote rows to Challenger training.
 """
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
@@ -19,6 +19,8 @@ SOURCES = {
     "mlb": "https://statsapi.mlb.com/api/v1/schedule",
     "nba": "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json",
 }
+# A third-party season archive, never official adjudication.
+NBA_ARCHIVE = "https://cache.sportsblaze.com/schedule/nba/{season}"
 MAX_BYTES = 12_000_000
 
 
@@ -36,14 +38,28 @@ def evidence_request(league, rows, fetcher=None):
     starts = [parse_time(row["event_start_utc"]) for row in rows]
     if league == "mlb":
         # Dates may shift at UTC boundary; buffer by one day.
-        from datetime import timedelta
         start = (min(starts) - timedelta(days=1)).date().isoformat()
         end = (max(starts) + timedelta(days=1)).date().isoformat()
         url = SOURCES[league] + "?" + urlencode({"sportId": 1, "startDate": start, "endDate": end})
-    else:
-        url = SOURCES[league]
+        fetcher = fetcher or fetch_json
+        return fetcher(url), url
+    # Current-season NBA CDN may lack the historical February 2026 games.
+    # Prefer NBA's CDN when it contains those games; otherwise use a
+    # separately published third-party season archive, explicitly labeled.
     fetcher = fetcher or fetch_json
-    return fetcher(url), url
+    season = min(starts).year if min(starts).month >= 7 else min(starts).year - 1
+    urls = (SOURCES["nba"], NBA_ARCHIVE.format(season=season))
+    start_window = min(starts) - timedelta(days=2)
+    end_window = max(starts) + timedelta(days=2)
+    for url in urls:
+        try:
+            payload = fetcher(url)
+            games = independent_games("nba", payload)
+            if any(start_window <= game["start"] <= end_window for game in games):
+                return payload, url
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            continue
+    raise ValueError("No usable independently published NBA results for target season")
 
 
 def fetch_json(url):
@@ -86,6 +102,24 @@ def independent_games(league, data):
                                    "home_score": score(home["score"]), "away_score": score(away["score"])})
                 except (KeyError, ValueError, TypeError):
                     continue
+    elif league == "nba" and isinstance(data.get("events"), list):
+        # Independent third-party archive, NOT an NBA league-operated source.
+        if data.get("league", {}).get("id") != "nba":
+            raise ValueError("not an NBA archive")
+        for event in data["events"]:
+            if not isinstance(event, dict) or event.get("status") != "Final":
+                continue
+            try:
+                sides = event["teams"]
+                totals = event["scores"]["total"]
+                result.append({"id": str(event["id"]),
+                               "start": parse_time(event["date"]),
+                               "home_name": clean_name(sides["home"]["name"]),
+                               "away_name": clean_name(sides["away"]["name"]),
+                               "home_score": score(totals["home"]),
+                               "away_score": score(totals["away"])})
+            except (KeyError, ValueError, TypeError):
+                continue
     elif league == "nba":
         dates = data.get("leagueSchedule", {}).get("gameDates")
         if not isinstance(dates, list):
@@ -127,6 +161,9 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
                 or candidate.get("bet_ready") is not False):
             raise ValueError("invalid/unquarantined candidate")
     games = independent_games(league, data)
+    secondary_source_class = ("third_party_sportsblaze_published_archive"
+                              if source_url.startswith("https://cache.sportsblaze.com/")
+                              else "league_operated_published_feed")
     observed = observed_utc or datetime.now(timezone.utc)
     if observed.tzinfo is None:
         raise ValueError("evidence time must be timezone-aware")
@@ -150,6 +187,7 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
                       else "secondary_score_disagreement")
         checked.append({"league": league, "espn_event_id": row["espn_event_id"],
                         "secondary_event_id": independent_id, "secondary_source_url": source_url,
+                        "secondary_source_class": secondary_source_class,
                         "secondary_source_retrieved_at_utc": observed.isoformat(),
                         "result_check_status": status, "official_league_adjudication_certified": False,
                         "historical_pregame_availability_verified": False,
@@ -159,7 +197,8 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
     report = {"stage": "challenger_secondary_published_results_research_only", "league": league,
               "primary_published_results": len(rows), "secondary_published_results": len(games),
               "candidate_rows_still_quarantined": len(candidates), "outcome_cross_checks": dict(counts),
-              "secondary_source_url": source_url, "secondary_source_retrieved_at_utc": observed.isoformat(),
+              "secondary_source_url": source_url, "secondary_source_class": secondary_source_class,
+              "secondary_source_retrieved_at_utc": observed.isoformat(),
               "verified_pregame_training_examples": 0, "certified_champion_001_predictions": 0,
               "certified_challenger_001_predictions": 0, "bet_ready_selections": 0,
               "automated_bets_placed": 0, "champion_001_modified": False,
