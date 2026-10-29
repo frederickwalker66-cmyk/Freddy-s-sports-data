@@ -80,5 +80,41 @@ class ScorecardTests(unittest.TestCase):
         self.assertEqual(report["unique_valid_forecasts"], 1)
 
 
+    def test_future_dated_published_result_is_not_scored(self):
+        r = linked()
+        r["published_outcome"]["published_retrieved_at_utc"] = "2026-11-02T05:00:00Z"
+        report = evaluate(self.forecasts(), [r],
+                          datetime(2026, 10, 31, tzinfo=timezone.utc))
+        self.assertEqual(report["scored_espn_published_games"], 0)
+        self.assertEqual(report["pending_or_excluded"]["result_identity_or_timing_mismatch"], 1)
+
+    def test_future_game_cannot_be_scored_using_a_forged_final(self):
+        report = evaluate(self.forecasts(), [linked()],
+                          datetime(2026, 10, 29, 23, 0, tzinfo=timezone.utc))
+        self.assertEqual(report["scored_espn_published_games"], 0)
+
+    def test_neutral_forecast_does_not_count_as_home_pick(self):
+        snapshot = fixture()
+        snapshot["home_team_form"]["win_rate"] = 0.6
+        snapshot["away_team_form"]["win_rate"] = 0.6
+        forecasts, _ = build_forecasts([snapshot], NOW)
+        report = evaluate(forecasts, [linked()],
+                          datetime(2026, 10, 31, tzinfo=timezone.utc))
+        nba = report["by_league"]["nba"]
+        self.assertEqual(nba["neutral_50pct_forecasts"], 1)
+        self.assertEqual(nba["directional_forecasts"], 0)
+        self.assertIsNone(nba["exploratory_pick_accuracy"])
+        self.assertEqual(nba["exploratory_brier_score"], 0.25)
+        self.assertAlmostEqual(nba["constant_50pct_log_loss"], 0.693147)
+
+    def test_directional_pick_accuracy_retains_actual_signals(self):
+        report = evaluate(self.forecasts(), [linked()],
+                          datetime(2026, 10, 31, tzinfo=timezone.utc))
+        nba = report["by_league"]["nba"]
+        self.assertEqual(nba["neutral_50pct_forecasts"], 0)
+        self.assertEqual(nba["directional_forecasts"], 1)
+        self.assertEqual(nba["exploratory_pick_accuracy"], 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()
