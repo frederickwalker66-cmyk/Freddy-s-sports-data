@@ -87,6 +87,8 @@ def validated_odds(row, now):
             return None, "stale_or_after_start"
         if not 0 <= (received - quote).total_seconds() <= 900:
             return None, "old_or_future_provider_quote"
+        if not 0 <= (now - received).total_seconds() <= 900:
+            return None, "archive_quote_stale_at_snapshot"
         price = row.get("odds_american")
         if type(price) not in (int, float) or abs(price) < 100:
             return None, "invalid_odds"
@@ -311,9 +313,9 @@ def main(argv=None):
         "sharpapi_odds": args.sharp_jsonl, "sportsgameodds_odds": args.sgo_jsonl,
         "official_source_report": args.official_report,
     })
-    for filename, payload in (("es pn_schedule_capture.json", schedule),
+    for filename, payload in (("espn_schedule_capture.json", schedule),
                               ("historical_score_capture.json", coverage)):
-        (out / filename.replace(" ", "")).write_text(
+        (out / filename).write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf8")
     (out / "historical_published_results.jsonl").write_text(
         "".join(json.dumps(x, sort_keys=True) + "\n" for x in results), encoding="utf8")
