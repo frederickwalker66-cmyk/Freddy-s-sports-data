@@ -94,7 +94,10 @@ def evaluate(forecasts, linked_games, now=None):
         except (TypeError, KeyError, ValueError):
             pending["result_missing_provenance"] += 1
             continue
-        if not start_match or not same_teams or final_seen <= instant(forecast["event_start_utc"]):
+        if (not start_match or not same_teams
+                or final_seen <= instant(forecast["event_start_utc"])
+                or final_seen > now
+                or instant(forecast["event_start_utc"]) >= now):
             pending["result_identity_or_timing_mismatch"] += 1
             continue
         y = 1 if final["result"] == "home" else 0
@@ -103,14 +106,21 @@ def evaluate(forecasts, linked_games, now=None):
     metrics = {}
     for league, scored in sorted(by_league.items()):
         n = len(scored)
+        # A 50% probability expresses no directional pick; counting it as a
+        # home pick artificially inflates or deflates reported accuracy.
+        directional = [(p, y) for p, y in scored if p != 0.5]
         metrics[league] = {
             "research_forecasts_with_espn_published_results": n,
             "exploratory_brier_score": round(sum((p - y) ** 2 for p, y in scored) / n, 6),
             "constant_50pct_brier_score": 0.25,
             "exploratory_log_loss": round(-sum(y * math.log(p) + (1-y) * math.log(1-p)
                                                for p, y in scored) / n, 6),
-            "exploratory_pick_accuracy": round(sum((p >= 0.5) == bool(y)
-                                                    for p, y in scored) / n, 6),
+            "directional_forecasts": len(directional),
+            "neutral_50pct_forecasts": n - len(directional),
+            "exploratory_pick_accuracy": (
+                round(sum((p > 0.5) == bool(y) for p, y in directional)
+                      / len(directional), 6) if directional else None),
+            "constant_50pct_log_loss": round(math.log(2), 6),
             "out_of_sample_calibration_validated": False,
             "minimum_50_games_for_initial_descriptive_review_met": n >= 50,
             "independently_verified_outcomes": 0,
