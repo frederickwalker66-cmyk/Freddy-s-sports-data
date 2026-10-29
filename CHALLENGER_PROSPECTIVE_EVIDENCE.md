@@ -1,0 +1,66 @@
+# Challenger-001 — prospective eight-league evidence capture
+
+This new stage advances the eight-league historical readiness audit by capturing
+**real point-in-time research observations before upcoming games**, rather than
+relabeling October 2026 archived results as February 2026 pregame knowledge.
+
+## Where it runs
+
+`.github/workflows/challenger-prospective-pregame.yml`:
+on pull requests, runs **offline safety tests only**. When merged to `main`,
+or manually dispatched, it can:
+
+1. Read the latest successful **existing** SharpAPI DraftKings-labeled odds
+   artifact, SportsGameOdds artifact, and official NBA/MLB evidence artifact.
+   Missing artifacts are reported as gaps, not silently filled. It does not
+   call the paid sports odds APIs directly or consume their credits.
+2. Fetch **today's** pregame public ESPN schedules for NBA, NFL, MLB, NHL,
+   NCAAF, NCAAB, MLS and UEFA Champions League; each receipt has a UTC time.
+3. Fetch up to **14 prior calendar days** of public completed scores per league,
+   with source URLs and retrieval times (maximum 112 scoreboard requests plus
+   eight schedule requests). All failures appear in the coverage report.
+4. For a **future** game, construct at most five previous-game outcomes for
+   each team, requiring three prior games and excluding results from
+   games started less than 48 hours before the upcoming event.
+   These are newly captured prospective features, **not proven historical
+   as-of observations for older seasons**. A team with insufficient history
+   has null form, not an invented zero or prior.
+5. Match odds only where league, **full home and away team names**, and
+   start time within ten minutes identify exactly one scheduled game.
+   Reject future-dated, after-start, or stale quote receipts, and refuse
+   to infer any player availability from NBA injury PDF or MLB rosters.
+   Missing player-ID crosswalks and unconfirmed active lists remain blocked.
+6. Save `prospective_event_evidence.jsonl`, `prospective_report.json`,
+   `espn_schedule_capture.json`, `historical_published_results.jsonl`,
+   and `historical_score_capture.json` as a **90-day research artifact**.
+
+## What it does NOT do
+
+- Archived SharpAPI and SportsGameOdds quotes are two aggregator observations,
+  **not live independently verified DraftKings checkout prices**.
+- An official PDF downloaded before tipoff is source inventory evidence, not
+  confirmed healthy/active status for a specific player.
+- Team form calculated prospectively is **not** historical verification that
+  those same features existed at tipoff on games played months earlier.
+- No input becomes `historical_results.jsonl`; no feature, outcome or quote
+  is authorized for training by this stage.
+- `Champion-001` remains untouched. Model probabilities, certified picks,
+  qualified training records, EV rankings, and automated wagers remain zero.
+- MLS and Champions League **three-way markets** are not converted to binary
+  moneylines. Props require independent player identity/status and settlement
+  support.
+
+### Local run
+
+```bash
+python -m unittest discover -s tests -v
+python challenger_prospective_pregame.py --history-days 14 --output-dir prospective_pregame
+```
+
+Optional `--sharp-jsonl`, `--sgo-jsonl`, and `--official-report` paths
+reference **existing saved artifacts**. No credentials are needed.
+
+**Next milestone:** retain recurring point-in-time source evidence across enough
+games and seasons, independently adjudicate outcomes after settlement, and run
+leakage-free walk-forward out-of-sample backtests and calibration. The frozen
+Champion-001 may not be replaced without demonstrated improvement.
