@@ -50,7 +50,10 @@ def market_family(row):
         return "unknown"
     if market.startswith("player_"):
         return "player_prop"
-    if (market == "point_spread" and league in ("nba", "nfl")) or (market == "run_line" and league == "mlb"):
+    if ((market == "point_spread" and league in ("nba", "nfl", "ncaaf", "ncaab", "wnba"))
+            or (market == "run_line" and league == "mlb")
+            or (market == "puck_line" and league == "nhl")
+            or (market == "goal_spread" and league in ("mls", "uefa_champions_league"))):
         return "spread"
     if market == "moneyline":
         return "moneyline"
