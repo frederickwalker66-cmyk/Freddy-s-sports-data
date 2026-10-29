@@ -48,7 +48,7 @@ jobs:
             exit 1
           fi
       - name: Collect DraftKings-labeled source odds (credit capped)
-        run: python sportsgameodds_collector.py --output-dir snapshots --leagues NBA,MLB,NFL --max-pages 1 --limit 8
+        run: python sportsgameodds_collector.py --output-dir snapshots --leagues NBA,NFL,MLB,NHL,NCAAF,NCAAB,MLS,UEFA_CHAMPIONS_LEAGUE --max-pages 1 --limit 3
       - name: Enforce independent schedule and roster quarantine
         shell: bash
         run: |

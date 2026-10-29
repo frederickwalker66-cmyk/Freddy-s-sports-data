@@ -43,7 +43,7 @@ class CollectorTests(unittest.TestCase):
 
     def test_stale_quote(self):
         e = fixture()
-        e["odds"]["a"]["byBookmaker"]["draftkings"]["lastUpdatedAt"] = "2026-10-28T19:50:00Z"
+        e["odds"]["a"]["byBookmaker"]["draftkings"]["lastUpdatedAt"] = "2026-10-28T19:43:00Z"
         rows, reasons = normalize_event(e, NOW)
         self.assertEqual(len(rows), 3)
         self.assertEqual(reasons["stale_missing_or_future_quote_time"], 1)
@@ -77,3 +77,37 @@ class CollectorTests(unittest.TestCase):
         e["leagueID"] = "MLB"
         rows, _ = normalize_event(e, NOW)
         self.assertIn("run_line", [r["market_type"] for r in rows])
+
+    def test_multi_sport_league_support_and_proper_spread_names(self):
+        cases = {
+            "NBA": ("basketball", "point_spread"),
+            "NCAAB": ("basketball", "point_spread"),
+            "WNBA": ("basketball", "point_spread"),
+            "NFL": ("football", "point_spread"),
+            "NCAAF": ("football", "point_spread"),
+            "MLB": ("baseball", "run_line"),
+            "NHL": ("hockey", "puck_line"),
+            "MLS": ("soccer", "goal_spread"),
+            "UEFA_CHAMPIONS_LEAGUE": ("soccer", "goal_spread"),
+        }
+        for league, (sport, spread_market) in cases.items():
+            with self.subTest(league=league):
+                event = fixture()
+                event["leagueID"] = league
+                rows, errors = normalize_event(event, NOW)
+                self.assertFalse(errors)
+                self.assertEqual(len(rows), 4)
+                self.assertEqual(rows[0]["sport"], sport)
+                self.assertEqual(rows[1]["market_type"], spread_market)
+                self.assertTrue(all(row["model_probability"] is None for row in rows))
+
+    def test_ten_minute_quote_is_archived_but_not_bet_ready(self):
+        event = fixture()
+        event["odds"]["a"]["byBookmaker"]["draftkings"]["lastUpdatedAt"] = "2026-10-28T19:50:00Z"
+        rows, _ = normalize_event(event, NOW)
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(rows[0]["source_age_seconds"], 600)
+        staged, quarantined, report = audit(rows, {})
+        self.assertEqual((len(staged), len(quarantined)), (0, 4))
+        self.assertIn("quote_too_old_or_future", quarantined[0]["reasons"])
+        self.assertEqual(report["bet_ready_selections"], 0)
