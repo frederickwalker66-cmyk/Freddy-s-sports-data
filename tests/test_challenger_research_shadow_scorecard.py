@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from challenger_research_shadow_baseline import build_forecasts
 from challenger_research_shadow_scorecard import evaluate
-from tests.test_challenger_research_shadow_baseline import fixture, NOW
+from test_challenger_research_shadow_baseline import fixture, NOW
 
 
 def linked():
