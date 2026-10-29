@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/refresh-nba-mlb-evidence.yml'
+      - 'capture_evidence_manifest.py'
+      - 'tests/test_capture_evidence_manifest.py'
   schedule:
     # 12:00, 16:00 and 19:00 Eastern during daylight saving.
     # GitHub scheduled jobs may run late; source age is always checked.
@@ -36,11 +38,13 @@ jobs:
           for name, source in report['sources'].items():
               print(name, source['status'])
           PY
+      - name: Record evidence hashes and explicit quarantine status
+        run: python capture_evidence_manifest.py --outdir official_sources
       - name: Save evidence and source audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: official-nba-mlb-${{ github.run_id }}
           path: official_sources/
-          retention-days: 7
+          retention-days: 90
           if-no-files-found: warn
