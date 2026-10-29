@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_outcome_validation.py'
+      - 'challenger_research_shadow_scorecard.py'
+      - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
   pull_request:
@@ -92,6 +94,22 @@ jobs:
             --outcomes-root snapshots \
             --outcomes published_recent/results.jsonl \
             --output-dir prospective_validation
+      - name: Score only existing fixed-rule $0 research forecasts against published finals
+        run: |
+          python challenger_research_shadow_scorecard.py \
+            --forecast-root snapshots \
+            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("prospective_validation/research_shadow_scorecard.json").read_text())
+          assert r["certified_champion_001_predictions"] == 0
+          assert r["certified_challenger_001_predictions"] == 0
+          assert r["validated_positive_ev_bets"] == 0
+          assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          assert r["champion_001_modified"] is False
+          PY
       - name: Check zero certified training and betting predictions
         run: |
           python - <<'PY'

@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'challenger_research_shadow_baseline.py'
+      - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
   pull_request:
@@ -73,6 +75,30 @@ jobs:
           if [[ -n "$sgo" ]]; then args+=(--sgo-jsonl "$sgo"); fi
           if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
           python challenger_prospective_pregame.py "${args[@]}"
+      - name: Generate real pre-tipoff untrained $0 research shadow forecasts
+        run: |
+          python challenger_research_shadow_baseline.py \
+            --snapshots prospective_pregame/prospective_event_evidence.jsonl \
+            --output-dir prospective_pregame
+          python - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+          root=Path("prospective_pregame")
+          report=json.loads((root/"research_baseline_report.json").read_text())
+          assert report["certified_champion_001_predictions"] == 0
+          assert report["certified_challenger_001_predictions"] == 0
+          assert report["bet_ready_selections"] == 0
+          assert report["automated_bets_placed"] == 0
+          assert report["champion_001_modified"] is False
+          for line in (root/"research_shadow_forecasts.jsonl").read_text().splitlines():
+              row=json.loads(line)
+              assert datetime.fromisoformat(row["forecast_created_at_utc"]) < datetime.fromisoformat(row["event_start_utc"])
+              assert row["trained_challenger_001_model"] is False
+              assert row["shadow_stake_usd"] == 0
+              assert row["certified_prediction"] is False
+              assert row["bet_ready"] is False
+          PY
       - name: Verify prospective timing and no model or betting promotion
         shell: bash
         run: |
