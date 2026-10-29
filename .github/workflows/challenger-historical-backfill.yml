@@ -1,0 +1,79 @@
+name: Challenger-001 capped six-league historical backfill (research only)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_historical_backfill.py'
+      - 'tests/test_challenger_historical_backfill.py'
+      - '.github/workflows/challenger-historical-backfill.yml'
+  pull_request:
+    paths:
+      - 'challenger_historical_backfill.py'
+      - 'tests/test_challenger_historical_backfill.py'
+      - '.github/workflows/challenger-historical-backfill.yml'
+permissions:
+  contents: read
+jobs:
+  offline-safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate request caps, chronology, and quarantine with synthetic data
+        run: python -m unittest discover -s tests -v
+  archived-public-scores:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: offline-safety-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        league: [nba, nhl, mlb, nfl, ncaaf, ncaab]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check maximum 35 historical scoreboard calls and zero sportsbook API calls
+        run: python challenger_historical_backfill.py --league "${{ matrix.league }}" --dry-run
+      - name: Collect historical scores and quarantine candidate features
+        run: python challenger_historical_backfill.py --league "${{ matrix.league }}" --days 35 --output-dir "challenger_backfill"
+      - name: Reject any qualified-training or betting promotion
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("challenger_backfill/backfill_coverage.json").read_text())
+          assert result["days_requested"] == 35
+          assert result["public_scoreboard_requests_maximum"] == 35
+          assert result["sportsbook_api_requests"] == 0
+          assert result["scoreboard_days_successful"] > 0
+          assert result["qualified_training_examples"] == 0
+          assert result["certified_champion_001_predictions"] == 0
+          assert result["certified_challenger_001_predictions"] == 0
+          assert result["bet_ready_selections"] == 0
+          assert result["automated_bets_placed"] == 0
+          assert result["champion_001_modified"] is False
+          for line in Path("challenger_backfill/research_candidates.jsonl").read_text().splitlines():
+              row=json.loads(line)
+              assert row["qualified_for_challenger_backtest"] is False
+              assert row["historical_odds_snapshot_verified"] is False
+              assert row["bet_ready"] is False
+          print("Published results:", result["published_completed_game_results"])
+          print("Quarantined candidate rows:", result["quarantined_research_candidates"])
+          print("Source days failed:", result["scoreboard_days_failed"])
+          PY
+      - name: Archive league-specific public research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-backfill-${{ matrix.league }}-${{ github.run_id }}
+          path: challenger_backfill/
+          retention-days: 30
+          if-no-files-found: warn
