@@ -1,6 +1,9 @@
 name: Challenger-001 prospective eight-league pregame evidence capture
 on:
   workflow_dispatch:
+  schedule:
+    # 13:15 and 20:15 UTC, before many scheduled US games; GitHub may delay jobs.
+    - cron: '15 13,20 * * *'
   push:
     branches: [main]
     paths:
