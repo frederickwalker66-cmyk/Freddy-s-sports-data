@@ -6,6 +6,8 @@ on:
     paths:
       - 'crossfeed_reconcile.py'
       - 'tests/test_crossfeed_reconcile.py'
+      - 'independent_schedule_review.py'
+      - 'tests/test_independent_schedule_review.py'
       - '.github/workflows/crossfeed-research.yml'
 permissions:
   contents: read
@@ -49,6 +51,21 @@ jobs:
           assert p['positive_ev_bets_certified']==p['automated_bets_placed']==0
           assert p['champion_001_modified'] is False
           PY
+      - name: Corroborate matchups and start times with independent public schedules
+        run: python independent_schedule_review.py --crossfeed-dir crossfeed_output --output-dir schedule_review
+      - name: Verify schedule research remains non-bettable
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('schedule_review/report.json').read_text())
+          assert p['independent_price_verifications']==0
+          assert p['verified_model_probabilities']==0
+          assert p['certified_champion_001_predictions']==p['certified_positive_ev_bets']==0
+          assert p['bet_ready_selections']==0
+          assert p['champion_001_modified'] is False
+          PY
       - name: Save timestamped comparisons as private workflow artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,5 +75,6 @@ jobs:
             snapshots_sharp/
             snapshots_sgo/
             crossfeed_output/
+            schedule_review/
           retention-days: 30
           if-no-files-found: warn
