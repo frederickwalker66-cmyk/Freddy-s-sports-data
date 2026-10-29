@@ -19,10 +19,17 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 ENDPOINT = "https://api.sportsgameodds.com/v2/events"
-MAX_QUOTE_AGE_SECONDS = 120
+MAX_QUOTE_AGE_SECONDS = 900  # Research intake only; the independent audit still requires <=120 seconds.
 MAX_PAGES = 3
 MAX_EVENTS_PER_PAGE = 25
-LEAGUE_SPORTS = {"nba": "basketball", "mlb": "baseball", "nfl": "football"}
+# Scheduled coverage uses the eight leagues documented for the Amateur/free plan.
+# Extra leagues must be checked against the user's /leagues entitlement before enabling.
+LEAGUE_SPORTS = {
+    "nba": "basketball", "wnba": "basketball", "ncaab": "basketball",
+    "nfl": "football", "ncaaf": "football",
+    "mlb": "baseball", "nhl": "hockey",
+    "mls": "soccer", "uefa_champions_league": "soccer",
+}
 AMERICAN = re.compile(r"^[+-]?[0-9]{3,5}$")
 
 
@@ -135,7 +142,9 @@ def normalize_event(event, received_at):
             sel_type = side
             selection = home if side == "home" else away
         elif bet_type == "sp" and entity in ("home", "away") and side in ("home", "away") and entity == side:
-            market_type = "run_line" if league == "mlb" else "point_spread"
+            market_type = ("run_line" if league == "mlb" else
+                           "puck_line" if league == "nhl" else
+                           "goal_spread" if LEAGUE_SPORTS[league] == "soccer" else "point_spread")
             sel_type = side
             selection = home if side == "home" else away
             number = line_number(dk.get("spread"))
@@ -249,13 +258,13 @@ def collect(api_key, leagues, max_pages=1, limit=25, pause_seconds=2, fetch=get_
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", default="snapshots")
-    parser.add_argument("--leagues", default="NBA,MLB,NFL")
+    parser.add_argument("--leagues", default="NBA,NFL,MLB,NHL,NCAAF,NCAAB,MLS,UEFA_CHAMPIONS_LEAGUE")
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--max-pages", type=int, default=1)
     args = parser.parse_args(argv)
     leagues = tuple(part.strip().upper() for part in args.leagues.split(",") if part.strip())
     if not leagues or any(league.lower() not in LEAGUE_SPORTS for league in leagues):
-        parser.error("Allowed leagues: NBA,MLB,NFL")
+        parser.error("Allowed leagues: " + ",".join(LEAGUE_SPORTS).upper())
     if not 1 <= args.limit <= MAX_EVENTS_PER_PAGE or not 1 <= args.max_pages <= MAX_PAGES:
         parser.error("Limits: 1-25 events per page, 1-3 pages")
     key = (os.environ.get("SPORTSGAMEODDS_API_KEY") or "").strip()
@@ -265,7 +274,7 @@ def main(argv=None):
     started = datetime.now(timezone.utc)
     try:
         # A combined multi-league page can overrepresent one league.
-        # Query all three separately while limiting total credit exposure.
+        # Query each league separately while limiting total credit exposure.
         quotes, pages, reasons = [], [], Counter()
         for league in leagues:
             league_quotes, league_pages, league_skips = collect(
@@ -291,6 +300,8 @@ def main(argv=None):
         "event_credits_upper_bound": sum(p["events_returned"] for p in pages),
         "leagues_queried_separately": True,
         "quotes_recorded": len(quotes), "skipped": dict(sorted(reasons.items())),
+        "research_quote_max_age_seconds": MAX_QUOTE_AGE_SECONDS,
+        "strict_betting_validation_quote_max_age_seconds": 120,
         "file": path.name, "source_identity_crosswalk_verified": False,
         "independently_reverified_draftkings_prices": 0,
         "bet_ready_selections": 0, "certified_champion_001_predictions": 0,
