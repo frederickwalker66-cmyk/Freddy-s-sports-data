@@ -35,7 +35,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: safety-tests
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,8 +50,10 @@ jobs:
           mkdir -p snapshots
           mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" \
             --workflow challenger-prospective-pregame.yml --branch main \
-            --status success --limit 14 --json databaseId --jq '.[].databaseId')
+            --status success --limit 90 --json databaseId --jq '.[].databaseId')
           valid=()
+          missing=0
+          without_forecasts=0
           for rid in "${ids[@]}"; do
             if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
                  --name "challenger-prospective-evidence-$rid" \
@@ -59,7 +61,14 @@ jobs:
               if [[ -f "snapshots/$rid/prospective_event_evidence.jsonl" && \
                     -f "snapshots/$rid/historical_published_results.jsonl" ]]; then
                 valid+=("$rid")
+                if [[ ! -f "snapshots/$rid/research_shadow_forecasts.jsonl" ]]; then
+                  ((without_forecasts+=1))
+                fi
+              else
+                ((missing+=1))
               fi
+            else
+              ((missing+=1))
             fi
           done
           if (( ${#valid[@]} == 0 )); then
@@ -67,7 +76,15 @@ jobs:
             exit 1
           fi
           echo "latest=${valid[0]}" >> "$GITHUB_ENV"
-          echo "Archives downloaded: ${#valid[@]}"
+          echo "Archives downloaded: ${#valid[@]}; unavailable/incomplete: $missing; older archives without research forecasts: $without_forecasts"
+          {
+            echo "### Challenger rolling research evidence coverage"
+            echo "Recent successful runs examined: ${#ids[@]} (maximum 90)"
+            echo "Downloaded valid pregame archives: ${#valid[@]}"
+            echo "Unavailable/incomplete archives: $missing"
+            echo "Archives without baseline forecasts: $without_forecasts"
+            echo "Not an independently certified dataset; no betting permission."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Collect recent public ESPN finals without paid sportsbook API calls
         shell: bash
         run: |
