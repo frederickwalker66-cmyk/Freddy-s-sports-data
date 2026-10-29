@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
@@ -67,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          args=(--history-days 14 --output-dir prospective_pregame)
+          args=(--history-days 14 --football-history-days 35 --output-dir prospective_pregame)
           sharp="$(find source_sharp -type f -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
           sgo="$(find source_sgo -type f -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)"
           official="$(find source_official -type f -name 'source_refresh_report.json' | sort | tail -n 1)"
