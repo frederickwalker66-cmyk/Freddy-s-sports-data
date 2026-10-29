@@ -1,0 +1,165 @@
+name: Challenger-001 eight-league historical evidence readiness (research only)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_multisport_evidence_link.py'
+      - 'tests/test_challenger_multisport_evidence_link.py'
+      - '.github/workflows/challenger-multisport-readiness.yml'
+  pull_request:
+    paths:
+      - 'challenger_multisport_evidence_link.py'
+      - 'tests/test_challenger_multisport_evidence_link.py'
+      - '.github/workflows/challenger-multisport-readiness.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline safety and evidence-linking fixtures
+        run: python -m unittest discover -s tests -v
+
+  link-quarantined-artifacts:
+    if: github.event_name != 'pull_request'
+    needs: offline-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        league: [nba, nfl, mlb, nhl, ncaaf, ncaab, mls, uefa_champions_league]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reuse existing published historical evidence (no new scores or paid odds requests)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          league="${{ matrix.league }}"
+          mkdir -p source
+          if [[ "$league" == "mls" || "$league" == "uefa_champions_league" ]]; then
+            rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-history.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            test -n "$rid" && test "$rid" != null
+            gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "challenger-001-history-$rid" --dir source
+            test -f source/results.jsonl && test -f source/retrospective_candidates.jsonl && test -f source/coverage.json
+            cp source/results.jsonl source/selected_results.jsonl
+            cp source/retrospective_candidates.jsonl source/selected_candidates.jsonl
+            cp source/coverage.json source/selected_coverage.json
+          else
+            rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-historical-backfill.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+            test -n "$rid" && test "$rid" != null
+            gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "challenger-backfill-$league-$rid" --dir source
+            test -f source/published_results.jsonl && test -f source/research_candidates.jsonl && test -f source/backfill_coverage.json
+            cp source/published_results.jsonl source/selected_results.jsonl
+            cp source/research_candidates.jsonl source/selected_candidates.jsonl
+            cp source/backfill_coverage.json source/selected_coverage.json
+          fi
+          echo "Historical archived run: $rid"
+
+      - name: Link existing secondary NBA and MLB score checks when relevant
+        if: matrix.league == 'nba' || matrix.league == 'mlb'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-independent-results-audit.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "$rid" && test "$rid" != null
+          mkdir -p secondary
+          gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "challenger-secondary-${{ matrix.league }}-$rid" --dir secondary
+          test -s secondary/secondary_result_checks.jsonl
+          echo "Independent published-score audit run: $rid"
+
+      - name: Produce league evidence readiness report and linked candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--league "${{ matrix.league }}" --results source/selected_results.jsonl
+                --candidates source/selected_candidates.jsonl
+                --coverage source/selected_coverage.json --output-dir readiness)
+          if [[ -f secondary/secondary_result_checks.jsonl ]]; then
+            args+=(--checks secondary/secondary_result_checks.jsonl)
+          fi
+          python challenger_multisport_evidence_link.py "${args[@]}"
+
+      - name: Explicitly forbid training promotion, betting and Champion changes
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('readiness/readiness_report.json').read_text())
+          for key in ('qualified_training_examples', 'certified_champion_001_predictions',
+                      'certified_challenger_001_predictions', 'bet_ready_selections',
+                      'automated_bets_placed'):
+              assert report[key] == 0, (key, report[key])
+          assert report['champion_001_modified'] is False
+          for line in Path('readiness/linked_evidence.jsonl').read_text().splitlines():
+              item = json.loads(line)
+              assert item['qualified_for_challenger_backtest'] is False
+              assert item['bet_ready'] is False
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: challenger-readiness-${{ matrix.league }}-${{ github.run_id }}
+          path: readiness/
+          retention-days: 30
+          if-no-files-found: warn
+
+  aggregate-readiness:
+    if: github.event_name != 'pull_request'
+    needs: link-quarantined-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: challenger-readiness-*
+          path: reports
+      - name: Verify all eight sports reported without inventing qualifications
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          expected = {'nba', 'nfl', 'mlb', 'nhl', 'ncaaf', 'ncaab', 'mls', 'uefa_champions_league'}
+          paths = list(Path('reports').glob('*/readiness_report.json'))
+          reports = [json.loads(p.read_text()) for p in paths]
+          assert len(reports) == len(expected), (len(reports), paths)
+          assert {r['league'] for r in reports} == expected
+          assert all(r['qualified_training_examples'] == 0 and
+                     r['bet_ready_selections'] == 0 and
+                     r['champion_001_modified'] is False for r in reports)
+          summary = {'stage': 'challenger_eight_league_linked_research',
+                     'by_league': {r['league']: {
+                         'published_results': r['source_outcome_rows'],
+                         'research_candidates': r['research_candidates'],
+                         'secondary_score_agreements':
+                             r['primary_rows_with_secondary_published_score_agreement'],
+                         'secondary_checks': r['independent_checks_received'],
+                         'complete_source_days': r['scoreboard_coverage_complete'],
+                     } for r in reports},
+                     'qualified_training_examples': 0,
+                     'bet_ready_selections': 0,
+                     'champion_001_modified': False}
+          Path('readiness_summary.json').write_text(json.dumps(summary, indent=2, sort_keys=True))
+          print(json.dumps(summary, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: challenger-eight-sport-readiness-summary-${{ github.run_id }}
+          path: readiness_summary.json
+          retention-days: 30
