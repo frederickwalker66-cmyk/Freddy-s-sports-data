@@ -1,0 +1,106 @@
+name: Challenger-001 prospective eight-league pregame evidence capture
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_prospective_pregame.py'
+      - 'tests/test_challenger_prospective_pregame.py'
+      - '.github/workflows/challenger-prospective-pregame.yml'
+  pull_request:
+    paths:
+      - 'challenger_prospective_pregame.py'
+      - 'tests/test_challenger_prospective_pregame.py'
+      - '.github/workflows/challenger-prospective-pregame.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run complete offline suite with prospective timing safeguards
+        run: python -m unittest discover -s tests -v
+
+  prospective-source-capture:
+    if: github.event_name != 'pull_request'
+    needs: safety-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reuse existing quarantined odds and official-source archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source_sharp source_sgo source_official
+          for source in sharpapi sgo official; do
+            case "$source" in
+              sharpapi) workflow="collect-sharpapi.yml"; prefix="sharpapi-pregame"; destination="source_sharp";;
+              sgo) workflow="collect-sportsgameodds.yml"; prefix="sgo-draftkings-research"; destination="source_sgo";;
+              official) workflow="refresh-nba-mlb-evidence.yml"; prefix="official-nba-mlb"; destination="source_official";;
+            esac
+            rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId' || true)"
+            if [[ -n "$rid" && "$rid" != "null" ]] &&
+                gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "$prefix-$rid" --dir "$destination"; then
+              echo "$source archive retrieved from run $rid (not proof of quote freshness)"
+            else
+              echo "$source archive unavailable; downstream reports missing evidence and stays research-only"
+            fi
+          done
+      - name: Capture new timestamped ESPN schedule and prospective prior team form
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--history-days 14 --output-dir prospective_pregame)
+          sharp="$(find source_sharp -type f -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
+          sgo="$(find source_sgo -type f -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)"
+          official="$(find source_official -type f -name 'source_refresh_report.json' | sort | tail -n 1)"
+          if [[ -n "$sharp" ]]; then args+=(--sharp-jsonl "$sharp"); fi
+          if [[ -n "$sgo" ]]; then args+=(--sgo-jsonl "$sgo"); fi
+          if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
+          python challenger_prospective_pregame.py "${args[@]}"
+      - name: Verify prospective timing and no model or betting promotion
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from datetime import datetime
+          root=Path("prospective_pregame")
+          p=json.loads((root/"prospective_report.json").read_text())
+          for k in ("verified_historical_training_examples","direct_draftkings_checkout_quotes_verified",
+                    "verified_player_availability_entries","certified_champion_001_predictions",
+                    "certified_challenger_001_predictions","bet_ready_selections","automated_bets_placed"):
+              assert p[k] == 0, (k,p[k])
+          assert p["champion_001_modified"] is False
+          for line in (root/"prospective_event_evidence.jsonl").read_text().splitlines():
+              r=json.loads(line)
+              assert datetime.fromisoformat(r["snapshot_completed_at_utc"]) < datetime.fromisoformat(r["event_start_utc"])
+              assert r["qualified_for_challenger_backtest"] is False
+              assert r["model_probability"] is None
+              assert r["bet_ready"] is False and r["champion_001_modified"] is False
+              for q in r["odds_observations"]:
+                  assert datetime.fromisoformat(q["received_at_utc"]) < datetime.fromisoformat(r["event_start_utc"])
+                  assert datetime.fromisoformat(q["received_at_utc"]) <= datetime.fromisoformat(r["snapshot_completed_at_utc"])
+                  assert q["direct_draftkings_checkout_verified"] is False
+                  assert q["player_available_verified"] is False
+          print("Prospective snapshot restricted to research-only:",p["scheduled_pregame_events"],"scheduled games")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: challenger-prospective-evidence-${{ github.run_id }}
+          path: prospective_pregame/
+          retention-days: 90
+          if-no-files-found: warn
