@@ -6,12 +6,18 @@ on:
     paths:
       - 'historical_outcomes.py'
       - 'challenger_elo_walkforward.py'
+      - 'challenger_feature_candidates.py'
+      - 'tests/test_challenger_feature_candidates.py'
+      - 'CHALLENGER_FEATURE_CANDIDATES.md'
       - 'tests/test_challenger_history.py'
       - '.github/workflows/challenger-history.yml'
   pull_request:
     paths:
       - 'historical_outcomes.py'
       - 'challenger_elo_walkforward.py'
+      - 'challenger_feature_candidates.py'
+      - 'tests/test_challenger_feature_candidates.py'
+      - 'CHALLENGER_FEATURE_CANDIDATES.md'
       - 'tests/test_challenger_history.py'
       - '.github/workflows/challenger-history.yml'
 permissions:
@@ -40,6 +46,8 @@ jobs:
         run: python historical_outcomes.py --days 21 --output-dir challenger_history
       - name: Run separate historical baseline walk-forward diagnostic
         run: python challenger_elo_walkforward.py --results challenger_history/results.jsonl --output challenger_history/walkforward_diagnostic.json
+      - name: Create quarantined historical pregame candidate features
+        run: python challenger_feature_candidates.py --results challenger_history/results.jsonl --output-dir challenger_history
       - name: Enforce zero certified picks and unmodified Champion
         shell: bash
         run: |
@@ -48,6 +56,12 @@ jobs:
           from pathlib import Path
           history=json.loads(Path('challenger_history/coverage.json').read_text())
           report=json.loads(Path('challenger_history/walkforward_diagnostic.json').read_text())
+          candidates=json.loads(Path('challenger_history/feature_coverage.json').read_text())
+          assert candidates['verified_training_examples']==0
+          assert candidates['certified_challenger_001_predictions']==0
+          assert candidates['certified_champion_001_predictions']==0
+          assert candidates['bet_ready_selections']==0
+          assert candidates['champion_001_modified'] is False
           assert history['certified_champion_001_predictions']==0
           assert history['bet_ready_selections']==0
           assert history['champion_001_modified'] is False
