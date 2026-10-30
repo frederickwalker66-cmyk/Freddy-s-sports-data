@@ -6,6 +6,7 @@ on:
     paths:
       - 'sportsgameodds_collector.py'
       - 'challenger_schedule_crosswalk.py'
+      - 'challenger_gate_diagnostics.py'
       - 'challenger_audit.py'
       - 'independent_schedule_review.py'
       - 'daily_research_audit.py'
@@ -77,6 +78,11 @@ jobs:
           set -euo pipefail
           snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
           python daily_research_audit.py --odds "$snapshot" --validation validation_sgo/report.json --output validation_sgo/daily_research_report.json
+      - name: Explain league-level quote quality without promoting wagers
+        shell: bash
+        run: |
+          snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
+          python challenger_gate_diagnostics.py --raw "$snapshot" --audit-dir validation_sgo --output validation_sgo/quality_diagnostics.json
       - name: Save odds and quarantine evidence as workflow artifacts
         if: always()
         uses: actions/upload-artifact@v4
