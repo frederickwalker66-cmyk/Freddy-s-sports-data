@@ -121,10 +121,15 @@ class CollectorTests(unittest.TestCase):
                 event = fixture()
                 event["leagueID"] = league
                 rows, errors = normalize_event(event, NOW)
-                self.assertFalse(errors)
-                self.assertEqual(len(rows), 4)
-                self.assertEqual(rows[0]["sport"], sport)
-                self.assertEqual(rows[1]["market_type"], spread_market)
+                if sport == "soccer":
+                    self.assertEqual(errors["unsupported_three_way_soccer_moneyline"], 1)
+                    self.assertEqual(len(rows), 3)
+                    self.assertFalse(any(row["market_type"] == "moneyline" for row in rows))
+                else:
+                    self.assertFalse(errors)
+                    self.assertEqual(len(rows), 4)
+                self.assertTrue(all(row["sport"] == sport for row in rows))
+                self.assertIn(spread_market, [row["market_type"] for row in rows])
                 self.assertTrue(all(row["model_probability"] is None for row in rows))
 
     def test_ten_minute_quote_is_archived_but_not_bet_ready(self):
