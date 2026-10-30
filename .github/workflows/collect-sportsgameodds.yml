@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'sportsgameodds_collector.py'
+      - 'challenger_schedule_crosswalk.py'
+      - 'challenger_audit.py'
+      - 'independent_schedule_review.py'
       - 'daily_research_audit.py'
       - 'tests/**'
       - '.github/workflows/collect-sportsgameodds.yml'
@@ -55,13 +58,13 @@ jobs:
           set -euo pipefail
           snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
           test -n "$snapshot"
-          python challenger_audit.py --input "$snapshot" --output-dir validation_sgo
+          python challenger_schedule_crosswalk.py --odds "$snapshot" --outdir validation_sgo
+          python challenger_audit.py --input "$snapshot" --schedule validation_sgo/schedule_manifest.json --output-dir validation_sgo
           python - <<'PY'
           import json
           from pathlib import Path
           summary = json.loads(Path('validation_sgo/report.json').read_text())
-          assert summary['observations'] == summary['quarantined']
-          assert summary['staged_for_research_only'] == 0
+          assert summary['observations'] == summary['quarantined'] + summary['staged_for_research_only']
           assert summary['bet_ready_selections'] == 0
           assert summary['certified_champion_001_predictions'] == 0
           assert summary['certified_challenger_predictions'] == 0
