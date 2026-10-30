@@ -137,6 +137,18 @@ def normalize_event(event, received_at):
             drops["unknown_stat"] += 1
             continue
         sel_type, market_type, selection, number, player_id, player_name = None, None, None, None, None, None
+        # SGO uses betTypeID=ml for auxiliary markets such as first-to-score
+        # and last-to-score. Only statID=points represents the observed
+        # full-game winner market across our live basketball/football/hockey
+        # samples. Never reinterpret an auxiliary wager as game moneyline.
+        if bet_type == "ml" and stat != "points":
+            drops["unsupported_non_game_moneyline_stat"] += 1
+            continue
+        # Soccer requires a three-way home/draw/away settlement model; two
+        # binary legs cannot stand in for the complete market.
+        if bet_type == "ml" and LEAGUE_SPORTS[league] == "soccer":
+            drops["unsupported_three_way_soccer_moneyline"] += 1
+            continue
         if bet_type == "ml" and entity in ("home", "away") and side in ("home", "away") and entity == side:
             market_type = "moneyline"
             sel_type = side

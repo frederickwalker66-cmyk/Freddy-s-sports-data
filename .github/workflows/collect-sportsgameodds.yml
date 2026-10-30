@@ -7,6 +7,7 @@ on:
       - 'sportsgameodds_collector.py'
       - 'challenger_schedule_crosswalk.py'
       - 'challenger_nba_schedule_clock.py'
+      - 'challenger_moneyline_market_baseline.py'
       - 'challenger_gate_diagnostics.py'
       - 'challenger_audit.py'
       - 'independent_schedule_review.py'
@@ -87,6 +88,23 @@ jobs:
         run: |
           snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
           python challenger_gate_diagnostics.py --raw "$snapshot" --audit-dir validation_sgo --output validation_sgo/quality_diagnostics.json
+      - name: Archive paired full-game moneyline market reference (no model probabilities)
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
+          test -n "$snapshot"
+          python challenger_moneyline_market_baseline.py --odds "$snapshot" --validation validation_sgo/report.json --output-dir validation_sgo
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("validation_sgo/moneyline_market_baseline_report.json").read_text())
+          assert r["market_implied_not_model_generated"] is True
+          assert r["independently_verified_checkout_prices"] == 0
+          assert r["certified_champion_001_predictions"] == r["certified_challenger_001_predictions"] == 0
+          assert r["positive_ev_candidates_certified"] == r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          assert r["champion_001_modified"] is False
+          PY
       - name: Save odds and quarantine evidence as workflow artifacts
         if: always()
         uses: actions/upload-artifact@v4
