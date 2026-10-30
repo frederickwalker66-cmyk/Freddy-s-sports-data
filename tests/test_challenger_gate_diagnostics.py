@@ -47,7 +47,7 @@ class GateDiagnosticTests(unittest.TestCase):
         self.assertFalse(result["champion_001_modified"])
 
     def test_quarantine_causes_and_ages_by_league(self):
-        a = observation(timestamp="2026-10-30T09:58:00Z")
+        a = observation(timestamp="2026-10-30T09:59:00Z")
         b = observation(league="nfl", market="player_points",
                         recorded_at="2026-10-30T10:18:00Z")
         q = [{"observation": a, "reasons": ["not_confirmed_primary_line"]},
