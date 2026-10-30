@@ -154,3 +154,28 @@ per-league quality report. Any NBA agreement remains **diagnostic-only**;
 manual/source verification and a tested policy decision are required before
 changing acceptance rules. This source covers the current NBA season and is
 not an as-of archive for historical model training.
+
+## October 30 — NBA CDN HTTP-error recovery
+
+An October 30 live SharpAPI run (#41053763975) completed but reported HTTPError
+from the NBA official season schedule at
+`https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`.
+Five NBA events remained correctly quarantined with +600-second
+provider-versus-ESPN start-time discrepancies. The NBA schedule audit now
+uses browser-compatible HTTP headers and, on retrieval/structure errors,
+tries **one** alternative NBA-operated live scoreboard feed:
+`https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json`.
+
+The alternative is valid **only for its own scoreboard game date**, and the
+auditor checks that date against each event's US Eastern game date.
+A prior-day scoreboard, non-NBA scoreboard, ambiguous team/time match,
+in-progress event, or unavailable official NBA source cannot resolve a
+future pregame discrepancy. Every case remains **rejected from betting and
+research event matching**, even when an official schedule timestamp agrees
+with ESPN or the provider. The report includes which NBA feed was used and
+separate source-specific error types for operational troubleshooting.
+
+These endpoints are public league-owned JSON resources, not guaranteed
+always-on service contracts or as-of historical archives. Their responses do
+not verify DraftKings checkout prices, player status, model calibration, or
+expected value. Champion-001 is never changed.
