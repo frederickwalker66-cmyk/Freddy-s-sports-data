@@ -94,7 +94,7 @@ class SecondaryAuditTests(unittest.TestCase):
         games = independent_games("nba", payload)
         self.assertEqual(len(games), 1)
         self.assertEqual(games[0]["home_score"], 101)
-        nba_row = dict(self.row, league="nba", home_team="New York Knicks",
+        nba_row = dict(self.row, league="nba", season_type=2, home_team="New York Knicks",
                        away_team="Boston Celtics", home_score=101, away_score=99,
                        event_start_utc="2026-02-01T22:00:00Z")
         nba_candidate = dict(self.candidate, league="nba")
