@@ -6,6 +6,7 @@ on:
     paths:
       - 'sportsgameodds_collector.py'
       - 'challenger_schedule_crosswalk.py'
+      - 'challenger_nba_schedule_clock.py'
       - 'challenger_gate_diagnostics.py'
       - 'challenger_audit.py'
       - 'independent_schedule_review.py'
@@ -78,6 +79,9 @@ jobs:
           set -euo pipefail
           snapshot=$(find snapshots -maxdepth 1 -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)
           python daily_research_audit.py --odds "$snapshot" --validation validation_sgo/report.json --output validation_sgo/daily_research_report.json
+      - name: Cross-check NBA scheduled-time discrepancies against official NBA CDN
+        shell: bash
+        run: python challenger_nba_schedule_clock.py --schedule-manifest validation_sgo/schedule_manifest.json --output validation_sgo/nba_clock_diagnostic.json
       - name: Explain league-level quote quality without promoting wagers
         shell: bash
         run: |

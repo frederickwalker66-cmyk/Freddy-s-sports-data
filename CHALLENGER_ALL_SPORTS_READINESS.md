@@ -133,3 +133,24 @@ primary lines and too old for strict 120-second validation. These are
 one-run observations, not performance claims. This change improves the
 explanation and targeting of the data-quality gates; it does not claim to
 repair unknown NBA schedule-time differences or generate certified bets.
+
+## October 30 — NBA schedule clock triangulation
+
+The official NBA CDN (`https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`)
+publishes `leagueSchedule.gameDates[].games[]` with NBA game IDs,
+scheduled UTC starts and home/away team identities. The new
+`challenger_nba_schedule_clock.py` reads that source only to audit NBA
+events which were **already rejected** for 61–900-second differences between
+ESPN and provider-listed starts. It requires one unique NBA game (same
+full home/away names and start within 24 hours) to classify whether the NBA
+clock matches ESPN, provider time, or neither. An unavailable official NBA
+schedule is recorded as unavailable rather than guessed. The script does
+not accept an event, change provider odds, override the existing 60-second
+audit threshold, recalculate any probabilities, or certify a bet.
+
+Both odds-collector workflows archive `nba_clock_diagnostic.json` beside
+their original independent schedule crosswalk, raw odds, quarantine and
+per-league quality report. Any NBA agreement remains **diagnostic-only**;
+manual/source verification and a tested policy decision are required before
+changing acceptance rules. This source covers the current NBA season and is
+not an as-of archive for historical model training.
