@@ -45,7 +45,7 @@ def history():
         n = len(rows)
         day = datetime(2026, 10, 15, tzinfo=timezone.utc) + timedelta(days=n)
         rows.append({
-            "league": "nba", "record_type": "historical_completed_game_research",
+            "league": "nba", "season_type": 2, "record_type": "historical_completed_game_research",
             "home_team": team if home else opponent,
             "away_team": opponent if home else team,
             "home_score": 105 if home else 94, "away_score": 98 if home else 110,
