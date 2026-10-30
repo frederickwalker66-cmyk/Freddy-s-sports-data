@@ -101,6 +101,7 @@ def build_manifest(rows, schedules, now):
     manifest = {}
     rejected = Counter()
     near_time_misses = defaultdict(Counter)
+    near_time_event_evidence = []
     for provider_id, group in source_groups.items():
         identities = {(lg, h, a, start) for lg, h, a, start in group}
         if len(identities) != 1:
@@ -125,7 +126,20 @@ def build_manifest(rows, schedules, now):
                         abs((st - start).total_seconds()) <= 15 * 60
                 ]
                 if len(nearby) == 1:
-                    near_time_misses[league][str(nearby[0][1])] += 1
+                    near, offset = nearby[0]
+                    near_time_misses[league][str(offset)] += 1
+                    near_time_event_evidence.append({
+                        "provider_event_id": provider_id,
+                        "league": league,
+                        "home_team": group_to_original(rows, provider_id, "home_team"),
+                        "away_team": group_to_original(rows, provider_id, "away_team"),
+                        "provider_start_utc": start.isoformat(),
+                        "espn_start_utc": near["start_utc"],
+                        "espn_event_id": str(near["provider_game_id"]),
+                        "espn_source_url": near["source_url"],
+                        "signed_provider_minus_espn_seconds": offset,
+                        "matched_for_research": False,
+                    })
             continue
         ev = hits[0]
         manifest[provider_id] = {
@@ -149,6 +163,8 @@ def build_manifest(rows, schedules, now):
         "near_time_mismatches_research_only": {
             league: dict(sorted(deltas.items(), key=lambda x: int(x[0])))
             for league, deltas in sorted(near_time_misses.items())},
+        "near_time_event_evidence_research_only": sorted(
+            near_time_event_evidence, key=lambda row: (row["league"], row["provider_event_id"])),
         "near_time_mismatches_promoted": 0,
         "independent_sportsbook_price_verified": False,
         "certified_model_predictions": 0,
