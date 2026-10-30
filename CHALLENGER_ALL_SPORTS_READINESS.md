@@ -179,3 +179,37 @@ These endpoints are public league-owned JSON resources, not guaranteed
 always-on service contracts or as-of historical archives. Their responses do
 not verify DraftKings checkout prices, player status, model calibration, or
 expected value. Champion-001 is never changed.
+
+## October 30 — full-game moneyline integrity and no-vig market references
+
+Archived SportsGameOdds v2 data revealed a **real misclassification**:
+`betTypeID=ml` with `statID=firstToScore` or `lastToScore` had
+been normalized as an ordinary full-game `moneyline`, especially in
+NFL and NCAAF. That can silently corrupt a game-winner price baseline.
+The SGO collector now admits `moneyline` only for observed
+`statID=points`; other `ml` stat types are excluded with the explicit
+`unsupported_non_game_moneyline_stat` reason. Two-side soccer
+moneylines are excluded (`unsupported_three_way_soccer_moneyline`) because
+the draw outcome is missing. These restrictions are fail-closed and
+supported by synthetic regression tests. Older contaminated SGO snapshots
+remain **untrusted** and are checked again when constructing market pairs.
+
+`challenger_moneyline_market_baseline.py` now produces separate
+`moneyline_market_baselines.jsonl` and
+`moneyline_market_baseline_report.json` artifacts in both existing
+collector workflows. It uses at most one home and one away price for a
+given aggregator and event, checks provider timestamps, source age,
+decimal odds consistency, event start, plausible overround and
+no duplicate sides, then computes:
+`market_no_vig_home_probability_research_only = implied_home /
+(implied_home + implied_away)`. That is only a **market price reference**,
+**not** an independently generated model probability, a calibrated
+forecast, an edge, or evidence of profitable betting.
+
+Even an apparently full-game provider price may have unresolved primary
+line status, unknown game-day actives, unverified DraftKings checkout
+availability or a mismatched schedule. The separate
+`challenger_audit.py` research-stage/quarantine gates are **unchanged**.
+Market baselines never become `historical_results.jsonl` training rows,
+model predictions, B+ grading evidence, betting advice or automated bets.
+The user's original Champion-001 stays frozen.
