@@ -112,6 +112,17 @@ class ProspectiveTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build(s, [], [], None, NOW)
 
+    def test_preseason_and_untyped_results_cannot_influence_nba_team_form(self):
+        sample=history()
+        for g in sample:
+            g["season_type"]=1
+        self.assertIsNone(team_form(sample,"atlanta hawks",
+                                   datetime.fromisoformat(START.replace("Z","+00:00")),NOW))
+        for g in sample:
+            del g["season_type"]
+        self.assertIsNone(team_form(sample,"atlanta hawks",
+                                   datetime.fromisoformat(START.replace("Z","+00:00")),NOW))
+
     def test_partial_team_history_is_unknown_not_zero(self):
         self.assertIsNone(team_form([], "atlanta hawks", datetime.fromisoformat(START.replace("Z","+00:00")), NOW))
         rows, _ = build(schedule(), history()[:4], [], None, NOW)
