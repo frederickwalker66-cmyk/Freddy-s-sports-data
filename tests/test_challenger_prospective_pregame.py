@@ -45,7 +45,7 @@ def history():
         n = len(rows)
         day = datetime(2026, 10, 15, tzinfo=timezone.utc) + timedelta(days=n)
         rows.append({
-            "league": "nba", "record_type": "historical_completed_game_research",
+            "league": "nba", "season_type": 2, "record_type": "historical_completed_game_research",
             "home_team": team if home else opponent,
             "away_team": opponent if home else team,
             "home_score": 105 if home else 94, "away_score": 98 if home else 110,
@@ -111,6 +111,17 @@ class ProspectiveTests(unittest.TestCase):
         s["events"].append(dict(s["events"][0]))
         with self.assertRaises(ValueError):
             build(s, [], [], None, NOW)
+
+    def test_preseason_and_untyped_results_cannot_influence_nba_team_form(self):
+        sample=history()
+        for g in sample:
+            g["season_type"]=1
+        self.assertIsNone(team_form(sample,"atlanta hawks",
+                                   datetime.fromisoformat(START.replace("Z","+00:00")),NOW))
+        for g in sample:
+            del g["season_type"]
+        self.assertIsNone(team_form(sample,"atlanta hawks",
+                                   datetime.fromisoformat(START.replace("Z","+00:00")),NOW))
 
     def test_partial_team_history_is_unknown_not_zero(self):
         self.assertIsNone(team_form([], "atlanta hawks", datetime.fromisoformat(START.replace("Z","+00:00")), NOW))

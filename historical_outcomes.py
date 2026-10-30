@@ -61,6 +61,12 @@ def normalize_game(game,league,source_url,now):
     comps=game.get("competitions")
     if not isinstance(comps,list) or len(comps)!=1 or not isinstance(comps[0],dict): return None
     comp=comps[0]
+    # ESPN season.type 1=preseason, 2=regular season, 3=postseason.
+    # Do not let missing or preseason NBA scores enter regular-season form.
+    season=game.get("season")
+    season_type=season.get("type") if isinstance(season,dict) else None
+    if league=="nba" and (type(season_type) is not int or season_type != 2):
+        return None
     competitors=comp.get("competitors")
     if not isinstance(competitors,list) or len(competitors)!=2: return None
     try:
@@ -85,6 +91,7 @@ def normalize_game(game,league,source_url,now):
         "outcome_source":"espn_public_scoreboard",
         "source_url":source_url,"retrieved_at_utc":now.isoformat(),
         "league":league,"espn_event_id":eid,"event_start_utc":started.isoformat(),
+        "season_type":season_type,
         "home_team":home["name"],"home_team_espn_id":home["id"],"home_score":home["score"],
         "away_team":away["name"],"away_team_espn_id":away["id"],"away_score":away["score"],
         "result":"home" if home["score"]>away["score"] else "away" if home["score"]<away["score"] else "draw",

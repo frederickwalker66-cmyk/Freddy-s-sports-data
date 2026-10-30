@@ -77,3 +77,29 @@ and `coverage.json`, without unverified secondary checks.
 event-specific timestamps with immutable prospective snapshots (or trustworthy
 historical as-of archives), independent final results, larger seasonal samples,
 and out-of-sample probability calibration. Preserve Champion-001 frozen.
+
+## October 30 integrity repair — research-only
+
+Two odds-collector GitHub Actions workflows now call `challenger_schedule_crosswalk.py`
+before `challenger_audit.py`. A successful ESPN retrieval is only an
+**independent public-schedule corroboration**, not an officially verified
+DraftKings checkout quote, an injury/roster crosswalk, or a model probability.
+The manifest maps each provider event ID to a single ESPN event only when
+league, normalized *full* team names and scheduled tipoff (within 60 seconds)
+agree. Unknown, conflicting, duplicate or unavailable source matches remain
+quarantined. Passing this schedule check can stage research observations but
+cannot certify betting value, player props, model predictions or wagers.
+
+NBA historical outcome ingestion now requires **ESPN season.type = 2**
+(regular season). Prospective NBA prior-form features and retrospective
+research/Elo evaluators also reject untyped or preseason NBA evidence.
+This fail-closed behavior may reduce the eligible NBA sample, and prior
+research-only descriptive scorecards that used untyped history must **not**
+be treated as unbiased regular-season validation or credited to Champion-001.
+
+The collector and daily research audit accept `staged_for_research_only > 0`
+only when a matching schedule is present; they still require zero certified
+predictions, zero independently verified checkout prices and zero wagers.
+Player status and league-operated settlement verification remain unsolved,
+and the model backtest is still blocked on absent qualified training data.
+Do not claim a B+ grade from passing engineering tests.

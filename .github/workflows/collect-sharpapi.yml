@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/collect-sharpapi.yml'
+      - 'challenger_schedule_crosswalk.py'
+      - 'challenger_audit.py'
+      - 'daily_research_audit.py'
+      - 'tests/**'
   schedule:
     - cron: '0 16,20,23 * * *'  # UTC; times shift with Eastern daylight saving
 permissions:
@@ -35,15 +39,16 @@ jobs:
         run: |
           snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
           test -n "$snapshot"
-          # No independently reviewed schedule is provided, so every
-          # observation must be quarantined. Raw collection remains intact.
-          python challenger_audit.py --input "$snapshot" --output-dir validation_output
+          # ESPN schedule is independent of the odds aggregator, but not a
+          # verified sportsbook price, lineup, or betting forecast.
+          python challenger_schedule_crosswalk.py --odds "$snapshot" --outdir validation_output
+          python challenger_audit.py --input "$snapshot" --schedule validation_output/schedule_manifest.json --output-dir validation_output
           python - <<'PY'
           import json
           from pathlib import Path
           report = json.loads(Path("validation_output/report.json").read_text())
           assert report["observations"] == report["staged_for_research_only"] + report["quarantined"]
-          assert report["staged_for_research_only"] == 0
+          assert report["independent_schedule_events_available"] >= 0
           assert report["bet_ready_selections"] == 0
           assert report["certified_challenger_predictions"] == 0
           assert report["certified_champion_001_predictions"] == 0

@@ -31,6 +31,8 @@ def validate_game(row):
         raise ValueError("Misstated evidence status")
     lg=row.get("league")
     if lg not in LEAGUES:raise ValueError("Unsupported league")
+    if lg=="nba" and row.get("season_type") != 2:
+        raise ValueError("NBA regular-season evidence required")
     dt=parse_time(row.get("event_start_utc"))
     home=row.get("home_team_espn_id")
     away=row.get("away_team_espn_id")

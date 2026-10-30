@@ -15,10 +15,16 @@ def summarize(rows, validation):
         raise ValueError("Missing Challenger audit")
     if validation.get("observations") != len(rows):
         raise ValueError("Input differs from validation report")
-    if validation.get("quarantined") != len(rows):
-        raise ValueError("Unverified records were promoted")
+    staged = validation.get("staged_for_research_only")
+    quarantined = validation.get("quarantined")
+    if (type(staged) is not int or type(quarantined) is not int
+            or staged < 0 or quarantined < 0
+            or staged + quarantined != len(rows)):
+        raise ValueError("Unaccounted research observations")
+    if staged and validation.get("independent_schedule_events_available", 0) < 1:
+        raise ValueError("Research staging without schedule provenance")
     if any(validation.get(k) != 0 for k in (
-            "staged_for_research_only", "bet_ready_selections",
+            "bet_ready_selections",
             "certified_challenger_predictions", "certified_champion_001_predictions",
             "automated_bets_placed", "independently_reverified_sportsbook_prices")):
         raise ValueError("Research-only invariant violated")
@@ -47,7 +53,8 @@ def summarize(rows, validation):
         "by_market": dict(sorted(by_market.items())),
         "duplicate_quote_keys": duplicate_ids,
         "validation_rejection_causes": rejected_by_reason,
-        "quarantine_count": validation["quarantined"],
+        "quarantine_count": quarantined,
+        "staged_research_only_count": staged,
         "independently_verified_outcomes": 0,
         "certified_shadow_predictions": 0,
         "learned_model_updates": 0,

@@ -18,6 +18,7 @@ def fixture(i, day, home="A", away="B", score_home=10, score_away=5,
         "official_league_result_verified": False,
         "champion_001_modified": False,
         "league": league,
+        "season_type": 2 if league == "nba" else None,
         "espn_event_id": str(i),
         "event_start_utc": start.isoformat(),
         "home_team_espn_id": home,
@@ -74,6 +75,15 @@ class ResearchFeatureTests(unittest.TestCase):
         claimed_official = dict(g, official_league_result_verified=True)
         with self.assertRaises(ValueError):
             build_candidates([claimed_official])
+
+    def test_preseason_cannot_enter_historical_candidates(self):
+        row=fixture(1,0)
+        row["season_type"]=1
+        with self.assertRaisesRegex(ValueError,"regular-season"):
+            build_candidates([row])
+        row.pop("season_type")
+        with self.assertRaisesRegex(ValueError,"regular-season"):
+            build_candidates([row])
 
     def test_no_feature_uses_current_final_result(self):
         prev = [fixture(i + 1, i * 3) for i in range(3)]
