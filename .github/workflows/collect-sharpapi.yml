@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/collect-sharpapi.yml'
       - 'challenger_schedule_crosswalk.py'
+      - 'challenger_nba_schedule_clock.py'
       - 'challenger_gate_diagnostics.py'
       - 'challenger_audit.py'
       - 'daily_research_audit.py'
@@ -59,6 +60,18 @@ jobs:
           assert report["roster_refresh_automated"] is False
           assert report["independently_reviewed_game_day_status_entries"] == 0
           assert report["game_day_status_sync_automated"] is False
+          PY
+      - name: Corroborate quarantined NBA time differences with NBA official CDN
+        run: |
+          python challenger_nba_schedule_clock.py --schedule-manifest validation_output/schedule_manifest.json --output validation_output/nba_clock_diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("validation_output/nba_clock_diagnostic.json").read_text())
+          assert r["near_time_mismatches_promoted"] == 0
+          assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          assert r["certified_champion_001_predictions"] == 0
+          assert r["champion_001_modified"] is False
           PY
       - name: Explain remaining league-level quote rejection causes
         run: |
