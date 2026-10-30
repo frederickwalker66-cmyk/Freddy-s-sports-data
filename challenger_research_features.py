@@ -29,6 +29,8 @@ def validated(row):
             or row.get("champion_001_modified") is not False
             or row.get("league") not in LEAGUES):
         raise ValueError("unsupported or misrepresented historical provenance")
+    if row.get("league") == "nba" and row.get("season_type") != 2:
+        raise ValueError("NBA regular-season evidence required")
     u = urlparse(row.get("source_url", ""))
     if u.scheme != "https" or u.hostname != "site.api.espn.com":
         raise ValueError("missing ESPN source provenance")
