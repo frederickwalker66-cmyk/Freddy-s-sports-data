@@ -55,9 +55,12 @@ def inspect_quote(row):
     if (not isinstance(team, str) or not team.strip()
             or not isinstance(row.get("event_id"), str) or not row["event_id"].strip()
             or not isinstance(row.get("selection"), str)
-            or row["selection"].strip() != team.strip()
+            or not row["selection"].strip()
             or row.get("home_team") == row.get("away_team")):
         return None, "team_or_event_mismatch"
+    other_team = row.get("away_team") if row["selection_type"] == "home" else row.get("home_team")
+    if isinstance(other_team, str) and row["selection"].strip() == other_team.strip():
+        return None, "selection_contradicts_side"
     try:
         start = parse_utc(row["event_start_time"])
         quote = parse_utc(row["timestamp"])
@@ -141,6 +144,9 @@ def compare_pairs(raw, validation):
             "market_vig_percentage_points": round((overround - 1) * 100, 4),
             "provider_main_line_flag_for_both": (
                 h["raw"]["is_main_line"] is True and a["raw"]["is_main_line"] is True),
+            "observed_home_selection_text": h["raw"]["selection"],
+            "observed_away_selection_text": a["raw"]["selection"],
+            "selection_team_identity_independently_verified": False,
             "market_probabilities_are_not_model_predictions": True,
             "draftkings_checkout_verified": False,
             "independently_verified_primary_line": False,
