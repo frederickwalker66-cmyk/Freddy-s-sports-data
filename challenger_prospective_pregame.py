@@ -187,6 +187,8 @@ def team_form(history, team, game_start, scan):
     for g in history:
         if not isinstance(g, dict) or g.get("record_type") != "historical_completed_game_research":
             continue
+        if g.get("league") == "nba" and g.get("season_type") != 2:
+            continue
         try:
             past = parse_time(g["event_start_utc"])
             retrieved = parse_time(g["retrieved_at_utc"])
