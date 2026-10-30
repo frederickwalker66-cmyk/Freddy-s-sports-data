@@ -103,3 +103,33 @@ predictions, zero independently verified checkout prices and zero wagers.
 Player status and league-operated settlement verification remain unsolved,
 and the model backtest is still blocked on absent qualified training data.
 Do not claim a B+ grade from passing engineering tests.
+
+## October 30 gate diagnostics — no relaxed certification
+
+`challenger_schedule_crosswalk.py` now records *near-time* public-schedule
+matches **separately**, when full normalized home/away names and league agree
+but the provider's scheduled start differs from ESPN by **more than 60 seconds
+and no more than 15 minutes**. The signed time offset is recorded in seconds
+(provider start minus ESPN start), grouped by sport. These near matches are
+NOT appended to the schedule manifest's accepted `events` and never bypass
+`challenger_audit.py`'s 60-second cutoff. Missing, conflicting, or multiple
+possible matches stay quarantined. A 10-minute difference may be the provider's
+tipoff convention or inaccurate metadata; the report **does not decide which**.
+
+Both odds-collector jobs now save `quality_diagnostics.json`, which checks
+that every original odds observation is accounted for exactly once in the
+research-only or quarantine partition. It summarizes by sport the exact
+quarantine reason counts, observation freshness buckets (<=120 sec, 121–900
+sec, >900 sec, or invalid/future timestamps), and market families. Its test
+suite rejects missing or swapped quotes, inadequate schedule provenance,
+and any attempted certification. It records **zero** verified sportsbook
+checkout prices, qualified historical training examples, certified forecasts,
+positive-EV bets, and placed wagers, regardless of stage counts.
+
+At the October 30 pre-repair-to-diagnostics boundary, the SharpAPI run had
+22 **NFL** research-stage observations and 0 NBA staged quotes; the
+SportsGameOdds run had 0 staged observations because all were unconfirmed
+primary lines and too old for strict 120-second validation. These are
+one-run observations, not performance claims. This change improves the
+explanation and targeting of the data-quality gates; it does not claim to
+repair unknown NBA schedule-time differences or generate certified bets.
