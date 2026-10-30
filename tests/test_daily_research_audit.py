@@ -26,6 +26,22 @@ class DailyResearchAuditTests(unittest.TestCase):
         self.assertEqual(result["learned_model_updates"], 0)
         self.assertFalse(result["production_model_changed"])
 
+    def test_schedule_corroborated_research_staging_is_not_bet_ready(self):
+        r=report()
+        r["quarantined"]=0
+        r["staged_for_research_only"]=1
+        r["independent_schedule_events_available"]=1
+        result=summarize([sample()],r)
+        self.assertEqual(result["staged_research_only_count"],1)
+        self.assertEqual(result["certified_shadow_predictions"],0)
+
+    def test_research_staging_without_schedule_is_blocked(self):
+        r=report()
+        r["quarantined"]=0
+        r["staged_for_research_only"]=1
+        with self.assertRaisesRegex(ValueError,"schedule provenance"):
+            summarize([sample()],r)
+
     def test_missing_quarantine_fails_closed(self):
         p = report()
         p["quarantined"] = 0
