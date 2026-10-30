@@ -90,10 +90,10 @@ class MoneylineBaselineTests(unittest.TestCase):
         self.assertEqual(report["excluded_rows_or_event_groups"]["inconsistent_event_or_price_times"],1)
 
     def test_wrong_team_selection_rejects_side(self):
-        rows=[quote(selection="Other"),quote("away")]
+        rows=[quote(selection="Cleveland Cavaliers"),quote("away")]
         pairs,r=compare_pairs(rows,validation(2))
         self.assertEqual(pairs, [])
-        self.assertEqual(r["excluded_rows_or_event_groups"]["team_or_event_mismatch"],1)
+        self.assertEqual(r["excluded_rows_or_event_groups"]["selection_contradicts_side"],1)
 
     def test_too_old_or_after_start_rejected(self):
         self.assertEqual(inspect_quote(quote(recorded_at="2026-10-30T20:00:00Z"))[1],
@@ -133,7 +133,7 @@ class MoneylineBaselineTests(unittest.TestCase):
             compare_pairs([quote(),quote("away")],report)
 
     def test_sharp_provider_assertion_still_not_checkout_verification(self):
-        h=quote(source="sharpapi_rest")
+        h=quote(source="sharpapi_rest",selection="ATL Hawks")
         a=quote("away",source="sharpapi_rest")
         pairs,_=compare_pairs([h,a],validation(2))
         self.assertEqual(len(pairs),1)
