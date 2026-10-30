@@ -76,6 +76,15 @@ class ResearchFeatureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_candidates([claimed_official])
 
+    def test_preseason_cannot_enter_historical_candidates(self):
+        row=fixture(1,0)
+        row["season_type"]=1
+        with self.assertRaisesRegex(ValueError,"regular-season"):
+            build_candidates([row])
+        row.pop("season_type")
+        with self.assertRaisesRegex(ValueError,"regular-season"):
+            build_candidates([row])
+
     def test_no_feature_uses_current_final_result(self):
         prev = [fixture(i + 1, i * 3) for i in range(3)]
         p = fixture(50, 10, score_home=99, score_away=0)
