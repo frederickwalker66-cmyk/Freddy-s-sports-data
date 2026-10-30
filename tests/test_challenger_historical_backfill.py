@@ -17,7 +17,7 @@ def example():
         "outcome_source": "espn_public_scoreboard",
         "source_url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20260214",
         "retrieved_at_utc": "2026-10-28T22:00:00+00:00",
-        "league": "nba", "espn_event_id": "401001",
+        "league": "nba", "season_type": 2, "espn_event_id": "401001",
         "event_start_utc": "2026-02-14T23:00:00+00:00",
         "home_team": "Home", "away_team": "Away",
         "home_team_espn_id": "1", "away_team_espn_id": "2",
