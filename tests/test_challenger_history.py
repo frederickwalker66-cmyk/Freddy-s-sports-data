@@ -7,7 +7,7 @@ from challenger_elo_walkforward import evaluate,pregame_probability,embargoed_fo
 NOW=datetime(2026,10,29,20,tzinfo=timezone.utc)
 def game(eid="22",when="2026-10-29T01:00:00Z",hs="102",as_="98",post=True):
     return {
-        "id":eid,"date":when,
+        "id":eid,"date":when,"season":{"type":2},
         "status":{"type":{"state":"post" if post else "in","completed":post}},
         "competitions":[{"competitors":[
             {"homeAway":"home","team":{"id":"1","displayName":"Home Team"},"score":hs},
@@ -21,6 +21,7 @@ def outcome(i,league="nba",home="1",away="2",score_h=100,score_a=90,when=None):
         "record_type":"historical_completed_game_research",
         "outcome_source":"espn_public_scoreboard","official_league_result_verified":False,
         "champion_001_modified":False,"league":league,"espn_event_id":str(i),
+        "season_type":2 if league=="nba" else None,
         "event_start_utc":when,"home_team_espn_id":home,"away_team_espn_id":away,
         "home_score":score_h,"away_score":score_a,
         "result":"home" if score_h>score_a else "away" if score_h<score_a else "draw"
