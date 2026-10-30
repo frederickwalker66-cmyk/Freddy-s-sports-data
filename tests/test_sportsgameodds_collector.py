@@ -41,6 +41,32 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(report["certified_champion_001_predictions"], 0)
         self.assertEqual(report["bet_ready_selections"], 0)
 
+    def test_first_to_score_not_falsely_labeled_full_game_moneyline(self):
+        for stat in ("firstToScore", "lastToScore", "firstBasket", "touchdowns"):
+            with self.subTest(stat=stat):
+                e = fixture()
+                e["odds"]["a"]["statID"] = stat
+                rows, reasons = normalize_event(e, NOW)
+                self.assertEqual(len(rows), 3)
+                self.assertEqual(reasons["unsupported_non_game_moneyline_stat"], 1)
+                self.assertNotIn("moneyline", [r["market_type"] for r in rows])
+
+    def test_soccer_moneyline_requires_three_way_model(self):
+        for league in ("MLS", "UEFA_CHAMPIONS_LEAGUE"):
+            with self.subTest(league=league):
+                e = fixture()
+                e["leagueID"] = league
+                rows, reasons = normalize_event(e, NOW)
+                self.assertEqual(reasons["unsupported_three_way_soccer_moneyline"], 1)
+                self.assertNotIn("moneyline", [r["market_type"] for r in rows])
+
+    def test_real_full_game_points_stat_moneyline_still_archived(self):
+        e = fixture()
+        rows, errors = normalize_event(e, NOW)
+        self.assertFalse(errors)
+        self.assertEqual(sum(r["market_type"] == "moneyline" for r in rows), 1)
+        self.assertFalse(next(r for r in rows if r["market_type"] == "moneyline")["is_main_line"])
+
     def test_stale_quote(self):
         e = fixture()
         e["odds"]["a"]["byBookmaker"]["draftkings"]["lastUpdatedAt"] = "2026-10-28T19:43:00Z"
