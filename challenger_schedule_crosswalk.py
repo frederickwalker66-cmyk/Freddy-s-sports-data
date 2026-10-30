@@ -100,6 +100,7 @@ def build_manifest(rows, schedules, now):
             source_groups[identity[0]].append(identity[1:])
     manifest = {}
     rejected = Counter()
+    near_time_misses = defaultdict(Counter)
     for provider_id, group in source_groups.items():
         identities = {(lg, h, a, start) for lg, h, a, start in group}
         if len(identities) != 1:
@@ -113,6 +114,18 @@ def build_manifest(rows, schedules, now):
         ]
         if len(hits) != 1:
             rejected["missing_or_ambiguous_espn_match"] += 1
+            # Near matches are diagnostic evidence ONLY; they never enter
+            # the approved crosswalk or relax the 60-second audit rule.
+            if not hits:
+                nearby = [
+                    (e, int((start - st).total_seconds()))
+                    for e, st, h, a in candidates
+                    if e["league"] == league and h == home and a == away
+                    and MAX_START_DISAGREEMENT_SECONDS <
+                        abs((st - start).total_seconds()) <= 15 * 60
+                ]
+                if len(nearby) == 1:
+                    near_time_misses[league][str(nearby[0][1])] += 1
             continue
         ev = hits[0]
         manifest[provider_id] = {
@@ -133,6 +146,10 @@ def build_manifest(rows, schedules, now):
         "provider_event_ids_seen": len(source_groups),
         "provider_event_ids_matched": len(manifest),
         "provider_event_ids_quarantined": dict(sorted(rejected.items())),
+        "near_time_mismatches_research_only": {
+            league: dict(sorted(deltas.items(), key=lambda x: int(x[0])))
+            for league, deltas in sorted(near_time_misses.items())},
+        "near_time_mismatches_promoted": 0,
         "independent_sportsbook_price_verified": False,
         "certified_model_predictions": 0,
         "bet_ready_selections": 0,
