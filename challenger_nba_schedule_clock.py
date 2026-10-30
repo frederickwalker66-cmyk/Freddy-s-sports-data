@@ -8,16 +8,19 @@ minute and ambiguous cases remain unaccepted for betting or model evaluation.
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
-import hashlib
+from zoneinfo import ZoneInfo
 import json
 from pathlib import Path
-import re
 from urllib.request import Request, urlopen
 
 from historical_outcomes import parse_time
 from crossfeed_reconcile import norm
 
 NBA_SCHEDULE_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
+NBA_TODAY_SCOREBOARD_URL = (
+    "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
+)
+NBA_ALLOWED_URLS = (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL)
 MAX_BYTES = 18_000_000
 MAX_ACCEPTED_CLOCK_DIFF_SECONDS = 60
 
@@ -30,30 +33,69 @@ def nba_team_name(value):
     return "los angeles clippers" if cleaned == "la clippers" else cleaned
 
 
-def fetch_official_schedule(url=NBA_SCHEDULE_URL):
-    if url != NBA_SCHEDULE_URL:
-        raise ValueError("unexpected NBA schedule URL")
-    req = Request(url, headers={"User-Agent": "FreddysPicks-NBAScheduleClockAudit/1.0",
-                                "Accept": "application/json"})
-    with urlopen(req, timeout=18) as response:
-        payload = response.read(MAX_BYTES + 1)
-    if len(payload) > MAX_BYTES:
+def fetch_official_schedule(url=NBA_SCHEDULE_URL, opener=None):
+    """Retrieve league-owned JSON with browser-style headers; no proxy sources."""
+    if url not in NBA_ALLOWED_URLS:
+        raise ValueError("untrusted NBA schedule URL")
+    req = Request(url, headers={
+        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                       "AppleWebKit/537.36 (KHTML, like Gecko) "
+                       "Chrome/120.0.0.0 Safari/537.36"),
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://www.nba.com",
+        "Referer": "https://www.nba.com/",
+    })
+    # Pass opener explicitly for deterministic tests; no automatic retry storm.
+    with (opener or urlopen)(req, timeout=18) as response:
+        raw = response.read(MAX_BYTES + 1)
+    if len(raw) > MAX_BYTES:
         raise ValueError("oversized NBA schedule")
-    obj = json.loads(payload)
+    obj = json.loads(raw)
     if not isinstance(obj, dict):
         raise ValueError("invalid NBA schedule")
     return obj
+
+
+def load_official_payload(fetcher=fetch_official_schedule):
+    """At most two official NBA sources; preserve failure reasons separately."""
+    errors = {}
+    for url in NBA_ALLOWED_URLS:
+        try:
+            payload = fetcher(url)
+            if not isinstance(payload, dict):
+                raise ValueError("invalid NBA source")
+            # Require a recognized shape before accepting the source.
+            official_nba_events(payload)
+            return payload, url, errors
+        except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+            errors[url] = type(exc).__name__
+    return None, None, errors
 
 
 def official_nba_events(payload):
     if not isinstance(payload, dict):
         raise ValueError("NBA source must be a JSON object")
     league = payload.get("leagueSchedule")
-    if not isinstance(league, dict) or not isinstance(league.get("gameDates"), list):
+    board = payload.get("scoreboard")
+    if isinstance(league, dict) and isinstance(league.get("gameDates"), list):
+        day_groups = league["gameDates"]
+        source_kind = "season_schedule"
+    elif isinstance(board, dict) and isinstance(board.get("games"), list):
+        if (board.get("leagueId") != "00" or
+                not isinstance(board.get("gameDate"), str)):
+            raise ValueError("invalid NBA today's scoreboard identity")
+        try:
+            datetime.fromisoformat(board["gameDate"])
+        except ValueError as exc:
+            raise ValueError("invalid NBA scoreboard game date") from exc
+        day_groups = [{"games": board["games"]}]
+        source_kind = "daily_scoreboard"
+    else:
         raise ValueError("missing NBA official schedule dates")
     result = []
     seen_ids = {}
-    for day in league["gameDates"]:
+    for day in day_groups:
         if not isinstance(day, dict) or not isinstance(day.get("games"), list):
             raise ValueError("malformed NBA gameDate")
         for game in day["games"]:
@@ -65,7 +107,7 @@ def official_nba_events(payload):
                 home, away = game["homeTeam"], game["awayTeam"]
                 home_name = nba_team_name(home["teamCity"] + " " + home["teamName"])
                 away_name = nba_team_name(away["teamCity"] + " " + away["teamName"])
-                start = parse_time(game["gameDateTimeUTC"])
+                start = parse_time(game["gameDateTimeUTC"] if source_kind == "season_schedule" else game["gameTimeUTC"])
                 game_id = str(game["gameId"])
                 if (not game_id.isdigit() or not home_name or not away_name
                         or home_name == away_name):
@@ -83,7 +125,7 @@ def official_nba_events(payload):
     return result
 
 
-def compare_clocks(manifest, official_payload, observed, source_error=None):
+def compare_clocks(manifest, official_payload, observed, source_error=None, source_url=None, source_errors=None):
     if not isinstance(manifest, dict) or not isinstance(
             manifest.get("near_time_event_evidence_research_only"), list):
         raise ValueError("missing near-time manifest")
@@ -101,6 +143,9 @@ def compare_clocks(manifest, official_payload, observed, source_error=None):
         games = official_nba_events(official_payload)
         state = "retrieved"
     observed = observed.astimezone(timezone.utc)
+    board = (official_payload.get("scoreboard")
+             if isinstance(official_payload, dict) else None)
+    scoreboard_date = board.get("gameDate") if isinstance(board, dict) else None
     cases, counts = [], Counter()
     seen = set()
     for evidence in manifest["near_time_event_evidence_research_only"]:
@@ -123,8 +168,12 @@ def compare_clocks(manifest, official_payload, observed, source_error=None):
             raise ValueError("ambiguous NBA team identification")
         possible = [g for g in games if g["home"] == home and g["away"] == away
                     and abs((g["start"] - espn_start).total_seconds()) <= 24*3600]
+        game_day_et = espn_start.astimezone(ZoneInfo("America/New_York")).date().isoformat()
         if state == "unavailable":
             classification = "official_schedule_unavailable"
+        elif scoreboard_date is not None and scoreboard_date != game_day_et:
+            classification = "official_scoreboard_date_mismatch"
+            possible = []
         elif len(possible) > 1:
             classification = "ambiguous_nba_schedule_identity"
         elif not possible:
@@ -155,7 +204,10 @@ def compare_clocks(manifest, official_payload, observed, source_error=None):
     return {
         "report_type": "independent_nba_clock_diagnostic_not_bet_ready",
         "observed_at_utc": observed.isoformat(),
-        "official_nba_source_url": NBA_SCHEDULE_URL,
+        "official_nba_source_url": source_url or (
+            NBA_TODAY_SCOREBOARD_URL if scoreboard_date is not None else NBA_SCHEDULE_URL),
+        "official_nba_source_errors": source_errors or {},
+        "official_nba_scoreboard_game_date_et": scoreboard_date,
         "official_nba_source_status": state,
         "official_nba_source_error_type": source_error,
         "official_nba_schedule_games_parsed": len(games),
@@ -184,13 +236,13 @@ def main(argv=None):
         raise ValueError("invalid manifest evidence")
     has_nba = any(isinstance(x, dict) and x.get("league") == "nba" for x in evidence)
     observed = datetime.now(timezone.utc)
-    payload, source_error = None, None
+    payload, url, errors = None, None, {}
     if has_nba:
-        try:
-            payload = fetch_official_schedule()
-        except (OSError, ValueError, TypeError, OverflowError) as exc:
-            source_error = type(exc).__name__
-    result = compare_clocks(manifest, payload, observed, source_error)
+        payload, url, errors = load_official_payload()
+    source_error = "both_nba_sources_unavailable" if has_nba and payload is None else None
+    result = compare_clocks(
+        manifest, payload, observed, source_error, source_url=url,
+        source_errors=errors)
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf8")
