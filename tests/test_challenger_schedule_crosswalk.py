@@ -81,6 +81,14 @@ class CrosswalkTests(unittest.TestCase):
     def test_mismatched_start_time_quarantined(self):
         m = build_manifest([quote()], [snapshot(start_utc="2026-10-30T00:10:00Z")], NOW)
         self.assertEqual(m["events"], [])
+        self.assertEqual(m["provider_event_ids_matched"], 0)
+        self.assertEqual(m["near_time_mismatches_research_only"]["nba"]["-600"], 1)
+        self.assertEqual(m["near_time_mismatches_promoted"], 0)
+
+    def test_far_time_mismatch_does_not_become_near_match(self):
+        m = build_manifest([quote()], [snapshot(start_utc="2026-10-30T00:30:00Z")], NOW)
+        self.assertEqual(m["events"], [])
+        self.assertEqual(m["near_time_mismatches_research_only"], {})
 
     def test_provider_id_conflicting_teams_rejected(self):
         rows = [quote(), quote(home_team="Brooklyn Nets")]
