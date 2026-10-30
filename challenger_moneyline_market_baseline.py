@@ -40,10 +40,17 @@ def inspect_quote(row):
             or row.get("league") not in BINARY_LEAGUES):
         return None, "unsupported_or_untrusted_market"
     if (row.get("is_alternate_line") is not False
-            or row.get("is_main_line") not in (True, False)
+            or type(row.get("is_main_line")) is not bool
             or row.get("line") is not None
             or row.get("selection_type") not in ("home", "away")):
         return None, "unconfirmed_market_identity"
+    # Older SGO archives labeled first-to-score and last-to-score as game ML.
+    # Never allow those historical artifacts to contaminate even the market
+    # baseline; only statID=points serialized provider odds IDs are eligible.
+    if row["source"] == "sportsgameodds_v2" and not (
+            isinstance(row.get("provider_odd_id"), str)
+            and row["provider_odd_id"].startswith("points-")):
+        return None, "untrusted_sgo_full_game_winner_stat"
     team = row.get("home_team") if row["selection_type"] == "home" else row.get("away_team")
     if (not isinstance(team, str) or not team.strip()
             or not isinstance(row.get("event_id"), str) or not row["event_id"].strip()
@@ -60,6 +67,12 @@ def inspect_quote(row):
                 and quote < start and received < start):
             return None, "not_timestamped_pregame_archive"
         p = implied(row["odds_american"])
+        decimal = row.get("odds_decimal")
+        expected = 1 + (row["odds_american"] / 100 if row["odds_american"] > 0
+                        else 100 / abs(row["odds_american"]))
+        if (type(decimal) not in (int, float) or not math.isfinite(decimal)
+                or abs(decimal - expected) > 0.025):
+            return None, "inconsistent_decimal_price"
     except (KeyError, ValueError, TypeError, OverflowError):
         return None, "bad_odds_or_timestamp"
     return {"raw": row, "start": start, "quote": quote,
