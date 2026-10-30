@@ -84,6 +84,11 @@ class CrosswalkTests(unittest.TestCase):
         self.assertEqual(m["provider_event_ids_matched"], 0)
         self.assertEqual(m["near_time_mismatches_research_only"]["nba"]["-600"], 1)
         self.assertEqual(m["near_time_mismatches_promoted"], 0)
+        detail = m["near_time_event_evidence_research_only"]
+        self.assertEqual(len(detail), 1)
+        self.assertEqual(detail[0]["provider_event_id"], "sgo:the-game")
+        self.assertEqual(detail[0]["signed_provider_minus_espn_seconds"], -600)
+        self.assertFalse(detail[0]["matched_for_research"])
 
     def test_far_time_mismatch_does_not_become_near_match(self):
         m = build_manifest([quote()], [snapshot(start_utc="2026-10-30T00:30:00Z")], NOW)
