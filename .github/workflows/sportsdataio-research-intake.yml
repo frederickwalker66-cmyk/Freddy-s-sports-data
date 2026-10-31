@@ -1,22 +1,23 @@
 name: SportsDataIO research evidence intake
 on:
   workflow_dispatch:
-    inputs:
-      leagues:
-        description: "Comma-separated leagues (NBA first; others require matching subscriptions)"
-        required: false
-        default: "nba"
   schedule:
     - cron: '40 12 * * *'
 permissions:
   contents: read
 concurrency:
-  group: sportsdataio-evidence
+  group: sportsdataio-evidence-${{ github.event_name }}
   cancel-in-progress: false
 jobs:
   intake:
+    # Only NBA runs automatically until other subscriptions are verified.
+    if: github.event_name == 'workflow_dispatch' || matrix.league == 'nba'
+    strategy:
+      fail-fast: false
+      matrix:
+        league: [nba, nfl, mlb, nhl, ncaaf, ncaab, mls]
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     env:
       SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio }}
     steps:
@@ -25,14 +26,19 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify secret is present
-        run: test -n "$SPORTSDATAIO_API_KEY"
-      - name: Collect provider game evidence (not certified training data)
-        run: python sportsdataio_collector.py --leagues "${{ github.event.inputs.leagues || 'nba' }}" --output-dir sportsdataio_evidence
-      - name: Upload provider-separated immutable run artifact
+        shell: bash
+        run: |
+          if [[ -z "${SPORTSDATAIO_API_KEY:-}" ]]; then
+            echo "::error::Sportsdataio repository secret is missing"
+            exit 1
+          fi
+      - name: Collect ${{ matrix.league }} source evidence (research only)
+        run: python sportsdataio_collector.py --leagues "${{ matrix.league }}" --output-dir sportsdataio_evidence
+      - name: Archive separate league result and error report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sportsdataio-evidence-${{ github.run_id }}
+          name: sportsdataio-${{ matrix.league }}-${{ github.run_id }}
           path: sportsdataio_evidence/
           retention-days: 90
           if-no-files-found: warn
