@@ -64,6 +64,16 @@ class CrosswalkTests(unittest.TestCase):
         self.assertIn("independent_schedule_unknown",
                       validate(src, {}))
 
+    def test_clippers_full_name_alias_but_not_nickname_only(self):
+        quote_la = quote(home_team="LA Clippers")
+        espn = snapshot(home_team="Los Angeles Clippers")
+        match = build_manifest([quote_la], [espn], NOW)
+        self.assertEqual(match["provider_event_ids_matched"], 1)
+        self.assertEqual(match["bet_ready_selections"], 0)
+        self.assertFalse(match["independent_sportsbook_price_verified"])
+        nickname = build_manifest([quote(home_team="Clippers")], [espn], NOW)
+        self.assertEqual(nickname["events"], [])
+
     def test_reversed_teams_must_not_match(self):
         m = build_manifest([quote(home_team="Cleveland Cavaliers",
                                   away_team="Atlanta Hawks")],
