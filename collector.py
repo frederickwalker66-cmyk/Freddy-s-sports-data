@@ -65,21 +65,40 @@ def normalize_quote(row, received_at, max_age_seconds=900):
     return quote
 
 
-def get_page(key, league, market, cursor=None):
+def get_page(key, league, market, cursor=None, max_429_retries=1):
+    """Fetch provider data with a bounded 429 backoff; never reuse failed quotes.
+
+    Push commits do not trigger paid calls; scheduled/manual jobs are serialized
+    separately at the workflow level. An exhausted provider quota is NOT a
+    successful or empty snapshot. Fail closed without printing credentials.
+    """
     params = {"sportsbook": "draftkings", "league": league, "market": market,
               "is_live": "false", "limit": "200"}
     if cursor:
         params["cursor"] = cursor
     req = Request(ENDPOINT + "?" + urlencode(params),
                   headers={"X-API-Key": key, "Accept": "application/json"})
-    try:
-        with urlopen(req, timeout=30) as reply:
-            content = json.load(reply)
-    except HTTPError as exc:
-        # Do not print API keys, request headers, or provider response bodies.
-        raise RuntimeError(f"SharpAPI HTTP {exc.code} for {league}/{market}") from None
-    except (URLError, TimeoutError):
-        raise RuntimeError(f"SharpAPI network failure for {league}/{market}") from None
+    for attempt in range(max_429_retries + 1):
+        try:
+            with urlopen(req, timeout=30) as reply:
+                content = json.load(reply)
+            break
+        except HTTPError as exc:
+            # Do not print API keys, request headers, URLs, or response bodies.
+            if exc.code != 429:
+                raise RuntimeError(f"SharpAPI HTTP {exc.code} for {league}/{market}") from None
+            if attempt == max_429_retries:
+                raise RuntimeError(f"SharpAPI HTTP 429 for {league}/{market}; rate limit persists") from None
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            try:
+                requested_wait = int(retry_after) if retry_after is not None else 60
+            except (TypeError, ValueError):
+                requested_wait = 60
+            if requested_wait > 120:
+                raise RuntimeError(f"SharpAPI HTTP 429 for {league}/{market}; deferred by provider") from None
+            time.sleep(max(60, requested_wait))
+        except (URLError, TimeoutError):
+            raise RuntimeError(f"SharpAPI network failure for {league}/{market}") from None
     if not isinstance(content, dict) or not isinstance(content.get("data"), list):
         raise RuntimeError("Unexpected SharpAPI payload schema")
     return content
