@@ -163,7 +163,7 @@ def build_review_queue(snapshots, linked, now):
             continue
         research_market = ("published_score_winner_binary_research"
                            if league in BINARY_RESEARCH
-                           else "published_regulation_three_way_research")
+                           else "published_score_three_way_research")
         # Do not pretend a published score establishes a sportsbook's overtime,
         # tie, draw-no-bet, settlement or sport-specific market definitions.
         status = ("needs_league_rule_and_independent_outcome_review"
