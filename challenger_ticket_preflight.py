@@ -65,7 +65,9 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
             reasons.append("selection_missing")
         if leg.get("dk_quote_verified") is not True:
             reasons.append("direct_draftkings_quote_unverified")
-        is_prop = bool(leg.get("is_player_prop"))
+        if type(leg.get("is_player_prop")) is not bool:
+            reasons.append("player_prop_identity_uncertain")
+        is_prop = leg.get("is_player_prop") is True
         if is_prop and leg.get("availability_verified") is not True:
             reasons.append("player_availability_or_role_unverified")
         p = leg.get("model_probability")
@@ -77,6 +79,10 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
             raise ValueError("individual model probability invalid")
         elif leg.get("model_probability_verified") is not True:
             reasons.append("independent_model_probability_unverified")
+        elif leg.get("dk_quote_verified") is not True:
+            # Even a real independent forecast cannot produce verified EV
+            # without an independently checked executable sportsbook quote.
+            reasons.append("model_ev_blocked_by_unverified_quote")
         else:
             ev = round(float(p) * net_win_per_unit(odds) - (1-float(p)), 6)
         rows.append({
@@ -180,7 +186,7 @@ def summarize_research_stage(staged, validation):
             raise ValueError("invalid staged observation")
         if row.get("certified_prediction") is not False or row.get("model_probability") is not None:
             raise ValueError("historical observations cannot be model forecasts")
-        if row.get("is_player_prop") not in (True, False):
+        if type(row.get("is_player_prop")) is not bool:
             raise ValueError("ambiguous staged player prop indicator")
         if not isinstance(row.get("event_id"), str) or not row["event_id"].strip():
             raise ValueError("staged market missing event")
