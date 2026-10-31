@@ -53,11 +53,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p source_sharp source_sgo source_official
-          for source in sharpapi sgo official; do
+          mkdir -p source_sharp source_official
+          for source in sharpapi official; do
             case "$source" in
               sharpapi) workflow="collect-sharpapi.yml"; prefix="sharpapi-pregame"; destination="source_sharp";;
-              sgo) workflow="collect-sportsgameodds.yml"; prefix="sgo-draftkings-research"; destination="source_sgo";;
               official) workflow="refresh-nba-mlb-evidence.yml"; prefix="official-nba-mlb"; destination="source_official";;
             esac
             rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId' || true)"
@@ -74,10 +73,8 @@ jobs:
           set -euo pipefail
           args=(--history-days 14 --football-history-days 35 --output-dir prospective_pregame)
           sharp="$(find source_sharp -type f -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
-          sgo="$(find source_sgo -type f -name 'sportsgameodds_dk_*.jsonl' | sort | tail -n 1)"
           official="$(find source_official -type f -name 'source_refresh_report.json' | sort | tail -n 1)"
           if [[ -n "$sharp" ]]; then args+=(--sharp-jsonl "$sharp"); fi
-          if [[ -n "$sgo" ]]; then args+=(--sgo-jsonl "$sgo"); fi
           if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
           python challenger_prospective_pregame.py "${args[@]}"
       - name: Capture original prospective event JSONL bytes with a same-run receipt
