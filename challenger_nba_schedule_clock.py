@@ -7,7 +7,7 @@ minute and ambiguous cases remain unaccepted for betting or model evaluation.
 """
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 import json
 from pathlib import Path
@@ -21,6 +21,21 @@ NBA_TODAY_SCOREBOARD_URL = (
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
 )
 NBA_ALLOWED_URLS = (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL)
+NBA_STATS_SCOREBOARD_V3 = "https://stats.nba.com/stats/scoreboardv3"
+
+
+def stats_scoreboard_url(game_day_et):
+    """Build an exact, NBA-owned, date-bounded scoreboard URL; no arbitrary URL."""
+    if not isinstance(game_day_et, str):
+        raise ValueError("invalid official NBA game day")
+    try:
+        parsed = date.fromisoformat(game_day_et)
+    except ValueError as exc:
+        raise ValueError("invalid official NBA game day") from exc
+    if parsed.isoformat() != game_day_et:
+        raise ValueError("noncanonical official NBA game day")
+    return f"{NBA_STATS_SCOREBOARD_V3}?GameDate={game_day_et}&LeagueID=00"
+
 MAX_BYTES = 18_000_000
 MAX_ACCEPTED_CLOCK_DIFF_SECONDS = 60
 
@@ -35,7 +50,17 @@ def nba_team_name(value):
 
 def fetch_official_schedule(url=NBA_SCHEDULE_URL, opener=None):
     """Retrieve league-owned JSON with browser-style headers; no proxy sources."""
-    if url not in NBA_ALLOWED_URLS:
+    # Only our two known CDN resources and a canonical date-specific NBA Stats
+    # scoreboard are permitted. Error responses remain failures, never evidence.
+    valid = url in NBA_ALLOWED_URLS
+    if not valid and isinstance(url, str) and url.startswith(
+            NBA_STATS_SCOREBOARD_V3 + "?GameDate="):
+        day = url[len(NBA_STATS_SCOREBOARD_V3 + "?GameDate="):].split("&", 1)[0]
+        try:
+            valid = url == stats_scoreboard_url(day)
+        except ValueError:
+            valid = False
+    if not valid:
         raise ValueError("untrusted NBA schedule URL")
     req = Request(url, headers={
         "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -57,10 +82,18 @@ def fetch_official_schedule(url=NBA_SCHEDULE_URL, opener=None):
     return obj
 
 
-def load_official_payload(fetcher=fetch_official_schedule):
-    """At most two official NBA sources; preserve failure reasons separately."""
+def load_official_payload(fetcher=fetch_official_schedule, date_et=None):
+    """Check league-owned endpoints, preserving denials and never assuming success.
+
+    The date-specific NBA Stats v3 endpoint is a third possible source only
+    when the unresolved evidence identifies one unambiguous Eastern game date.
+    CDN and NBA Stats may both deny hosted clients. No WAF bypass is attempted.
+    """
     errors = {}
-    for url in NBA_ALLOWED_URLS:
+    urls = list(NBA_ALLOWED_URLS)
+    if date_et is not None:
+        urls.append(stats_scoreboard_url(date_et))
+    for url in urls:
         try:
             payload = fetcher(url)
             if not isinstance(payload, dict):
@@ -238,8 +271,18 @@ def main(argv=None):
     observed = datetime.now(timezone.utc)
     payload, url, errors = None, None, {}
     if has_nba:
-        payload, url, errors = load_official_payload()
-    source_error = "both_nba_sources_unavailable" if has_nba and payload is None else None
+        dates = set()
+        for e in evidence:
+            if isinstance(e, dict) and e.get("league") == "nba":
+                t = parse_time(e["espn_start_utc"])
+                dates.add(t.astimezone(ZoneInfo("America/New_York")).date().isoformat())
+        # Multiple games on different days require different scoreboards. Do not
+        # use a day's official data to corroborate another day.
+        game_day = next(iter(dates)) if len(dates) == 1 else None
+        payload, url, errors = load_official_payload(date_et=game_day)
+        if len(dates) > 1:
+            errors["date_scoped_nba_stats_fallback"] = "multiple_game_days"
+    source_error = "nba_official_sources_unavailable" if has_nba and payload is None else None
     result = compare_clocks(
         manifest, payload, observed, source_error, source_url=url,
         source_errors=errors)
