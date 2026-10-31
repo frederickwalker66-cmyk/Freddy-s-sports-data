@@ -15,6 +15,7 @@ from collector import get_page
 class WorkflowProviderPolicyTests(unittest.TestCase):
     def test_sportsgameodds_collection_workflow_is_disabled(self):
         self.assertFalse(Path(".github/workflows/collect-sportsgameodds.yml").exists())
+        self.assertFalse(Path(".github/workflows/crossfeed-research.yml").exists())
 
     def test_sharpapi_jobs_are_not_triggered_by_code_pushes(self):
         workflow = Path(".github/workflows/collect-sharpapi.yml").read_text(encoding="utf-8")
