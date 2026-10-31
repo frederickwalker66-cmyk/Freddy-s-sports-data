@@ -118,9 +118,9 @@ jobs:
       - name: Build eight-sport point-in-time evidence review queue (NOT training data)
         run: |
           set -euo pipefail
-          python challenger_multisport_evidence_bridge.py \\
-            --snapshot-root snapshots \\
-            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \\
+          python challenger_multisport_evidence_bridge.py \
+            --snapshot-root snapshots \
+            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \
             --output-dir prospective_validation
           python - <<'PY'
           import json
