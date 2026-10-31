@@ -1,0 +1,40 @@
+name: SportsDataIO connection diagnostic (research only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-sportsdataio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio }}
+    steps:
+      - name: Check SportsDataIO credential and NBA endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPORTSDATAIO_API_KEY:-}" ]]; then
+            echo "::error::GitHub Actions secret Sportsdataio is missing or empty."
+            exit 1
+          fi
+          python - <<'PY'
+          import os, json, urllib.request, urllib.error, datetime
+          key=os.environ["SPORTSDATAIO_API_KEY"]
+          date=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+          url=f"https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/{date}"
+          req=urllib.request.Request(url,headers={"Ocp-Apim-Subscription-Key":key,"Accept":"application/json"})
+          try:
+              with urllib.request.urlopen(req,timeout=20) as r:
+                  body=r.read(500000)
+                  data=json.loads(body)
+                  if not isinstance(data,list):
+                      raise ValueError("Unexpected response format")
+                  print(json.dumps({"status":"connected","league":"NBA","date_utc":date,"events_returned":len(data),"research_only":True,"champion_001_modified":False}))
+          except urllib.error.HTTPError as e:
+              print(f"SportsDataIO HTTP {e.code}: verify subscription access and secret name; no credential displayed.")
+              raise SystemExit(1)
+          except Exception as e:
+              print(f"Connection diagnostic failed: {type(e).__name__}; no credential displayed.")
+              raise SystemExit(1)
+          PY
