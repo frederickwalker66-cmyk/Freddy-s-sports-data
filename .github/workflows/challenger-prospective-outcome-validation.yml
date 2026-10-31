@@ -11,12 +11,14 @@ on:
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_nba_history_intake.py'
+      - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - 'tests/test_challenger_multisport_evidence_bridge.py'
       - 'tests/test_challenger_nba_history_intake.py'
+      - 'tests/test_challenger_nba_official_final_crosscheck.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
   pull_request:
     paths:
@@ -24,10 +26,12 @@ on:
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_nba_history_intake.py'
+      - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - 'tests/test_challenger_multisport_evidence_bridge.py'
       - 'tests/test_challenger_nba_history_intake.py'
+      - 'tests/test_challenger_nba_official_final_crosscheck.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
 permissions:
   contents: read
@@ -193,6 +197,32 @@ jobs:
               assert row['independent_outcome_review'] is False
               assert row['model_probability'] is None
               assert row['bet_ready'] is False
+          PY
+      - name: Cross-check NBA published finals with league-owned scores (research only)
+        run: |
+          set -euo pipefail
+          python challenger_nba_official_final_crosscheck.py \
+            --candidates prospective_validation/nba_history_review_candidates.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'nba_official_final_crosscheck_report.json').read_text())
+          assert r['independently_qualified_training_records'] == 0
+          assert r['independently_authenticated_feature_snapshots'] == 0
+          assert r['trained_models_created'] == 0
+          assert r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['certified_champion_001_predictions'] == r['certified_challenger_001_predictions'] == 0
+          assert r['champion_001_modified'] is False
+          assert not (root/'historical_results.jsonl').exists()
+          for line in (root/'nba_official_final_crosscheck.jsonl').read_text().splitlines():
+              if not line.strip(): continue
+              item=json.loads(line)
+              assert item['training_row_qualified'] is False
+              assert item['independent_feature_asof_verified'] is False
+              assert item['certified_prediction'] is False
+              assert item['bet_ready'] is False
           PY
       - name: Score only existing fixed-rule $0 research forecasts against published finals
         run: |
