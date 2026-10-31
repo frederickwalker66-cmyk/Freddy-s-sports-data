@@ -86,6 +86,18 @@ class SixStageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_summary(data,"1234567","2026-10-31T12:00:00Z")
 
+    def test_stage_four_names_and_true_dnp_missing_stat_array(self):
+        data=nba_box()
+        first=data["boxscore"]["players"][0]["statistics"][0]
+        first["names"]=first.pop("labels")
+        first["athletes"][1]["stats"]=[]
+        rows=parse_summary(data,"1234567","2026-10-31T12:00:00Z")
+        self.assertEqual(len(rows),3)
+        self.assertTrue(rows[1]["did_not_play"])
+        self.assertIsNone(rows[1]["minutes"])
+        self.assertIsNone(rows[1]["points"])
+        self.assertFalse(rows[1]["qualified_for_player_prop_training"])
+
     def test_stage_five_empty_and_unverified_never_fake_metrics(self):
         self.assertEqual(score([])["certified_groups"],0)
         r=score([{"league":"nba","market_type":"moneyline",
