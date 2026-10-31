@@ -228,3 +228,49 @@ jobs:
           path: challenger_multiseason/
           retention-days: 90
           if-no-files-found: error
+
+  nba-player-boxscore-research:
+    if: github.event_name != 'pull_request'
+    needs: [consolidate-published-historical-results]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download this run's archived research-only SQLite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "challenger-multiseason-research-$GITHUB_RUN_ID" \
+            --dir historical_ledger
+      - name: Stage 4 fetch up to five actual NBA historical ESPN player boxscores
+        run: |
+          python challenger_nba_player_boxes.py \
+            --history-db historical_ledger/historical_published_scores.sqlite \
+            --limit 5 --output-dir player_boxscore_research
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("player_boxscore_research/nba_player_boxscore_report.json").read_text())
+          assert r["game_requests_attempted"] <= 5
+          assert r["qualified_player_prop_training_rows"] == 0
+          assert r["qualified_game_winner_training_rows"] == 0
+          assert r["champion_001_modified"] is False
+          for line in Path("player_boxscore_research/nba_player_boxes_research.jsonl").read_text().splitlines():
+              if not line.strip(): continue
+              row=json.loads(line)
+              assert row["qualified_for_player_prop_training"] is False
+              assert row["qualified_for_game_winner_training"] is False
+          PY
+      - name: Store bounded boxscore and participation research
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-nba-player-boxscore-research-${{ github.run_id }}
+          path: player_boxscore_research/
+          retention-days: 90
+          if-no-files-found: error
