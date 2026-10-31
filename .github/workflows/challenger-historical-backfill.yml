@@ -16,8 +16,13 @@ on:
     paths:
       - 'challenger_historical_backfill.py'
       - 'challenger_multiseason_history.py'
+      - 'challenger_nba_player_boxes.py'
+      - 'challenger_oos_calibration.py'
+      - 'challenger_artifact_manifest.py'
+      - 'champion_001_authentication.py'
       - 'tests/test_challenger_historical_backfill.py'
       - 'tests/test_challenger_multiseason_history.py'
+      - 'tests/test_six_stage_validation.py'
       - '.github/workflows/challenger-historical-backfill.yml'
   pull_request:
     paths:
@@ -184,6 +189,38 @@ jobs:
           print("Unique archived published results:", n)
           print("Nontrainable multi-season coverage:", len(report["by_league_season"]))
           PY
+      - name: Stage 2 Champion artifact inventory (no model execution)
+        run: |
+          python champion_001_authentication.py --output challenger_multiseason/champion_authentication.json
+          python - <<'PY'
+          import json
+          r=json.load(open('challenger_multiseason/champion_authentication.json'))
+          assert r['original_executable_verified'] is False
+          assert r['champion_001_modified'] is False
+          PY
+      - name: Stage 5 calibrate only independently qualified evidence (fail closed)
+        run: |
+          touch challenger_multiseason/independently_qualified_holdout.jsonl
+          python challenger_oos_calibration.py \
+            --evidence challenger_multiseason/independently_qualified_holdout.jsonl \
+            --output challenger_multiseason/oos_calibration_report.json
+          python - <<'PY'
+          import json
+          r=json.load(open('challenger_multiseason/oos_calibration_report.json'))
+          assert r['qualified_groups_with_50plus'] == r['certified_groups'] == 0
+          assert r['champion_001_modified'] is False
+          PY
+      - name: Stage 6 record archive SHA256 fingerprints (not external signature or durable store)
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          python challenger_artifact_manifest.py \
+            --files challenger_multiseason/historical_published_scores.sqlite \
+                    challenger_multiseason/history_coverage.json \
+                    challenger_multiseason/oos_calibration_report.json \
+                    challenger_multiseason/champion_authentication.json \
+            --run-id "$GITHUB_RUN_ID" --commit "$SOURCE_COMMIT" \
+            --output challenger_multiseason/artifact_integrity_manifest.json
       - name: Archive SQLite and coverage report (temporary, not permanent storage)
         uses: actions/upload-artifact@v4
         with:
