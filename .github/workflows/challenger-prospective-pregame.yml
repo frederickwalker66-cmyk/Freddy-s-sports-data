@@ -8,15 +8,19 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'challenger_prospective_receipts.py'
       - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
+      - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
   pull_request:
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'challenger_prospective_receipts.py'
       - 'tests/test_challenger_prospective_pregame.py'
+      - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
 permissions:
   contents: read
@@ -76,6 +80,24 @@ jobs:
           if [[ -n "$sgo" ]]; then args+=(--sgo-jsonl "$sgo"); fi
           if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
           python challenger_prospective_pregame.py "${args[@]}"
+      - name: Capture original prospective event JSONL bytes with a same-run receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_prospective_receipts.py --mode capture \
+            --snapshots prospective_pregame/prospective_event_evidence.jsonl \
+            --run-id "$GITHUB_RUN_ID" \
+            --output prospective_pregame/point_in_time_receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("prospective_pregame/point_in_time_receipt.json").read_text())
+          assert r["receipt_independently_authenticated"] is False
+          assert r["qualified_for_challenger_training"] is False
+          assert r["certified_champion_001_predictions"] == r["certified_challenger_001_predictions"] == 0
+          assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          assert r["champion_001_modified"] is False
+          PY
       - name: Generate real pre-tipoff untrained $0 research shadow forecasts
         run: |
           python challenger_research_shadow_baseline.py \
