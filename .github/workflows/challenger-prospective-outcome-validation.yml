@@ -12,6 +12,7 @@ on:
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
+      - 'challenger_nba_history_qualification.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -19,6 +20,7 @@ on:
       - 'tests/test_challenger_multisport_evidence_bridge.py'
       - 'tests/test_challenger_nba_history_intake.py'
       - 'tests/test_challenger_nba_official_final_crosscheck.py'
+      - 'tests/test_six_stage_validation.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
   pull_request:
     paths:
@@ -223,6 +225,21 @@ jobs:
               assert item['independent_feature_asof_verified'] is False
               assert item['certified_prediction'] is False
               assert item['bet_ready'] is False
+          PY
+      - name: Stage 3 independent NBA historical qualification review (zero auto promotion)
+        run: |
+          set -euo pipefail
+          python challenger_nba_history_qualification.py \
+            --candidates prospective_validation/nba_history_review_candidates.jsonl \
+            --comparisons prospective_validation/nba_official_final_crosscheck.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("prospective_validation/nba_history_qualification_report.json").read_text())
+          assert r["qualified_training_games"]==r["qualified_holdout_games"]==0
+          assert r["model_training_authorized"] is False
+          assert r["champion_001_modified"] is False
           PY
       - name: Score only existing fixed-rule $0 research forecasts against published finals
         run: |
