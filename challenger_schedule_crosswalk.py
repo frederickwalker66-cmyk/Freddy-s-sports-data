@@ -22,8 +22,15 @@ MAX_AHEAD_DAYS = 7
 MAX_START_DISAGREEMENT_SECONDS = 60
 
 
-def _name(value):
-    return norm(value)
+def _name(value, league=None):
+    key = norm(value)
+    # Explicit full-name NBA equivalents only; never use nickname guessing.
+    if league == "nba":
+        return {"los angeles clippers": "la clippers",
+                "l a clippers": "la clippers",
+                "ny knicks": "new york knicks",
+                "golden st warriors": "golden state warriors"}.get(key, key)
+    return key
 
 
 def _quote_identity(row, now):
@@ -33,7 +40,8 @@ def _quote_identity(row, now):
         return None
     if row.get("sportsbook") != "draftkings" or not row.get("event_id"):
         return None
-    home, away = _name(row.get("home_team")), _name(row.get("away_team"))
+    home, away = (_name(row.get("home_team"), row.get("league")),
+                  _name(row.get("away_team"), row.get("league")))
     if not home or not away or home == away:
         return None
     try:
@@ -67,7 +75,8 @@ def build_manifest(rows, schedules, now):
                 start = parse_time(event["start_utc"])
                 captured = parse_time(event["observed_at_utc"])
                 url = urlparse(event["source_url"])
-                home, away = _name(event["home_team"]), _name(event["away_team"])
+                home, away = (_name(event["home_team"], event.get("league")),
+                              _name(event["away_team"], event.get("league")) )
                 event_id = str(event["provider_game_id"])
                 if (url.scheme != "https" or url.hostname != "site.api.espn.com"
                         or event.get("status") != "scheduled"
