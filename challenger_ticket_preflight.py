@@ -88,7 +88,7 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
         })
     shared_events = sorted(k for k, v in event_counts.items() if v > 1)
     blockers = []
-    if shared_events:
+    if shared_events and not (joint_probability is not None and joint_probability_verified is True):
         blockers.append("shared_event_exposure_requires_joint_model")
     if quoted_parlay_odds is None:
         blockers.append("exact_parlay_price_missing")
@@ -147,3 +147,119 @@ def grade_slip_results(results):
         "champion_001_modified": False,
         "note": "A void is not a loss; this descriptive hit rate is not model accuracy.",
     }
+
+def summarize_research_stage(staged, validation):
+    """Connect existing quote quarantine to slip risk controls.
+
+    Staged aggregator observations are not direct checkout odds, verified player
+    active status, or independently calculated model probabilities. This function
+    audits research quality without constructing, recommending or placing tickets.
+    """
+    if not isinstance(staged, list) or not isinstance(validation, dict):
+        raise ValueError("stage and audit summary required")
+    if type(validation.get("staged_for_research_only")) is not int:
+        raise ValueError("missing audit staged count")
+    if len(staged) != validation["staged_for_research_only"]:
+        raise ValueError("staged observations differ from independent source audit")
+    if (validation.get("champion_001_modified") is not False or
+        any(validation.get(k) != 0 for k in (
+            "certified_challenger_predictions",
+            "certified_champion_001_predictions",
+            "bet_ready_selections",
+            "automated_bets_placed",
+            "independently_reverified_sportsbook_prices",
+        ))):
+        raise ValueError("research-only invariants violated")
+    blocker_counts = Counter()
+    events = Counter()
+    quote_count = 0
+    skipped_fractional_quotes = 0
+    props_needing_active_proof = 0
+    for row in staged:
+        if not isinstance(row, dict):
+            raise ValueError("invalid staged observation")
+        if row.get("certified_prediction") is not False or row.get("model_probability") is not None:
+            raise ValueError("historical observations cannot be model forecasts")
+        if row.get("is_player_prop") not in (True, False):
+            raise ValueError("ambiguous staged player prop indicator")
+        if not isinstance(row.get("event_id"), str) or not row["event_id"].strip():
+            raise ValueError("staged market missing event")
+        # Original aggregator source uses numeric odds. Convert integer-valued
+        # floats only; never round fractional or invalid prices to invent quotes.
+        odds = row.get("odds_american")
+        if type(odds) is float and isfinite(odds) and odds.is_integer():
+            odds = int(odds)
+        if type(odds) is not int or -100 < odds < 100:
+            skipped_fractional_quotes += 1
+            blocker_counts["non_integer_or_invalid_quote"] += 1
+            continue
+        prop = row["is_player_prop"] is True
+        props_needing_active_proof += int(prop)
+        probe = audit_slip([{
+            "event_id": row["event_id"], "market_type": row.get("market_type"),
+            "selection": row.get("selection"), "odds_american": odds,
+            "is_player_prop": prop,
+            "dk_quote_verified": False,
+            "availability_verified": False,
+            "model_probability": None, "model_probability_verified": False,
+        }])
+        if probe["decision"] != "PASS" or probe["bet_ready"] is not False:
+            raise ValueError("research quote was unexpectedly promoted")
+        blocker_counts.update(probe["blockers"])
+        events[row["event_id"]] += 1
+        quote_count += 1
+    shared_events = sum(n > 1 for n in events.values())
+    return {
+        "report_type": "challenger_research_feed_ticket_preflight",
+        "stage": "research_only_no_ticket_or_forecast_created",
+        "total_staged_observations": len(staged),
+        "probed_quote_count": quote_count,
+        "skipped_noninteger_or_invalid_prices": skipped_fractional_quotes,
+        "player_props_without_independently_confirmed_active_status": props_needing_active_proof,
+        "event_groups_with_multiple_markets_not_actual_parlays": shared_events,
+        "blocker_counts": dict(sorted(blocker_counts.items())),
+        "decision": "PASS_NO_VERIFIED_EDGE",
+        "independently_verified_checkout_quotes": 0,
+        "validated_joint_probabilities": 0,
+        "certified_champion_001_predictions": 0,
+        "certified_challenger_001_predictions": 0,
+        "bet_ready_selections": 0,
+        "automated_bets_placed": 0,
+        "champion_001_modified": False,
+        "warning": (
+            "Price break-even is not a model forecast. Aggregate research markets "
+            "are not a user slip or an actual parlay. A reviewed availability "
+            "manifest is not independent live active-status confirmation."
+        ),
+    }
+
+
+def main(argv=None):
+    import argparse
+    import json
+    from pathlib import Path
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--staged", required=True,
+                        help="research_only.jsonl produced by challenger_audit.py")
+    parser.add_argument("--validation", required=True,
+                        help="report.json from the same independent source audit")
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args(argv)
+    stage = Path(args.staged)
+    validation = Path(args.validation)
+    if not stage.is_file() or not validation.is_file():
+        raise FileNotFoundError("missing staged quotes or source audit")
+    records = [json.loads(line) for line in stage.read_text(encoding="utf-8").splitlines()
+               if line.strip()]
+    summary = summarize_research_stage(
+        records, json.loads(validation.read_text(encoding="utf-8")))
+    dest = Path(args.output)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8")
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
