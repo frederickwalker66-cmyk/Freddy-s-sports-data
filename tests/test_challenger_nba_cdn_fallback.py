@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 
 from challenger_nba_schedule_clock import (
     NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, fetch_official_schedule,
-    load_official_payload, official_nba_events, compare_clocks,
+    load_official_payload, official_nba_events, compare_clocks, stats_scoreboard_url,
 )
 from test_challenger_nba_schedule_clock import unaccepted, nba_feed, nba_game, NOW
 
@@ -67,6 +67,46 @@ class CdnFallbackTests(unittest.TestCase):
         self.assertEqual(report["nba_near_time_events_checked"], 1)
         self.assertFalse(report["cases"][0]["automatically_accepted_as_schedule_match"])
         self.assertEqual(report["bet_ready_selections"], 0)
+
+    def test_date_scoped_nba_stats_fallback_after_two_access_denials(self):
+        date_et = "2026-10-29"
+        third = stats_scoreboard_url(date_et)
+        calls = []
+        def fake(url):
+            calls.append(url)
+            if url != third:
+                raise HTTPError(url, 403, "Denied", {}, None)
+            return board(day=date_et)
+        data, selected, errors = load_official_payload(fake, date_et=date_et)
+        self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, third])
+        self.assertEqual(selected, third)
+        self.assertEqual(len(errors), 2)
+        report = compare_clocks(unaccepted(), data, NOW, source_url=selected,
+                                source_errors=errors)
+        self.assertEqual(report["classification_counts"],
+                         {"nba_clock_agrees_with_espn": 1})
+        self.assertEqual(report["bet_ready_selections"], 0)
+        self.assertEqual(report["near_time_mismatches_promoted"], 0)
+
+    def test_all_three_official_sources_denied_stays_unavailable(self):
+        def failing(url):
+            raise HTTPError(url, 403, "Denied", {}, None)
+        data, selected, errors = load_official_payload(failing, date_et="2026-10-29")
+        self.assertIsNone(data)
+        self.assertIsNone(selected)
+        self.assertEqual(len(errors), 3)
+        report = compare_clocks(unaccepted(), data, NOW, source_errors=errors)
+        self.assertEqual(report["classification_counts"],
+                         {"official_schedule_unavailable": 1})
+        self.assertEqual(report["certified_champion_001_predictions"], 0)
+
+    def test_rejects_off_domain_and_noncanonical_stats_url(self):
+        with self.assertRaisesRegex(ValueError, "invalid official NBA game day"):
+            stats_scoreboard_url("not-a-date")
+        with self.assertRaisesRegex(ValueError, "untrusted NBA schedule URL"):
+            fetch_official_schedule("https://stats.nba.com/stats/scoreboardv3?GameDate=2026-10-29&LeagueID=10")
+        with self.assertRaisesRegex(ValueError, "untrusted NBA schedule URL"):
+            fetch_official_schedule("https://stats.nba.com/stats/scoreboardv3?GameDate=2026-10-29&LeagueID=00&extra=1")
 
     def test_old_todays_scoreboard_never_used_to_match_future_game(self):
         report = compare_clocks(
