@@ -8,14 +8,18 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_outcome_validation.py'
+      - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
+      - 'tests/test_challenger_multisport_evidence_bridge.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
   pull_request:
     paths:
       - 'challenger_prospective_outcome_validation.py'
+      - 'challenger_multisport_evidence_bridge.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
+      - 'tests/test_challenger_multisport_evidence_bridge.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
 permissions:
   contents: read
@@ -111,6 +115,33 @@ jobs:
             --outcomes-root snapshots \
             --outcomes published_recent/results.jsonl \
             --output-dir prospective_validation
+      - name: Build eight-sport point-in-time evidence review queue (NOT training data)
+        run: |
+          set -euo pipefail
+          python challenger_multisport_evidence_bridge.py \\
+            --snapshot-root snapshots \\
+            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \\
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("prospective_validation")
+          r=json.loads((root/"all_sports_evidence_report.json").read_text())
+          assert len(r["supported_leagues"]) == 8
+          assert r["independently_verified_training_records"] == 0
+          assert r["trained_models_created"] == 0
+          assert r["certified_champion_001_predictions"] == 0
+          assert r["certified_challenger_001_predictions"] == 0
+          assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          assert r["champion_001_modified"] is False
+          assert not (root/"historical_results.jsonl").exists()
+          for line in (root/"all_sports_evidence_review_queue.jsonl").read_text().splitlines():
+              item=json.loads(line)
+              assert item["qualified_for_challenger_backtest"] is False
+              assert item["eligible_to_train_probability_model"] is False
+              assert item["model_probability"] is None
+              assert item["bet_ready"] is False
+          PY
       - name: Score only existing fixed-rule $0 research forecasts against published finals
         run: |
           python challenger_research_shadow_scorecard.py \
