@@ -15,18 +15,23 @@ on:
     branches: [main]
     paths:
       - 'challenger_historical_backfill.py'
+      - 'challenger_multiseason_history.py'
       - 'tests/test_challenger_historical_backfill.py'
+      - 'tests/test_challenger_multiseason_history.py'
       - '.github/workflows/challenger-historical-backfill.yml'
   pull_request:
     paths:
       - 'challenger_historical_backfill.py'
+      - 'challenger_multiseason_history.py'
       - 'tests/test_challenger_historical_backfill.py'
+      - 'tests/test_challenger_multiseason_history.py'
       - '.github/workflows/challenger-historical-backfill.yml'
 concurrency:
   group: challenger-eight-league-historical-results
   cancel-in-progress: false
 permissions:
   contents: read
+  actions: read
 jobs:
   offline-safety-tests:
     runs-on: ubuntu-latest
@@ -112,3 +117,77 @@ jobs:
           path: challenger_backfill/
           retention-days: 30
           if-no-files-found: warn
+
+  consolidate-published-historical-results:
+    if: github.event_name != 'pull_request'
+    needs: [offline-safety-tests, archived-public-scores]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download current eight archives and up to six successful prior batches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p archives
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --pattern "challenger-backfill-*-$GITHUB_RUN_ID" \
+            --dir "archives/$GITHUB_RUN_ID"
+          downloaded=1
+          mapfile -t previous < <(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow challenger-historical-backfill.yml --branch main \
+            --status success --limit 6 --json databaseId --jq '.[].databaseId')
+          for rid in "${previous[@]}"; do
+            [[ "$rid" == "$GITHUB_RUN_ID" ]] && continue
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+              --pattern "challenger-backfill-*-$rid" \
+              --dir "archives/$rid"; then
+              ((downloaded+=1))
+            else
+              rm -rf "archives/$rid"
+              echo "Prior run $rid unavailable; no historical rows fabricated."
+            fi
+          done
+          echo "Archived result batches downloaded: $downloaded"
+      - name: Consolidate deduplicated multi-season published score SQLite
+        run: |
+          python challenger_multiseason_history.py \
+            --archive-root archives --output-dir challenger_multiseason
+      - name: Enforce zero training, sportsbook settlement and wagers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sqlite3
+          from pathlib import Path
+          folder=Path("challenger_multiseason")
+          report=json.loads((folder/"history_coverage.json").read_text())
+          assert report["archive_windows_accepted"] >= 8, report
+          assert report["independently_qualified_training_records"] == 0
+          assert report["verified_bookmaker_settlement_results"] == 0
+          assert report["historical_player_boxscores"] == 0
+          assert report["verified_90_min_soccer_market_results"] == 0
+          assert report["certified_champion_001_predictions"] == 0
+          assert report["certified_challenger_001_predictions"] == 0
+          assert report["bet_ready_selections"] == report["automated_bets_placed"] == 0
+          assert report["sportsgameodds_api_requests"] == 0
+          assert report["champion_001_modified"] is False
+          with sqlite3.connect(folder/"historical_published_scores.sqlite") as db:
+            n=db.execute("SELECT COUNT(*) FROM published_games").fetchone()[0]
+            flag=db.execute("SELECT COUNT(*) FROM published_games WHERE historically_qualified_training != 0 OR bookmaker_settlement_verified != 0 OR independent_outcome_adjudication != 0").fetchone()[0]
+          assert n == report["published_games_deduplicated"] and flag == 0
+          print("Unique archived published results:", n)
+          print("Nontrainable multi-season coverage:", len(report["by_league_season"]))
+          PY
+      - name: Archive SQLite and coverage report (temporary, not permanent storage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-multiseason-research-${{ github.run_id }}
+          path: challenger_multiseason/
+          retention-days: 90
+          if-no-files-found: error
