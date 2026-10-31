@@ -41,8 +41,9 @@ def collector(leagues, days, end_date):
 
 
 class BoundedHistoryTests(unittest.TestCase):
-    def test_six_leagues_with_capped_budget(self):
-        self.assertEqual(len(WINDOW_END), 6)
+    def test_eight_leagues_with_capped_budget(self):
+        self.assertEqual(len(WINDOW_END), 8)
+        self.assertEqual(set(WINDOW_END), {"nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls", "uefa_champions_league"})
         for league in WINDOW_END:
             p = plan(league, MAX_DAYS, now=NOW)
             self.assertEqual(p["maximum_public_scoreboard_requests"], 35)
@@ -54,8 +55,12 @@ class BoundedHistoryTests(unittest.TestCase):
                 plan("nba", days, now=NOW)
         with self.assertRaises(ValueError):
             plan("nba", end_date=date(2026, 10, 30), now=NOW)
+        self.assertEqual(plan("mls", now=NOW)["league"], "mls")
+        self.assertEqual(plan("uefa_champions_league", now=NOW)["league"], "uefa_champions_league")
         with self.assertRaises(ValueError):
-            plan("mls", now=NOW)
+            plan("wnba", now=NOW)
+        with self.assertRaises(ValueError):
+            plan("mls", days=35, end_date=date(1950,1,10), now=NOW)
 
     def test_writes_research_only_and_flags_incomplete_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -73,6 +78,34 @@ class BoundedHistoryTests(unittest.TestCase):
             written = json.loads((Path(tmp) / "backfill_coverage.json").read_text())
             self.assertEqual(written["stage"], "challenger_historical_backfill_research_only")
             self.assertEqual(len((Path(tmp) / "published_results.jsonl").read_text().splitlines()), 1)
+
+    def test_soccer_history_keeps_draws_but_never_binary_training(self):
+        for league, scores in (("mls", (2,2)), ("uefa_champions_league", (3,1))):
+            with self.subTest(league=league), tempfile.TemporaryDirectory() as tmp:
+                row = dict(example(), league=league, home_score=scores[0],
+                           away_score=scores[1],
+                           result="draw" if scores[0] == scores[1] else "home",
+                           source_url="https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard")
+                def fake(leagues, days, end_date):
+                    return [row], {"leagues":[league], "total_completed_results":1,
+                        "by_league":{league:{"days_attempted":days,
+                            "days_ok":days,"days_failed":0,"completed_games":1}}}
+                report=run(league,1,WINDOW_END[league],tmp,collector=fake,clock=NOW)
+                self.assertEqual(report["published_completed_game_results"],1)
+                self.assertEqual(report["published_score_draw_results"],int(scores[0]==scores[1]))
+                self.assertEqual(report["quarantined_research_candidates"],0)
+                self.assertEqual(report["result_scope"],"published_soccer_score_three_way_unverified_90min")
+                self.assertFalse(report["soccer_90_minute_result_verified"])
+                self.assertFalse(report["bookmaker_market_settlement_verified"])
+                self.assertEqual(report["sportsgameodds_requests"],0)
+                self.assertFalse((Path(tmp)/"historical_results.jsonl").exists())
+                self.assertEqual((Path(tmp)/"research_candidates.jsonl").read_text(),"")
+
+    def test_custom_historical_window_1950_and_date_budget(self):
+        p=plan("mlb",days=7,end_date=date(1950,6,15),now=NOW)
+        self.assertEqual(p["start_et"],"1950-06-09")
+        self.assertEqual(p["maximum_public_scoreboard_requests"],7)
+        self.assertEqual(p["sportsgameodds_requests"],0)
 
     def test_rejects_incorrect_collection_count(self):
         rows = [example()]
