@@ -11,12 +11,12 @@ LEAGUES = ("nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls")
 # SportsDataIO subscriptions are product-specific. No guessed UEFA endpoint.
 PATHS = {
     "nba": "/v3/nba/scores/json/GamesByDate/{date}",
-    "nfl": "/v3/nfl/scores/json/GamesByDate/{date}",
+    "nfl": "/v3/nfl/scores/json/ScoresByDate/{date}",
     "mlb": "/v3/mlb/scores/json/GamesByDate/{date}",
     "nhl": "/v3/nhl/scores/json/GamesByDate/{date}",
     "ncaaf": "/v3/cfb/scores/json/GamesByDate/{date}",
     "ncaab": "/v3/cbb/scores/json/GamesByDate/{date}",
-    "mls": "/v3/soccer/scores/json/GamesByDate/{date}",
+    "mls": "/v4/soccer/scores/json/GamesByDate/MLS/{date}",
 }
 
 def collect(key, leagues, date, outdir):
