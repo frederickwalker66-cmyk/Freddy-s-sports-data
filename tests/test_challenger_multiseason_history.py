@@ -158,6 +158,20 @@ class MultiSeasonLedgerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 assemble(root,root/"out.sqlite")
 
+    def test_active_workflows_exclude_sportsgameodds(self):
+        root=Path(".github/workflows")
+        self.assertFalse((root/"collect-sportsgameodds.yml").exists())
+        self.assertFalse((root/"crossfeed-research.yml").exists())
+        prospective=(root/"challenger-prospective-pregame.yml").read_text()
+        self.assertNotIn("source_sgo",prospective)
+        self.assertNotIn("sportsgameodds",prospective.lower())
+        self.assertNotIn("--sgo-jsonl",prospective)
+        backfill=(root/"challenger-historical-backfill.yml").read_text()
+        self.assertIn("consolidate-published-historical-results:",backfill)
+        self.assertIn("challenger_multiseason_history.py",backfill)
+        self.assertIn("retention-days: 90",backfill)
+        self.assertIn("needs: [offline-safety-tests, archived-public-scores]",backfill)
+
     def test_cli_outputs_database_and_report_without_training_artifacts(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
