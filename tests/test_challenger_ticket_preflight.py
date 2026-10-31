@@ -1,7 +1,12 @@
 """Fail-closed, fictional tests for Challenger slip preflight."""
 import unittest
+import json
+import io
+from contextlib import redirect_stdout
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from challenger_ticket_preflight import (
-    audit_slip, break_even_probability, grade_slip_results, summarize_research_stage,
+    audit_slip, break_even_probability, grade_slip_results, summarize_research_stage, main,
 )
 
 
@@ -164,6 +169,47 @@ class ChallengerTicketPreflightTests(unittest.TestCase):
         self.assertEqual(r["same_event_ids"], ["game-1"])
         self.assertNotIn("shared_event_exposure_requires_joint_model", r["blockers"])
         self.assertFalse(r["bet_ready"])
+
+    def test_verified_model_without_verified_checkout_has_no_ev(self):
+        r = audit_slip([leg(model_probability=0.7,
+                            model_probability_verified=True,
+                            dk_quote_verified=False)])
+        self.assertIsNone(r["legs"][0]["model_ev_per_unit_if_verified"])
+        self.assertIn("model_ev_blocked_by_unverified_quote", r["blockers"])
+
+    def test_nonboolean_prop_indicator_fails_closed(self):
+        r = audit_slip([leg(is_player_prop="false")])
+        self.assertIn("player_prop_identity_uncertain", r["blockers"])
+        staged = {
+            "event_id": "g1", "market_type": "moneyline",
+            "selection": "Home", "odds_american": -110,
+            "is_player_prop": 0, "certified_prediction": False,
+            "model_probability": None,
+        }
+        with self.assertRaises(ValueError):
+            summarize_research_stage([staged], self._validation(1))
+
+    def test_cli_emits_research_diagnostic_artifact(self):
+        with TemporaryDirectory() as temp:
+            folder = Path(temp)
+            staged = folder / "research_only.jsonl"
+            audit = folder / "report.json"
+            report = folder / "ticket_preflight_report.json"
+            staged.write_text(json.dumps({
+                "event_id": "game-1", "market_type": "moneyline",
+                "selection": "Home", "odds_american": -110,
+                "is_player_prop": False, "certified_prediction": False,
+                "model_probability": None,
+            }) + "\\n", encoding="utf-8")
+            audit.write_text(json.dumps(self._validation(1)), encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                result = main(["--staged", str(staged), "--validation",
+                               str(audit), "--output", str(report)])
+            self.assertEqual(result, 0)
+            saved = json.loads(report.read_text(encoding="utf-8"))
+            self.assertEqual(saved["decision"], "PASS_NO_VERIFIED_EDGE")
+            self.assertEqual(saved["bet_ready_selections"], 0)
+            self.assertFalse(saved["champion_001_modified"])
 
     def test_invalid_probabilities_rejected(self):
         for p in (-0.1, 1.01, float("nan"), True):
