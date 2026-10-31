@@ -42,7 +42,10 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   prospective-source-capture:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    # Code-push and PR events validate code only; they must not reload older
+    # odds archives and publish a stale snapshot as if it were a live refresh.
+    # Successful collector workflow_run uses its exact run ID for the artifact.
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     needs: safety-tests
     runs-on: ubuntu-latest
     timeout-minutes: 18
