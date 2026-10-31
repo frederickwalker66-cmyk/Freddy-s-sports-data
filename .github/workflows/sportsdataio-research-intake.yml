@@ -34,6 +34,17 @@ jobs:
       - name: Collect ${{ matrix.league }} source evidence (research only)
         if: github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league)
         run: python sportsdataio_collector.py --leagues "${{ matrix.league }}" --output-dir sportsdataio_evidence
+      - name: Validate quarantined Challenger research evidence
+        if: success()
+        run: python challenger_sportsdataio_validation.py --input-dir sportsdataio_evidence --output-dir sportsdataio_validation
+      - name: Archive separate validation report
+        if: always() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
+        uses: actions/upload-artifact@v4
+        with:
+          name: sportsdataio-validation-${{ matrix.league }}-${{ github.run_id }}
+          path: sportsdataio_validation/
+          retention-days: 90
+          if-no-files-found: ignore
       - name: Archive separate league result and error report
         if: always() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
         uses: actions/upload-artifact@v4
