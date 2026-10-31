@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from historical_outcomes import collect, parse_time
 from independent_schedule_review import SOURCES, ingest_schedule
+from challenger_schedule_crosswalk import MAX_START_DISAGREEMENT_SECONDS
 
 LEAGUES = tuple(SOURCES)
 MAX_HISTORY_DAYS = 35
@@ -113,6 +114,20 @@ def name_key(value):
     if not isinstance(value, str):
         return ""
     return " ".join(re.findall(r"[a-z0-9]+", value.lower()))
+
+
+# Explicit NBA display-name equivalents only. Never infer a team from a nickname,
+# fuzzy similarity, partial text, or a provider event identifier.
+NBA_FULL_TEAM_NAME_ALIASES = {
+    "los angeles clippers": "la clippers",
+    "l a clippers": "la clippers",
+    "ny knicks": "new york knicks",
+    "golden st warriors": "golden state warriors",
+}
+
+def identity_key(value, league):
+    key = name_key(value)
+    return NBA_FULL_TEAM_NAME_ALIASES.get(key, key) if league == "nba" else key
 
 
 def read_jsonl(path):
@@ -276,18 +291,66 @@ def build(snapshot, history, odds, official, now, coverage=None):
         keys.add(key)
         events.append((entry, start, home, away))
 
-    # A provider quote must resolve to exactly one independent schedule event.
+    # Match only unique independent schedule identities within the same strict
+    # 60-second clock gate as the historical crosswalk. A near-time mismatch is
+    # diagnostic evidence, NOT permission to accept a different event ID.
     matched_quotes = defaultdict(list)
+    unmatched_reasons = Counter()
+    mismatch_examples = []
+    # Never attach one provider's event identifier to different team pairings
+    # or start times, even when each individual quote could match a schedule.
+    identity_sets = defaultdict(set)
+    for q, (qstart, _, _) in valid_quotes:
+        league = q.get("league")
+        provider_key = (q.get("source"), str(q.get("event_id")))
+        identity_sets[provider_key].add((
+            league, identity_key(q.get("home_team"), league),
+            identity_key(q.get("away_team"), league), qstart))
+    conflicted_provider_ids = {key for key, identities in identity_sets.items()
+                               if len(identities) != 1}
     for q, (qstart, quoted, received) in valid_quotes:
-        matches = [entry for entry, start, h, a in events
-                   if q.get("league") == entry["league"]
-                   and name_key(q.get("home_team")) == h
-                   and name_key(q.get("away_team")) == a
-                   and abs((qstart - start).total_seconds()) <= 600]
+        league = q.get("league")
+        if (q.get("source"), str(q.get("event_id"))) in conflicted_provider_ids:
+            dropped["conflicting_provider_event_identity"] += 1
+            unmatched_reasons["conflicting_provider_event_identity"] += 1
+            continue
+        qhome = identity_key(q.get("home_team"), league)
+        qaway = identity_key(q.get("away_team"), league)
+        same_league = [(entry, start, h, a) for entry, start, h, a in events
+                       if entry["league"] == league]
+        same_pair = [(entry, start) for entry, start, h, a in same_league
+                     if identity_key(h, league) == qhome
+                     and identity_key(a, league) == qaway
+                     and qhome and qaway and qhome != qaway]
+        matches = [(entry, start) for entry, start in same_pair
+                   if abs((qstart - start).total_seconds()) <=
+                   MAX_START_DISAGREEMENT_SECONDS]
         if len(matches) != 1:
             dropped["event_not_uniquely_matched"] += 1
+            if not same_league:
+                reason = "no_future_espn_league_schedule"
+            elif len(matches) > 1:
+                reason = "ambiguous_espn_schedule_identity"
+            elif same_pair:
+                reason = "provider_and_espn_start_disagree"
+            elif any(identity_key(h, league) == qaway
+                     and identity_key(a, league) == qhome
+                     for _, _, h, a in same_league):
+                reason = "home_away_reversed"
+            else:
+                reason = "team_pair_absent_from_future_espn_schedule"
+            unmatched_reasons[reason] += 1
+            if reason == "provider_and_espn_start_disagree" and len(mismatch_examples) < 10:
+                mismatch_examples.append({
+                    "league": league,
+                    "provider_event_id": str(q.get("event_id")),
+                    "provider_start_utc": qstart.isoformat(),
+                    "espn_starts_utc": [start.isoformat() for _, start in same_pair[:3]],
+                    "research_only": True,
+                    "promoted_to_match": False,
+                })
             continue
-        matched = matches[0]
+        matched = matches[0][0]
         matched_quotes[(matched["league"], str(matched["provider_game_id"]))].append({
             "odds_provider": q["source"], "odds_provider_event_id": q["event_id"],
             "market_type": q["market_type"], "selection": q["selection"],
@@ -353,6 +416,10 @@ def build(snapshot, history, odds, official, now, coverage=None):
         } for l in LEAGUES},
         "quote_rows_received": len(odds), "quote_rows_valid_asof_scan": len(valid_quotes),
         "quotes_rejected_or_unlinked": dict(sorted(dropped.items())),
+        "event_match_rejections_by_cause": dict(sorted(unmatched_reasons.items())),
+        "event_match_research_only_time_mismatches": mismatch_examples,
+        "event_match_max_clock_difference_seconds": MAX_START_DISAGREEMENT_SECONDS,
+        "event_match_autogenerated_or_guessed_ids": 0,
         "official_source_report_supplied": bool(official),
         "history_coverage": coverage,
         "verified_historical_training_examples": 0,
