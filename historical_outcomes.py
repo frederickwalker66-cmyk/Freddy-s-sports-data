@@ -95,6 +95,11 @@ def normalize_game(game,league,source_url,now):
         "home_team":home["name"],"home_team_espn_id":home["id"],"home_score":home["score"],
         "away_team":away["name"],"away_team_espn_id":away["id"],"away_score":away["score"],
         "result":"home" if home["score"]>away["score"] else "away" if home["score"]<away["score"] else "draw",
+        # ESPN's displayed final score does NOT establish sportsbook settlement.
+        # Soccer knockout displays may include extra time, not standard 90 minutes.
+        "published_score_research_only":True,
+        "regulation_90_min_result_verified":False,
+        "bookmaker_market_settlement_verified":False,
         "official_league_result_verified":False,
         "provider_event_id_crosswalk_verified":False,
         "champion_001_modified":False,
@@ -141,9 +146,11 @@ def collect(leagues,days,end_date,fetcher=fetch_json,clock=None,pause_seconds=0.
         "leagues":list(leagues),"daily_requests_maximum":len(leagues)*days,
         "by_league":stats,"total_completed_results":len(rows),
         "independently_officially_adjudicated_results":0,
-        "certified_champion_001_predictions":0,"bet_ready_selections":0,
+        "certified_champion_001_predictions":0,"certified_challenger_001_predictions":0,
+        "bet_ready_selections":0,"automated_bets_placed":0,
+        "sportsgameodds_api_requests":0,
         "champion_001_modified":False,
-        "warning":"Historical games may be partial on failed days; results are not training-ready until coverage and identity are audited."
+        "warning":"These are ESPN-published score records, not complete league history, independent adjudication, historical pregame features, or bookmaker settlement. Soccer draw and extra-time definitions remain unverified. Failed/missing days are explicitly incomplete."
     }
     return rows,summary
 

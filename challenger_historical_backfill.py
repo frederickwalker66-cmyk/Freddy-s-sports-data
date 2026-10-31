@@ -1,9 +1,10 @@
-"""Bounded historical backfill for research, not model training or betting.
+"""Eight-league bounded historical game-result backfill for research only.
 
-Runs one 35-day, league-specific completed-score window with no sportsbook
-API calls or credentials. Saved scores and lagged-form features remain
-quarantined: neither published scoreboard results nor 48-hour assumptions
-prove historical pregame feature availability.
+Reads ESPN-published final scores for one <=35-day historical window per league.
+Soccer goals/draws require independently established 90-minute vs extra-time
+rules; binary moneyline research MUST NOT absorb MLS or UCL three-way results.
+No SportsGameOdds, no sportsbook API, no training or wagering. Never claim
+an older season is covered until source requests and game identity pass.
 """
 import argparse
 from datetime import date, datetime, timedelta, timezone
@@ -15,8 +16,10 @@ from historical_outcomes import LEAGUES, collect
 from challenger_research_features import build_candidates
 from challenger_elo_walkforward import evaluate
 
-# Distinct historical in-season periods, all in the past as of 2026-10-29.
-# Small per-league windows permit parallel, resource-bounded GitHub jobs.
+# Representative historical in-season windows. Not complete seasons.
+# 35-day requests deliberately avoid unlimited backfills and rate-limit storms.
+# Use --end-date (or GitHub Actions input) to choose earlier windows, including
+# older seasons, only where published source coverage can be verified.
 WINDOW_END = {
     "nba": date(2026, 2, 15),
     "nhl": date(2026, 2, 15),
@@ -24,6 +27,8 @@ WINDOW_END = {
     "nfl": date(2025, 11, 10),
     "ncaaf": date(2025, 11, 10),
     "ncaab": date(2026, 2, 15),
+    "mls": date(2026, 8, 15),
+    "uefa_champions_league": date(2026, 3, 18),
 }
 MAX_DAYS = 35
 
@@ -31,7 +36,7 @@ MAX_DAYS = 35
 def plan(league, days=MAX_DAYS, end_date=None, now=None):
     league = league.lower()
     if league not in WINDOW_END or league not in LEAGUES:
-        raise ValueError("only six binary-moneyline leagues are supported")
+        raise ValueError("only the eight configured competition feeds are supported")
     if type(days) is not int or not 1 <= days <= MAX_DAYS:
         raise ValueError("request budget: 1-35 days per league")
     end = end_date or WINDOW_END[league]
@@ -41,10 +46,15 @@ def plan(league, days=MAX_DAYS, end_date=None, now=None):
         ZoneInfo("America/New_York")).date()
     if end >= today:
         raise ValueError("backfill ends only on dates before today")
+    if end - timedelta(days=days - 1) < date(1950, 1, 1):
+        raise ValueError("historical collection windows may not begin before 1950")
     return {"league": league, "start_et": (end - timedelta(days=days - 1)).isoformat(),
             "end_et": end.isoformat(), "days": days,
             "maximum_public_scoreboard_requests": days,
-            "sportsbook_api_requests": 0}
+            "sportsbook_api_requests": 0,
+            "results_only": True,
+            "soccer_three_way_regulation_verified": False,
+            "sportsgameodds_requests": 0}
 
 
 def build_report(league, days, end_date, rows, collection, candidates, research):
@@ -62,6 +72,15 @@ def build_report(league, days, end_date, rows, collection, candidates, research)
     if any(x["qualified_for_challenger_backtest"] is not False
            or x["bet_ready"] is not False for x in candidates):
         raise ValueError("unverified feature was incorrectly promoted")
+    # Soccer published score results do not independently establish the 90-min
+    # three-way settlement result, particularly for UCL knockout extra time.
+    if league in ("mls", "uefa_champions_league") and candidates:
+        raise ValueError("soccer published results cannot become binary moneyline candidates")
+    draws = sum(x["result"] == "draw" for x in rows)
+    if league in ("mls", "uefa_champions_league"):
+        outcome_class = "published_soccer_score_three_way_unverified_90min"
+    else:
+        outcome_class = "published_score_binary_moneyline_unverified_settlement"
     return {
         "stage": "challenger_historical_backfill_research_only",
         "league": league, "days_requested": days,
@@ -73,8 +92,17 @@ def build_report(league, days, end_date, rows, collection, candidates, research)
         "scoreboard_days_failed": details["days_failed"],
         "coverage_complete": details["days_failed"] == 0,
         "published_completed_game_results": len(rows),
+        "published_score_home_results": sum(x["result"] == "home" for x in rows),
+        "published_score_away_results": sum(x["result"] == "away" for x in rows),
+        "published_score_draw_results": draws,
+        "result_scope": outcome_class,
+        "soccer_90_minute_result_verified": False,
+        "bookmaker_market_settlement_verified": False,
+        "independently_confirmed_historical_period_coverage": False,
         "quarantined_research_candidates": len(candidates),
         "qualified_training_examples": 0,
+        "officially_adjudicated_results": 0,
+        "sportsgameodds_requests": 0,
         "independent_result_adjudication_verified": False,
         "historical_pregame_feature_timestamps_verified": False,
         "historical_odds_snapshots_verified": False,
@@ -82,7 +110,7 @@ def build_report(league, days, end_date, rows, collection, candidates, research)
         "certified_challenger_001_predictions": 0,
         "bet_ready_selections": 0, "automated_bets_placed": 0,
         "champion_001_modified": False,
-        "warning": "Published results and retrospective form are NOT independently verified training rows. Missing days invalidate completeness. No production model, betting or Champion-001 changes.",
+        "warning": "These are ESPN-published historical score observations, not official adjudication, historical pregame features, player props, NBA/NHL overtime settlement, or soccer 90-minute markets. Missing source days and older seasons remain incomplete. Nothing is training-ready or bet-ready.",
     }
 
 

@@ -1,6 +1,16 @@
-name: Challenger-001 capped six-league historical backfill (research only)
+name: Challenger-001 capped eight-league historical results (research only)
 on:
   workflow_dispatch:
+    inputs:
+      end_date:
+        description: "Optional historical window end date YYYY-MM-DD; blank uses each league's in-season default"
+        required: false
+        type: string
+      days:
+        description: "Historical calendar days per league (1-35)"
+        required: false
+        default: "35"
+        type: string
   push:
     branches: [main]
     paths:
@@ -12,6 +22,9 @@ on:
       - 'challenger_historical_backfill.py'
       - 'tests/test_challenger_historical_backfill.py'
       - '.github/workflows/challenger-historical-backfill.yml'
+concurrency:
+  group: challenger-eight-league-historical-results
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -34,25 +47,47 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        league: [nba, nhl, mlb, nfl, ncaaf, ncaab]
+        league: [nba, nhl, mlb, nfl, ncaaf, ncaab, mls, uefa_champions_league]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Check maximum 35 historical scoreboard calls and zero sportsbook API calls
-        run: python challenger_historical_backfill.py --league "${{ matrix.league }}" --dry-run
+      - name: Check capped historical window and zero sportsbook API calls
+        shell: bash
+        env:
+          HISTORY_DAYS: ${{ inputs.days || '35' }}
+          HISTORY_END_DATE: ${{ inputs.end_date || '' }}
+        run: |
+          set -euo pipefail
+          args=(--league "${{ matrix.league }}" --days "$HISTORY_DAYS")
+          if [[ -n "$HISTORY_END_DATE" ]]; then args+=(--end-date "$HISTORY_END_DATE"); fi
+          python challenger_historical_backfill.py "${args[@]}" --dry-run
       - name: Collect historical scores and quarantine candidate features
-        run: python challenger_historical_backfill.py --league "${{ matrix.league }}" --days 35 --output-dir "challenger_backfill"
+        shell: bash
+        env:
+          HISTORY_DAYS: ${{ inputs.days || '35' }}
+          HISTORY_END_DATE: ${{ inputs.end_date || '' }}
+        run: |
+          set -euo pipefail
+          args=(--league "${{ matrix.league }}" --days "$HISTORY_DAYS" --output-dir challenger_backfill)
+          if [[ -n "$HISTORY_END_DATE" ]]; then args+=(--end-date "$HISTORY_END_DATE"); fi
+          python challenger_historical_backfill.py "${args[@]}"
       - name: Reject any qualified-training or betting promotion
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           result=json.loads(Path("challenger_backfill/backfill_coverage.json").read_text())
-          assert result["days_requested"] == 35
-          assert result["public_scoreboard_requests_maximum"] == 35
-          assert result["sportsbook_api_requests"] == 0
+          assert 1 <= result["days_requested"] <= 35
+          assert result["public_scoreboard_requests_maximum"] == result["days_requested"]
+          assert result["sportsbook_api_requests"] == result["sportsgameodds_requests"] == 0
+          assert result["qualified_training_examples"] == result["officially_adjudicated_results"] == 0
+          assert result["bookmaker_market_settlement_verified"] is False
+          assert result["soccer_90_minute_result_verified"] is False
+          if result["league"] in ("mls", "uefa_champions_league"):
+              assert result["quarantined_research_candidates"] == 0
+              assert result["result_scope"] == "published_soccer_score_three_way_unverified_90min"
           assert result["scoreboard_days_successful"] > 0
           assert result["qualified_training_examples"] == 0
           assert result["certified_champion_001_predictions"] == 0
