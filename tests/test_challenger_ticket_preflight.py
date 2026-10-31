@@ -200,7 +200,7 @@ class ChallengerTicketPreflightTests(unittest.TestCase):
                 "selection": "Home", "odds_american": -110,
                 "is_player_prop": False, "certified_prediction": False,
                 "model_probability": None,
-            }) + "\\n", encoding="utf-8")
+            }) + chr(10), encoding="utf-8")
             audit.write_text(json.dumps(self._validation(1)), encoding="utf-8")
             with redirect_stdout(io.StringIO()):
                 result = main(["--staged", str(staged), "--validation",
