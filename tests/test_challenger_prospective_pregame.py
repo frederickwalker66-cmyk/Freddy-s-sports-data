@@ -187,6 +187,22 @@ class ProspectiveTests(unittest.TestCase):
         self.assertEqual(report["event_match_rejections_by_cause"],
                          {"no_future_espn_league_schedule": 1})
 
+    def test_provider_event_id_cannot_identify_two_games(self):
+        s = schedule()
+        second = dict(s["events"][0], provider_game_id="401002",
+                      home_team="Boston Celtics", away_team="Brooklyn Nets")
+        s["events"].append(second)
+        a = odds()
+        b = odds()
+        b["home_team"] = "Boston Celtics"
+        b["away_team"] = "Brooklyn Nets"
+        # Same provider event ID reused for two distinct, otherwise valid games.
+        rows, report = build(s, [], [a, b], None, NOW)
+        self.assertEqual(sum(len(x["odds_observations"]) for x in rows), 0)
+        self.assertEqual(report["event_match_rejections_by_cause"],
+                         {"conflicting_provider_event_identity": 2})
+        self.assertEqual(report["bet_ready_selections"], 0)
+
     def test_reversed_home_away_cannot_match(self):
         a = odds()
         a["home_team"] = "Cleveland Cavaliers"
