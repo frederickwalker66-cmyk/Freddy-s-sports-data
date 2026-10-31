@@ -10,20 +10,24 @@ on:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
+      - 'challenger_nba_history_intake.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - 'tests/test_challenger_multisport_evidence_bridge.py'
+      - 'tests/test_challenger_nba_history_intake.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
   pull_request:
     paths:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
+      - 'challenger_nba_history_intake.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - 'tests/test_challenger_multisport_evidence_bridge.py'
+      - 'tests/test_challenger_nba_history_intake.py'
       - '.github/workflows/challenger-prospective-outcome-validation.yml'
 permissions:
   contents: read
@@ -161,6 +165,34 @@ jobs:
               assert item["eligible_to_train_probability_model"] is False
               assert item["model_probability"] is None
               assert item["bet_ready"] is False
+          PY
+      - name: Stage NBA historical review candidates WITHOUT qualifying or training
+        run: |
+          set -euo pipefail
+          python challenger_nba_history_intake.py \
+            --review-queue prospective_validation/all_sports_evidence_review_queue.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('prospective_validation')
+          report = json.loads((root/'nba_history_intake_report.json').read_text())
+          assert report['independently_verified_training_records'] == 0
+          assert report['qualified_for_challenger_backtest'] == 0
+          assert report['trained_models_created'] == 0
+          assert report['certified_champion_001_predictions'] == report['certified_challenger_001_predictions'] == 0
+          assert report['bet_ready_selections'] == report['automated_bets_placed'] == 0
+          assert report['champion_001_modified'] is False
+          assert not (root/'historical_results.jsonl').exists()
+          for line in (root/'nba_history_review_candidates.jsonl').read_text().splitlines():
+              if not line.strip(): continue
+              row=json.loads(line)
+              assert row['qualified_for_challenger_backtest'] is False
+              assert row['eligible_to_train_probability_model'] is False
+              assert row['independent_asof_review'] is False
+              assert row['independent_outcome_review'] is False
+              assert row['model_probability'] is None
+              assert row['bet_ready'] is False
           PY
       - name: Score only existing fixed-rule $0 research forecasts against published finals
         run: |
