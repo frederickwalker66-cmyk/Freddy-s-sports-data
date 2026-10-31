@@ -70,7 +70,9 @@ def parse_summary(data, event_id, fetched_at):
             raise ValueError("player statistics missing")
         found_ids=set()
         for cat in stats:
-            labels=cat.get("labels")
+            # ESPN alternates 'names' and 'labels' for the same stat-vector
+            # positions. Prefer names (machine stat codes) where present.
+            labels=cat.get("names") or cat.get("labels")
             athletes=cat.get("athletes")
             if not isinstance(labels,list) or not isinstance(athletes,list):
                 raise ValueError("malformed player stats")
@@ -82,9 +84,9 @@ def parse_summary(data, event_id, fetched_at):
                 found_ids.add(pid)
                 dnp=a.get("didNotPlay") is True
                 values=a.get("stats")
-                if not isinstance(values,list) or len(values)!=len(labels):
+                if not isinstance(values,list) or (len(values)!=len(labels) and not (dnp and len(values)==0)):
                     raise ValueError("partial player boxscore")
-                cells=dict(zip(labels,values))
+                cells=dict(zip(labels,values)) if values else {}
                 mins=_minutes(cells.get("MIN"))
                 if not dnp and mins is None:
                     raise ValueError("player missing trustworthy minutes")
@@ -152,7 +154,26 @@ def collect(database, limit=MAX_GAMES, fetcher=fetch_summary, now=None):
                     json.dumps(raw,sort_keys=True,allow_nan=False).encode("utf-8")).hexdigest()
             results.extend(rows)
         except (ValueError, KeyError, TypeError, OSError, TimeoutError) as exc:
-            failures.append({"event_id":str(event_id),"reason":type(exc).__name__})
+            detail = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+            # Only fixed error classes and parser-owned static diagnostics,
+            # no URLs, request headers, source JSON, credentials or player data.
+            if not isinstance(exc, ValueError) or detail not in {
+                "missing NBA summary object", "ambiguous competition header",
+                "ESPN event ID not matching request",
+                "NBA game not officially marked completed on ESPN",
+                "incomplete matchup", "invalid team ID",
+                "missing both teams' player boxscore",
+                "boxscore team inconsistent with game",
+                "player statistics missing", "malformed player stats",
+                "ambiguous player identity", "partial player boxscore",
+                "player missing trustworthy minutes",
+                "DNP contradicts positive minutes",
+                "key numeric NBA statistics unavailable",
+                "no player rows for team", "summary exceeds permitted size",
+            }:
+                detail = type(exc).__name__
+            failures.append({"event_id":str(event_id),
+                             "reason":type(exc).__name__, "category":detail})
     report={
         "stage":"nba_historical_boxscore_research_only",
         "game_requests_attempted":len(archived),
