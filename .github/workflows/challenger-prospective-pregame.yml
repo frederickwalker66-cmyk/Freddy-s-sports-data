@@ -1,6 +1,10 @@
 name: Challenger-001 prospective eight-league pregame evidence capture
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Collect SharpAPI DraftKings pregame odds"]
+    types: [completed]
+    branches: [main]
   schedule:
     # 13:15 and 20:15 UTC, before many scheduled US games; GitHub may delay jobs.
     - cron: '15 13,20 * * *'
@@ -38,7 +42,7 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   prospective-source-capture:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     needs: safety-tests
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -50,6 +54,7 @@ jobs:
       - name: Reuse existing quarantined odds and official-source archives
         env:
           GH_TOKEN: ${{ github.token }}
+          TRIGGERED_SHARPAPI_RUN_ID: ${{ github.event.workflow_run.id || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -59,7 +64,12 @@ jobs:
               sharpapi) workflow="collect-sharpapi.yml"; prefix="sharpapi-pregame"; destination="source_sharp";;
               official) workflow="refresh-nba-mlb-evidence.yml"; prefix="official-nba-mlb"; destination="source_official";;
             esac
-            rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId' || true)"
+            if [[ "$source" == "sharpapi" && -n "$TRIGGERED_SHARPAPI_RUN_ID" ]]; then
+              rid="$TRIGGERED_SHARPAPI_RUN_ID"
+              echo "Using exact successful SharpAPI trigger run id $rid"
+            else
+              rid="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId' || true)"
+            fi
             if [[ -n "$rid" && "$rid" != "null" ]] &&
                 gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "$prefix-$rid" --dir "$destination"; then
               echo "$source archive retrieved from run $rid (not proof of quote freshness)"

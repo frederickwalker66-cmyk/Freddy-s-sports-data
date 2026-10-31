@@ -16,8 +16,13 @@ on:
     paths:
       - 'challenger_historical_backfill.py'
       - 'challenger_multiseason_history.py'
+      - 'challenger_nba_player_boxes.py'
+      - 'challenger_oos_calibration.py'
+      - 'challenger_artifact_manifest.py'
+      - 'champion_001_authentication.py'
       - 'tests/test_challenger_historical_backfill.py'
       - 'tests/test_challenger_multiseason_history.py'
+      - 'tests/test_six_stage_validation.py'
       - '.github/workflows/challenger-historical-backfill.yml'
   pull_request:
     paths:
@@ -184,10 +189,88 @@ jobs:
           print("Unique archived published results:", n)
           print("Nontrainable multi-season coverage:", len(report["by_league_season"]))
           PY
+      - name: Stage 2 Champion artifact inventory (no model execution)
+        run: |
+          python champion_001_authentication.py --output challenger_multiseason/champion_authentication.json
+          python - <<'PY'
+          import json
+          r=json.load(open('challenger_multiseason/champion_authentication.json'))
+          assert r['original_executable_verified'] is False
+          assert r['champion_001_modified'] is False
+          PY
+      - name: Stage 5 calibrate only independently qualified evidence (fail closed)
+        run: |
+          touch challenger_multiseason/independently_qualified_holdout.jsonl
+          python challenger_oos_calibration.py \
+            --evidence challenger_multiseason/independently_qualified_holdout.jsonl \
+            --output challenger_multiseason/oos_calibration_report.json
+          python - <<'PY'
+          import json
+          r=json.load(open('challenger_multiseason/oos_calibration_report.json'))
+          assert r['qualified_groups_with_50plus'] == r['certified_groups'] == 0
+          assert r['champion_001_modified'] is False
+          PY
+      - name: Stage 6 record archive SHA256 fingerprints (not external signature or durable store)
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          python challenger_artifact_manifest.py \
+            --files challenger_multiseason/historical_published_scores.sqlite \
+                    challenger_multiseason/history_coverage.json \
+                    challenger_multiseason/oos_calibration_report.json \
+                    challenger_multiseason/champion_authentication.json \
+            --run-id "$GITHUB_RUN_ID" --commit "$SOURCE_COMMIT" \
+            --output challenger_multiseason/artifact_integrity_manifest.json
       - name: Archive SQLite and coverage report (temporary, not permanent storage)
         uses: actions/upload-artifact@v4
         with:
           name: challenger-multiseason-research-${{ github.run_id }}
           path: challenger_multiseason/
+          retention-days: 90
+          if-no-files-found: error
+
+  nba-player-boxscore-research:
+    if: github.event_name != 'pull_request'
+    needs: [consolidate-published-historical-results]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download this run's archived research-only SQLite
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "challenger-multiseason-research-$GITHUB_RUN_ID" \
+            --dir historical_ledger
+      - name: Stage 4 fetch up to five actual NBA historical ESPN player boxscores
+        run: |
+          python challenger_nba_player_boxes.py \
+            --history-db historical_ledger/historical_published_scores.sqlite \
+            --limit 5 --output-dir player_boxscore_research
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("player_boxscore_research/nba_player_boxscore_report.json").read_text())
+          assert r["game_requests_attempted"] <= 5
+          assert r["qualified_player_prop_training_rows"] == 0
+          assert r["qualified_game_winner_training_rows"] == 0
+          assert r["champion_001_modified"] is False
+          for line in Path("player_boxscore_research/nba_player_boxes_research.jsonl").read_text().splitlines():
+              if not line.strip(): continue
+              row=json.loads(line)
+              assert row["qualified_for_player_prop_training"] is False
+              assert row["qualified_for_game_winner_training"] is False
+          PY
+      - name: Store bounded boxscore and participation research
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-nba-player-boxscore-research-${{ github.run_id }}
+          path: player_boxscore_research/
           retention-days: 90
           if-no-files-found: error
