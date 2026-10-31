@@ -1,19 +1,12 @@
 name: Collect SharpAPI DraftKings pregame odds
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/collect-sharpapi.yml'
-      - 'challenger_schedule_crosswalk.py'
-      - 'challenger_nba_schedule_clock.py'
-      - 'challenger_moneyline_market_baseline.py'
-      - 'challenger_gate_diagnostics.py'
-      - 'challenger_audit.py'
-      - 'daily_research_audit.py'
-      - 'tests/**'
   schedule:
     - cron: '0 16,20,23 * * *'  # UTC; times shift with Eastern daylight saving
+# Prevent overlapping live API collection; code pushes are covered by offline CI.
+concurrency:
+  group: sharpapi-odds-api
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -61,6 +54,20 @@ jobs:
           assert report["roster_refresh_automated"] is False
           assert report["independently_reviewed_game_day_status_entries"] == 0
           assert report["game_day_status_sync_automated"] is False
+          PY
+      - name: Verify SharpAPI research-stage quotes with fail-closed slip preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_ticket_preflight.py --staged validation_output/research_only.jsonl --validation validation_output/report.json --output validation_output/ticket_preflight_report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('validation_output/ticket_preflight_report.json').read_text())
+          assert r['decision'] == 'PASS_NO_VERIFIED_EDGE'
+          assert r['champion_001_modified'] is False
+          assert r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['certified_champion_001_predictions'] == r['certified_challenger_001_predictions'] == 0
           PY
       - name: Corroborate quarantined NBA time differences with NBA official CDN
         run: |
