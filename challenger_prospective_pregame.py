@@ -297,8 +297,23 @@ def build(snapshot, history, odds, official, now, coverage=None):
     matched_quotes = defaultdict(list)
     unmatched_reasons = Counter()
     mismatch_examples = []
+    # Never attach one provider's event identifier to different team pairings
+    # or start times, even when each individual quote could match a schedule.
+    identity_sets = defaultdict(set)
+    for q, (qstart, _, _) in valid_quotes:
+        league = q.get("league")
+        provider_key = (q.get("source"), str(q.get("event_id")))
+        identity_sets[provider_key].add((
+            league, identity_key(q.get("home_team"), league),
+            identity_key(q.get("away_team"), league), qstart))
+    conflicted_provider_ids = {key for key, identities in identity_sets.items()
+                               if len(identities) != 1}
     for q, (qstart, quoted, received) in valid_quotes:
         league = q.get("league")
+        if (q.get("source"), str(q.get("event_id"))) in conflicted_provider_ids:
+            dropped["conflicting_provider_event_identity"] += 1
+            unmatched_reasons["conflicting_provider_event_identity"] += 1
+            continue
         qhome = identity_key(q.get("home_team"), league)
         qaway = identity_key(q.get("away_team"), league)
         same_league = [(entry, start, h, a) for entry, start, h, a in events
