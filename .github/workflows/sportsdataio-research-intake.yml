@@ -11,7 +11,6 @@ concurrency:
 jobs:
   intake:
     # Only NBA runs automatically until other subscriptions are verified.
-    if: github.event_name == 'workflow_dispatch' || matrix.league == 'nba'
     strategy:
       fail-fast: false
       matrix:
@@ -33,9 +32,10 @@ jobs:
             exit 1
           fi
       - name: Collect ${{ matrix.league }} source evidence (research only)
+        if: github.event_name == 'workflow_dispatch' || matrix.league == 'nba'
         run: python sportsdataio_collector.py --leagues "${{ matrix.league }}" --output-dir sportsdataio_evidence
       - name: Archive separate league result and error report
-        if: always()
+        if: always() && (github.event_name == 'workflow_dispatch' || matrix.league == 'nba')
         uses: actions/upload-artifact@v4
         with:
           name: sportsdataio-${{ matrix.league }}-${{ github.run_id }}
