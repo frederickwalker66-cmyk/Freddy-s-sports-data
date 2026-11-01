@@ -11,11 +11,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   intake:
-    # Six confirmed accessible feeds run daily, including NFL; MLS remains manual-only pending authorization.
+    # Scheduled runs contain only six entitled leagues. Manual dispatch may
+    # test MLS and must report a genuine 401 or other provider failure, not a
+    # misleading green job whose collection steps were skipped.
     strategy:
       fail-fast: false
       matrix:
-        league: [nba, nfl, mlb, nhl, ncaaf, ncaab, mls]
+        league: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["nba","nfl","mlb","nhl","ncaaf","ncaab","mls"]' || '["nba","nfl","mlb","nhl","ncaaf","ncaab"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
@@ -33,13 +35,12 @@ jobs:
             exit 1
           fi
       - name: Collect ${{ matrix.league }} source evidence (research only)
-        if: github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league)
         run: python sportsdataio_collector.py --leagues "${{ matrix.league }}" --output-dir sportsdataio_evidence
       - name: Validate quarantined Challenger research evidence
-        if: success() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
+        if: success()
         run: python challenger_sportsdataio_validation.py --input-dir sportsdataio_evidence --output-dir sportsdataio_validation
       - name: Archive separate validation report
-        if: always() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sportsdataio-validation-${{ matrix.league }}-${{ github.run_id }}
@@ -47,7 +48,7 @@ jobs:
           retention-days: 90
           if-no-files-found: ignore
       - name: Archive separate league result and error report
-        if: always() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sportsdataio-${{ matrix.league }}-${{ github.run_id }}
