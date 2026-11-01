@@ -58,7 +58,7 @@ class CdnFallbackTests(unittest.TestCase):
         data, selected, errors = load_official_payload(fake)
         self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL])
         self.assertEqual(selected, NBA_TODAY_SCOREBOARD_URL)
-        self.assertEqual(errors[NBA_SCHEDULE_URL], "HTTPError")
+        self.assertEqual(errors[NBA_SCHEDULE_URL], "HTTP_403")
         report = compare_clocks(unaccepted(), data, NOW, source_url=selected,
                                 source_errors=errors)
         self.assertEqual(report["classification_counts"],
