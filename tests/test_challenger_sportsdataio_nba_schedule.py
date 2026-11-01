@@ -101,6 +101,21 @@ class SportsDataIOAdapterTests(unittest.TestCase):
         self.assertIn("independently_verified_sportsbook_prices", workflow)
         self.assertNotIn("echo \"$SPORTSDATAIO_API_KEY\"", workflow)
 
+    def test_scheduled_mls_job_cannot_show_false_success(self):
+        from pathlib import Path
+        yaml = (Path(__file__).resolve().parents[1] /
+                ".github/workflows/sportsdataio-research-intake.yml").read_text()
+        # Scheduled workflow has six source-backed jobs; manually dispatched
+        # entitlement test may include MLS, and it MUST run the collector.
+        self.assertIn("github.event_name == 'workflow_dispatch'", yaml)
+        self.assertIn("'[\"nba\",\"nfl\",\"mlb\",\"nhl\",\"ncaaf\",\"ncaab\",\"mls\"]'", yaml)
+        self.assertIn("'[\"nba\",\"nfl\",\"mlb\",\"nhl\",\"ncaaf\",\"ncaab\"]'", yaml)
+        collector = yaml.split("- name: Collect ${{ matrix.league }} source evidence", 1)[1]
+        self.assertIn("run: python sportsdataio_collector.py", collector)
+        self.assertTrue(collector.index("run: python sportsdataio_collector.py") <
+                        collector.index("- name: Validate quarantined"))
+        self.assertNotIn("if: github.event_name == 'workflow_dispatch' || contains", yaml)
+
     def test_denial_does_not_disclose_secret(self):
         def fetch(day, key):
             raise HTTPError("https://example.com", 403, "denied", {}, None)
