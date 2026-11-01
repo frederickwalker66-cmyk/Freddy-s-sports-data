@@ -17,8 +17,11 @@ def verify(manifest, root):
         if not isinstance(name,str) or not name or not isinstance(digest,str) or len(digest)!=64 or any(c not in "0123456789abcdef" for c in digest):
             reason="invalid_manifest_entry"
         else:
-            candidate=(root/name).resolve()
-            if not candidate.is_relative_to(root.resolve()) or not candidate.is_file():
+            candidate=root/name
+            if (Path(name).is_absolute() or ".." in Path(name).parts
+                    or not candidate.resolve().is_relative_to(root.resolve())
+                    or any(part.is_symlink() for part in (candidate, *candidate.parents) if part != root and part != root.parent)
+                    or not candidate.is_file()):
                 reason="missing_or_unsafe_source_file"
             elif hashlib.sha256(candidate.read_bytes()).hexdigest()!=digest:
                 reason="source_digest_mismatch"
@@ -27,6 +30,8 @@ def verify(manifest, root):
             "failures":sum(not x["integrity_match"] for x in results),
             "results":results,"independently_authenticated_publication":False,
             "qualified_training_examples":0,"certified_predictions":0,
+            "manifest_independently_authenticated":False,
+            "hash_check_is_self_attestation_when_manifest_generated_same_run":True,
             "bet_ready_selections":0,"champion_001_modified":False,
             "note":"Hash agreement is file-integrity evidence only; no independent source authentication or training promotion."}
 
