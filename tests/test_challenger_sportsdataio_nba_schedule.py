@@ -56,6 +56,22 @@ class SportsDataIOAdapterTests(unittest.TestCase):
         self.assertTrue(report["cases"][0]["remains_quarantined"])
         self.assertNotIn("test-only", str(report))
 
+    def test_clock_corroboration_stays_quarantined(self):
+        def fetch(day, key):
+            return [{"GameID": 123, "HomeTeam": "ATL", "AwayTeam": "CLE",
+                     "DateTimeUTC": "2026-10-30T00:00:00Z"}]
+        report = corroborate(unaccepted(), "test-only", fetch)
+        self.assertEqual(report["classification_counts"],
+                         {"sportsdataio_clock_agrees_with_espn": 1})
+        self.assertEqual(report["cases"][0]["sportsdataio_game_id"], "123")
+        self.assertTrue(report["cases"][0]["remains_quarantined"])
+        self.assertEqual(report["bet_ready_selections"], 0)
+
+    def test_alias_same_franchise_rejected(self):
+        self.assertEqual(parsed_games([{
+            "GameID": 321, "HomeTeam": "NY", "AwayTeam": "NYK",
+            "DateTimeUTC": "2026-11-02T00:00:00Z"}]), [])
+
     def test_denial_does_not_disclose_secret(self):
         def fetch(day, key):
             raise HTTPError("https://example.com", 403, "denied", {}, None)
