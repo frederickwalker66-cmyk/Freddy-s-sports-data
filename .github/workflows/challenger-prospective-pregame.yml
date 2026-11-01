@@ -13,6 +13,8 @@ on:
     paths:
       - 'challenger_prospective_pregame.py'
       - 'challenger_prospective_receipts.py'
+      - 'challenger_nba_source_inventory.py'
+      - 'challenger_nba_source_integrity.py'
       - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
@@ -23,6 +25,8 @@ on:
     paths:
       - 'challenger_prospective_pregame.py'
       - 'challenger_prospective_receipts.py'
+      - 'challenger_nba_source_inventory.py'
+      - 'challenger_nba_source_integrity.py'
       - 'tests/test_challenger_prospective_pregame.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
@@ -108,6 +112,29 @@ jobs:
           assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
           assert r["champion_001_modified"] is False
           PY
+      - name: Inventory and verify actual archived prospective evidence bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_source_inventory.py \
+            --root prospective_pregame \
+            --manifest prospective_pregame_source_receipts.json \
+            --report challenger_results/prospective_source_inventory.json
+          python challenger_nba_source_integrity.py \
+            --root prospective_pregame \
+            --manifest prospective_pregame_source_receipts.json \
+            --output challenger_results/prospective_source_integrity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("challenger_results/prospective_source_integrity.json").read_text())
+          assert r["files_checked"] >= 2, "Missing actual archived prospective files"
+          assert r["failures"] == 0
+          assert r["integrity_matches"] == r["files_checked"]
+          assert r["independently_authenticated_publication"] is False
+          assert r["qualified_training_examples"] == 0
+          assert r["champion_001_modified"] is False
+          PY
       - name: Generate real pre-tipoff untrained $0 research shadow forecasts
         run: |
           python challenger_research_shadow_baseline.py \
@@ -163,6 +190,10 @@ jobs:
         if: always()
         with:
           name: challenger-prospective-evidence-${{ github.run_id }}
-          path: prospective_pregame/
+          path: |
+            prospective_pregame/
+            prospective_pregame_source_receipts.json
+            challenger_results/prospective_source_inventory.json
+            challenger_results/prospective_source_integrity.json
           retention-days: 90
           if-no-files-found: warn
