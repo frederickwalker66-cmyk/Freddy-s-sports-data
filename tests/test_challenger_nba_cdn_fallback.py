@@ -68,6 +68,32 @@ class CdnFallbackTests(unittest.TestCase):
         self.assertFalse(report["cases"][0]["automatically_accepted_as_schedule_match"])
         self.assertEqual(report["bet_ready_selections"], 0)
 
+    def test_transient_timeout_retries_once_without_approving_bets(self):
+        calls = []
+        def fake(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise TimeoutError("temporary")
+            return board()
+        data, selected, errors = load_official_payload(fake)
+        self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_SCHEDULE_URL])
+        self.assertEqual(selected, NBA_SCHEDULE_URL)
+        self.assertEqual(errors, {})
+        report = compare_clocks(unaccepted(), data, NOW)
+        self.assertEqual(report["bet_ready_selections"], 0)
+        self.assertEqual(report["near_time_mismatches_promoted"], 0)
+
+    def test_http_403_does_not_retry_denied_source(self):
+        calls = []
+        def fake(url):
+            calls.append(url)
+            raise HTTPError(url, 403, "Denied", {}, None)
+        data, selected, errors = load_official_payload(fake)
+        self.assertIsNone(data)
+        self.assertIsNone(selected)
+        self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL])
+        self.assertTrue(all(value == "HTTP_403" for value in errors.values()))
+
     def test_date_scoped_nba_stats_fallback_after_two_access_denials(self):
         date_et = "2026-10-29"
         third = stats_scoreboard_url(date_et)
