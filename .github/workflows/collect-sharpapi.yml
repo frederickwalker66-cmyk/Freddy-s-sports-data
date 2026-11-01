@@ -137,6 +137,19 @@ jobs:
           assert r["positive_ev_candidates_certified"] == r["bet_ready_selections"] == r["automated_bets_placed"] == 0
           assert r["champion_001_modified"] is False
           PY
+      - name: Archive chronological moneyline movement timing (research-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_line_movement_timing.py --odds snapshots/sharpapi_dk_*.jsonl --output-dir validation_output
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("validation_output/line_movement_timing_report.json").read_text())
+          assert r["champion_001_modified"] is False
+          assert r["certified_champion_001_predictions"] == r["certified_challenger_001_predictions"] == 0
+          assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
+          PY
       - name: Fetch official roster, injury and lineup evidence (not bet-ready)
         if: always()
         run: |
