@@ -96,7 +96,7 @@ def parsed_games(rows):
     never silently interpret those as UTC. A DateTimeUTC field is accepted
     only if it explicitly contains a UTC offset or Z suffix.
     """
-    output, seen = [], set()
+    output, seen, duplicates = [], set(), set()
     for game in rows:
         if not isinstance(game, dict):
             continue
@@ -115,12 +115,17 @@ def parsed_games(rows):
             start = parse_time(start_raw)
         except (ValueError, TypeError, OverflowError):
             continue
-        if start.tzinfo is None or game_id in seen:
+        if start.tzinfo is None:
+            continue
+        if game_id in seen:
+            duplicates.add(game_id)
             continue
         seen.add(game_id)
         output.append({"id": str(game_id), "home": home.upper(),
                        "away": away.upper(), "start": start.astimezone(timezone.utc)})
-    return output
+    # Duplicate provider GameIDs are ambiguous, even if one row looked valid.
+    # Quarantine every occurrence rather than trusting whichever arrived first.
+    return [game for game in output if int(game["id"]) not in duplicates]
 
 
 def corroborate(manifest, key, fetcher=fetch_games):
