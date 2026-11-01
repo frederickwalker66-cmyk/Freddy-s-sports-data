@@ -98,24 +98,27 @@ jobs:
           PY
       - name: Probe SportsDataIO NBA schedule entitlement (research-only, optional)
         env:
-          SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
+          # The separate SportsDataIO intake uses secrets.Sportsdataio.
+          # Support that existing name and the conventional alias without
+          # echoing either value. An absent key still generates a diagnostic.
+          SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio || secrets.SPORTSDATAIO_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$SPORTSDATAIO_API_KEY" ]; then
-            echo 'SportsDataIO NBA schedule probe skipped: SPORTSDATAIO_API_KEY not configured.'
-          else
-            python challenger_sportsdataio_nba_schedule.py --schedule-manifest validation_output/schedule_manifest.json --output validation_output/sportsdataio_nba_diagnostic.json
-            python - <<'PY'
+          python challenger_sportsdataio_nba_schedule.py --schedule-manifest validation_output/schedule_manifest.json --output validation_output/sportsdataio_nba_diagnostic.json
+          python - <<'PY'
           import json
           from pathlib import Path
           r=json.loads(Path('validation_output/sportsdataio_nba_diagnostic.json').read_text())
           assert r['near_time_mismatches_promoted'] == 0
           assert r['bet_ready_selections'] == r['automated_bets_placed'] == 0
           assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['independently_verified_sportsbook_prices'] == 0
           assert r['champion_001_modified'] is False
+          print('SportsDataIO NBA source configured:', r['api_key_configured'])
+          print('SportsDataIO NBA schedule source error categories:', sorted(set(r['source_errors_by_day'].values())))
           PY
-          fi
       - name: Explain remaining league-level quote rejection causes
         run: |
           snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
