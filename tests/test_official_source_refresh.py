@@ -3,9 +3,44 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from official_source_refresh import latest_nba_report, refresh
+from official_source_refresh import latest_nba_report, refresh, player_prop_source_gates
 
 class OfficialSourceTests(unittest.TestCase):
+    def test_player_prop_source_gates_explain_exact_injury_and_identity_gaps(self):
+        sources = {
+            "nba": {"status": "evidence_downloaded", "player_status_parsed": False},
+            "nba_player_index": {"status": "evidence_downloaded",
+                                 "provider_id_crosswalk_verified": False,
+                                 "game_day_active_verified": False},
+            "nfl": {"status": "not_connected", "player_status_parsed": False,
+                     "game_day_actives_verified": False},
+            "mlb_roster": {"status": "complete",
+                           "provider_id_crosswalk_verified": False},
+            "mlb_lineups": {"lineups_confirmed_as_playing": False},
+        }
+        out = player_prop_source_gates(sources)
+        self.assertIn("injury_document_not_parsed_to_player_status",
+                      out["nba"]["missing_evidence"])
+        self.assertIn("odds_provider_to_official_player_id_crosswalk_unverified",
+                      out["nba"]["missing_evidence"])
+        self.assertIn("official_nfl_player_status_not_ingested",
+                      out["nfl"]["missing_evidence"])
+        self.assertIn("confirmed_game_day_lineups_unverified",
+                      out["mlb"]["missing_evidence"])
+        self.assertTrue(all(x["blocked"] for x in out.values()))
+        self.assertTrue(all(x["player_props_cleared"] == 0 for x in out.values()))
+
+    def test_missing_source_inventory_fails_closed(self):
+        report = player_prop_source_gates({})
+        self.assertIn("official_injury_document_unavailable",
+                      report["nba"]["missing_evidence"])
+        self.assertIn("current_player_index_unavailable",
+                      report["nba"]["missing_evidence"])
+        self.assertIn("active_roster_source_incomplete",
+                      report["mlb"]["missing_evidence"])
+        with self.assertRaises(ValueError):
+            player_prop_source_gates(None)
+
     def test_nba_selects_latest_same_day_injury_pdf(self):
         markup = """
           <a href="https://ak-static.cms.nba.com/referee/injury/Injury-Report_2026-10-28_03_00PM.pdf">older</a>
@@ -53,6 +88,8 @@ class OfficialSourceTests(unittest.TestCase):
             self.assertFalse(report["sources"]["mlb_lineups"]["lineups_confirmed_as_playing"])
             self.assertEqual(report["sources"]["nfl"]["status"], "not_connected")
             self.assertEqual(report["player_props_cleared"], 0)
+            self.assertIn("player_prop_source_gates", report)
+            self.assertTrue(report["player_prop_source_gates"]["nba"]["blocked"])
             self.assertFalse(report["champion_001_modified"])
             self.assertTrue((Path(d) / "source_refresh_report.json").exists())
 
