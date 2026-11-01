@@ -68,6 +68,51 @@ def latest_nba_report(index_html, today):
                 items.append((hour, minute, url))
     return max(items)[2] if items else None
 
+def player_prop_source_gates(sources):
+    """Source-evidence health only; NEVER certifies a player or a bet."""
+    if not isinstance(sources, dict):
+        raise ValueError("invalid source inventory")
+    report = {}
+    nba = sources.get("nba", {})
+    index = sources.get("nba_player_index", {})
+    nba_missing = []
+    if nba.get("status") != "evidence_downloaded":
+        nba_missing.append("official_injury_document_unavailable")
+    elif nba.get("player_status_parsed") is not True:
+        nba_missing.append("injury_document_not_parsed_to_player_status")
+    if index.get("status") != "evidence_downloaded":
+        nba_missing.append("current_player_index_unavailable")
+    if index.get("provider_id_crosswalk_verified") is not True:
+        nba_missing.append("odds_provider_to_official_player_id_crosswalk_unverified")
+    if index.get("game_day_active_verified") is not True:
+        nba_missing.append("game_day_active_status_unverified")
+    report["nba"] = {"blocked": bool(nba_missing),
+                     "missing_evidence": nba_missing,
+                     "player_props_cleared": 0}
+    nfl = sources.get("nfl", {})
+    nfl_missing = []
+    if nfl.get("player_status_parsed") is not True:
+        nfl_missing.append("official_nfl_player_status_not_ingested")
+    if nfl.get("game_day_actives_verified") is not True:
+        nfl_missing.append("game_day_active_status_unverified")
+    report["nfl"] = {"blocked": bool(nfl_missing),
+                     "missing_evidence": nfl_missing,
+                     "player_props_cleared": 0}
+    roster = sources.get("mlb_roster", {})
+    lineup = sources.get("mlb_lineups", {})
+    mlb_missing = []
+    if roster.get("status") != "complete":
+        mlb_missing.append("active_roster_source_incomplete")
+    if roster.get("provider_id_crosswalk_verified") is not True:
+        mlb_missing.append("odds_provider_to_official_player_id_crosswalk_unverified")
+    if lineup.get("lineups_confirmed_as_playing") is not True:
+        mlb_missing.append("confirmed_game_day_lineups_unverified")
+    report["mlb"] = {"blocked": bool(mlb_missing),
+                     "missing_evidence": mlb_missing,
+                     "player_props_cleared": 0}
+    return report
+
+
 def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=get_json):
     root = Path(outdir)
     root.mkdir(parents=True, exist_ok=True)
@@ -217,6 +262,7 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
     report["sources"]["nfl"] = {"status": "not_connected",
                                  "official_resource": "https://www.nfl.com/injuries/",
                                  "player_status_parsed": False, "game_day_actives_verified": False}
+    report["player_prop_source_gates"] = player_prop_source_gates(report["sources"])
     (root / "source_refresh_report.json").write_text(json.dumps(report, indent=2))
     return report
 
