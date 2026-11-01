@@ -72,6 +72,35 @@ class SportsDataIOAdapterTests(unittest.TestCase):
             "GameID": 321, "HomeTeam": "NY", "AwayTeam": "NYK",
             "DateTimeUTC": "2026-11-02T00:00:00Z"}]), [])
 
+    def test_missing_credential_reports_configuration_gap_without_network(self):
+        calls = []
+        def forbidden(day, key):
+            calls.append((day, key))
+            raise AssertionError("no provider request permitted without credential")
+        report = corroborate(unaccepted(), "", forbidden)
+        self.assertEqual(calls, [])
+        self.assertFalse(report["api_key_configured"])
+        self.assertEqual(report["source_errors_by_day"],
+                         {"2026-10-29": "credential_not_configured"})
+        self.assertEqual(report["classification_counts"],
+                         {"sportsdataio_source_unavailable": 1})
+        self.assertEqual(report["bet_ready_selections"], 0)
+
+    def test_whitespace_only_credential_is_not_configured(self):
+        report = corroborate(unaccepted(), "  ", lambda d, k: self.fail("network called"))
+        self.assertFalse(report["api_key_configured"])
+        self.assertEqual(report["source_errors_by_day"]["2026-10-29"],
+                         "credential_not_configured")
+
+    def test_collector_uses_existing_secret_alias_and_keeps_report(self):
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/collect-sharpapi.yml").read_text()
+        self.assertIn("secrets.Sportsdataio || secrets.SPORTSDATAIO_API_KEY", workflow)
+        self.assertIn("validation_output/sportsdataio_nba_diagnostic.json", workflow)
+        self.assertIn("independently_verified_sportsbook_prices", workflow)
+        self.assertNotIn("echo \"$SPORTSDATAIO_API_KEY\"", workflow)
+
     def test_denial_does_not_disclose_secret(self):
         def fetch(day, key):
             raise HTTPError("https://example.com", 403, "denied", {}, None)
