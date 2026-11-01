@@ -56,6 +56,7 @@ def parsed_games(rows):
     only if it explicitly contains a UTC offset or Z suffix.
     """
     output, seen = [], set()
+    valid_codes = {"ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GS", "GSW", "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NO", "NOP", "NY", "NYK", "OKC", "ORL", "PHI", "PHO", "PHX", "POR", "SAC", "SA", "SAS", "TOR", "UTA", "UTAH", "WAS", "WSH"}
     for game in rows:
         if not isinstance(game, dict):
             continue
@@ -65,6 +66,8 @@ def parsed_games(rows):
         if not (isinstance(game_id, int) and game_id > 0 and
                 isinstance(home, str) and isinstance(away, str) and
                 isinstance(start_raw, str) and
+                home.upper() in valid_codes and away.upper() in valid_codes and
+                home.upper() != away.upper() and
                 (start_raw.endswith("Z") or "+" in start_raw or
                  start_raw.endswith("+00:00"))):
             continue
