@@ -8,12 +8,14 @@ on:
       - 'challenger_training_readiness.py'
       - 'challenger_nba_independent_review.py'
       - 'challenger_nba_source_integrity.py'
+      - 'challenger_nba_source_evidence_crosscheck.py'
       - 'challenger_nba_source_inventory.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
       - 'tests/test_challenger_backtest.py'
       - 'tests/test_challenger_nba_independent_review.py'
       - 'tests/test_challenger_nba_source_integrity.py'
+      - 'tests/test_challenger_nba_source_evidence_crosscheck.py'
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
@@ -26,6 +28,7 @@ on:
       - 'tests/test_challenger_backtest.py'
       - 'tests/test_challenger_nba_independent_review.py'
       - 'tests/test_challenger_nba_source_integrity.py'
+      - 'tests/test_challenger_nba_source_evidence_crosscheck.py'
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
@@ -49,6 +52,8 @@ jobs:
         run: python challenger_nba_source_inventory.py --report challenger_results/nba_source_inventory.json
       - name: Check archived NBA source receipt integrity (fail closed)
         run: python challenger_nba_source_integrity.py --output challenger_results/nba_source_integrity.json
+      - name: Crosscheck archived NBA source evidence against declared hashes (research only)
+        run: python challenger_nba_source_evidence_crosscheck.py --output challenger_results/nba_source_evidence_crosscheck.json
       - name: Inventory qualified chronological training readiness
         run: python challenger_training_readiness.py --output challenger_results/training_readiness.json
       - name: Check independent historical input and produce fail-closed report
@@ -89,6 +94,7 @@ jobs:
           path: |
             challenger_results/nba_independent_review.json
             challenger_results/nba_source_integrity.json
+            challenger_results/nba_source_evidence_crosscheck.json
             challenger_results/nba_source_inventory.json
             challenger_results/training_readiness.json
             challenger_results/backtest_report.json
