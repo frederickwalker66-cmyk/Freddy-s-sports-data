@@ -20,6 +20,47 @@ BASE = "https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/"
 MAX_BYTES = 3_000_000
 CLOCK_LIMIT_SECONDS = 60
 
+NBA_TEAM_NAMES = {
+    "ATL": "Atlanta Hawks",
+    "BOS": "Boston Celtics",
+    "BKN": "Brooklyn Nets",
+    "CHA": "Charlotte Hornets",
+    "CHI": "Chicago Bulls",
+    "CLE": "Cleveland Cavaliers",
+    "DAL": "Dallas Mavericks",
+    "DEN": "Denver Nuggets",
+    "DET": "Detroit Pistons",
+    "GS": "Golden State Warriors",
+    "GSW": "Golden State Warriors",
+    "HOU": "Houston Rockets",
+    "IND": "Indiana Pacers",
+    "LAC": "Los Angeles Clippers",
+    "LAL": "Los Angeles Lakers",
+    "MEM": "Memphis Grizzlies",
+    "MIA": "Miami Heat",
+    "MIL": "Milwaukee Bucks",
+    "MIN": "Minnesota Timberwolves",
+    "NO": "New Orleans Pelicans",
+    "NOP": "New Orleans Pelicans",
+    "NY": "New York Knicks",
+    "NYK": "New York Knicks",
+    "OKC": "Oklahoma City Thunder",
+    "ORL": "Orlando Magic",
+    "PHI": "Philadelphia 76ers",
+    "PHO": "Phoenix Suns",
+    "PHX": "Phoenix Suns",
+    "POR": "Portland Trail Blazers",
+    "SAC": "Sacramento Kings",
+    "SA": "San Antonio Spurs",
+    "SAS": "San Antonio Spurs",
+    "TOR": "Toronto Raptors",
+    "UTA": "Utah Jazz",
+    "UTAH": "Utah Jazz",
+    "WAS": "Washington Wizards",
+    "WSH": "Washington Wizards"
+}
+
+
 
 def schedule_url(day):
     if not isinstance(day, str):
@@ -56,7 +97,6 @@ def parsed_games(rows):
     only if it explicitly contains a UTC offset or Z suffix.
     """
     output, seen = [], set()
-    valid_codes = {"ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GS", "GSW", "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NO", "NOP", "NY", "NYK", "OKC", "ORL", "PHI", "PHO", "PHX", "POR", "SAC", "SA", "SAS", "TOR", "UTA", "UTAH", "WAS", "WSH"}
     for game in rows:
         if not isinstance(game, dict):
             continue
@@ -66,8 +106,8 @@ def parsed_games(rows):
         if not (isinstance(game_id, int) and game_id > 0 and
                 isinstance(home, str) and isinstance(away, str) and
                 isinstance(start_raw, str) and
-                home.upper() in valid_codes and away.upper() in valid_codes and
-                home.upper() != away.upper() and
+                home.upper() in NBA_TEAM_NAMES and away.upper() in NBA_TEAM_NAMES and
+                NBA_TEAM_NAMES[home.upper()] != NBA_TEAM_NAMES[away.upper()] and
                 (start_raw.endswith("Z") or "+" in start_raw or
                  start_raw.endswith("+00:00"))):
             continue
@@ -115,15 +155,35 @@ def corroborate(manifest, key, fetcher=fetch_games):
         if delta != x.get("signed_provider_minus_espn_seconds") or not 60 < abs(delta) <= 900:
             raise ValueError("inconsistent clock evidence")
         day = espn.astimezone(ZoneInfo("America/New_York")).date().isoformat()
-        # SportsDataIO supplies team abbreviations; manifest usually supplies
-        # full team names. Without a separately verified team-code mapping,
-        # do not guess a match based on times alone.
-        classification = "sportsdataio_source_unavailable" if day in errors else (
-            "sportsdataio_schedule_observed_identity_unmapped" if by_day[day]
-            else "sportsdataio_no_qualified_utc_games")
-        cases.append({"provider_event_id": event_id, "classification": classification,
-                      "remains_quarantined": True,
-                      "automatically_accepted_as_schedule_match": False})
+        home = nba_team_name(x.get("home_team"))
+        away = nba_team_name(x.get("away_team"))
+        if not home or not away or home == away:
+            raise ValueError("ambiguous NBA team identity")
+        possible = [g for g in by_day[day]
+                    if nba_team_name(NBA_TEAM_NAMES[g["home"]]) == home
+                    and nba_team_name(NBA_TEAM_NAMES[g["away"]]) == away
+                    and abs((g["start"] - espn).total_seconds()) <= 86400]
+        if day in errors:
+            classification = "sportsdataio_source_unavailable"
+        elif len(possible) > 1:
+            classification = "sportsdataio_ambiguous_team_and_day"
+        elif not possible:
+            classification = "sportsdataio_no_unique_team_and_day_match"
+        else:
+            start = possible[0]["start"]
+            if abs((start - espn).total_seconds()) <= CLOCK_LIMIT_SECONDS:
+                classification = "sportsdataio_clock_agrees_with_espn"
+            elif abs((start - provider).total_seconds()) <= CLOCK_LIMIT_SECONDS:
+                classification = "sportsdataio_clock_agrees_with_provider"
+            else:
+                classification = "sportsdataio_clock_disagrees_with_both"
+        record = {"provider_event_id": event_id, "classification": classification,
+                  "remains_quarantined": True,
+                  "automatically_accepted_as_schedule_match": False}
+        if len(possible) == 1 and day not in errors:
+            record["sportsdataio_game_id"] = possible[0]["id"]
+            record["sportsdataio_start_utc"] = possible[0]["start"].isoformat()
+        cases.append(record)
     return {
         "report_type": "sportsdataio_nba_schedule_diagnostic_research_only",
         "observed_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -141,7 +201,7 @@ def corroborate(manifest, key, fetcher=fetch_games):
         "bet_ready_selections": 0,
         "automated_bets_placed": 0,
         "champion_001_modified": False,
-        "warning": "Entitlement and UTC schedule coverage diagnostic only. Team-code crosswalk requires independent verification before clock corroboration.",
+        "warning": "Entitlement and UTC schedule coverage diagnostic only. Explicit team-code crosswalk and UTC clocks are research-only; never automatic event approval.",
     }
 
 
