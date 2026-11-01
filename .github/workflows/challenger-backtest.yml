@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'challenger_backtest.py'
+      - 'challenger_training_readiness.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
       - 'tests/test_challenger_backtest.py'
@@ -33,6 +34,8 @@ jobs:
           python-version: '3.12'
       - name: Run offline tests (all fixtures synthetic; no API keys)
         run: python -m unittest discover -s tests -v
+      - name: Inventory qualified chronological training readiness
+        run: python challenger_training_readiness.py --output challenger_results/training_readiness.json
       - name: Check independent historical input and produce fail-closed report
         run: python challenger_backtest.py --output challenger_results/backtest_report.json
       - name: Run expanding-window research validator (fail closed without authentic history)
@@ -69,6 +72,7 @@ jobs:
         with:
           name: challenger-001-readiness-${{ github.run_id }}
           path: |
+            challenger_results/training_readiness.json
             challenger_results/backtest_report.json
             challenger_results/rolling_validation_report.json
             challenger_results/nba_probability/report.json
