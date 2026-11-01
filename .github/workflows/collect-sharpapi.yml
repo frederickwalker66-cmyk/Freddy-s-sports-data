@@ -31,6 +31,21 @@ jobs:
           fi
       - name: Collect research odds
         run: python collector.py --output-dir snapshots --max-pages 4
+      - name: Archive immediate prospective capture before downstream audits
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot="$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
+          test -n "$snapshot"
+          python challenger_prospective_pregame.py --sharp-jsonl "$snapshot" --output-dir immediate_prospective
+      - name: Upload immediate prospective research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharpapi-immediate-${{ github.run_id }}
+          path: immediate_prospective/
+          retention-days: 30
+          if-no-files-found: warn
       - name: Supreme Validation — enforce research intake quarantine
         run: |
           snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
