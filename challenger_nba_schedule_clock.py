@@ -106,15 +106,21 @@ def load_official_payload(fetcher=fetch_official_schedule, date_et=None):
     if date_et is not None:
         urls.append(stats_scoreboard_url(date_et))
     for url in urls:
-        try:
-            payload = fetcher(url)
-            if not isinstance(payload, dict):
-                raise ValueError("invalid NBA source")
-            # Require a recognized shape before accepting the source.
-            official_nba_events(payload)
-            return payload, url, errors
-        except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
-            errors[url] = source_failure_label(exc)
+        # One additional attempt only for transient timeouts. HTTP 403 is an
+        # access denial, not a retryable source, and must remain quarantined.
+        for attempt in range(2):
+            try:
+                payload = fetcher(url)
+                if not isinstance(payload, dict):
+                    raise ValueError("invalid NBA source")
+                official_nba_events(payload)
+                return payload, url, errors
+            except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
+                label = source_failure_label(exc)
+                if label == "TimeoutError" and attempt == 0:
+                    continue
+                errors[url] = label
+                break
     return None, None, errors
 
 
