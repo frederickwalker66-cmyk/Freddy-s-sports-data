@@ -1,4 +1,7 @@
 """Research-only chronological moneyline movement; never produces bets or model edges."""
+import argparse
+import json
+from pathlib import Path
 from collections import Counter, defaultdict
 from datetime import timezone
 from challenger_moneyline_market_baseline import inspect_quote, MAX_PAIR_TIMESTAMP_SKEW_SECONDS
@@ -89,3 +92,24 @@ def analyze_line_movement(rows):
         "champion_001_modified": False,
         "warning": "Aggregator observations only; no independent DraftKings checkout or model edge."
     }
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--odds", required=True, nargs="+")
+    parser.add_argument("--output-dir", required=True)
+    args = parser.parse_args(argv)
+    rows = []
+    for filename in args.odds:
+        rows.extend(json.loads(line) for line in Path(filename).read_text(encoding="utf8").splitlines() if line.strip())
+    movements, report = analyze_line_movement(rows)
+    output = Path(args.output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "line_movement_timing.jsonl").write_text(
+        "".join(json.dumps(item, sort_keys=True) + "\n" for item in movements), encoding="utf8")
+    (output / "line_movement_timing_report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf8")
+    print(json.dumps(report, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
