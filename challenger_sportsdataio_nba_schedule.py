@@ -142,6 +142,13 @@ def corroborate(manifest, key, fetcher=fetch_games):
         ZoneInfo("America/New_York")).date().isoformat() for x in nba})
     by_day, errors = {}, {}
     for day in days:
+        # Missing credentials are a configuration blocker, not an empty NBA
+        # slate. Produce an explicit diagnostic without sending a network call
+        # or exposing the credential in the resulting report.
+        if not isinstance(key, str) or not key.strip():
+            errors[day] = "credential_not_configured"
+            by_day[day] = []
+            continue
         try:
             by_day[day] = parsed_games(fetcher(day, key))
         except (HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError) as exc:
@@ -192,7 +199,7 @@ def corroborate(manifest, key, fetcher=fetch_games):
     return {
         "report_type": "sportsdataio_nba_schedule_diagnostic_research_only",
         "observed_at_utc": datetime.now(timezone.utc).isoformat(),
-        "api_key_configured": bool(key),
+        "api_key_configured": isinstance(key, str) and bool(key.strip()),
         "requested_game_days": days,
         "source_errors_by_day": errors,
         "qualified_utc_games_by_day": {d: len(g) for d, g in by_day.items()},
