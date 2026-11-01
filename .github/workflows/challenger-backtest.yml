@@ -6,6 +6,7 @@ on:
     paths:
       - 'challenger_backtest.py'
       - 'challenger_training_readiness.py'
+      - 'challenger_nba_independent_review.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
       - 'tests/test_challenger_backtest.py'
@@ -34,6 +35,8 @@ jobs:
           python-version: '3.12'
       - name: Run offline tests (all fixtures synthetic; no API keys)
         run: python -m unittest discover -s tests -v
+      - name: Review NBA independent evidence (fail closed)
+        run: python challenger_nba_independent_review.py --output challenger_results/nba_independent_review.json
       - name: Inventory qualified chronological training readiness
         run: python challenger_training_readiness.py --output challenger_results/training_readiness.json
       - name: Check independent historical input and produce fail-closed report
@@ -72,6 +75,7 @@ jobs:
         with:
           name: challenger-001-readiness-${{ github.run_id }}
           path: |
+            challenger_results/nba_independent_review.json
             challenger_results/training_readiness.json
             challenger_results/backtest_report.json
             challenger_results/rolling_validation_report.json
