@@ -30,6 +30,17 @@ class SportsDataIOAdapterTests(unittest.TestCase):
         self.assertEqual(len(games), 1)
         self.assertEqual(games[0]["id"], "123")
 
+    def test_invalid_and_identical_team_codes_rejected(self):
+        rows = [
+            {"GameID": 1, "HomeTeam": "BOS", "AwayTeam": "BOS",
+             "DateTimeUTC": "2026-11-02T00:00:00Z"},
+            {"GameID": 2, "HomeTeam": "FAKE", "AwayTeam": "NY",
+             "DateTimeUTC": "2026-11-02T00:00:00Z"},
+            {"GameID": 3, "HomeTeam": "BOS", "AwayTeam": "NY",
+             "DateTimeUTC": "2026-11-02T00:00:00Z"},
+        ]
+        self.assertEqual([g["id"] for g in parsed_games(rows)], ["3"])
+
     def test_success_still_quarantined(self):
         calls = []
         def fetch(day, key):
