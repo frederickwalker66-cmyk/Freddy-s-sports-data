@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import json
 from pathlib import Path
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 from historical_outcomes import parse_time
 from crossfeed_reconcile import norm
@@ -82,6 +83,17 @@ def fetch_official_schedule(url=NBA_SCHEDULE_URL, opener=None):
     return obj
 
 
+def source_failure_label(exc):
+    """Report HTTP status without disclosing URLs with credentials or response bodies."""
+    if isinstance(exc, HTTPError):
+        return f"HTTP_{exc.code}" if isinstance(exc.code, int) else "HTTPError"
+    if isinstance(exc, TimeoutError):
+        return "TimeoutError"
+    if isinstance(exc, URLError):
+        return "URLError"
+    return type(exc).__name__
+
+
 def load_official_payload(fetcher=fetch_official_schedule, date_et=None):
     """Check league-owned endpoints, preserving denials and never assuming success.
 
@@ -102,7 +114,7 @@ def load_official_payload(fetcher=fetch_official_schedule, date_et=None):
             official_nba_events(payload)
             return payload, url, errors
         except (OSError, ValueError, TypeError, KeyError, OverflowError) as exc:
-            errors[url] = type(exc).__name__
+            errors[url] = source_failure_label(exc)
     return None, None, errors
 
 
