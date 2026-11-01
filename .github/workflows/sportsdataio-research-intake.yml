@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '40 12 * * *'
+    - cron: '40 0 * * *'
 permissions:
   contents: read
 concurrency:
@@ -35,7 +36,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league)
         run: python sportsdataio_collector.py --leagues "${{ matrix.league }}" --output-dir sportsdataio_evidence
       - name: Validate quarantined Challenger research evidence
-        if: success()
+        if: success() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
         run: python challenger_sportsdataio_validation.py --input-dir sportsdataio_evidence --output-dir sportsdataio_validation
       - name: Archive separate validation report
         if: always() && (github.event_name == 'workflow_dispatch' || contains(fromJSON('["nba","nfl","mlb","nhl","ncaaf","ncaab"]'), matrix.league))
