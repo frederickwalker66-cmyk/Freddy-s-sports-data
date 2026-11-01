@@ -96,6 +96,26 @@ jobs:
           assert r["certified_champion_001_predictions"] == 0
           assert r["champion_001_modified"] is False
           PY
+      - name: Probe SportsDataIO NBA schedule entitlement (research-only, optional)
+        env:
+          SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$SPORTSDATAIO_API_KEY" ]; then
+            echo 'SportsDataIO NBA schedule probe skipped: SPORTSDATAIO_API_KEY not configured.'
+          else
+            python challenger_sportsdataio_nba_schedule.py --schedule-manifest validation_output/schedule_manifest.json --output validation_output/sportsdataio_nba_diagnostic.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('validation_output/sportsdataio_nba_diagnostic.json').read_text())
+          assert r['near_time_mismatches_promoted'] == 0
+          assert r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['champion_001_modified'] is False
+          PY
+          fi
       - name: Explain remaining league-level quote rejection causes
         run: |
           snapshot=$(find snapshots -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)
