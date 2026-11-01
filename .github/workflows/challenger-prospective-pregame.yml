@@ -5,9 +5,9 @@ on:
     workflows: ["Collect SharpAPI DraftKings pregame odds"]
     types: [completed]
     branches: [main]
-  schedule:
-    # 13:15 and 20:15 UTC, before many scheduled US games; GitHub may delay jobs.
-    - cron: '15 13,20 * * *'
+  # Live prospective capture is triggered by successful SharpAPI completion.
+  # Manual dispatch remains available for diagnostics; archived odds still
+  # face the strict 15-minute quote-freshness gate.
   push:
     branches: [main]
     paths:
@@ -49,7 +49,7 @@ jobs:
     # Code-push and PR events validate code only; they must not reload older
     # odds archives and publish a stale snapshot as if it were a live refresh.
     # Successful collector workflow_run uses its exact run ID for the artifact.
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'workflow_dispatch' 
     needs: safety-tests
     runs-on: ubuntu-latest
     timeout-minutes: 18
