@@ -271,18 +271,67 @@ def corroborate(manifest, key, fetcher=fetch_games):
     }
 
 
+def probe_day(day, key, fetcher=fetch_games):
+    """One-date provider smoke test; never certifies bets or game matches."""
+    schedule_url(day)
+    report = {
+        "report_type": "sportsdataio_nba_source_live_smoke_research_only",
+        "game_day_et": day,
+        "api_key_configured": isinstance(key, str) and bool(key.strip()),
+        "source_status": "credential_not_configured",
+        "provider_rows_received": 0,
+        "accepted_unique_games": 0,
+        "naive_named_utc_clocks_validated": 0,
+        "parser_rejection_causes": {},
+        "source_error": None,
+        "independently_verified_sportsbook_prices": 0,
+        "near_time_mismatches_promoted": 0,
+        "certified_champion_001_predictions": 0,
+        "certified_challenger_001_predictions": 0,
+        "bet_ready_selections": 0,
+        "automated_bets_placed": 0,
+        "champion_001_modified": False,
+    }
+    if not report["api_key_configured"]:
+        return report
+    try:
+        games, d = parse_games_with_diagnostics(fetcher(day, key))
+        report["provider_rows_received"] = d["provider_rows_received"]
+        report["accepted_unique_games"] = len(games)
+        report["naive_named_utc_clocks_validated"] = d["naive_named_utc_clocks_validated"]
+        report["parser_rejection_causes"] = d["rejection_causes"]
+        report["source_status"] = (
+            "validated_nonempty" if games else
+            "provider_returned_empty" if not d["provider_rows_received"] else
+            "all_provider_rows_rejected"
+        )
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError) as exc:
+        report["source_status"] = "provider_unavailable"
+        report["source_error"] = (
+            "HTTP_" + str(exc.code) if isinstance(exc, HTTPError)
+            else type(exc).__name__
+        )
+    return report
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--schedule-manifest", required=True)
+    mode = p.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--schedule-manifest")
+    mode.add_argument("--probe-day", help="Eastern game date YYYY-MM-DD; provider-only smoke test")
     p.add_argument("--output", required=True)
     args = p.parse_args(argv)
-    manifest = json.loads(Path(args.schedule_manifest).read_text(encoding="utf8"))
-    report = corroborate(manifest, os.environ.get("SPORTSDATAIO_API_KEY", ""))
+    if args.probe_day:
+        report = probe_day(args.probe_day, os.environ.get("SPORTSDATAIO_API_KEY", ""))
+    else:
+        manifest = json.loads(Path(args.schedule_manifest).read_text(encoding="utf8"))
+        report = corroborate(manifest, os.environ.get("SPORTSDATAIO_API_KEY", ""))
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf8")
     print(json.dumps(report, indent=2, sort_keys=True))
+    return 0 if not args.probe_day or report["source_status"] == "validated_nonempty" else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

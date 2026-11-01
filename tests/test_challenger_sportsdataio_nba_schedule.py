@@ -2,7 +2,7 @@
 import unittest
 from urllib.error import HTTPError
 from challenger_sportsdataio_nba_schedule import (
-    schedule_url, parsed_games, parse_games_with_diagnostics, corroborate,
+    schedule_url, parsed_games, parse_games_with_diagnostics, corroborate, probe_day,
 )
 from test_challenger_nba_schedule_clock import unaccepted
 
@@ -200,6 +200,55 @@ class SportsDataIOAdapterTests(unittest.TestCase):
         self.assertTrue(collector.index("run: python sportsdataio_collector.py") <
                         collector.index("- name: Validate quarantined"))
         self.assertNotIn("if: github.event_name == 'workflow_dispatch' || contains", yaml)
+
+    def test_live_smoke_accepts_true_utc_and_remains_research_only(self):
+        calls = []
+        def fake(day, key):
+            calls.append(day)
+            return [{"GameID": 47, "HomeTeam": "BOS", "AwayTeam": "ORL",
+                     "DateTime": "2026-11-01T15:30:00",
+                     "DateTimeUTC": "2026-11-01T20:30:00"}]
+        report = probe_day("2026-11-01", "mock-secret", fake)
+        self.assertEqual(calls, ["2026-11-01"])
+        self.assertEqual(report["source_status"], "validated_nonempty")
+        self.assertEqual(report["provider_rows_received"], 1)
+        self.assertEqual(report["accepted_unique_games"], 1)
+        self.assertEqual(report["naive_named_utc_clocks_validated"], 1)
+        self.assertEqual(report["bet_ready_selections"], 0)
+        self.assertEqual(report["certified_champion_001_predictions"], 0)
+        self.assertFalse(report["champion_001_modified"])
+        self.assertNotIn("mock-secret", str(report))
+
+    def test_live_smoke_never_calls_network_without_secret(self):
+        def forbidden(day, key):
+            self.fail("network called")
+        report = probe_day("2026-11-01", " ", forbidden)
+        self.assertEqual(report["source_status"], "credential_not_configured")
+        self.assertFalse(report["api_key_configured"])
+
+    def test_live_smoke_empty_and_invalid_are_not_green(self):
+        empty = probe_day("2026-11-01", "test", lambda day, key: [])
+        self.assertEqual(empty["source_status"], "provider_returned_empty")
+        bad = probe_day("2026-11-01", "test", lambda day, key: [
+            {"GameID": 7, "HomeTeam": "BOS", "AwayTeam": "BOS",
+             "DateTimeUTC": "2026-11-01T20:30:00"}])
+        self.assertEqual(bad["source_status"], "all_provider_rows_rejected")
+        self.assertEqual(bad["accepted_unique_games"], 0)
+        self.assertEqual(bad["parser_rejection_causes"], {"unknown_or_conflicting_team_codes": 1})
+        with self.assertRaises(ValueError):
+            probe_day("2026-11-01/unsafe", "test", lambda d, k: [])
+
+    def test_smoke_workflow_runs_after_merge_and_has_only_read_access(self):
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/sportsdataio-connection-test.yml").read_text()
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("challenger_sportsdataio_nba_schedule.py", workflow)
+        self.assertIn('--probe-day "$day_et"', workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("if: always()", workflow)
+        self.assertNotIn("collector.py --output-dir snapshots", workflow)
+        self.assertNotIn('echo "$SPORTSDATAIO_API_KEY"', workflow)
 
     def test_denial_does_not_disclose_secret(self):
         def fetch(day, key):
