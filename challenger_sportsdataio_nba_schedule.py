@@ -5,7 +5,7 @@ A valid SportsDataIO subscription is necessary but is not tested by offline CI.
 """
 import argparse
 from collections import Counter
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 import json
 import os
 from pathlib import Path
@@ -89,44 +89,93 @@ def fetch_games(day, key, opener=None):
     return games
 
 
-def parsed_games(rows):
-    """Require unambiguous IDs, team codes and timezone-aware UTC start fields.
+def parse_games_with_diagnostics(rows):
+    """Parse provider Game fields with explicit, independently checkable clocks.
 
-    SportsDataIO may expose naive DateTime strings in Eastern local time;
-    never silently interpret those as UTC. A DateTimeUTC field is accepted
-    only if it explicitly contains a UTC offset or Z suffix.
+    SportsDataIO documents DateTimeUTC as *UTC*, though actual NBA JSON
+    serializes it without a Z/offset. Interpret only this named field as UTC.
+    DateTime (when supplied) is Eastern wall time and must agree, including
+    on daylight-saving transition days. Reject conflicting timestamps rather
+    than silently overriding a source. Do not infer UTC from DateTime.
     """
-    output, seen, duplicates = [], set(), set()
+    if not isinstance(rows, list):
+        raise ValueError("unexpected SportsDataIO game list")
+    reasons = Counter()
+    repeated = Counter(
+        row["GameID"] for row in rows if isinstance(row, dict)
+        and type(row.get("GameID")) is int and row["GameID"] > 0
+    )
+    parsed = []
+    naive_utc_accepted = 0
+    eastern = ZoneInfo("America/New_York")
     for game in rows:
         if not isinstance(game, dict):
+            reasons["non_object_row"] += 1
             continue
         game_id = game.get("GameID")
+        if type(game_id) is not int or game_id <= 0:
+            reasons["invalid_game_id"] += 1
+            continue
+        if repeated[game_id] > 1:
+            reasons["duplicate_game_id"] += 1
+            continue
+        if game.get("Deleted") is True or game.get("Status") in ("Canceled", "Cancelled", "NotNecessary"):
+            reasons["deleted_or_cancelled_game"] += 1
+            continue
         home, away = game.get("HomeTeam"), game.get("AwayTeam")
-        start_raw = game.get("DateTimeUTC")
-        if not (isinstance(game_id, int) and game_id > 0 and
-                isinstance(home, str) and isinstance(away, str) and
-                isinstance(start_raw, str) and
-                home.upper() in NBA_TEAM_NAMES and away.upper() in NBA_TEAM_NAMES and
-                NBA_TEAM_NAMES[home.upper()] != NBA_TEAM_NAMES[away.upper()] and
-                (start_raw.endswith("Z") or "+" in start_raw or
-                 start_raw.endswith("+00:00"))):
+        if (not isinstance(home, str) or not isinstance(away, str)
+                or home.strip().upper() not in NBA_TEAM_NAMES
+                or away.strip().upper() not in NBA_TEAM_NAMES
+                or NBA_TEAM_NAMES[home.strip().upper()] == NBA_TEAM_NAMES[away.strip().upper()]):
+            reasons["unknown_or_conflicting_team_codes"] += 1
+            continue
+        raw_utc = game.get("DateTimeUTC")
+        if not isinstance(raw_utc, str) or "T" not in raw_utc:
+            reasons["missing_or_invalid_utc_clock"] += 1
             continue
         try:
-            start = parse_time(start_raw)
-        except (ValueError, TypeError, OverflowError):
+            parsed_utc = datetime.fromisoformat(raw_utc.replace("Z", "+00:00"))
+            is_naive = parsed_utc.tzinfo is None
+            if is_naive:
+                start = parsed_utc.replace(tzinfo=timezone.utc)
+            elif parsed_utc.utcoffset() != timedelta(0):
+                reasons["non_utc_offset_in_utc_field"] += 1
+                continue
+            else:
+                start = parsed_utc.astimezone(timezone.utc)
+        except (TypeError, ValueError, OverflowError):
+            reasons["missing_or_invalid_utc_clock"] += 1
             continue
-        if start.tzinfo is None:
-            continue
-        if game_id in seen:
-            duplicates.add(game_id)
-            continue
-        seen.add(game_id)
-        output.append({"id": str(game_id), "home": home.upper(),
-                       "away": away.upper(), "start": start.astimezone(timezone.utc)})
-    # Duplicate provider GameIDs are ambiguous, even if one row looked valid.
-    # Quarantine every occurrence rather than trusting whichever arrived first.
-    return [game for game in output if int(game["id"]) not in duplicates]
+        raw_local = game.get("DateTime")
+        if raw_local is not None:
+            if not isinstance(raw_local, str) or "T" not in raw_local:
+                reasons["invalid_eastern_clock"] += 1
+                continue
+            try:
+                parsed_local = datetime.fromisoformat(raw_local.replace("Z", "+00:00"))
+                if parsed_local.tzinfo is not None:
+                    parsed_local = parsed_local.astimezone(eastern)
+                if parsed_local.replace(tzinfo=None) != start.astimezone(eastern).replace(tzinfo=None):
+                    reasons["utc_eastern_clock_disagreement"] += 1
+                    continue
+            except (TypeError, ValueError, OverflowError):
+                reasons["invalid_eastern_clock"] += 1
+                continue
+        parsed.append({"id": str(game_id), "home": home.strip().upper(),
+                       "away": away.strip().upper(), "start": start})
+        if is_naive:
+            naive_utc_accepted += 1
+    return parsed, {
+        "provider_rows_received": len(rows),
+        "accepted_unique_games": len(parsed),
+        "naive_named_utc_clocks_validated": naive_utc_accepted,
+        "rejection_causes": dict(sorted(reasons.items())),
+    }
 
+
+def parsed_games(rows):
+    """Backward-compatible research-only parser interface."""
+    return parse_games_with_diagnostics(rows)[0]
 
 def corroborate(manifest, key, fetcher=fetch_games):
     if (manifest.get("bet_ready_selections") != 0 or
@@ -140,7 +189,7 @@ def corroborate(manifest, key, fetcher=fetch_games):
     nba = [x for x in evidence if isinstance(x, dict) and x.get("league") == "nba"]
     days = sorted({parse_time(x["espn_start_utc"]).astimezone(
         ZoneInfo("America/New_York")).date().isoformat() for x in nba})
-    by_day, errors = {}, {}
+    by_day, errors, parser_diagnostics = {}, {}, {}
     for day in days:
         # Missing credentials are a configuration blocker, not an empty NBA
         # slate. Produce an explicit diagnostic without sending a network call
@@ -150,7 +199,7 @@ def corroborate(manifest, key, fetcher=fetch_games):
             by_day[day] = []
             continue
         try:
-            by_day[day] = parsed_games(fetcher(day, key))
+            by_day[day], parser_diagnostics[day] = parse_games_with_diagnostics(fetcher(day, key))
         except (HTTPError, URLError, TimeoutError, OSError, ValueError, TypeError) as exc:
             errors[day] = ("HTTP_" + str(exc.code)) if isinstance(exc, HTTPError) else type(exc).__name__
             by_day[day] = []
@@ -203,6 +252,11 @@ def corroborate(manifest, key, fetcher=fetch_games):
         "requested_game_days": days,
         "source_errors_by_day": errors,
         "qualified_utc_games_by_day": {d: len(g) for d, g in by_day.items()},
+        "provider_rows_by_day": {d: v["provider_rows_received"] for d, v in parser_diagnostics.items()},
+        "naive_named_utc_clocks_validated_by_day": {
+            d: v["naive_named_utc_clocks_validated"] for d, v in parser_diagnostics.items()},
+        "parser_rejection_causes_by_day": {
+            d: v["rejection_causes"] for d, v in parser_diagnostics.items()},
         "nba_near_time_events_checked": len(cases),
         "classification_counts": dict(Counter(c["classification"] for c in cases)),
         "cases": cases,

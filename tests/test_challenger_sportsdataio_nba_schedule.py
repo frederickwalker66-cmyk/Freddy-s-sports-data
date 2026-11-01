@@ -2,7 +2,7 @@
 import unittest
 from urllib.error import HTTPError
 from challenger_sportsdataio_nba_schedule import (
-    schedule_url, parsed_games, corroborate,
+    schedule_url, parsed_games, parse_games_with_diagnostics, corroborate,
 )
 from test_challenger_nba_schedule_clock import unaccepted
 
@@ -15,12 +15,97 @@ class SportsDataIOAdapterTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 schedule_url(day)
 
-    def test_timezone_naive_games_not_misread_as_utc(self):
-        self.assertEqual(parsed_games([{
+    def test_documented_naive_utc_field_checked_against_eastern(self):
+        games, info = parse_games_with_diagnostics([{
             "GameID": 123, "HomeTeam": "BOS", "AwayTeam": "NY",
             "DateTime": "2026-11-01T19:00:00",
             "DateTimeUTC": "2026-11-02T00:00:00",
-        }]), [])
+        }])
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0]["start"].isoformat(), "2026-11-02T00:00:00+00:00")
+        self.assertEqual(info["naive_named_utc_clocks_validated"], 1)
+        self.assertEqual(info["rejection_causes"], {})
+
+    def test_real_sportsdataio_serialization_from_archived_nba_games(self):
+        # Schema from a genuine, previously archived NBA provider response;
+        # do not publish the archived raw payload or treat this as current odds.
+        rows = [
+            {"GameID": 24024, "HomeTeam": "UTA", "AwayTeam": "POR",
+             "DateTime": "2026-10-31T15:00:00",
+             "DateTimeUTC": "2026-10-31T19:00:00", "Status": "Final"},
+            {"GameID": 24025, "HomeTeam": "CHA", "AwayTeam": "PHI",
+             "DateTime": "2026-10-31T18:00:00",
+             "DateTimeUTC": "2026-10-31T22:00:00", "Status": "Final"},
+            {"GameID": 24030, "HomeTeam": "HOU", "AwayTeam": "OKC",
+             "DateTime": "2026-10-31T20:30:00",
+             "DateTimeUTC": "2026-11-01T00:30:00", "Status": "Final"},
+        ]
+        games, info = parse_games_with_diagnostics(rows)
+        self.assertEqual(len(games), 3)
+        self.assertEqual(info["provider_rows_received"], 3)
+        self.assertEqual(info["naive_named_utc_clocks_validated"], 3)
+        self.assertEqual(info["rejection_causes"], {})
+
+    def test_conflicting_local_and_utc_fields_remain_quarantined(self):
+        good = {"GameID": 100, "HomeTeam": "BOS", "AwayTeam": "NY",
+                "DateTimeUTC": "2026-11-02T00:00:00"}
+        rows = [dict(good, DateTime="2026-11-01T18:00:00"),
+                {"GameID": 101, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTimeUTC": "2026-11-02T00:00:00-05:00"},
+                {"GameID": 102, "HomeTeam": "BOS", "AwayTeam": "BOS",
+                 "DateTimeUTC": "2026-11-02T00:00:00Z"}]
+        games, info = parse_games_with_diagnostics(rows)
+        self.assertEqual(games, [])
+        self.assertEqual(info["rejection_causes"],
+                         {"non_utc_offset_in_utc_field": 1,
+                          "unknown_or_conflicting_team_codes": 1,
+                          "utc_eastern_clock_disagreement": 1})
+
+    def test_fall_back_dst_clock_is_validated_from_utc_instant(self):
+        rows = [{"GameID": 10, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTime": "2026-11-01T01:30:00",
+                 "DateTimeUTC": "2026-11-01T05:30:00"},
+                {"GameID": 11, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTime": "2026-11-01T01:30:00",
+                 "DateTimeUTC": "2026-11-01T06:30:00"}]
+        games, info = parse_games_with_diagnostics(rows)
+        self.assertEqual(len(games), 2)
+        self.assertNotEqual(games[0]["start"], games[1]["start"])
+        self.assertEqual(info["naive_named_utc_clocks_validated"], 2)
+
+    def test_duplicate_deleted_and_invalid_rows_reported_only_in_counts(self):
+        rows = [{"GameID": 1, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTimeUTC": "2026-11-02T00:00:00"},
+                {"GameID": 1, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTimeUTC": "2026-11-02T00:00:00"},
+                {"GameID": 2, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTimeUTC": "2026-11-02T00:00:00", "Deleted": True},
+                {"GameID": True, "HomeTeam": "BOS", "AwayTeam": "NY",
+                 "DateTimeUTC": "2026-11-02T00:00:00"}]
+        games, info = parse_games_with_diagnostics(rows)
+        self.assertEqual(games, [])
+        self.assertEqual(info["rejection_causes"],
+                         {"duplicate_game_id": 2,
+                          "deleted_or_cancelled_game": 1,
+                          "invalid_game_id": 1})
+        self.assertNotIn("HomeTeam", str(info))
+
+    def test_naive_utc_corroboration_never_approves_market_or_model(self):
+        def fetch(day, key):
+            return [{"GameID": 123, "HomeTeam": "ATL",
+                     "AwayTeam": "CLE", "DateTime": "2026-10-29T20:00:00",
+                     "DateTimeUTC": "2026-10-30T00:00:00"}]
+        report = corroborate(unaccepted(), "test-only", fetch)
+        self.assertEqual(report["provider_rows_by_day"], {"2026-10-29": 1})
+        self.assertEqual(report["qualified_utc_games_by_day"], {"2026-10-29": 1})
+        self.assertEqual(report["naive_named_utc_clocks_validated_by_day"],
+                         {"2026-10-29": 1})
+        self.assertEqual(report["classification_counts"],
+                         {"sportsdataio_clock_agrees_with_espn": 1})
+        self.assertTrue(report["cases"][0]["remains_quarantined"])
+        self.assertEqual(report["bet_ready_selections"], 0)
+        self.assertEqual(report["certified_champion_001_predictions"], 0)
+        self.assertNotIn("test-only", str(report))
 
     def test_explicit_utc_games_accepted(self):
         games = parsed_games([{
