@@ -19,9 +19,11 @@ on:
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
+      - 'tests/test_challenger_training_readiness.py'
       - '.github/workflows/challenger-backtest.yml'
   pull_request:
     paths:
+      - 'challenger_training_readiness.py'
       - 'challenger_backtest.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
@@ -32,6 +34,7 @@ on:
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
+      - 'tests/test_challenger_training_readiness.py'
       - '.github/workflows/challenger-backtest.yml'
 permissions:
   contents: read
@@ -80,6 +83,11 @@ jobs:
           assert w["champion_001_modified"] is False
           assert w["historical_sources_independently_audited"] is False
           assert w["result"]=="blocked_insufficient_rolling_origin_evidence"
+          ready=json.loads(Path("challenger_results/training_readiness.json").read_text())
+          assert ready["by_league"]["nba"]["research_training_ready"] is False
+          assert ready["by_league"]["nba"]["accepted_independently_audited_records"] == 0
+          assert ready["qualified_training_examples"] == 0
+          assert ready["champion_001_modified"] is False
           nba=json.loads(Path("challenger_results/nba_probability/report.json").read_text())
           assert nba["result"]=="blocked_no_qualified_nba_training_data"
           assert nba["certified_champion_001_predictions"]==nba["certified_challenger_001_predictions"]==0
