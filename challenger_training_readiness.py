@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 from challenger_backtest import LEAGUES, timestamp, validate_record
+from challenger_nba_probability import qualified_history
 
 MIN_TRAIN, MIN_HOLDOUT = 200, 50
 
@@ -19,6 +20,14 @@ def assess(rows):
                 raise ValueError("pregame_source_audit_missing")
             if row.get("independent_outcome_adjudication") is not True:
                 raise ValueError("independent_outcome_audit_missing")
+            # The NBA engine has stricter home-moneyline, source-review and
+            # receipt-digest requirements than generic historical validation.
+            # An input that cannot reach that engine must never be marked ready.
+            if row["league"] == "nba":
+                qualified_history(row)
+            if (timestamp(row["start_utc"]) >= datetime.now(timezone.utc)
+                    or timestamp(row["outcome_verified_at_utc"]) > datetime.now(timezone.utc)):
+                raise ValueError("future_or_unsettled_at_readiness_check")
             key = (row["league"], str(row["event_id"]))
             if key in accepted:
                 raise ValueError("duplicate_event")
@@ -29,10 +38,14 @@ def assess(rows):
     for league in sorted(LEAGUES):
         group = sorted((r for (lg, _), r in accepted.items() if lg == league),
                        key=lambda r: (timestamp(r["start_utc"]), str(r["event_id"])))
-        cut = int(len(group) * .8)
-        holdout = group[cut:]
+        # Match challenger_nba_probability.train_engine: the holdout starts
+        # on an entire UTC calendar day, never mid-day between NBA games.
+        cutoff_day = (timestamp(group[int(len(group) * .8)]["start_utc"]).date()
+                      if group else None)
+        prior = [r for r in group if timestamp(r["start_utc"]).date() < cutoff_day] if cutoff_day else []
+        holdout = [r for r in group if timestamp(r["start_utc"]).date() >= cutoff_day] if cutoff_day else []
         first_holdout = min((timestamp(r["snapshot_utc"]) for r in holdout), default=None)
-        eligible = [r for r in group[:cut]
+        eligible = [r for r in prior
                     if first_holdout and timestamp(r["outcome_verified_at_utc"]) <= first_holdout]
         schema_ok = bool(group) and all(set(r["features"]) == set(group[0]["features"]) for r in group)
         ready = (schema_ok and len(eligible) >= MIN_TRAIN and len(holdout) >= MIN_HOLDOUT
@@ -42,6 +55,8 @@ def assess(rows):
             "accepted_independently_audited_records": len(group),
             "eligible_chronological_training_records": len(eligible),
             "later_holdout_records": len(holdout),
+            "holdout_cutoff_utc_day": cutoff_day.isoformat() if cutoff_day else None,
+            "whole_day_holdout_split": True,
             "additional_training_records_needed": max(0, MIN_TRAIN - len(eligible)),
             "additional_holdout_records_needed": max(0, MIN_HOLDOUT - len(holdout)),
             "consistent_feature_schema": schema_ok,
@@ -55,7 +70,7 @@ def assess(rows):
         "leagues_ready": [k for k,v in per_league.items() if v["research_training_ready"]],
         "certified_predictions": 0, "bet_ready_selections": 0,
         "champion_001_modified": False,
-        "warning": "Boolean audit flags are declarations, not independent proof; manual provenance verification remains required.",
+        "warning": "NBA readiness now requires the probability engine's actual source-review fields and a whole-UTC-day chronological split. Boolean flags and hashes are still declarations, NOT independent proof; no dataset is certified or trained by this report.",
     }
 
 def main():
