@@ -12,6 +12,8 @@ on:
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
+      - 'challenger_nhl_official_score_crosscheck.py'
+      - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_nba_history_qualification.py'
@@ -31,6 +33,8 @@ on:
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
+      - 'challenger_nhl_official_score_crosscheck.py'
+      - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -208,6 +212,43 @@ jobs:
               assert x['bet_ready'] is False and x['champion_001_modified'] is False
           assert not (root/'challenger_reviewed_pregame_games.jsonl').exists()
           print('Original-byte audit review packets:',r['review_packets'])
+          PY
+      - name: Compare NHL archived results to league-operated official scores (max 3 days; research only)
+        run: |
+          set -euo pipefail
+          python challenger_nhl_official_score_crosscheck.py \
+            --lineage prospective_validation/original_bytes_lineage_review.jsonl \
+            --output-dir prospective_validation \
+            --max-days 3
+          python - <<'PY'
+          import json
+          import hashlib
+          from pathlib import Path
+          root=Path('prospective_validation')
+          report=json.loads((root/'nhl_official_score_crosscheck_report.json').read_text())
+          assert report['source_dates_requested_maximum'] <= 3
+          assert report['independently_verified_training_games'] == 0
+          assert report['independently_verified_prop_settlements'] == 0
+          assert report['certified_champion_001_predictions'] == 0
+          assert report['certified_challenger_001_predictions'] == 0
+          assert report['certified_positive_ev_bets'] == 0
+          assert report['bet_ready_selections'] == report['automated_bets_placed'] == 0
+          assert report['champion_001_modified'] is False
+          for line in (root/'nhl_official_score_crosscheck.jsonl').read_text().splitlines():
+            row=json.loads(line)
+            assert row['qualified_for_challenger_training'] is False
+            assert row['independent_feature_asof_verified'] is False
+            assert row['official_bookmaker_settlement_verified'] is False
+            assert row['bet_ready'] is False
+          for day in report['source_dates_successfully_parsed']:
+            source=(root/'nhl_original_source_responses'/(day+'.json')).read_bytes()
+            digest=hashlib.sha256(source).hexdigest()
+            for line in (root/'nhl_official_score_crosscheck.jsonl').read_text().splitlines():
+              row=json.loads(line)
+              if row['nhl_official_scoreboard_url'] and row['nhl_official_scoreboard_url'].endswith(day):
+                assert row['nhl_original_source_sha256'] == digest
+          print('NHL second-source agreements (research only):',
+                report['published_final_score_agreements'])
           PY
       - name: Stage NBA historical review candidates WITHOUT qualifying or training
         run: |
