@@ -211,7 +211,7 @@ jobs:
               'evaluations for the same market/version, with documented provenance.',
           ]
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as output:
-              output.write('\\n'.join(summary_lines) + '\\n')
+              output.write('\n'.join(summary_lines) + '\n')
           print('Calibration readiness:',status,'fitted research artifacts:',fitted)
           PY
       - uses: actions/upload-artifact@v4
