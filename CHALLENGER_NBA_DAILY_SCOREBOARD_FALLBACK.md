@@ -23,7 +23,7 @@ This upgrade attempts the daily scoreboard ONLY after a missing/invalid season s
 
 ## Integrated tests and artifacts
 
-The standalone NBA injury report workflow runs 19 new synthetic fallback regressions and retains the same actual-time, source-byte and zero-certification assertions. The eight-sport prospective workflow also triggers on source or test changes and executes the full offline unit suite.
+The standalone NBA injury report workflow runs 20 new synthetic fallback regressions and retains the same actual-time, source-byte and zero-certification assertions. The eight-sport prospective workflow also triggers on source or test changes and executes the full offline unit suite.
 
 Research scripts:
 
