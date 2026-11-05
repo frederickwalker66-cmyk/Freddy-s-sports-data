@@ -223,7 +223,7 @@ class NBAOfficialPDFPlayerRowsTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             archive(tmp)
             with patch("challenger_nba_injury_pdf_player_rows.parse_pdf_bytes",
-                       return_value=parse_table(pages(),LABEL,LABEL)[:2]):
+                       return_value=parse_table(pages(),LABEL,LABEL)):
                 rows,filings,report=run(tmp,[game()],NOW)
             self.assertEqual(len(rows),3)
             self.assertEqual(report["player_rows_extracted_from_official_pdf"],3)
