@@ -117,7 +117,7 @@ def audit(snapshot, report, records, original_dir=None):
                     filename = source_date.get("original_source_file")
                     expected = source_date.get("original_source_sha256")
                     if (not isinstance(filename, str)
-                        or re.fullmatch(lg + r"_\\d{8}\\.json", filename) is None
+                        or re.fullmatch(lg + r"_\d{8}\.json", filename) is None
                         or not isinstance(expected, str)
                         or re.fullmatch(r"[0-9a-f]{64}", expected) is None):
                         raise ValueError("invalid_original_espn_schedule_filename_or_hash")
