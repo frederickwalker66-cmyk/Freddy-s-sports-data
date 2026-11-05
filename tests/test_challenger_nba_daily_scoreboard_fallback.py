@@ -270,6 +270,21 @@ class DailyBoardFallbackTests(unittest.TestCase):
                              fetcher=lambda url:called.append(url))
             self.assertEqual(called,[])
 
+    def test_daily_receipt_crossing_midnight_et_cannot_reuse_yesterdays_board(self):
+        _,r,files=roster_run("synthetic",now=NOW,clock=lambda:NOW,
+                             pdf_reader=read_original,fetcher=capture())
+        # Original source snapshot is 11:58pm ET; a replay after midnight
+        # is prohibited even though the timestamp is only 3 minutes old.
+        r["official_nba_schedule_observed_at_utc"]="2026-11-06T04:58:00Z"
+        later=datetime(2026,11,6,5,1,tzinfo=timezone.utc)
+        with TemporaryDirectory() as tmp:
+            save_source(tmp,r,files)
+            called=[]
+            with self.assertRaisesRegex(ValueError,"stale_daily_scoreboard_receipt"):
+                inactive_run(tmp,now=later,clock=lambda:later,
+                             fetcher=lambda url:called.append(url))
+            self.assertEqual(called,[])
+
     def test_stats_v3_forged_daily_source_kind_is_rejected(self):
         _,r,files=roster_run("synthetic",now=NOW,clock=lambda:NOW,
                              pdf_reader=read_original,fetcher=capture())
