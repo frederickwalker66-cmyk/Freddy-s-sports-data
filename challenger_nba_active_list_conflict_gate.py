@@ -157,7 +157,7 @@ def _planned(raw, game_id, row):
         raise ValueError("same_nba_team_two_sides")
     if (start.astimezone(EASTERN).date().isoformat() != row.get("game_date_et")
         or TEAMS[teams["away"]] + "@" + TEAMS[teams["home"]] != row.get("matchup")
-        or row.get("nba_report_team") not in teams.values()):
+        or nba_team_name(row.get("nba_report_team")) not in teams.values()):
         raise ValueError("wrong_nba_game_or_team_for_injury_row")
     return {"game_id": game_id, "start": start,
             "home": teams["home"], "away": teams["away"]}
@@ -216,7 +216,7 @@ def evaluate(root, at=None):
                 (root / "nba_roster_original_source_bytes" / filename).read_bytes(),
                 planned, observed)
         sides = cached[filename]
-        side = "home" if entry["nba_report_team"] == planned["home"] else "away"
+        side = "home" if nba_team_name(entry["nba_report_team"]) == planned["home"] else "away"
         key = canonical(entry.get("nba_report_name"))
         source = sides[side].get(key)
         if (source is None or source["person_id"] != pid
