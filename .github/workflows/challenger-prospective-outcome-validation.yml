@@ -10,6 +10,8 @@ on:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
+      - 'challenger_multisport_original_bytes_lineage.py'
+      - 'tests/test_challenger_multisport_original_bytes_lineage.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_nba_history_qualification.py'
@@ -27,6 +29,8 @@ on:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
       - 'challenger_multisport_evidence_bridge.py'
+      - 'challenger_multisport_original_bytes_lineage.py'
+      - 'tests/test_challenger_multisport_original_bytes_lineage.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -47,6 +51,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install dependency for native probability training tests
+        run: python -m pip install -r requirements-calibration.txt
       - name: Test all source-integrity, prospective timing and betting safeguards
         run: python -m unittest discover -s tests -v
   link-archived-pregame-to-published-outcomes:
@@ -171,6 +177,37 @@ jobs:
               assert item["eligible_to_train_probability_model"] is False
               assert item["model_probability"] is None
               assert item["bet_ready"] is False
+          PY
+      - name: Reconcile original archived bytes with all-eight-sport review packets (no training)
+        run: |
+          set -euo pipefail
+          python challenger_multisport_original_bytes_lineage.py \
+            --snapshot-root snapshots \
+            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'original_bytes_lineage_report.json').read_text())
+          assert len(r['all_leagues']) == 8
+          assert r['independently_qualified_training_examples'] == 0
+          assert r['independently_authenticated_original_captures'] == 0
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == 0
+          assert r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['model_artifacts_emitted'] == r['player_prop_models_emitted'] == 0
+          assert r['champion_001_modified'] is False
+          for line in (root/'original_bytes_lineage_review.jsonl').read_text().splitlines():
+              x=json.loads(line)
+              assert x['original_bytes_match_same_run_receipt'] is True
+              assert x['same_run_receipt_independently_authenticated'] is False
+              assert x['qualified_for_challenger_training'] is False
+              assert x['model_probability'] is None
+              assert x['bet_ready'] is False and x['champion_001_modified'] is False
+          assert not (root/'challenger_reviewed_pregame_games.jsonl').exists()
+          print('Original-byte audit review packets:',r['review_packets'])
           PY
       - name: Stage NBA historical review candidates WITHOUT qualifying or training
         run: |
