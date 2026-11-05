@@ -5,6 +5,7 @@ player verification, a DraftKings checkout quote, or model certification.
 import argparse
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import urlencode
@@ -34,6 +35,21 @@ def download_json(url):
     if not isinstance(result,dict) or not isinstance(result.get("events"),list):
         raise ValueError("unexpected schedule data")
     return result
+
+
+def download_json_original(url):
+    """Return the parsed original ESPN response AND the untouched wire bytes."""
+    req = Request(url, headers={"User-Agent": "FreddysPicks-IndependentScheduleAudit/1.0",
+                                "Accept": "application/json"})
+    with urlopen(req, timeout=18) as stream:
+        raw = stream.read(5_000_001)
+    if not 1 <= len(raw) <= 5_000_000:
+        raise ValueError("invalid_or_oversized_original_espn_schedule")
+    payload = json.loads(raw)
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        raise ValueError("unexpected_original_espn_schedule")
+    return payload, raw
+
 
 MAX_LOOKAHEAD_DAYS = 7
 
@@ -112,7 +128,7 @@ def _parse_schedule_response(payload, league, url, requested_day, now):
 
 
 def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
-                    clock=None):
+                    clock=None, original_dir=None):
     """Source-only seven-day optional outlook, without probability or wager output.
 
     Default zero-day mode preserves older callers. With lookahead enabled,
@@ -141,9 +157,13 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
     if (lookahead_days and
             day0 != now.astimezone(ZoneInfo("America/New_York")).date()):
         raise ValueError("future_schedule_outlook_must_start_on_actual_eastern_today")
+    original_root = Path(original_dir) if original_dir is not None else None
+    if original_root is not None:
+        original_root.mkdir(parents=True, exist_ok=True)
     result = {
         "collected_at_utc": now.isoformat(), "date_et": date_et,
         "lookahead_days_requested": lookahead_days,
+        "original_source_bytes_capture_enabled": original_root is not None,
         "events": [], "sources": {},
     }
     for league, (sport, competition) in SOURCES.items():
@@ -156,8 +176,20 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
             request_started = None
             try:
                 request_started = observed_now()
-                payload = fetch(url)
+                response = fetch(url)
                 response_observed = observed_now()
+                raw = None
+                if original_root is None:
+                    payload = response
+                else:
+                    if (not isinstance(response, tuple) or len(response) != 2
+                            or not isinstance(response[0], dict)
+                            or not isinstance(response[1], bytes)
+                            or not 1 <= len(response[1]) <= 5_000_000):
+                        raise ValueError("original_espn_schedule_bytes_not_available")
+                    payload, raw = response
+                    if json.loads(raw) != payload:
+                        raise ValueError("original_espn_schedule_bytes_differ_from_parsed_response")
                 if response_observed < request_started:
                     raise ValueError("schedule_source_clock_regressed_during_request")
                 if response_observed.astimezone(ZoneInfo("America/New_York")).date()!=day0:
@@ -169,9 +201,23 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
                     if key in seen:
                         raise ValueError("duplicate_future_game_across_checked_days")
                     seen.add(key)
+                raw_receipt = {}
+                if original_root is not None:
+                    original_name = league + "_" + requested_day.replace("-", "") + ".json"
+                    with (original_root / original_name).open("xb") as writer:
+                        writer.write(raw)
+                    checksum = hashlib.sha256(raw).hexdigest()
+                    raw_receipt = {
+                        "original_source_file": original_name,
+                        "original_source_sha256": checksum,
+                        "original_source_bytes": len(raw),
+                    }
+                    for event in parsed:
+                        event["source_original_sha256"] = checksum
                 events.extend(parsed)
                 queries.append({
                     "date_et": requested_day, "status": "retrieved",
+                    **raw_receipt,
                     "source_url": url,
                     "request_started_at_utc": request_started.isoformat(),
                     "response_observed_at_utc": response_observed.isoformat(),
