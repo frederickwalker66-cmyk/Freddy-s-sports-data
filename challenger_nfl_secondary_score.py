@@ -107,6 +107,13 @@ def parse_nflverse(raw):
         if not isinstance(gid, str) or not re.fullmatch(r"\d{4}_[0-9A-Za-z_]+", gid) or gid in game_ids:
             raise ValueError("missing_or_duplicate_nflverse_game_id")
         game_ids.add(gid)
+        # This forward-research adapter targets recent seasons; legacy seasons
+        # with incomplete historical clocks cannot invalidate the whole feed.
+        season_label = row.get("season", "")
+        if not isinstance(season_label, str) or not re.fullmatch(r"\d{4}", season_label):
+            raise ValueError("invalid_nflverse_season")
+        if int(season_label) < 2024:
+            continue
         home_raw, away_raw = row.get("home_score"), row.get("away_score")
         # Future fixtures are not scored. One-sided scores are invalid.
         if home_raw in ("", None, "NA") and away_raw in ("", None, "NA"):
