@@ -202,6 +202,13 @@ def evaluate(root, at=None):
         if not injury_at <= observed <= at:
             raise ValueError("nba_injury_and_roster_observations_out_of_order")
         planned = _planned(raw, game, entry)
+        scheduled = official_nba_events(original["nba_official_schedule.json"])
+        official_matches = [x for x in scheduled if x["official_nba_game_id"] == game]
+        if (len(official_matches) != 1
+            or abs((official_matches[0]["start"]-planned["start"]).total_seconds()) > 60
+            or official_matches[0]["home"] != planned["home"]
+            or official_matches[0]["away"] != planned["away"]):
+            raise ValueError("nba_boxscore_and_schedule_start_disagree")
         if observed >= planned["start"]:
             raise ValueError("postgame_or_live_nba_roster_in_pregame_archive")
         if filename not in cached:
