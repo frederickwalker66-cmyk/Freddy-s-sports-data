@@ -16,6 +16,8 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'historical_outcomes.py'
+      - 'challenger_all_sports_feature_lineage.py'
       - 'independent_schedule_review.py'
       - 'challenger_all_sports_schedule_coverage.py'
       - 'tests/test_challenger_eight_sport_schedule_outlook.py'
@@ -51,6 +53,7 @@ on:
       - 'tests/test_challenger_native_pregame_capture.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
+      - 'tests/test_historical_source_receipt_timing.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
   pull_request:
@@ -60,6 +63,8 @@ on:
       - 'challenger_native_pregame_capture.py'
       - 'tests/test_challenger_native_pregame_capture.py'
       - 'challenger_prospective_pregame.py'
+      - 'historical_outcomes.py'
+      - 'challenger_all_sports_feature_lineage.py'
       - 'independent_schedule_review.py'
       - 'challenger_all_sports_schedule_coverage.py'
       - 'tests/test_challenger_eight_sport_schedule_outlook.py'
@@ -86,6 +91,7 @@ on:
       - 'challenger_nba_source_inventory.py'
       - 'challenger_nba_source_integrity.py'
       - 'tests/test_challenger_prospective_pregame.py'
+      - 'tests/test_historical_source_receipt_timing.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
 permissions:
@@ -156,6 +162,31 @@ jobs:
           if [[ -n "$sharp" ]]; then args+=(--sharp-jsonl "$sharp"); fi
           if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
           python challenger_prospective_pregame.py "${args[@]}"
+      - name: Reconstruct source-timestamped team-form lineage for all eight sports (research only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_all_sports_feature_lineage.py \
+            --events prospective_pregame/prospective_event_evidence.jsonl \
+            --historical prospective_pregame/historical_published_results.jsonl \
+            --output-dir prospective_pregame/feature_lineage
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('prospective_pregame')
+          report = json.loads((root/'feature_lineage/feature_lineage_report.json').read_text())
+          live = json.loads((root/'prospective_report.json').read_text())
+          assert len(report['by_league']) == 8
+          assert report['prospective_games_checked'] == live['scheduled_pregame_events']
+          assert report['qualified_training_rows'] == report['calibration_ready_models'] == 0
+          assert report['certified_champion_001_predictions'] == 0
+          assert report['certified_challenger_001_predictions'] == 0
+          assert report['certified_positive_ev_bets'] == report['automated_bets_placed'] == 0
+          assert report['champion_001_modified'] is False
+          assert report['historical_pregame_feature_provenance_independently_authenticated'] is False
+          print('Eight-sport as-observed parsed feature lineage:', report['both_team_forms_reproduced'],
+                'of', report['prospective_games_checked'], 'research only')
+          PY
       - name: Audit all eight ESPN schedules for no-game dates, source failures and missing archived future games
         shell: bash
         run: |
