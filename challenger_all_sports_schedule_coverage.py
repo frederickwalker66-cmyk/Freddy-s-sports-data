@@ -8,16 +8,18 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
+import hashlib
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
-from independent_schedule_review import SOURCES, MAX_LOOKAHEAD_DAYS
+from independent_schedule_review import SOURCES, MAX_LOOKAHEAD_DAYS, _parse_schedule_response
 from challenger_prospective_outcome_validation import instant
 
 LEAGUES = tuple(SOURCES)
 
 
-def audit(snapshot, report, records):
+def audit(snapshot, report, records, original_dir=None):
     if not isinstance(snapshot,dict) or not isinstance(report,dict) or not isinstance(records,list):
         raise ValueError("invalid_schedule_coverage_inputs")
     if (report.get("stage")!="challenger_prospective_eight_league_evidence_research_only"
@@ -83,6 +85,13 @@ def audit(snapshot, report, records):
                     instant(entry["event_start_utc"])):
             raise ValueError("archive_record_timestamp_not_pregame")
         archive_by[entry["league"]]+=1
+    original_capture = snapshot.get("original_source_bytes_capture_enabled", False)
+    if type(original_capture) is not bool:
+        raise ValueError("invalid_original_espn_source_capture_mode")
+    if original_capture and original_dir is None:
+        raise ValueError("original_espn_source_archive_required")
+    root = Path(original_dir) if original_dir is not None else None
+    verified_source_archives = 0
     coverage={}
     for lg in LEAGUES:
         src=snapshot["sources"][lg]
@@ -104,6 +113,39 @@ def audit(snapshot, report, records):
                 raise ValueError("schedule_query_time_not_original_observation")
             previous_request_end = completed
             if source_date["status"] == "retrieved":
+                if original_capture:
+                    filename = source_date.get("original_source_file")
+                    expected = source_date.get("original_source_sha256")
+                    if (not isinstance(filename, str)
+                        or re.fullmatch(lg + r"_\\d{8}\\.json", filename) is None
+                        or not isinstance(expected, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", expected) is None):
+                        raise ValueError("invalid_original_espn_schedule_filename_or_hash")
+                    raw = (root / filename).read_bytes()
+                    if (not 1 <= len(raw) <= 5_000_000
+                        or source_date.get("original_source_bytes") != len(raw)
+                        or hashlib.sha256(raw).hexdigest() != expected):
+                        raise ValueError("original_espn_source_bytes_or_sha_mismatch")
+                    data = json.loads(raw)
+                    derived, counts = _parse_schedule_response(
+                        data, lg, source_date["source_url"],
+                        source_date["date_et"], completed)
+                    for event in derived:
+                        event["source_original_sha256"] = expected
+                    recorded = [
+                        item for item in snapshot["events"]
+                        if item.get("league") == lg
+                        and item.get("source_url") == source_date["source_url"]
+                        and item.get("requested_date_et") == source_date["date_et"]
+                    ]
+                    if (derived != recorded
+                        or counts.get("raw_events_listed") != source_date.get("raw_events_listed")
+                        or counts.get("state_counts") != source_date.get("state_counts")
+                        or counts.get("invalid_or_unusable_listings") !=
+                           source_date.get("invalid_or_unusable_listings")
+                        or counts.get("eligible_future_events") != source_date.get("eligible_future_events")):
+                        raise ValueError("original_espn_events_not_equal_saved_snapshot")
+                    verified_source_archives += 1
                 validated_response_keys.add((
                     source_date.get("source_url"),
                     source_date.get("date_et"),
@@ -158,6 +200,9 @@ def audit(snapshot, report, records):
             "coverage_class":flag,
             "source_is_espn_third_party_not_official_league":True,
             "source_checks":q,
+            "original_source_bytes_verified": original_capture,
+            "verified_original_source_response_files":
+                sum(x.get("status") == "retrieved" for x in q) if original_capture else 0,
             "independently_verified_game_eligibility":False,
             "qualified_for_model_training":0,
             "certified_predictions":0,
@@ -174,6 +219,8 @@ def audit(snapshot, report, records):
         "captured_at_utc":end.isoformat(),
         "leagues":list(LEAGUES),
         "by_league":coverage,"totals":totals,
+        "original_espn_source_responses_verified":verified_source_archives,
+        "original_source_hashes_independently_publisher_signed":False,
         "independent_league_schedule_verified":False,
         "historical_feature_publication_authenticated":False,
         "qualified_chronological_training_games":0,
@@ -200,7 +247,9 @@ def main(argv=None):
     records=[json.loads(s) for s in
              (root/"prospective_event_evidence.jsonl").read_text().splitlines()
              if s.strip()]
-    summary=audit(snapshot,report,records)
+    summary=audit(snapshot,report,records,
+                  original_dir=root/"espn_original_schedule_bytes"
+                  if snapshot.get("original_source_bytes_capture_enabled") else None)
     output=Path(args.output) if args.output else root/"eight_sport_schedule_coverage.json"
     output.parent.mkdir(parents=True,exist_ok=True)
     output.write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
