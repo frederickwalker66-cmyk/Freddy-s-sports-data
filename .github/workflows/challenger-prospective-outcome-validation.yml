@@ -31,6 +31,11 @@ on:
       - 'challenger_nba_published_daily_score_fallback.py'
       - 'challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_sportsdataio_score_scramble_guard.py'
+      # Ingestion-trust edits must re-run the downstream release gate.
+      - 'sportsdataio_collector.py'
+      - 'challenger_sportsdataio_validation.py'
+      - 'challenger_sportsdataio_ingestion_trust.py'
+      - 'tests/test_challenger_sportsdataio_ingestion_trust.py'
       - 'tests/test_challenger_sportsdataio_score_scramble_guard.py'
       - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_merged_model_release_diagnostic.py'
@@ -71,6 +76,11 @@ on:
       - 'challenger_nba_published_daily_score_fallback.py'
       - 'challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_sportsdataio_score_scramble_guard.py'
+      # Ingestion-trust edits must re-run the downstream release gate.
+      - 'sportsdataio_collector.py'
+      - 'challenger_sportsdataio_validation.py'
+      - 'challenger_sportsdataio_ingestion_trust.py'
+      - 'tests/test_challenger_sportsdataio_ingestion_trust.py'
       - 'tests/test_challenger_sportsdataio_score_scramble_guard.py'
       - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_merged_model_release_diagnostic.py'
