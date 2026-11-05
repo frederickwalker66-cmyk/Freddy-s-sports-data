@@ -175,10 +175,10 @@ def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None):
     nhl_dates = sorted(set(instant(r["event_start_utc"]).astimezone(EASTERN)
                            .date().isoformat() for r in records if r.get("league") == "nhl"))
     for day in nhl_dates:
-        started = instant(clock())
+        started = instant(clock().isoformat())
         try:
             raw = fetcher(day)
-            observed = instant(clock())
+            observed = instant(clock().isoformat())
             if observed < started:
                 raise ValueError("official_nhl_source_clock_regressed")
             if not isinstance(raw, bytes) or not 1 <= len(raw) <= 3_000_000:
