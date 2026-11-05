@@ -66,22 +66,28 @@ jobs:
               prefix=challenger-prospective-outcome-validation
             fi
             found=false
-            # A successful run can have an expired/missing named artifact.
-            # Search a bounded set of successful runs rather than treating that
-            # single missing artifact as proof that no evidence ever existed.
+            # A successful workflow may contain only code checks, not an
+            # actual pregame-source capture. Find the named unexpired artifact,
+            # rather than assuming the ten newest 'success' runs contain it.
             while IFS= read -r run_id; do
               [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+              artifact="$prefix-$run_id"
+              names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
+                --jq '.artifacts[] | select(.expired == false) | .name' 2>/dev/null || true)"
+              if ! grep -Fqx "$artifact" <<< "$names"; then
+                continue
+              fi
               if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
-                --name "$prefix-$run_id" --dir "calibration_sources/$kind/$run_id"; then
-                echo "Archived $kind research evidence recovered from run $run_id"
+                --name "$artifact" --dir "calibration_sources/$kind/$run_id"; then
+                echo "Recovered actual $kind source archive from run $run_id (research only)"
                 found=true
                 break
               fi
             done < <(gh run list --repo "$GITHUB_REPOSITORY" \
               --workflow "$workflow" --branch main --status success \
-              --limit 10 --json databaseId --jq '.[].databaseId' || true)
+              --limit 75 --json databaseId --jq '.[].databaseId' || true)
             if [[ "$found" == false ]]; then
-              echo "No accessible $kind source artifact in ten completed runs; keep research calibration blocked."
+              echo "No accessible $kind evidence archive in the 75 latest successful runs; calibration remains blocked."
             fi
           done
       - name: Crosslink native Challenger receipts to published finals WITHOUT promotion
