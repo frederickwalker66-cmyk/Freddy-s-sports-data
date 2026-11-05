@@ -22,6 +22,8 @@ on:
       - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
+      - 'challenger_nba_player_two_source_review.py'
+      - 'tests/test_challenger_nba_player_two_source_review.py'
       - 'challenger_nba_history_qualification.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
@@ -49,6 +51,8 @@ on:
       - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
+      - 'challenger_nba_player_two_source_review.py'
+      - 'tests/test_challenger_nba_player_two_source_review.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - 'tests/test_challenger_multisport_evidence_bridge.py'
@@ -421,6 +425,45 @@ jobs:
               assert item['independent_feature_asof_verified'] is False
               assert item['certified_prediction'] is False
               assert item['bet_ready'] is False
+          PY
+      - name: Cross-check postgame NBA player boxscores against league-operated records (no props certified)
+        run: |
+          set -euo pipefail
+          python challenger_nba_player_two_source_review.py \
+            --official-crosschecks prospective_validation/nba_official_final_crosscheck.jsonl \
+            --output-dir prospective_validation \
+            --max-games 3
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("prospective_validation")
+          r=json.loads((root/"nba_player_two_source_report.json").read_text())
+          assert r["games_checked"] <= 3
+          for k in ("independently_verified_pregame_player_availability",
+                    "qualified_prop_training_observations",
+                    "trained_player_prop_probability_models",
+                    "certified_champion_001_predictions",
+                    "certified_challenger_001_predictions",
+                    "positive_ev_player_props","bet_ready_selections",
+                    "automated_bets_placed"):
+            assert r[k] == 0,(k,r[k])
+          assert r["champion_001_modified"] is False
+          for line in (root/"nba_player_two_source_review.jsonl").read_text().splitlines():
+            row=json.loads(line)
+            assert row["source_observation_is_postgame"] is True
+            assert row["independent_pregame_player_availability_verified"] is False
+            assert row["independent_pregame_minutes_projection_verified"] is False
+            assert row["historical_bookmaker_prop_settlement_verified"] is False
+            assert row["qualified_for_player_prop_training"] is False
+            assert row["model_player_prop_probability"] is None
+            assert row["bet_ready"] is False and row["champion_001_modified"] is False
+          for event, two in r["original_byte_hashes"].items():
+            assert event.isdigit()
+            for publisher,digest in two.items():
+              assert publisher in ("espn","nba")
+              p=root/"nba_player_original_source_bytes"/(event+"_"+publisher+".json")
+              assert hashlib.sha256(p.read_bytes()).hexdigest() == digest
+          print("NBA two-publisher player stats (uncertified):",r["player_statuses"])
           PY
       - name: Stage 3 independent NBA historical qualification review (zero auto promotion)
         run: |
