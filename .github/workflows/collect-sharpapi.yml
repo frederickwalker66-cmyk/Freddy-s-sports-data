@@ -1,12 +1,6 @@
 name: Collect SharpAPI DraftKings pregame odds
 on:
   workflow_dispatch:
-  # One live post-merge collector verification whenever this workflow itself
-  # changes; ordinary code pushes cannot unexpectedly spend provider quota.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/collect-sharpapi.yml'
   # PR validation executes only a fixture-test job, NEVER billable SharpAPI calls.
   pull_request:
     paths:
