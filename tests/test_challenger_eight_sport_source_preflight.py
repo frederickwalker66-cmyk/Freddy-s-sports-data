@@ -171,9 +171,9 @@ class LiveEightSportSourcePreflightTests(unittest.TestCase):
 
     def test_clock_regression_before_original_capture_finished_blocked(self):
         with TemporaryDirectory() as tmp:
-            ticks=iter([NOW,NOW-timedelta(seconds=1)])
+            ticks=iter([NOW])
             def bad_clock():
-                return next(ticks,NOW)
+                return next(ticks,NOW-timedelta(seconds=1))
             with self.assertRaisesRegex(ValueError,"schedule_response_clock_before_scan_started"):
                 self.fixture(tmp,clock=bad_clock)
 
