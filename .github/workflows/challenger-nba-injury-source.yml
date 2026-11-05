@@ -12,6 +12,8 @@ on:
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
+      - 'challenger_nba_pregame_roster_identity.py'
+      - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'requirements-injury-pdf.txt'
       - '.github/workflows/challenger-nba-injury-source.yml'
   pull_request:
@@ -20,6 +22,8 @@ on:
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
+      - 'challenger_nba_pregame_roster_identity.py'
+      - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'requirements-injury-pdf.txt'
       - '.github/workflows/challenger-nba-injury-source.yml'
 permissions:
@@ -39,6 +43,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_injury_pdf.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_pdf_player_rows.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_pregame_roster_identity.py' -v
   capture-current-original-report:
     if: github.event_name != 'pull_request'
     needs: offline-safety
@@ -105,6 +110,41 @@ jobs:
           print('Official NBA PDF player entries extracted for review only:',
                 r['player_rows_extracted_from_official_pdf'],
                 'parse blocker:',r['pdf_extraction_error'])
+          PY
+      - name: Join future NBA scheduled-game roster person ID candidates without declaring anyone active
+        run: |
+          set -euo pipefail
+          python challenger_nba_pregame_roster_identity.py \
+            --capture-dir nba_injury_current_original \
+            --output-dir nba_injury_current_original/pregame_roster_id_review \
+            --max-games 4
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('nba_injury_current_original/pregame_roster_id_review')
+          report=json.loads((root/'nba_pregame_roster_identity_report.json').read_text())
+          assert report['official_game_requests_bounded']<=4
+          for key in ('independently_confirmed_active_players',
+                      'verified_nba_to_espn_to_draftkings_player_id_crosswalks',
+                      'qualified_player_prop_training_observations','trained_player_prop_models',
+                      'certified_champion_001_predictions','certified_challenger_001_predictions',
+                      'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert report[key]==0,(key,report[key])
+          assert report['champion_001_modified'] is False
+          for line in (root/'nba_pregame_roster_identity_review.jsonl').read_text().splitlines():
+            row=json.loads(line)
+            assert row['nba_roster_match_is_identity_candidate_only'] is True
+            assert row['independently_authenticated_player_id_crosswalk'] is False
+            assert row['current_game_active_inactive_verified'] is False
+            assert row['draftkings_player_id_verified'] is False
+            assert row['roster_status_is_final_active_list'] is False
+            assert row['qualified_for_player_prop_training'] is False
+            assert row['bet_ready'] is False and row['champion_001_modified'] is False
+          for filename,expected in report['original_source_sha256'].items():
+            blob=(root/'nba_roster_original_source_bytes'/filename).read_bytes()
+            assert hashlib.sha256(blob).hexdigest()==expected
+          print('Scheduled NBA roster person ID review candidates:',
+                report['nba_person_id_candidates_without_id_cross_source_authentication'])
           PY
       - name: Retain downloaded source bytes temporarily for independent later player review
         uses: actions/upload-artifact@v4
