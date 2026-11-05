@@ -22,6 +22,10 @@ PATHS = {
 def collect(key, leagues, date, outdir):
     outdir.mkdir(parents=True, exist_ok=True)
     report = {"provider": "sportsdataio", "date_utc": date, "research_only": True,
+              "provider_account_tier_independently_verified": False,
+              "provider_scores_stats_odds_authenticated": False,
+              "numeric_values_eligible_for_training": False,
+              "schedule_identity_only_research": True,
               "qualified_training_examples": 0, "certified_predictions": 0,
               "bet_ready_selections": 0, "champion_001_modified": False, "leagues": {}}
     failed = False
@@ -45,9 +49,19 @@ def collect(key, leagues, date, outdir):
                               "requested_date_utc": date, "request_started_utc": started,
                               "received_at_utc": finished, "provider_payload": item,
                               "qualified_for_challenger_backtest": False,
-                              "certified_prediction": False, "champion_001_modified": False}
+                              "certified_prediction": False, "champion_001_modified": False,
+                              "schedule_metadata_only_research": True,
+                              "provider_scores_stats_odds_authenticated": False,
+                              "numeric_values_eligible_for_training": False,
+                              "model_probability": None,
+                              "bet_ready": False}
                     handle.write(json.dumps(record, sort_keys=True) + "\n")
-            report["leagues"][league] = {"status": "success", "records": len(data), "file": file.name}
+            report["leagues"][league] = {
+                "status": "transport_success_data_trust_unverified",
+                "records": len(data), "file": file.name,
+                "score_stats_odds_authenticity_verified": False,
+                "schedule_identity_only_research": True,
+            }
         except HTTPError as exc:
             failed = True
             report["leagues"][league] = {"status": "error", "error": f"HTTP {exc.code} (subscription/endpoint/access)"}
