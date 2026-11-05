@@ -137,6 +137,79 @@ class EightSportOriginalSourceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"original_espn_events_not_equal_saved_snapshot"):
                 audit(s,r,rows,original_dir=path)
 
+    def test_changed_archived_home_team_cannot_inherit_original_event_id(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["home_team"]="Green Bay Packers"
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_changed_archived_away_team_cannot_inherit_original_event_id(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["away_team"]="Minnesota Vikings"
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_changed_archived_kickoff_cannot_inherit_original_event_id(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["event_start_utc"]="2026-11-08T18:01:00+00:00"
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_changed_archived_source_url_rejected_even_on_espn_host(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["schedule_source_url"]=(
+                "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=20261109")
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_changed_archived_observation_clock_rejected_even_before_game(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["schedule_observed_at_utc"]=(NOW+timedelta(seconds=30)).isoformat()
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_missing_original_sha_link_in_archived_game_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["espn_original_schedule_sha256_research_only"]=None
+            with self.assertRaisesRegex(ValueError,"archived_game_original_espn_sha_receipt_mismatch"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_forged_original_sha_link_in_archived_game_fails_closed(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["espn_original_schedule_sha256_research_only"]="f"*64
+            with self.assertRaisesRegex(ValueError,"archived_game_original_espn_sha_receipt_mismatch"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_snapshot_completion_timestamp_must_match_report_exactly(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            rows[0]["snapshot_completed_at_utc"]=(END-timedelta(seconds=30)).isoformat()
+            with self.assertRaisesRegex(ValueError,"archive_record_timestamp_not_pregame"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_prospective_report_claimed_total_must_equal_archived_rows(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            r["scheduled_pregame_events"]=2
+            with self.assertRaisesRegex(ValueError,"prospective_report_total_does_not_match_original_archive"):
+                audit(s,r,rows,original_dir=path)
+
+    def test_verified_exact_original_game_field_count_matches_archived_rows(self):
+        with TemporaryDirectory() as tmp:
+            s,rows,r,path=fresh(tmp)
+            result=audit(s,r,rows,original_dir=path)
+            self.assertEqual(result["archived_games_matching_exact_original_event_fields"],1)
+            self.assertEqual(result["totals"]["pregame_events_archived"],1)
+            self.assertEqual(result["certified_positive_ev_bets"],0)
+            self.assertFalse(result["champion_001_modified"])
+
     def test_reconstructed_json_payload_without_original_wire_bytes_refused(self):
         with TemporaryDirectory() as tmp:
             def parsed_only(url):
