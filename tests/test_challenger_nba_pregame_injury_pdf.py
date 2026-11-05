@@ -1,5 +1,6 @@
 """Offline fixture tests for official NBA original injury PDF evidence capture."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 from pathlib import Path
@@ -153,12 +154,22 @@ class NBAPregameInjuryPDFTests(unittest.TestCase):
         self.assertEqual(r["nba_players_with_verified_injury_status"],0)
 
     def test_cli_writes_original_raw_bytes_and_never_claims_picks(self):
-        def fake(url,limit):
-            return html(PDF7) if url==INDEX_URL else PDF
+        # CLI uses the real wall clock. Generate a current source label and
+        # recent pregame fixture; fixed 2026-11-05 12:00 observation ages out.
+        now = datetime.now(timezone.utc)
+        local_label = (now - timedelta(minutes=20)).astimezone(
+            ZoneInfo("America/New_York"))
+        url = ("https://ak-static.cms.nba.com/referee/injury/Injury-Report_"
+               + local_label.strftime("%Y-%m-%d_%I_%M%p") + ".pdf")
+        def fake(requested,limit):
+            return html(url) if requested==INDEX_URL else PDF
         with TemporaryDirectory() as tmp:
             d=Path(tmp)
             f=d/"pregame.jsonl"
-            f.write_text(json.dumps(future())+"\n")
+            live_event=future(
+                start=(now + timedelta(hours=4)).isoformat(),
+                observed=(now - timedelta(hours=1)).isoformat())
+            f.write_text(json.dumps(live_event)+"\n")
             with patch("challenger_nba_pregame_injury_pdf.fetch_bytes",side_effect=fake):
                 self.assertEqual(main(["--events",str(f),"--output-dir",str(d/"out")]),0)
             report=json.loads((d/"out"/"nba_injury_original_report.json").read_text())
