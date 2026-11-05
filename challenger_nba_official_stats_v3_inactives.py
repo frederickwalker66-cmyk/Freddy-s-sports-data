@@ -21,7 +21,7 @@ from challenger_nba_schedule_clock import (
     nba_team_name, official_nba_events, NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL,
 )
 from challenger_nba_daily_scoreboard_fallback import (
-    validate_same_day_scoreboard, source_game_records,
+    EASTERN, validate_same_day_scoreboard, source_game_records,
 )
 from challenger_nba_injury_pdf_player_rows import TEAM_CODES, TEAMS
 from challenger_nba_player_two_source_review import canonical
@@ -135,7 +135,9 @@ def verify_inputs(roster_dir, now=None):
         # or a source replayed hours later masquerading as a new pregame quote.
         recorded=instant(report.get("official_nba_schedule_observed_at_utc"))
         if now is not None:
-            if recorded>now or (now-recorded).total_seconds()>600:
+            if (recorded>now or (now-recorded).total_seconds()>600
+                    or recorded.astimezone(EASTERN).date() !=
+                       now.astimezone(EASTERN).date()):
                 raise ValueError("stale_daily_scoreboard_receipt_for_inactive_review")
         validate_same_day_scoreboard(raw,recorded)
     elif source_url not in (None,NBA_SCHEDULE_URL):
