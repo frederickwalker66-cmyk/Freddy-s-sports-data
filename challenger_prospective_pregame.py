@@ -492,7 +492,8 @@ def main(argv=None):
     day = args.date_et or utc_now.astimezone(ZoneInfo("America/New_York")).date().isoformat()
     # This makes no SharpAPI/SportsGameOdds calls and cannot retrieve paid odds.
     schedule = ingest_schedule(day, now=utc_now,
-                               lookahead_days=args.lookahead_days)
+                               lookahead_days=args.lookahead_days,
+                               clock=lambda: datetime.now(timezone.utc))
     prior_day = date.fromisoformat(day) - timedelta(days=1)
     results, coverage = planned_history(schedule, utc_now, prior_day,
                                         args.history_days, args.football_history_days)
