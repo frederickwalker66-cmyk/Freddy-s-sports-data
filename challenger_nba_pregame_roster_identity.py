@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 import re
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 
 from challenger_nba_injury_pdf_player_rows import (
@@ -64,9 +65,16 @@ def fetch_source(url, maximum):
             raise ValueError("unapproved_nba_roster_source_url")
     if maximum not in (MAX_SCHEDULE_BYTES, MAX_BOX_BYTES):
         raise ValueError("unapproved_nba_roster_source_maximum")
+    # The NBA public CDN expects ordinary browser-compatible content
+    # negotiation. Align with the documented NBA public liveData client:
+    # no proxies, CAPTCHA handling, extra retries, or access-control bypass.
     req = Request(url, headers={
-        "User-Agent": "FreddysPicksProspectivePlayerIDs/1.0",
-        "Accept": "application/json",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"),
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
         "Origin": "https://www.nba.com",
         "Referer": "https://www.nba.com/",
     })
@@ -416,7 +424,10 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
             break
         except (OSError,ValueError,TypeError,TimeoutError,UnicodeError,
                 OverflowError,KeyError) as exc:
-            errors[url]=type(exc).__name__
+            errors[url]=(
+                f"HTTP_{exc.code}" if isinstance(exc,HTTPError)
+                and type(exc.code) is int else type(exc).__name__
+            )
     if schedule is None:
         report=empty_report(receipt,len(rows),"official_nba_schedule_and_daily_board_unavailable")
         report["official_nba_schedule_source_errors"]=errors
