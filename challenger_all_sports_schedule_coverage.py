@@ -44,6 +44,11 @@ def audit(snapshot, report, records, original_dir=None):
         or not isinstance(snapshot.get("sources"),dict)
         or set(snapshot["sources"])!=set(LEAGUES)):
         raise ValueError("missing_league_source_diagnostics")
+    original_capture = snapshot.get("original_source_bytes_capture_enabled", False)
+    if type(original_capture) is not bool:
+        raise ValueError("invalid_original_espn_source_capture_mode")
+    if original_capture and original_dir is None:
+        raise ValueError("original_espn_source_archive_required")
     source_by=Counter()
     event_ids={}
     for entry in snapshot["events"]:
@@ -80,18 +85,32 @@ def audit(snapshot, report, records, original_dir=None):
         if key in archived_ids or key not in event_ids:
             raise ValueError("missing_or_duplicate_original_schedule_for_archive")
         archived_ids.add(key)
+        game = event_ids[key]
+        # The full event-level chain of custody must agree with the source
+        # response, not merely its ESPN ID. This check runs before any
+        # sport-level aggregates or training/odds diagnostics are emitted.
+        if (entry.get("home_team") != game.get("home_team")
+            or entry.get("away_team") != game.get("away_team")
+            or entry.get("schedule_source_url") != game.get("source_url")
+            or instant(entry.get("event_start_utc")) != instant(game.get("start_utc"))
+            or instant(entry.get("schedule_observed_at_utc")) !=
+               instant(game.get("observed_at_utc"))):
+            raise ValueError("archived_game_does_not_match_original_espn_event")
+        if original_capture:
+            digest = game.get("source_original_sha256")
+            if (not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                or entry.get("espn_original_schedule_sha256_research_only") != digest):
+                raise ValueError("archived_game_original_espn_sha_receipt_mismatch")
         if not (at<=instant(entry["schedule_observed_at_utc"])<=
-                    instant(entry["snapshot_completed_at_utc"])<=end<
+                    instant(entry["snapshot_completed_at_utc"])==end<
                     instant(entry["event_start_utc"])):
             raise ValueError("archive_record_timestamp_not_pregame")
         archive_by[entry["league"]]+=1
-    original_capture = snapshot.get("original_source_bytes_capture_enabled", False)
-    if type(original_capture) is not bool:
-        raise ValueError("invalid_original_espn_source_capture_mode")
-    if original_capture and original_dir is None:
-        raise ValueError("original_espn_source_archive_required")
     root = Path(original_dir) if original_dir is not None else None
     verified_source_archives = 0
+    if report.get("scheduled_pregame_events") != len(records):
+        raise ValueError("prospective_report_total_does_not_match_original_archive")
     coverage={}
     for lg in LEAGUES:
         src=snapshot["sources"][lg]
@@ -220,6 +239,7 @@ def audit(snapshot, report, records, original_dir=None):
         "leagues":list(LEAGUES),
         "by_league":coverage,"totals":totals,
         "original_espn_source_responses_verified":verified_source_archives,
+        "archived_games_matching_exact_original_event_fields":sum(archive_by.values()),
         "original_source_hashes_independently_publisher_signed":False,
         "independent_league_schedule_verified":False,
         "historical_feature_publication_authenticated":False,
