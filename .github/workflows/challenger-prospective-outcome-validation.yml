@@ -29,6 +29,10 @@ on:
       - 'tests/test_challenger_nba_player_two_source_review.py'
       - 'challenger_nba_history_qualification.py'
       - 'challenger_nba_published_daily_score_fallback.py'
+      - 'challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'challenger_merged_model_release_diagnostic.py'
+      - 'tests/test_challenger_merged_model_release_diagnostic.py'
       - 'tests/test_challenger_nba_published_daily_score_fallback.py'
       - 'challenger_nba_training_evidence_worklist.py'
       - 'tests/test_challenger_nba_training_evidence_worklist.py'
@@ -63,6 +67,10 @@ on:
       - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_published_daily_score_fallback.py'
+      - 'challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'challenger_merged_model_release_diagnostic.py'
+      - 'tests/test_challenger_merged_model_release_diagnostic.py'
       - 'tests/test_challenger_nba_published_daily_score_fallback.py'
       - 'challenger_nba_training_evidence_worklist.py'
       - 'tests/test_challenger_nba_training_evidence_worklist.py'
@@ -483,6 +491,48 @@ jobs:
                 r['new_nba_original_daily_score_agreements_research_only'],
                 'source failures:',r['source_failure_types_by_day'])
           PY
+      - name: "#101–103 verify licensed SportsDataIO NBA finals against archived ESPN research games (max 4 dates)"
+        shell: bash
+        env:
+          SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio || secrets.SPORTSDATAIO_API_KEY }}
+        run: |
+          set -euo pipefail
+          python challenger_sportsdataio_nba_final_crosscheck.py \
+            --candidates prospective_validation/nba_history_review_candidates.jsonl \
+            --official-comparisons prospective_validation/nba_original_daily_score_fallback_review.jsonl \
+            --max-days 4 \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'nba_sportsdataio_published_final_report.json').read_text())
+          assert r['source_days_attempted']<=4
+          assert r['source_days_succeeded']<=r['source_days_attempted']
+          assert r['native_training_qualified_games']==0
+          assert r['qualified_holdout_games']==0
+          assert r['official_league_outcomes_authenticated']==0
+          assert r['direct_draftkings_checkout_quotes_verified']==0
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['automated_bets_placed']==0
+          assert r['champion_001_modified'] is False
+          for day,digest in r['source_original_bytes_sha256_by_day'].items():
+            source=root/'sportsdataio_nba_original_final_source'/(day+'.json')
+            assert source.exists()
+            assert hashlib.sha256(source.read_bytes()).hexdigest()==digest
+          for line in (root/'nba_sportsdataio_published_final_review.jsonl').read_text().splitlines():
+            row=json.loads(line)
+            assert row['qualified_for_challenger_backtest'] is False
+            assert row['independently_adjudicated_market_outcome'] is False
+            assert row['independently_verified_original_pregame_features'] is False
+            assert row['bookmaker_moneyline_settlement_verified'] is False
+            assert row['certified_prediction'] is False and row['bet_ready'] is False
+            assert row['champion_001_modified'] is False
+          print('Licensed third-party NBA published-final research agreements:',
+                r['third_party_published_final_score_agreements_research_only'],
+                'source failures:',r['source_failures_by_day'])
+          PY
       - name: Cross-check postgame NBA player boxscores against league-operated records (no props certified)
         run: |
           set -euo pipefail
@@ -596,6 +646,7 @@ jobs:
             --comparisons prospective_validation/nba_original_daily_score_fallback_review.jsonl \
             --qualification prospective_validation/nba_history_qualification_review.jsonl \
             --shadow-ledger prospective_validation/nba_untrained_moneyline_shadow_ledger.jsonl \
+            --sportsdataio-review prospective_validation/nba_sportsdataio_published_final_review.jsonl \
             --output-dir prospective_validation
           python - <<'PY'
           import json
@@ -623,6 +674,43 @@ jobs:
                 'two NBA source published-score agreements:',
                 r['nba_two_source_published_final_score_agreements_research_only'],
                 'eligible training rows: 0')
+          PY
+      - name: "#104–106 native NBA zero-data fit gate and consolidated model-release diagnostic"
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e prospective_validation/historical_results.jsonl
+          python challenger_nba_probability.py \
+            --history prospective_validation/historical_results.jsonl \
+            --output-dir prospective_validation/nba_native_training_gate
+          test ! -e prospective_validation/nba_native_training_gate/research_model.json
+          python challenger_merged_model_release_diagnostic.py \
+            --intake prospective_validation/nba_history_intake_report.json \
+            --official prospective_validation/nba_original_daily_score_fallback_report.json \
+            --licensed prospective_validation/nba_sportsdataio_published_final_report.json \
+            --qualified prospective_validation/nba_history_qualification_report.json \
+            --ledger prospective_validation/nba_untrained_moneyline_shadow_ledger_report.json \
+            --worklist prospective_validation/nba_independent_evidence_training_worklist_report.json \
+            --native prospective_validation/nba_native_training_gate/report.json \
+            --output prospective_validation/challenger_model_master_diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'challenger_model_master_diagnostic.json').read_text())
+          assert r['release_decision']=='HOLD_NO_CERTIFIED_MODEL_NO_WAGERS'
+          assert r['native_trained_probability_models_created']==0
+          assert r['nba_independently_qualified_training_games']==0
+          assert r['nba_independently_qualified_later_holdout_games']==0
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['certified_positive_ev_selections']==0
+          assert r['independently_verified_draftkings_checkout_prices']==0
+          assert r['automatic_wagers_placed']==0
+          assert r['champion_001_modified'] is False
+          print('Master model release diagnostic:',r['release_decision'],
+                'NBA research picks:',
+                r['nba_directional_untrained_heuristic_research_picks'])
           PY
       - name: Reconcile all eight leagues' original pregame lineage and independent result sources (no models certified)
         run: |
