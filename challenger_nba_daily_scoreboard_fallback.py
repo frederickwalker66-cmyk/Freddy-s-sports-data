@@ -82,8 +82,10 @@ def source_game_records(payload):
         groups = payload["leagueSchedule"].get("gameDates")
         if not isinstance(groups, list):
             raise ValueError("missing_official_season_game_groups")
-        raw_games = [g for group in groups for g in group.get("games", [])
-                     if isinstance(group, dict)]
+        if not all(isinstance(group, dict) and isinstance(group.get("games"), list)
+                   for group in groups):
+            raise ValueError("invalid_official_season_game_groups")
+        raw_games = [g for group in groups for g in group["games"]]
         kind = "nba_season_schedule"
     elif isinstance(payload.get("scoreboard"), dict):
         raw_games = payload["scoreboard"].get("games")
