@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '17 11 * * *'
+  workflow_run:
+    workflows: ["Challenger-001 prospective outcome linkage validation (research only)"]
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -34,6 +38,7 @@ permissions:
   actions: read
 jobs:
   challenger-isotonic-research:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,7 +50,7 @@ jobs:
         run: python -m pip install -r requirements-calibration.txt
       - name: Run offline synthetic safety and chronological tests
         run: python -m unittest discover -s tests -p 'test_challenger_isotonic_recalibration.py' -v
-      - name: Collect latest archived pregame and published-final evidence (no sportsbook API)
+      - name: Recover recent available pregame/outcome artifacts (no sportsbook API)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,18 +65,23 @@ jobs:
               workflow=challenger-prospective-outcome-validation.yml
               prefix=challenger-prospective-outcome-validation
             fi
-            run_id="$(gh run list --repo "$GITHUB_REPOSITORY" \
-              --workflow "$workflow" --branch main --status success \
-              --limit 1 --json databaseId --jq '.[0].databaseId // empty' || true)"
-            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
+            found=false
+            # A successful run can have an expired/missing named artifact.
+            # Search a bounded set of successful runs rather than treating that
+            # single missing artifact as proof that no evidence ever existed.
+            while IFS= read -r run_id; do
+              [[ "$run_id" =~ ^[0-9]+$ ]] || continue
               if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
-                --name "$prefix-$run_id" --dir "calibration_sources/$kind"; then
-                echo "Archived $kind evidence downloaded from run $run_id"
-              else
-                echo "No usable $kind artifact. The review bridge will block safely."
+                --name "$prefix-$run_id" --dir "calibration_sources/$kind/$run_id"; then
+                echo "Archived $kind research evidence recovered from run $run_id"
+                found=true
+                break
               fi
-            else
-              echo "No successful $kind run. No evidence will be invented."
+            done < <(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" --branch main --status success \
+              --limit 10 --json databaseId --jq '.[].databaseId' || true)
+            if [[ "$found" == false ]]; then
+              echo "No accessible $kind source artifact in ten completed runs; keep research calibration blocked."
             fi
           done
       - name: Crosslink native Challenger receipts to published finals WITHOUT promotion

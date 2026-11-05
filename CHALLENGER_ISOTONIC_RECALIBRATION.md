@@ -102,6 +102,12 @@ print('Research-only calibrated probability:', calibrated)
 The above 0.58 is a **demonstration input**, not a real Freddy's Picks AI
 probability. A saved mapping never certifies a bet or authenticates its sources.
 
+## November 5 calibration evidence-recovery update
+
+The calibration workflow now also runs after a **successful** main-branch prospective outcome-linkage execution. Each run searches the last ten successful pregame and outcome workflows for their actual named, still-downloadable archives, because the newest successful run may lack its archive. It stops after recovering one available archive per category. Archives are research-only and do not establish independent feature timestamps, authentic model probabilities, settlement, or calibration eligibility.
+
+If no independently qualified `challenger_oos_probabilities.jsonl` exists, **the expected result is still a blocked report with zero calibrators**, even when archive recovery and every software test succeeds. No automatic promotion, bets, Champion modification, or synthetic production data are permitted.
+
 ## Next dependency
 
 Implement independent provenance of historical *native* Challenger OOS
