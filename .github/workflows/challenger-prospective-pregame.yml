@@ -17,12 +17,16 @@ on:
       - 'challenger_nba_source_integrity.py'
       - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
+      - 'challenger_native_pregame_capture.py'
+      - 'tests/test_challenger_native_pregame_capture.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
       - 'tests/test_challenger_prospective_receipts.py'
       - '.github/workflows/challenger-prospective-pregame.yml'
   pull_request:
     paths:
+      - 'challenger_native_pregame_capture.py'
+      - 'tests/test_challenger_native_pregame_capture.py'
       - 'challenger_prospective_pregame.py'
       - 'challenger_prospective_receipts.py'
       - 'challenger_nba_source_inventory.py'
@@ -158,6 +162,34 @@ jobs:
               assert row["shadow_stake_usd"] == 0
               assert row["certified_prediction"] is False
               assert row["bet_ready"] is False
+          PY
+      - name: Capture only genuine native Challenger NBA forecasts; fail closed without model and features
+        shell: bash
+        run: |
+          python challenger_native_pregame_capture.py \
+            --snapshots prospective_pregame/prospective_event_evidence.jsonl \
+            --model challenger_results/nba_probability/research_model.json \
+            --candidates prospective_pregame/nba_home_research_candidates.jsonl \
+            --output-dir prospective_pregame \
+            --run-id "$GITHUB_RUN_ID"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_pregame')
+          r=json.loads((root/'native_forecast_capture_report.json').read_text())
+          assert r['champion_001_modified'] is False
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          for line in (root/'native_challenger_forecasts.jsonl').read_text().splitlines():
+              item=json.loads(line)
+              assert item['certified_prediction'] is False
+              assert item['native_model_fit_independently_certified'] is False
+              assert item['eligible_for_isotonic_fit'] is False
+              assert item['bet_ready'] is False
+              assert item['market_implied_probability_used_as_model'] is False
+              assert item['champion_001_modified'] is False
+          print('Native Challenger research receipts:',r['actual_native_research_forecasts_written'],r['status'])
           PY
       - name: Verify prospective timing and no model or betting promotion
         shell: bash
