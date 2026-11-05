@@ -278,9 +278,10 @@ class NBAInjuryRevisionTests(unittest.TestCase):
     def test_pdf_layout_parser_error_discards_entire_comparison(self):
         rows,r,b,_=review(fetch=lambda url,limit:b"<html>fake pdf</html>",
                           new=[injury()],prior=[injury()])
-        # Offline injected parser is intentionally lenient; this fixture
-        # verifies runtime source signature validation via real parser elsewhere.
-        self.assertEqual(r["source_status"],"two_official_report_revisions_parsed_research_only")
+        self.assertEqual(rows,[])
+        self.assertIsNone(b)
+        self.assertEqual(r["source_status"],"revision_compare_blocked_ValueError")
+        self.assertEqual(r["confirmed_late_scratches"],0)
 
     def test_duplicate_injury_player_same_team_blocks(self):
         rows,r,b,_=review(new=[injury(),injury()])
