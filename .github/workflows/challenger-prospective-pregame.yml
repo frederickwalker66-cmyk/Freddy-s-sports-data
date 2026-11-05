@@ -18,6 +18,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_injury_revision_monitor.py'
+      - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
       - 'challenger_prospective_receipts.py'
       - 'challenger_nba_source_inventory.py'
@@ -45,6 +47,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_injury_revision_monitor.py'
+      - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
       - 'challenger_prospective_receipts.py'
       - 'challenger_nba_source_inventory.py'
@@ -226,6 +230,38 @@ jobs:
             assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
           print('Same-run future NBA game identity candidates (uncertified):',
                 r['nba_person_id_candidates_without_id_cross_source_authentication'])
+          PY
+      - name: Audit change between two actual NBA injury PDF revisions against same-run upcoming games
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_injury_revision_monitor.py \
+            --capture-dir prospective_pregame/injury_report_original \
+            --events prospective_pregame/prospective_event_evidence.jsonl \
+            --output-dir prospective_pregame/injury_report_original/revision_monitor
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('prospective_pregame/injury_report_original/revision_monitor')
+          report=json.loads((root/'nba_injury_revision_report.json').read_text())
+          for k in ('confirmed_active_players','confirmed_late_scratches',
+                    'verified_player_participation','verified_player_prop_training_examples',
+                    'certified_champion_001_predictions','certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert report[k]==0,(k,report[k])
+          assert report['champion_001_modified'] is False
+          for line in (root/'nba_injury_status_changes.jsonl').read_text().splitlines():
+            x=json.loads(line)
+            assert x['confirmed_late_scratch'] is False
+            assert x['official_complete_active_list_verified'] is False
+            assert x['bookmaker_prop_settlement_verified'] is False
+            assert x['qualified_for_player_prop_training'] is False
+            assert x['bet_ready'] is False
+          p=root/'nba_previous_original_injury_report.pdf'
+          if p.exists():
+            assert hashlib.sha256(p.read_bytes()).hexdigest()==report['previous_original_pdf_sha256']
+          print('NBA reported-to-Out revisions linked to future games (uncertified):',
+                report['pregame_linked_out_transitions_for_review'])
           PY
       - name: Capture original prospective event JSONL bytes with a same-run receipt
         shell: bash

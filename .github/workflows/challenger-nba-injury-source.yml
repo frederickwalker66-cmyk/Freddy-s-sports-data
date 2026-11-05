@@ -4,7 +4,10 @@ on:
   schedule:
     # Three bounded original-source captures per day; GitHub schedules can be late.
     # Real as-of UTC timestamps are recorded, not inferred from cron execution.
-    - cron: '0 14,19,23 * * *'
+    # Keep a morning source receipt, then check every 30 minutes near evening tips.
+    # GitHub scheduled execution can be delayed, so only actual fetch times count.
+    - cron: '0 14 * * *'
+    - cron: '0,30 17-23,0-3 * * *'
   push:
     branches: [main]
     paths:
@@ -14,6 +17,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_injury_revision_monitor.py'
+      - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
       - '.github/workflows/challenger-nba-injury-source.yml'
   pull_request:
@@ -24,6 +29,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_injury_revision_monitor.py'
+      - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
       - '.github/workflows/challenger-nba-injury-source.yml'
 permissions:
@@ -44,6 +51,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_injury_pdf.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_pdf_player_rows.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_roster_identity.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_injury_revision_monitor.py' -v
   capture-current-original-report:
     if: github.event_name != 'pull_request'
     needs: offline-safety
@@ -145,6 +153,37 @@ jobs:
             assert hashlib.sha256(blob).hexdigest()==expected
           print('Scheduled NBA roster person ID review candidates:',
                 report['nba_person_id_candidates_without_id_cross_source_authentication'])
+          PY
+      - name: Compare latest and prior official NBA injury PDFs for designation changes (no lineup clearance)
+        run: |
+          set -euo pipefail
+          python challenger_nba_injury_revision_monitor.py \
+            --capture-dir nba_injury_current_original \
+            --output-dir nba_injury_current_original/revision_monitor
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('nba_injury_current_original/revision_monitor')
+          r=json.loads((root/'nba_injury_revision_report.json').read_text())
+          for k in ('confirmed_active_players','confirmed_late_scratches',
+                    'verified_player_participation','verified_player_prop_training_examples',
+                    'certified_champion_001_predictions','certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert r[k]==0,(k,r[k])
+          assert r['champion_001_modified'] is False
+          for line in (root/'nba_injury_status_changes.jsonl').read_text().splitlines():
+            item=json.loads(line)
+            assert item['confirmed_late_scratch'] is False
+            assert item['official_complete_active_list_verified'] is False
+            assert item['actual_source_publication_time_independently_authenticated'] is False
+            assert item['qualified_for_player_prop_training'] is False
+            assert item['bet_ready'] is False and item['champion_001_modified'] is False
+          p=root/'nba_previous_original_injury_report.pdf'
+          if p.exists():
+            assert hashlib.sha256(p.read_bytes()).hexdigest()==r['previous_original_pdf_sha256']
+          print('NBA PDF source revisions:',r['reported_player_status_changes'],
+                'reported-to-Out:',r['possible_out_designation_transitions'],
+                'source:',r['source_status'])
           PY
       - name: Retain downloaded source bytes temporarily for independent later player review
         uses: actions/upload-artifact@v4
