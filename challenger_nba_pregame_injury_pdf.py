@@ -226,7 +226,10 @@ def fetch_bytes(url, byte_limit):
     return raw
 
 
-def run(events=None, now=None, fetcher=fetch_bytes):
+def run(events=None, now=None, fetcher=None):
+    # Resolve the default fetcher at call time so tests cannot accidentally
+    # bypass their offline mock and hit the real NBA index/PDF endpoint.
+    fetcher = fetcher or fetch_bytes
     events = [] if events is None else events
     now = now or datetime.now(timezone.utc)
     if not isinstance(now, datetime) or now.tzinfo is None:
