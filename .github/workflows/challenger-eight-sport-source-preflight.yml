@@ -14,11 +14,17 @@ on:
       - 'challenger_nba_official_pregame_schedule.py'
       - 'challenger_exact_market_research_gate.py'
       - 'challenger_model_completion_gate.py'
+      - 'challenger_nflverse_pregame_crosscheck.py'
+      - 'challenger_rolling_pregame_archive.py'
+      - 'challenger_operational_priority_queue.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
       - 'tests/test_challenger_nba_official_pregame_schedule.py'
       - 'tests/test_challenger_model_completion_sequence.py'
+      - 'tests/test_challenger_nflverse_pregame_crosscheck.py'
+      - 'tests/test_challenger_rolling_pregame_archive.py'
+      - 'tests/test_challenger_operational_priority_queue.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
   pull_request:
     paths:
@@ -28,15 +34,22 @@ on:
       - 'challenger_nba_official_pregame_schedule.py'
       - 'challenger_exact_market_research_gate.py'
       - 'challenger_model_completion_gate.py'
+      - 'challenger_nflverse_pregame_crosscheck.py'
+      - 'challenger_rolling_pregame_archive.py'
+      - 'challenger_operational_priority_queue.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
       - 'tests/test_challenger_nba_official_pregame_schedule.py'
       - 'tests/test_challenger_model_completion_sequence.py'
+      - 'tests/test_challenger_nflverse_pregame_crosscheck.py'
+      - 'tests/test_challenger_rolling_pregame_archive.py'
+      - 'tests/test_challenger_operational_priority_queue.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   offline-source-safety:
@@ -54,6 +67,9 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_mlb_official_pregame_schedule.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_official_pregame_schedule.py' -v
           python -m unittest discover -s tests -p 'test_challenger_model_completion_sequence.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nflverse_pregame_crosscheck.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_rolling_pregame_archive.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_operational_priority_queue.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_source_preflight.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_original_schedule_bytes.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_schedule_outlook.py' -v
@@ -131,6 +147,67 @@ jobs:
               assert r[k]==0,(k,r[k])
           assert r['champion_001_modified'] is False
           PY
+      - name: "#83 independently published nflverse original NFL pregame identities (third-party research only)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nflverse_pregame_crosscheck.py \
+            --capture-dir seven_day_source_preflight \
+            --output-dir seven_day_source_preflight/nfl_third_party
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('seven_day_source_preflight')
+          report=json.loads((root/'nfl_third_party/nfl_third_party_identity_report.json').read_text())
+          coverage=json.loads((root/'eight_sport_schedule_coverage.json').read_text())
+          assert report['nfl_games_reviewed']==coverage['by_league']['nfl']['archived_pregame_games']
+          assert report['official_nfl_operated_identity_matches_verified']==0
+          assert report['qualified_training_games']==0
+          assert report['certified_positive_ev_bets']==0
+          assert report['champion_001_modified'] is False
+          print('Third-party NFL pregame original matches (NOT NFL-operated):',
+                report['independent_third_party_pregame_identity_matches_research_only'])
+          PY
+      - name: "#84 rolling verified original-byte ESPN pregame ledger across available prior runs"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p previous_source_captures
+          # The current run is not 'success' yet. Read up to four *previous*
+          # successful main-run artifacts, never replace original current data.
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+                         --workflow challenger-eight-sport-source-preflight.yml \
+                         --branch main --status success --limit 4 \
+                         --json databaseId --jq '.[].databaseId' 2>/dev/null || true); do
+            if [[ ! "$rid" =~ ^[0-9]+$ ]]; then continue; fi
+            mkdir -p "previous_source_captures/$rid"
+            if ! gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "eight-sport-source-preflight-$rid" \
+                 --dir "previous_source_captures/$rid"; then
+              echo "Previous source run $rid unavailable; not considered a prior confirmed observation."
+              rm -rf "previous_source_captures/$rid"
+            fi
+          done
+          python challenger_rolling_pregame_archive.py \
+            --current seven_day_source_preflight \
+            --previous-dir previous_source_captures \
+            --output-dir seven_day_source_preflight/rolling_ledger
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('seven_day_source_preflight')
+          ledger=json.loads((root/'rolling_ledger/rolling_pregame_ledger_report.json').read_text())
+          coverage=json.loads((root/'eight_sport_schedule_coverage.json').read_text())
+          assert ledger['observations_checked']>=coverage['totals']['pregame_events_archived']
+          assert ledger['distinct_future_espn_game_ids']>=coverage['totals']['pregame_events_archived']
+          assert ledger['qualified_training_games']==0
+          assert ledger['certified_positive_ev_bets']==0
+          assert ledger['champion_001_modified'] is False
+          print('Rolling source run count:', ledger['capture_runs_checked'])
+          print('Unique future ESPN IDs, NOT training games:', ledger['distinct_future_espn_game_ids'])
+          PY
       - name: Run #79 same-run exact provider market diagnostics with zero direct-bookmaker certification
         shell: bash
         run: |
@@ -183,6 +260,28 @@ jobs:
           print('All research stages completed; independent model release BLOCKED.')
           print('Actual future games archived:', r['archived_pregame_games'])
           print('Reason: no verified native training, calibration or direct bookmaker evidence.')
+          PY
+      - name: "#85-86 synthesize verified priority queue and final research-only stop/ship"
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=seven_day_source_preflight
+          python challenger_operational_priority_queue.py \
+            --release-report "$root/model_completion/release_readiness.json" \
+            --identity-report "$root/independent_identity/independent_game_identity_report.json" \
+            --nfl-report "$root/nfl_third_party/nfl_third_party_identity_report.json" \
+            --rolling-report "$root/rolling_ledger/rolling_pregame_ledger_report.json" \
+            --output "$root/model_completion/operational_priority_queue.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('seven_day_source_preflight/model_completion')
+          r=json.loads((root/'operational_priority_queue.json').read_text())
+          assert r['model_release']=='BLOCKED_NOT_CERTIFIED'
+          assert r['certified_positive_ev_bets']==0
+          assert r['verified_direct_draftkings_quotes']==0
+          assert r['champion_001_modified'] is False
+          print('Operational #83-86 chain finished. Research captures complete; release held.')
           PY
       - uses: actions/upload-artifact@v4
         if: always()
