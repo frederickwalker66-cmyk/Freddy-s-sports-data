@@ -28,6 +28,10 @@ on:
       - 'challenger_nba_player_two_source_review.py'
       - 'tests/test_challenger_nba_player_two_source_review.py'
       - 'challenger_nba_history_qualification.py'
+      - 'challenger_nba_published_daily_score_fallback.py'
+      - 'tests/test_challenger_nba_published_daily_score_fallback.py'
+      - 'challenger_nba_training_evidence_worklist.py'
+      - 'tests/test_challenger_nba_training_evidence_worklist.py'
       - 'challenger_research_shadow_scorecard.py'
       - 'challenger_nba_prospective_shadow_ledger.py'
       - 'tests/test_challenger_nba_prospective_shadow_ledger.py'
@@ -438,6 +442,43 @@ jobs:
               assert item['certified_prediction'] is False
               assert item['bet_ready'] is False
           PY
+      - name: "#97–99 bounded alternate NBA-operated original date-scoped published final crosscheck (max 4 dates)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_published_daily_score_fallback.py \
+            --candidates prospective_validation/nba_history_review_candidates.jsonl \
+            --primary-comparisons prospective_validation/nba_official_final_crosscheck.jsonl \
+            --output-dir prospective_validation \
+            --max-days 4
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'nba_original_daily_score_fallback_report.json').read_text())
+          assert r['nba_daily_source_days_attempted']<=4
+          assert r['nba_daily_source_days_succeeded']<=r['nba_daily_source_days_attempted']
+          for day,digest in r['original_source_sha256_by_day'].items():
+            raw=(root/'nba_date_scoped_original_final_scoreboards'/(day+'.json')).read_bytes()
+            assert hashlib.sha256(raw).hexdigest()==digest
+          for item in (root/'nba_original_daily_score_fallback_review.jsonl').read_text().splitlines():
+            row=json.loads(item)
+            assert row['training_row_qualified'] is False
+            assert row['independent_feature_asof_verified'] is False
+            assert row['independent_source_receipt_authenticated'] is False
+            assert row['independent_bookmaker_settlement_verified'] is False
+            assert row['bet_ready'] is False
+            assert row['champion_001_modified'] is False
+          assert r['qualified_training_games']==0
+          assert r['qualified_holdout_games']==0
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['automated_bets_placed']==0
+          assert r['champion_001_modified'] is False
+          print('Alternate original NBA scoreboard published-final agreements (RESEARCH only):',
+                r['new_nba_original_daily_score_agreements_research_only'],
+                'source failures:',r['source_failure_types_by_day'])
+          PY
       - name: Cross-check postgame NBA player boxscores against league-operated records (no props certified)
         run: |
           set -euo pipefail
@@ -482,7 +523,7 @@ jobs:
           set -euo pipefail
           python challenger_nba_history_qualification.py \
             --candidates prospective_validation/nba_history_review_candidates.jsonl \
-            --comparisons prospective_validation/nba_official_final_crosscheck.jsonl \
+            --comparisons prospective_validation/nba_original_daily_score_fallback_review.jsonl \
             --output-dir prospective_validation
           python - <<'PY'
           import json
@@ -541,6 +582,43 @@ jobs:
                 r['directional_nba_research_selections'],
                 'ESPN-published outcomes research-linked:',
                 r['linked_to_published_espn_finals_descriptive_only'])
+          PY
+      - name: "#100 reconcile original NBA review games, alternative NBA final receipts and real pregame research picks"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_training_evidence_worklist.py \
+            --candidates prospective_validation/nba_history_review_candidates.jsonl \
+            --comparisons prospective_validation/nba_original_daily_score_fallback_review.jsonl \
+            --qualification prospective_validation/nba_history_qualification_review.jsonl \
+            --shadow-ledger prospective_validation/nba_untrained_moneyline_shadow_ledger.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'nba_independent_evidence_training_worklist_report.json').read_text())
+          assert r['independently_qualified_training_games']==0
+          assert r['independently_qualified_holdout_games']==0
+          assert r['independently_qualified_shortfall_to_250']==250
+          assert r['no_model_training_authorized'] is True
+          assert r['research_baseline_is_not_trained_challenger_001'] is True
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['certified_positive_ev_selections']==0
+          assert r['automated_bets_placed']==0
+          assert r['champion_001_modified'] is False
+          for text in (root/'nba_independent_evidence_training_worklist.jsonl').read_text().splitlines():
+            row=json.loads(text)
+            assert row['qualified_for_challenger_backtest'] is False
+            assert row['training_eligible'] is False
+            assert row['certified_prediction'] is False
+            assert row['bet_ready'] is False
+            assert row['champion_001_modified'] is False
+          print('Independent NBA original evidence worklist:',r['nba_research_candidates_reconciled'],
+                'two NBA source published-score agreements:',
+                r['nba_two_source_published_final_score_agreements_research_only'],
+                'eligible training rows: 0')
           PY
       - name: Reconcile all eight leagues' original pregame lineage and independent result sources (no models certified)
         run: |
