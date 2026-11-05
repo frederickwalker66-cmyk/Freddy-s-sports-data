@@ -28,3 +28,11 @@ Offline test command:
 Live research-only report command:
 
     python challenger_all_sports_schedule_coverage.py --capture-dir prospective_pregame
+
+## Independent twice-daily prospective capture cadence
+
+The actual future-date scanner also runs independently of the SharpAPI odds-collector completion, via GitHub Actions UTC cron at **13:15 and 23:15**. In US Eastern Standard Time these correspond to approximately **8:15 a.m. and 6:15 p.m.**; during daylight time the local clocks are one hour later. GitHub Actions can delay scheduled jobs, so the records' observed UTC timestamps—not the nominal cron—control pregame validity.
+
+The same capture may additionally run when a successful SharpAPI odds workflow completes or when manually dispatched. It never uses an old quote as if newly refreshed: the already-existing 15-minute odds freshness and strict original pregame source gates apply to any imported archived quotes. If no current valid odds exist, the scan still publishes research-only ESPN future event evidence and the per-league no-games-vs-source-failures report, with zero certified selections.
+
+The independent capture job timeout is raised to 28 minutes to accommodate at most 64 bounded schedule-day checks plus existing historical result lookback. That limit controls runner runtime, not permission to invent unreturned games. The schedule is an observation cadence only; ongoing success must be verified from completed main-branch run artifacts.
