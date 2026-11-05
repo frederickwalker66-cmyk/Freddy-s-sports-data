@@ -12,6 +12,8 @@ on:
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
+      - 'challenger_all_sports_source_coverage.py'
+      - 'tests/test_challenger_all_sports_source_coverage.py'
       - 'challenger_nhl_official_score_crosscheck.py'
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nfl_secondary_score.py'
@@ -41,6 +43,8 @@ on:
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
+      - 'challenger_all_sports_source_coverage.py'
+      - 'tests/test_challenger_all_sports_source_coverage.py'
       - 'challenger_nhl_official_score_crosscheck.py'
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nfl_secondary_score.py'
@@ -495,6 +499,42 @@ jobs:
           assert r["validated_positive_ev_bets"] == 0
           assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
           assert r["champion_001_modified"] is False
+          PY
+      - name: Reconcile all eight leagues' original pregame lineage and independent result sources (no models certified)
+        run: |
+          set -euo pipefail
+          python challenger_all_sports_source_coverage.py \
+            --input-dir prospective_validation \
+            --output prospective_validation/eight_sport_source_coverage.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('prospective_validation/eight_sport_source_coverage.json')
+          r=json.loads(p.read_text())
+          expected={'nba','nfl','mlb','nhl','ncaaf','ncaab','mls','uefa_champions_league'}
+          assert set(r['by_league'])==expected
+          assert len(r['by_league'])==8
+          for k in ('qualified_training_records','trained_probability_models_created',
+                    'certified_champion_001_predictions','certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+              assert r[k]==0,(k,r[k])
+          assert r['source_publication_times_independently_authenticated'] is False
+          assert r['bookmaker_market_settlement_rules_verified'] is False
+          assert r['champion_001_modified'] is False
+          for league,item in r['by_league'].items():
+              assert item['second_source_rows_reviewed'] <= item['original_pregame_events_receipt_backed']
+              assert item['second_source_published_score_agreements_research_only'] <= item['second_source_rows_reviewed']
+              assert item['qualified_chronological_training_records']==0
+              assert item['independently_adjudicated_market_settlements']==0
+              assert item['model_calibration_verified'] is False
+              assert item['certified_positive_ev_bets']==0
+          assert not (p.parent/'challenger_reviewed_pregame_games.jsonl').exists()
+          assert not (p.parent/'historical_results.jsonl').exists()
+          print('Eight sport research source coverage by league:',
+                {k:(v['original_pregame_events_receipt_backed'],
+                    v['second_source_published_score_agreements_research_only'],
+                    v['next_evidence_priority'])
+                 for k,v in r['by_league'].items()})
           PY
       - name: Check zero certified training and betting predictions
         run: |
