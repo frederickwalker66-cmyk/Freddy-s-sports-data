@@ -9,6 +9,7 @@ on:
       - 'challenger_research_features.py'
       - 'tests/test_challenger_research_features.py'
       - 'tests/test_challenger_history.py'
+      - 'tests/test_historical_source_receipt_timing.py'
       - '.github/workflows/challenger-history.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'challenger_research_features.py'
       - 'tests/test_challenger_research_features.py'
       - 'tests/test_challenger_history.py'
+      - 'tests/test_historical_source_receipt_timing.py'
       - '.github/workflows/challenger-history.yml'
 permissions:
   contents: read
@@ -29,8 +31,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Execute research safety and leakage fixtures
-        run: python -m unittest discover -s tests -v
+      - name: Execute historical source and leakage fixtures (no model training dependencies)
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_challenger_history.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_research_features.py' -v
+          python -m unittest discover -s tests -p 'test_historical_source_receipt_timing.py' -v
   archival-research:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
