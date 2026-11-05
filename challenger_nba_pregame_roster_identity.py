@@ -140,7 +140,7 @@ def verify_injury_evidence(rows, filings, receipt, now):
         if c not in TEAM_CODES or row.get("team_name") != TEAM_CODES[c]:
             raise ValueError("bad_original_pdf_team_identity")
         display=canonical(row.get("source_player_name_display"))
-        if not display or row.get("source_injury_designation") not in STATUSES):
+        if not display or row.get("source_injury_designation") not in STATUSES:
             raise ValueError("invalid_pdf_player_name_or_status")
         matchup=row.get("matchup")
         if not isinstance(matchup, str) or not re.fullmatch("[A-Z]{2,3}@[A-Z]{2,3}", matchup):
