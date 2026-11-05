@@ -30,6 +30,9 @@ from challenger_nba_schedule_clock import (
 )
 from challenger_prospective_outcome_validation import instant
 from challenger_nba_daily_scoreboard_fallback import validate_same_day_scoreboard
+from challenger_nba_stats_v3_schedule_fallback import (
+    stats_url_for_observation, verify_stats_v3_scoreboard,
+)
 
 ET = ZoneInfo("America/New_York")
 MAX_GAMES = 4
@@ -56,9 +59,17 @@ def checked_clock(clock):
 
 
 def fetch_source(url, maximum):
-    if url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL):
+    stats_candidate = (
+        isinstance(url, str) and
+        url.startswith("https://stats.nba.com/stats/scoreboardv3?GameDate="))
+    if url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL) or stats_candidate:
         if maximum != MAX_SCHEDULE_BYTES:
             raise ValueError("wrong_nba_official_schedule_source_size_limit")
+        if stats_candidate:
+            from challenger_nba_schedule_clock import stats_scoreboard_url
+            day = url.split("?GameDate=", 1)[-1].split("&", 1)[0]
+            if url != stats_scoreboard_url(day):
+                raise ValueError("unapproved_nba_stats_date_url")
     else:
         game_id = url.rsplit("_", 1)[-1].removesuffix(".json")
         if url != official_url(game_id) or maximum != MAX_BOX_BYTES:
@@ -77,6 +88,8 @@ def fetch_source(url, maximum):
         "Accept-Language": "en-US,en;q=0.9",
         "Origin": "https://www.nba.com",
         "Referer": "https://www.nba.com/",
+        **({"x-nba-stats-origin": "stats", "x-nba-stats-token": "true"}
+           if stats_candidate else {}),
     })
     with urlopen(req, timeout=18) as response:
         raw = response.read(maximum + 1)
@@ -401,10 +414,11 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
     current=now
     schedule_source=None
     errors={}
-    # Only the NBA-operated season URL first; a denied/stale/broken season
-    # response may fall back to the NBA-owned same-day scoreboard. Never
-    # invent game identities, bypass a blocked CDN, or use a yesterday board.
-    for url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL):
+    # Prioritize NBA-owned CDN schedule, then CDN daily board, and finally
+    # NBA-operated date-scoped Stats ScoreboardV3. Every denial is recorded.
+    # A query is NEVER made for a date other than the observed Eastern date.
+    third_url=stats_url_for_observation(now)
+    for url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, third_url):
         try:
             candidate_raw=fetcher(url,MAX_SCHEDULE_BYTES)
             observed_after=checked_clock(clock)
@@ -412,6 +426,8 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
                 raise ValueError("nba_roster_schedule_fetch_clock_invalid")
             if url==NBA_TODAY_SCOREBOARD_URL:
                 candidate,_=validate_same_day_scoreboard(candidate_raw,observed_after)
+            elif url==third_url:
+                candidate,_=verify_stats_v3_scoreboard(candidate_raw,url,observed_after)
             else:
                 candidate=decode_json(candidate_raw,MAX_SCHEDULE_BYTES)
                 if not isinstance(candidate.get("leagueSchedule"),dict):
@@ -429,7 +445,7 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
                 and type(exc.code) is int else type(exc).__name__
             )
     if schedule is None:
-        report=empty_report(receipt,len(rows),"official_nba_schedule_and_daily_board_unavailable")
+        report=empty_report(receipt,len(rows),"official_nba_all_three_operated_schedules_unavailable")
         report["official_nba_schedule_source_errors"]=errors
         return review_identity(rows,{},{
             (r["game_date_et"],r["matchup"]):"official_nba_future_schedule_unavailable"
@@ -469,7 +485,8 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
         "official_nba_schedule_source_kind":(
             "nba_daily_scoreboard_same_day_fallback"
             if schedule_source==NBA_TODAY_SCOREBOARD_URL
-            else "nba_season_schedule"),
+            else ("nba_stats_v3_scoreboard_same_day_fallback"
+                  if schedule_source==third_url else "nba_season_schedule")),
         "official_nba_schedule_source_errors":errors,
         "official_nba_schedule_original_sha256":digest(index_raw),
         "official_nba_schedule_observed_at_utc":schedule_observed.isoformat(),
