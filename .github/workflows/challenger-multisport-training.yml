@@ -1,0 +1,42 @@
+name: Challenger-001 seven-league native training safety
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'challenger_multisport_native_training.py'
+      - 'tests/test_challenger_multisport_native_training.py'
+      - 'requirements-calibration.txt'
+      - '.github/workflows/challenger-multisport-training.yml'
+jobs:
+  offline-synthetic-and-blocked-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-calibration.txt
+      - name: Test 7 supported non-NBA models and safety gates
+        run: python -m unittest discover -s tests -p 'test_challenger_multisport_native_training.py' -v
+      - name: Run with missing evidence in blocked mode, never synthesize inputs
+        run: |
+          python challenger_multisport_native_training.py \
+            --evidence absent_unreviewed_evidence.jsonl \
+            --output-dir challenger_results/native_model_training \
+            --allow-missing-evidence
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          p = Path('challenger_results/native_model_training')
+          r = json.loads((p / 'research_training_report.json').read_text())
+          assert r['trained_research_models'] == []
+          assert r['review_attested_records_received'] == 0
+          assert r['champion_001_modified'] is False
+          assert r['certified_positive_ev_bets'] == 0
+          assert r['automated_bets_placed'] == 0
+          assert [v['status'] for v in r['by_league'].values()] == ['blocked_insufficient_evidence'] * 7
+          assert sorted(x.name for x in p.iterdir()) == ['research_training_report.json']
+          PY
