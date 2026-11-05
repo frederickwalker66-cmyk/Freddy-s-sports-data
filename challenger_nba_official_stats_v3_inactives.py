@@ -23,6 +23,9 @@ from challenger_nba_schedule_clock import (
 from challenger_nba_daily_scoreboard_fallback import (
     EASTERN, validate_same_day_scoreboard, source_game_records,
 )
+from challenger_nba_stats_v3_schedule_fallback import (
+    stats_url_for_observation, verify_stats_v3_scoreboard,
+)
 from challenger_nba_injury_pdf_player_rows import TEAM_CODES, TEAMS
 from challenger_nba_player_two_source_review import canonical
 from challenger_prospective_outcome_validation import instant
@@ -130,20 +133,27 @@ def verify_inputs(roster_dir, now=None):
         raise ValueError("altered_nba_original_schedule_bytes")
     schedule = json.loads(raw)
     source_url = report.get("official_nba_schedule_source_url")
-    if source_url == NBA_TODAY_SCOREBOARD_URL:
-        # Only actual capture-time same-day NBA board; no yesterday board
-        # or a source replayed hours later masquerading as a new pregame quote.
+    is_stats=(isinstance(source_url,str) and source_url.startswith(
+        "https://stats.nba.com/stats/scoreboardv3?GameDate="))
+    if source_url == NBA_TODAY_SCOREBOARD_URL or is_stats:
+        # Either source is day-specific and must not be replayed across
+        # midnight ET or from a prior capture beyond ten minutes old.
         recorded=instant(report.get("official_nba_schedule_observed_at_utc"))
         if now is not None:
             if (recorded>now or (now-recorded).total_seconds()>600
                     or recorded.astimezone(EASTERN).date() !=
                        now.astimezone(EASTERN).date()):
                 raise ValueError("stale_daily_scoreboard_receipt_for_inactive_review")
-        validate_same_day_scoreboard(raw,recorded)
+        if is_stats:
+            verify_stats_v3_scoreboard(raw, source_url, recorded)
+        else:
+            validate_same_day_scoreboard(raw, recorded)
     elif source_url not in (None,NBA_SCHEDULE_URL):
         raise ValueError("untrusted_nba_official_schedule_source_url")
     games = official_nba_events(schedule)
     raw_by_id, source_kind = source_game_records(schedule)
+    if is_stats:
+        source_kind="nba_stats_v3_scoreboard_same_day_fallback"
     claimed_kind=report.get("official_nba_schedule_source_kind")
     if claimed_kind is not None and claimed_kind!=source_kind:
         raise ValueError("nba_schedule_source_kind_mismatch")
