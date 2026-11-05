@@ -145,5 +145,42 @@ class TrainingEvidenceWorklistTests(unittest.TestCase):
             self.assertFalse((root/"historical_results.jsonl").exists())
 
 
+    def test_licensed_third_party_result_agreement_does_not_replace_official(self):
+        from challenger_sportsdataio_nba_final_crosscheck import corroborate
+        from test_challenger_sportsdataio_nba_final_crosscheck import raw
+        c,p,q=inputs()
+        reviewed,_,_=corroborate(c,NOW,"mock",lambda d,k:raw())
+        rows,r=audit(c,p,q,[fixed_shadow(c[0])],reviewed)
+        self.assertEqual(r["sportsdataio_third_party_agreements_not_official"],1)
+        self.assertEqual(r["nba_two_source_published_final_score_agreements_research_only"],0)
+        self.assertEqual(r["independently_qualified_training_games"],0)
+        self.assertEqual(rows[0]["sportsdataio_final_source_status_research_only"],
+                         "sportsdataio_published_final_agrees_with_espn_research_only")
+        self.assertFalse(rows[0]["training_eligible"])
+
+    def test_falsely_promoted_sportsdataio_original_source_is_rejected(self):
+        from challenger_sportsdataio_nba_final_crosscheck import corroborate
+        from test_challenger_sportsdataio_nba_final_crosscheck import raw
+        c,p,q=inputs()
+        reviewed,_,_=corroborate(c,NOW,"mock",lambda d,k:raw())
+        reviewed[0]["independently_adjudicated_market_outcome"]=True
+        with self.assertRaisesRegex(ValueError,"unsafe_licensed_source"):
+            audit(c,p,q,[],reviewed)
+
+    def test_crosswalk_requires_every_candidate_for_source_comparison(self):
+        c,p,q=inputs()
+        with self.assertRaisesRegex(ValueError,"incomplete_sportsdataio"):
+            audit(c,p,q,[],[])
+
+    def test_provider_score_source_claim_must_retain_original_bytes_hash(self):
+        from challenger_sportsdataio_nba_final_crosscheck import corroborate
+        from test_challenger_sportsdataio_nba_final_crosscheck import raw
+        c,p,q=inputs()
+        reviewed,_,_=corroborate(c,NOW,"mock",lambda d,k:raw())
+        reviewed[0]["source_original_bytes_sha256_self_attested"]=None
+        with self.assertRaisesRegex(ValueError,"third_party_score_assertion_lacks"):
+            audit(c,p,q,[],reviewed)
+
+
 if __name__=="__main__":
     unittest.main()
