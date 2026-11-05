@@ -49,7 +49,7 @@ def fetcher(fixtures=None,deny=None,calls=None):
 
 def snapshot(fixtures=None,deny=None,days=7):
     schedule=ingest_schedule("2026-11-05",fetcher(fixtures,deny),
-                             now=NOW,lookahead_days=days)
+                             now=NOW,lookahead_days=days,clock=lambda:NOW)
     items, report=build(schedule,[],[],None,END)
     return schedule,items,report
 
@@ -77,7 +77,7 @@ class EightSportScheduleOutlookTests(unittest.TestCase):
     def test_weekend_nfl_game_found_while_thursday_slate_empty(self):
         calls=[]
         s=ingest_schedule("2026-11-05",fetcher({("nfl","20261108"):[event()]},calls=calls),
-                          now=NOW,lookahead_days=7)
+                          now=NOW,lookahead_days=7,clock=lambda:NOW)
         self.assertEqual(s["sources"]["nfl"]["days_checked"],4)
         self.assertEqual(s["sources"]["nfl"]["first_day_raw_events"],0)
         self.assertEqual(s["sources"]["nfl"]["scheduled_events"],1)
@@ -203,17 +203,77 @@ class EightSportScheduleOutlookTests(unittest.TestCase):
 
     def test_outlook_not_allowed_to_reconstruct_past_game_date(self):
         with self.assertRaisesRegex(ValueError,"actual_eastern_today"):
-            ingest_schedule("2026-10-30",fetcher(),now=NOW,lookahead_days=7)
+            ingest_schedule("2026-10-30",fetcher(),now=NOW,lookahead_days=7,clock=lambda:NOW)
 
     def test_no_request_budget_over_seven_days(self):
         with self.assertRaisesRegex(ValueError,"outside_bounded_window"):
-            ingest_schedule("2026-11-05",fetcher(),now=NOW,lookahead_days=8)
+            ingest_schedule("2026-11-05",fetcher(),now=NOW,lookahead_days=8,clock=lambda:NOW)
 
     def test_zero_day_default_retains_existing_schedule_scan_behavior(self):
         calls=[]
         s=ingest_schedule("2026-11-05",fetcher(calls=calls),now=NOW)
         self.assertEqual(len(calls),8)
         self.assertEqual(s["sources"]["nfl"]["days_checked"],1)
+
+    def test_multiday_source_cannot_use_scan_start_as_response_clock(self):
+        with self.assertRaisesRegex(ValueError,"requires_actual_response_clock"):
+            ingest_schedule("2026-11-05",fetcher(),now=NOW,lookahead_days=7)
+
+    def test_clock_after_fixture_tipoff_does_not_backdate_nfl_game(self):
+        clock_after=datetime(2026,11,8,18,0,1,tzinfo=timezone.utc)
+        clock_calls=0
+        def measured():
+            nonlocal clock_calls
+            clock_calls+=1
+            # Simulate a source that finishes just after the Sunday's kickoff.
+            return clock_after if clock_calls>=7 else NOW
+        fixture={("nfl","20261108"):[event()]}
+        source=ingest_schedule("2026-11-05",fetcher(fixture),
+                               now=NOW,lookahead_days=7,clock=measured)
+        self.assertEqual(source["sources"]["nfl"]["scheduled_events"],0)
+        self.assertEqual(source["events"],[])
+        self.assertGreater(clock_calls,0)
+
+    def test_individual_response_receipt_is_event_observation_time(self):
+        later=NOW+timedelta(seconds=15)
+        source=ingest_schedule("2026-11-05",
+             fetcher({("nfl","20261108"):[event()]}),
+             now=NOW,lookahead_days=7,clock=lambda:later)
+        game=source["events"][0]
+        q=source["sources"]["nfl"]["lookahead"][-1]
+        self.assertEqual(game["observed_at_utc"],later.isoformat())
+        self.assertEqual(q["response_observed_at_utc"],later.isoformat())
+        self.assertEqual(q["request_started_at_utc"],later.isoformat())
+        self.assertNotEqual(game["observed_at_utc"],source["collected_at_utc"])
+        rows,report=build(source,[],[],None,END)
+        self.assertEqual(audit(source,report,rows)["by_league"]["nfl"]["archived_pregame_games"],1)
+
+    def test_tampered_per_response_receipt_blocks_archive_coverage(self):
+        s,rows,r=snapshot({("nfl","20261108"):[event()]})
+        s["sources"]["nfl"]["lookahead"][-1]["response_observed_at_utc"]=(
+            NOW+timedelta(seconds=30)).isoformat()
+        with self.assertRaisesRegex(ValueError,"missing_actual_response_receipt"):
+            audit(s,r,rows)
+
+    def test_wrong_espn_game_eastern_date_cannot_stand_in_for_queried_day(self):
+        s,rows,r=snapshot({("nfl","20261108"):[
+            event("401212","2026-11-09T18:00:00Z")]})
+        self.assertEqual(rows,[])
+        q=s["sources"]["nfl"]["lookahead"][3]
+        self.assertEqual(q["wrong_requested_eastern_date_listings"],1)
+        self.assertEqual(s["sources"]["nfl"]["scheduled_events"],0)
+        self.assertEqual(audit(s,r,rows)["by_league"]["nfl"]["archived_pregame_games"],0)
+
+    def test_regressed_request_clock_blocks_a_date_without_pregame_rows(self):
+        state=iter([NOW+timedelta(seconds=15), NOW+timedelta(seconds=10)])
+        def measured():
+            try:return next(state)
+            except StopIteration:return NOW+timedelta(seconds=15)
+        s=ingest_schedule("2026-11-05",fetcher(),now=NOW,
+                          lookahead_days=7,clock=measured)
+        self.assertEqual(s["sources"]["nba"]["lookahead"][0]["status"],"unavailable")
+        self.assertEqual(s["sources"]["nba"]["lookahead"][0]["reason"],"ValueError")
+        self.assertEqual(s["sources"]["nba"]["scheduled_events"],0)
 
     def test_cli_output_research_only_and_no_training_artifact(self):
         s,rows,r=snapshot({("nfl","20261108"):[event()]})
