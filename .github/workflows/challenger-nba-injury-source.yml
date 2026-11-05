@@ -17,6 +17,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_active_list_conflict_gate.py'
+      - 'tests/test_challenger_nba_active_list_conflict_gate.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -29,6 +31,8 @@ on:
       - 'tests/test_challenger_nba_injury_pdf_player_rows.py'
       - 'challenger_nba_pregame_roster_identity.py'
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
+      - 'challenger_nba_active_list_conflict_gate.py'
+      - 'tests/test_challenger_nba_active_list_conflict_gate.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -51,6 +55,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_injury_pdf.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_pdf_player_rows.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_roster_identity.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_active_list_conflict_gate.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_revision_monitor.py' -v
   capture-current-original-report:
     if: github.event_name != 'pull_request'
@@ -153,6 +158,37 @@ jobs:
             assert hashlib.sha256(blob).hexdigest()==expected
           print('Scheduled NBA roster person ID review candidates:',
                 report['nba_person_id_candidates_without_id_cross_source_authentication'])
+          PY
+      - name: Reconcile reported injury status with scheduled NBA roster fields; never promote final active list
+        run: |
+          set -euo pipefail
+          python challenger_nba_active_list_conflict_gate.py \
+            --roster-dir nba_injury_current_original/pregame_roster_id_review \
+            --output-dir nba_injury_current_original/active_list_conflicts
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('nba_injury_current_original/active_list_conflicts')
+          r=json.loads((root/'nba_active_list_conflict_report.json').read_text())
+          for key in ('independently_confirmed_game_day_active_players',
+                      'independently_confirmed_game_day_inactive_players',
+                      'verified_nba_espn_draftkings_player_id_crosswalks',
+                      'qualified_player_prop_training_observations',
+                      'certified_champion_001_predictions','certified_challenger_001_predictions',
+                      'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+              assert r[key]==0,(key,r[key])
+          assert r['official_complete_active_list_authenticated'] is False
+          assert r['champion_001_modified'] is False
+          for line in (root/'nba_active_list_conflict_review.jsonl').read_text().splitlines():
+              row=json.loads(line)
+              assert row['official_complete_active_list_verified'] is False
+              assert row['current_game_active_inactive_independently_confirmed'] is False
+              assert row['bookmaker_void_or_settlement_verified'] is False
+              assert row['qualified_for_player_prop_training'] is False
+              assert row['model_player_prop_probability'] is None
+              assert row['bet_ready'] is False and row['champion_001_modified'] is False
+          print('NBA official injury vs game-roster preliminary conflicts:',
+                r['near_tipoff_manual_conflicts'])
           PY
       - name: Compare latest and prior official NBA injury PDFs for designation changes (no lineup clearance)
         run: |
