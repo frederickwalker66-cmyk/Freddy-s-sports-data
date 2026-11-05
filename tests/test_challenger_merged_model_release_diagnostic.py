@@ -166,5 +166,59 @@ class CombinedModelReleaseGateTests(unittest.TestCase):
                 main(params)
 
 
+    def test_scrambled_source_signal_becomes_highest_release_priority(self):
+        things=list(reports())
+        statuses={"sportsdataio_published_final_agrees_with_espn_research_only":4,
+                  "sportsdataio_disagrees_with_espn_score_quarantined":49}
+        things[2]["by_status"]=statuses
+        guarded={
+            "records_seen":53,
+            "source_successful_dates":2,
+            "by_status":statuses,
+            "sportsdataio_api_key_tier_independently_verified":False,
+            "suspected_scrambled_score_pattern_days":2,
+            "licensed_provider_scores_accepted_for_training":0,
+            "licensed_provider_player_stats_accepted_for_training":0,
+            "licensed_provider_odds_accepted_for_positive_ev":0,
+            "untrusted_provider_scores_auto_corrected":0,
+            "qualified_challenger_training_games":0,
+            "certified_champion_001_predictions":0,
+            "certified_challenger_001_predictions":0,
+            "certified_positive_ev_bets":0,
+            "automated_bets_placed":0,
+            "champion_001_modified":False,
+        }
+        result=assess(*things,score_integrity=guarded)
+        self.assertEqual(result["suspected_provider_scrambled_score_pattern_days"],2)
+        self.assertFalse(result["sportsdataio_score_fields_authenticated_for_training"])
+        self.assertEqual(len(result["prioritized_remaining_external_evidence_and_release_actions"]),7)
+        self.assertEqual(
+            result["prioritized_remaining_external_evidence_and_release_actions"][0]["code"],
+            "VERIFY_SPORTSDATAIO_REAL_UNSCRAMBLED_DATA_ENTITLEMENT")
+        self.assertEqual(result["certified_challenger_001_predictions"],0)
+
+    def test_scramble_guard_cannot_claim_authenticated_key_tier_without_evidence(self):
+        things=list(reports())
+        things[2]["by_status"]={"provider_final_score_invalid":53}
+        guarded={
+            "records_seen":53,"source_successful_dates":2,
+            "by_status":{"provider_final_score_invalid":53},
+            "sportsdataio_api_key_tier_independently_verified":True,
+            "suspected_scrambled_score_pattern_days":0,
+            "licensed_provider_scores_accepted_for_training":0,
+            "licensed_provider_player_stats_accepted_for_training":0,
+            "licensed_provider_odds_accepted_for_positive_ev":0,
+            "untrusted_provider_scores_auto_corrected":0,
+            "qualified_challenger_training_games":0,
+            "certified_champion_001_predictions":0,
+            "certified_challenger_001_predictions":0,
+            "certified_positive_ev_bets":0,
+            "automated_bets_placed":0,
+            "champion_001_modified":False,
+        }
+        with self.assertRaisesRegex(ValueError,"untrusted_provider_integrity"):
+            assess(*things,score_integrity=guarded)
+
+
 if __name__=="__main__":
     unittest.main()
