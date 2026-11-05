@@ -326,8 +326,10 @@ def run(capture_dir,events=None,fetcher=None,clock=None,parser=None):
         fetched=now_utc(clock)
         if fetched<now or (fetched-now).total_seconds()>90:
             raise ValueError("comparison_source_fetch_outside_same_run_clock_window")
-        if not isinstance(older_pdf,bytes) or not 100<=len(older_pdf)<=MAX_PDF_BYTES:
-            raise ValueError("empty_or_oversized_previous_injury_pdf")
+        if (not isinstance(older_pdf,bytes) or not 100<=len(older_pdf)<=MAX_PDF_BYTES
+                or not older_pdf.startswith(b"%PDF-")
+                or not older_pdf.rstrip().endswith(b"%%EOF")):
+            raise ValueError("invalid_original_previous_injury_pdf_signature_or_size")
         new_rows,new_filings,_=parser(current["pdf"],current["url"])
         old_rows,old_filings,_=parser(older_pdf,previous_url)
         changed,counts=compare_reports(new_rows,new_filings,old_rows,old_filings,
