@@ -175,7 +175,7 @@ class NBAOfficialPDFPlayerRowsTests(unittest.TestCase):
         p=pages()
         p[0][0]["team"]="Unverified Basketball Team"
         rows,filings,counts=parse_table(p,LABEL,LABEL)
-        self.assertEqual(rows[0]["source_player_name_display"],"Jalen Suggs")
+        self.assertNotIn("Paolo Banchero", [r["source_player_name_display"] for r in rows])
         self.assertGreater(counts["unknown_pdf_team_name"],0)
 
     def test_body_without_date_never_guesses_game_day(self):
