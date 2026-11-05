@@ -19,7 +19,6 @@ import math
 from pathlib import Path
 import re
 
-from sklearn.isotonic import IsotonicRegression
 
 MIN_CALIBRATION = 200
 MIN_EVALUATION = 50
@@ -172,6 +171,9 @@ def recalibrate(rows, as_of=None, min_calibration=MIN_CALIBRATION,
             report["status"] = "blocked_insufficient_chronological_split_or_classes"
             reports.append(report)
             continue
+        # Lazy import: non-calibration research jobs can validate and report
+        # safely without scikit-learn; real fitting requires the dependency.
+        from sklearn.isotonic import IsotonicRegression
         calibrator = IsotonicRegression(y_min=EPS, y_max=1-EPS, out_of_bounds="clip")
         calibrator.fit([i["p"] for i in fit_rows], [i["y"] for i in fit_rows])
         truth = [i["y"] for i in holdout]
