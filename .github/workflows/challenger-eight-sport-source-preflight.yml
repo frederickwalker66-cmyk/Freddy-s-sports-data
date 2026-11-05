@@ -124,7 +124,7 @@ jobs:
               'warning':'Successful upstream run triggers a new source observation; upstream files are not silently treated as independently verified or as current bookmaker quotes.',
           }
           Path('seven_day_source_preflight/automatic_chain_provenance.json').write_text(
-              json.dumps(manifest,indent=2,sort_keys=True)+'\\n')
+              json.dumps(manifest,indent=2,sort_keys=True)+'\n')
           print('Automated research chain:',event,'upstream run:',upstream or 'manual/push')
           PY
       - name: Verify live source coverage totals and frozen research gates
@@ -271,7 +271,7 @@ jobs:
               'remaining_external_blockers':r['blockers'],
           }
           (root/'automatic_chain_status.json').write_text(
-              json.dumps(result,indent=2,sort_keys=True)+'\\n')
+              json.dumps(result,indent=2,sort_keys=True)+'\n')
           print('AUTO SEQUENCE FINISHED:',json.dumps(result,sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
