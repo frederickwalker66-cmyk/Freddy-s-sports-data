@@ -1,0 +1,73 @@
+name: Challenger-001 original NBA pregame injury-report source archive (research only)
+on:
+  workflow_dispatch:
+  schedule:
+    # Three bounded original-source captures per day; GitHub schedules can be late.
+    # Real as-of UTC timestamps are recorded, not inferred from cron execution.
+    - cron: '0 14,19,23 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_nba_pregame_injury_pdf.py'
+      - 'tests/test_challenger_nba_pregame_injury_pdf.py'
+      - '.github/workflows/challenger-nba-injury-source.yml'
+  pull_request:
+    paths:
+      - 'challenger_nba_pregame_injury_pdf.py'
+      - 'tests/test_challenger_nba_pregame_injury_pdf.py'
+      - '.github/workflows/challenger-nba-injury-source.yml'
+permissions:
+  contents: read
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check original injury-source PDF validation fixtures
+        run: python -m unittest discover -s tests -p 'test_challenger_nba_pregame_injury_pdf.py' -v
+  capture-current-original-report:
+    if: github.event_name != 'pull_request'
+    needs: offline-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Capture one as-observed NBA-owned injury index and original PDF if published
+        run: |
+          set -euo pipefail
+          python challenger_nba_pregame_injury_pdf.py \
+            --output-dir nba_injury_current_original
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('nba_injury_current_original')
+          r=json.loads((root/'nba_injury_original_report.json').read_text())
+          for key in ('nba_players_with_verified_injury_status','nba_players_confirmed_active',
+                      'qualified_player_prop_training_observations',
+                      'certified_champion_001_predictions',
+                      'certified_challenger_001_predictions','certified_positive_ev_bets',
+                      'bet_ready_selections','automated_bets_placed'):
+              assert r[key]==0,(key,r[key])
+          assert r['champion_001_modified'] is False
+          if r['source_status']=='captured_original_index_and_pdf':
+              assert hashlib.sha256((root/'nba_injury_original_report.pdf').read_bytes()).hexdigest()==r['original_pdf_sha256']
+              assert hashlib.sha256((root/'nba_injury_original_index.html').read_bytes()).hexdigest()==r['official_nba_index_sha256']
+              assert r['original_pdf_authorship_cryptographically_verified'] is False
+              assert r['report_filename_label_externally_authenticated'] is False
+          print('NBA original source status:',r['source_status'],'not a verified active lineup')
+          PY
+      - name: Retain downloaded source bytes temporarily for independent later player review
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nba-injury-original-${{ github.run_id }}
+          path: nba_injury_current_original/
+          retention-days: 90
+          if-no-files-found: warn
