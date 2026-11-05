@@ -4,7 +4,7 @@ player verification, a DraftKings checkout quote, or model certification.
 """
 import argparse
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 from urllib.parse import urlencode
@@ -35,45 +35,155 @@ def download_json(url):
         raise ValueError("unexpected schedule data")
     return result
 
-def ingest_schedule(date_et, fetch=download_json, now=None):
-    now=now or datetime.now(timezone.utc)
-    result={"collected_at_utc":now.isoformat(),"date_et":date_et,"events":[],"sources":{}}
-    for league,(sport,competition) in SOURCES.items():
-        url=BASE+"/"+sport+"/"+competition+"/scoreboard?"+urlencode({"dates":date_et.replace("-",""),"limit":500})
+MAX_LOOKAHEAD_DAYS = 7
+
+
+def _parse_schedule_response(payload, league, url, requested_day, now):
+    """Only future, uniquely identified ESPN games are pregame evidence."""
+    if (not isinstance(payload, dict) or not isinstance(payload.get("events"), list)
+            or len(payload["events"]) > 500):
+        raise ValueError("invalid_or_oversized_espn_schedule_payload")
+    eligible, identities = [], set()
+    state_counts = Counter()
+    invalid = 0
+    for game in payload["events"]:
+        if not isinstance(game, dict):
+            invalid += 1
+            continue
+        raw_state = game.get("status")
+        state = (raw_state.get("type", {}).get("state")
+                 if isinstance(raw_state, dict)
+                 and isinstance(raw_state.get("type"), dict) else None)
+        state_counts[str(state or "unknown")[:24]] += 1
+        comps = game.get("competitions")
+        if not isinstance(comps, list) or not comps or not isinstance(comps[0], dict):
+            invalid += 1
+            continue
+        obj = comps[0]
+        home, away = None, None
+        for competitor in obj.get("competitors", []):
+            if not isinstance(competitor, dict):
+                continue
+            team = competitor.get("team")
+            name = team.get("displayName") if isinstance(team, dict) else None
+            if competitor.get("homeAway") == "home":
+                home = name
+            elif competitor.get("homeAway") == "away":
+                away = name
         try:
-            payload=fetch(url)
-            if not isinstance(payload,dict) or not isinstance(payload.get("events"),list):
-                raise ValueError("invalid schedule payload")
-            valid=0
-            for game in payload["events"][:500]:
-                if not isinstance(game,dict):continue
-                comps=game.get("competitions")
-                if not isinstance(comps,list) or not comps:continue
-                obj=comps[0]
-                if not isinstance(obj,dict):continue
-                home,away=None,None
-                for competitor in obj.get("competitors",[]):
-                    if not isinstance(competitor,dict):continue
-                    team=competitor.get("team")
-                    name=team.get("displayName") if isinstance(team,dict) else None
-                    if competitor.get("homeAway")=="home":home=name
-                    elif competitor.get("homeAway")=="away":away=name
-                try: start=parse_dt(game.get("date") or obj.get("date"))
-                except (TypeError,ValueError,AttributeError):continue
-                state=game.get("status",{}).get("type",{}).get("state")
-                if not home or not away or state!="pre":continue
-                if start<=now:continue
-                result["events"].append({
-                    "league":league,"home_team":home,"away_team":away,
-                    "start_utc":start.isoformat(),"source_url":url,
-                    "provider_game_id":str(game.get("id") or ""),
-                    "observed_at_utc":now.isoformat(),"status":"scheduled"
+            start = parse_dt(game.get("date") or obj.get("date"))
+        except (TypeError, ValueError, AttributeError):
+            invalid += 1
+            continue
+        if state != "pre" or start <= now:
+            continue
+        gid = str(game.get("id") or "")
+        if (not gid.isdecimal() or not isinstance(home, str)
+                or not isinstance(away, str) or not home.strip()
+                or not away.strip() or home == away):
+            invalid += 1
+            continue
+        if gid in identities:
+            raise ValueError("duplicate_espn_future_game_identity_same_league_day")
+        identities.add(gid)
+        eligible.append({
+            "league": league, "home_team": home, "away_team": away,
+            "start_utc": start.isoformat(), "source_url": url,
+            "provider_game_id": gid, "observed_at_utc": now.isoformat(),
+            "status": "scheduled", "requested_date_et": requested_day,
+        })
+    return eligible, {
+        "raw_events_listed": len(payload["events"]),
+        "state_counts": dict(sorted(state_counts.items())),
+        "invalid_or_unusable_listings": invalid,
+        "eligible_future_events": len(eligible),
+    }
+
+
+def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
+    """Source-only seven-day optional outlook, without probability or wager output.
+
+    Default zero-day mode preserves older callers. With lookahead enabled,
+    only leagues with NO valid pregame event today are searched on subsequent
+    Eastern dates, stopping at the first date with future games. Explicitly
+    preserve errors and negative-slate coverage rather than inventing games.
+    """
+    now = now or datetime.now(timezone.utc)
+    if not isinstance(now, datetime) or now.tzinfo is None:
+        raise ValueError("schedule_capture_requires_aware_clock")
+    now = now.astimezone(timezone.utc)
+    if type(lookahead_days) is not int or not 0 <= lookahead_days <= MAX_LOOKAHEAD_DAYS:
+        raise ValueError("schedule_lookahead_outside_bounded_window")
+    day0 = date.fromisoformat(date_et)
+    if (lookahead_days and
+            day0 != now.astimezone(ZoneInfo("America/New_York")).date()):
+        raise ValueError("future_schedule_outlook_must_start_on_actual_eastern_today")
+    result = {
+        "collected_at_utc": now.isoformat(), "date_et": date_et,
+        "lookahead_days_requested": lookahead_days,
+        "events": [], "sources": {},
+    }
+    for league, (sport, competition) in SOURCES.items():
+        events, queries = [], []
+        seen = set()
+        for delta in range(lookahead_days + 1):
+            requested_day = (day0 + timedelta(days=delta)).isoformat()
+            url = (BASE + "/" + sport + "/" + competition + "/scoreboard?" +
+                   urlencode({"dates": requested_day.replace("-", ""), "limit": 500}))
+            try:
+                payload = fetch(url)
+                parsed, counts = _parse_schedule_response(
+                    payload, league, url, requested_day, now)
+                for item in parsed:
+                    key = item["provider_game_id"]
+                    if key in seen:
+                        raise ValueError("duplicate_future_game_across_checked_days")
+                    seen.add(key)
+                events.extend(parsed)
+                queries.append({
+                    "date_et": requested_day, "status": "retrieved",
+                    "source_url": url, **counts,
                 })
-                valid+=1
-            result["sources"][league]={"status":"retrieved","source_url":url,"scheduled_events":valid}
-        except Exception as exc:
-            result["sources"][league]={"status":"unavailable","reason":type(exc).__name__}
+                if parsed:
+                    break
+            except (OSError, ValueError, TypeError, KeyError,
+                    UnicodeError, OverflowError, TimeoutError) as exc:
+                queries.append({
+                    "date_et": requested_day, "status": "unavailable",
+                    "source_url": url, "reason": type(exc).__name__,
+                })
+        valid_days = sum(x["status"] == "retrieved" for x in queries)
+        failed_days = len(queries) - valid_days
+        raw_games = sum(x.get("raw_events_listed", 0) for x in queries)
+        if events:
+            diagnosis = "future_game_source_observed"
+        elif not valid_days:
+            diagnosis = "schedule_source_unavailable_for_all_checked_dates"
+        elif failed_days:
+            diagnosis = "future_game_unknown_due_to_partial_source_failures"
+        elif raw_games == 0:
+            diagnosis = "no_games_listed_on_all_checked_dates"
+        else:
+            diagnosis = "games_listed_but_none_future_eligible"
+        status = "retrieved" if valid_days else "unavailable"
+        result["sources"][league] = {
+            "status": status,
+            "source_url": queries[0]["source_url"],
+            "scheduled_events": len(events),
+            "first_day_status": queries[0]["status"],
+            "first_day_raw_events": queries[0].get("raw_events_listed"),
+            "days_checked": len(queries),
+            "days_retrieved": valid_days,
+            "days_unavailable": failed_days,
+            "raw_game_listings_across_checked_dates": raw_games,
+            "diagnosis": diagnosis,
+            "lookahead": queries,
+        }
+        if not valid_days:
+            result["sources"][league]["reason"] = queries[0]["reason"]
+        result["events"].extend(events)
     return result
+
 
 def corroborate(agree,disagree,schedule,now=None):
     now=now or datetime.now(timezone.utc)
