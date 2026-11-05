@@ -18,6 +18,8 @@ on:
       - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
       - 'challenger_native_pregame_capture.py'
+      - 'challenger_multisport_native_capture.py'
+      - 'tests/test_challenger_multisport_native_capture.py'
       - 'tests/test_challenger_native_pregame_capture.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
@@ -25,6 +27,8 @@ on:
       - '.github/workflows/challenger-prospective-pregame.yml'
   pull_request:
     paths:
+      - 'challenger_multisport_native_capture.py'
+      - 'tests/test_challenger_multisport_native_capture.py'
       - 'challenger_native_pregame_capture.py'
       - 'tests/test_challenger_native_pregame_capture.py'
       - 'challenger_prospective_pregame.py'
@@ -190,6 +194,36 @@ jobs:
               assert item['market_implied_probability_used_as_model'] is False
               assert item['champion_001_modified'] is False
           print('Native Challenger research receipts:',r['actual_native_research_forecasts_written'],r['status'])
+          PY
+      - name: Capture seven other sports with native research model gates; NBA handled separately
+        shell: bash
+        run: |
+          python challenger_multisport_native_capture.py \
+            --snapshots prospective_pregame/prospective_event_evidence.jsonl \
+            --candidates prospective_pregame/multisport_game_candidates.jsonl \
+            --model-dir challenger_results/multisport_models \
+            --output-dir prospective_pregame \
+            --run-id "$GITHUB_RUN_ID"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_pregame')
+          r=json.loads((root/'multisport_native_capture_report.json').read_text())
+          assert len(r['supported_leagues']) == 8
+          assert r['per_league_model_gate']['nba'] == 'delegated_to_existing_nba_specialist_recorder'
+          assert r['champion_001_modified'] is False
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['player_prop_probability_models_available'] == 0
+          for line in (root/'native_multisport_forecasts.jsonl').read_text().splitlines():
+            row=json.loads(line)
+            assert row['market_type'] in ('moneyline','three_way_result')
+            assert row['market_implied_probability_used_as_model'] is False
+            assert row['qualified_for_calibration'] is False
+            assert row['bet_ready'] is False
+            assert row['champion_001_modified'] is False
+          print('Multi-sport native research (uncertified) selections:', r['market_selections_captured_uncertified'])
           PY
       - name: Verify prospective timing and no model or betting promotion
         shell: bash

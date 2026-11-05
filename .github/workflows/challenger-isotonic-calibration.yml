@@ -8,6 +8,10 @@ on:
     paths:
       - 'challenger_isotonic_recalibration.py'
       - 'challenger_calibration_evidence_bridge.py'
+      - 'challenger_multisport_calibration_review.py'
+      - 'tests/test_challenger_multisport_calibration_review.py'
+      - 'challenger_multisport_native_capture.py'
+      - 'tests/test_challenger_multisport_native_capture.py'
       - 'tests/test_challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_calibration_evidence_bridge.py'
       - 'requirements-calibration.txt'
@@ -15,6 +19,10 @@ on:
       - '.github/workflows/challenger-isotonic-calibration.yml'
   pull_request:
     paths:
+      - 'challenger_multisport_calibration_review.py'
+      - 'tests/test_challenger_multisport_calibration_review.py'
+      - 'challenger_multisport_native_capture.py'
+      - 'tests/test_challenger_multisport_native_capture.py'
       - 'challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_calibration_evidence_bridge.py'
@@ -92,6 +100,32 @@ jobs:
             assert row['bet_ready'] is False
           print('Evidence link status:',r['status'],
                 'unqualified pairs:',r['unqualified_native_forecast_outcome_pairs_staged'])
+          PY
+      - name: Audit all-sport native model receipts against published outcomes (no calibration promotion)
+        run: |
+          python challenger_multisport_calibration_review.py \
+            --archive-root calibration_sources \
+            --output-dir challenger_results/calibration_evidence
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('challenger_results/calibration_evidence')
+          r=json.loads((root/'multisport_review_report.json').read_text())
+          assert len(r['all_leagues']) == 8
+          assert r['independently_verified_calibration_examples'] == 0
+          assert r['soccer_90_minute_outcomes_adjudicated'] == 0
+          assert r['training_dataset_emitted'] is False
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == r['bet_ready_selections'] == r['automated_bets_placed'] == 0
+          assert r['champion_001_modified'] is False
+          for line in (root/'multisport_review_queue.jsonl').read_text().splitlines():
+            item=json.loads(line)
+            assert item['calibration_label'] is None
+            assert item['qualified_for_calibration'] is False
+            assert item['independent_outcome_verified'] is False
+            assert item['bet_ready'] is False
+          print('All-sports evidence links staged (unqualified):', r['unqualified_matched_games'])
           PY
       - name: Run daily research-only calibration or report missing evidence
         run: |
