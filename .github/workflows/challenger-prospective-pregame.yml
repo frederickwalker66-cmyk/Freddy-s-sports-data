@@ -173,6 +173,8 @@ jobs:
           assert schedule['original_source_bytes_capture_enabled'] is True
           assert r['original_espn_source_responses_verified']==sum(
               x['source_days_succeeded'] for x in r['by_league'].values())
+          assert r['archived_games_matching_exact_original_event_fields']==(
+              r['totals']['pregame_events_archived'])
           assert r['original_source_hashes_independently_publisher_signed'] is False
           for k in ('qualified_chronological_training_games',
                     'certified_champion_001_predictions',
