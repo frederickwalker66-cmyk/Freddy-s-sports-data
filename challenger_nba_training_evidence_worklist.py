@@ -36,15 +36,20 @@ def validated_map(rows, id_field, what):
     return found
 
 
-def audit(candidates, comparisons, qualification, ledger):
+def audit(candidates, comparisons, qualification, ledger, licensed=None):
     original = validated_map(candidates,"event_id","original_candidate")
     official = validated_map(comparisons,"espn_research_event_id","official_comparison")
     claims = validated_map(qualification,"event_id","qualification_audit")
     shadows = validated_map(ledger,"espn_event_id","research_shadow_ledger")
+    provider = (validated_map(licensed,"espn_research_event_id",
+                              "sportsdataio_final_review")
+                if licensed is not None else {})
     if set(original) != set(official) or set(original) != set(claims):
         raise ValueError("qualification_candidate_or_official_source_identity_missing")
     if not set(shadows).issubset(original):
         raise ValueError("orphan_shadow_forecast_not_a_review_candidate")
+    if licensed is not None and set(provider) != set(original):
+        raise ValueError("incomplete_sportsdataio_nba_review_crosswalk")
     per_state = Counter()
     output = []
     for eid,c in original.items():
@@ -117,6 +122,49 @@ def audit(candidates, comparisons, qualification, ledger):
                 research_pick=linked.get("research_selection")
                 if research_pick not in ("home","away",None):
                     raise ValueError("invalid_research_side")
+        licensed_row = provider.get(eid)
+        licensed_status = "not_run_or_not_linked"
+        licensed_id = None
+        if licensed_row is not None:
+            from challenger_sportsdataio_nba_final_crosscheck import AGREEMENT
+            if (licensed_row.get("record_type") !=
+                    "sportsdataio_nba_final_result_comparison_research_only"
+                or licensed_row.get("home_team") != c["home_team"]
+                or licensed_row.get("away_team") != c["away_team"]
+                or licensed_row.get("espn_published_score") != c["published_score_only"]
+                or timestamp(licensed_row["start_utc"]) != start
+                or licensed_row.get("source_type") !=
+                    "licensed_third_party_nba_result_not_league_operated"
+                or licensed_row.get("qualified_for_challenger_backtest") is not False
+                or licensed_row.get("independently_verified_original_pregame_features") is not False
+                or licensed_row.get("independently_adjudicated_market_outcome") is not False
+                or licensed_row.get("bookmaker_moneyline_settlement_verified") is not False
+                or licensed_row.get("certified_prediction") is not False
+                or licensed_row.get("bet_ready") is not False
+                or licensed_row.get("champion_001_modified") is not False):
+                raise ValueError("unsafe_licensed_source_training_promotion")
+            licensed_status = licensed_row.get("crosscheck_status")
+            if not isinstance(licensed_status,str):
+                raise ValueError("licensed_source_status_missing")
+            licensed_id = licensed_row.get("sportsdataio_game_id")
+            if licensed_status == AGREEMENT:
+                sourcehash=licensed_row.get(
+                    "source_original_bytes_sha256_self_attested")
+                if (licensed_row.get("sportsdataio_published_score") !=
+                        c["published_score_only"]
+                    or not isinstance(licensed_id,str) or not licensed_id.isdigit()
+                    or not isinstance(sourcehash,str) or len(sourcehash) != 64
+                    or any(k not in "0123456789abcdef" for k in sourcehash)
+                    or timestamp(licensed_row["source_received_at_utc"]) <= start):
+                    raise ValueError("third_party_score_assertion_lacks_original_proof")
+                per_state["licensed_third_party_final_agrees_research_only"] += 1
+            elif licensed_status in (
+                    "sportsdataio_disagrees_with_espn_score_quarantined",
+                    "nba_operated_vs_sportsdataio_result_conflict",
+                    "ambiguous_sportsdataio_final_event_identity"):
+                per_state["licensed_third_party_conflicts_or_ambiguous"] += 1
+            else:
+                per_state["licensed_third_party_unavailable_or_pending"] += 1
         second_source = q["evidence"]["published_score_second_source_agreement"]
         obstacles = [key for key in REQUIRED if not q["evidence"][key]]
         if not second_source:
@@ -136,6 +184,8 @@ def audit(candidates, comparisons, qualification, ledger):
             "published_score_only":c["published_score_only"],
             "independently_adjudicated_market_outcome":False,
             "nba_score_second_source_status":o.get("crosscheck_status"),
+            "sportsdataio_final_source_status_research_only":licensed_status,
+            "sportsdataio_game_id_research_only":licensed_id,
             "review_priority":(
                 "authenticate_original_pregame_and_independent_adjudication"
                 if second_source else
@@ -162,6 +212,12 @@ def audit(candidates, comparisons, qualification, ledger):
             per_state["nba_second_source_published_score_agrees"],
         "nba_missing_second_source_original_final":
             per_state["needs_official_nba_original_final_recovery"],
+        "sportsdataio_third_party_agreements_not_official":
+            per_state["licensed_third_party_final_agrees_research_only"],
+        "sportsdataio_conflicts_or_ambiguous":
+            per_state["licensed_third_party_conflicts_or_ambiguous"],
+        "sportsdataio_unavailable_or_pending":
+            per_state["licensed_third_party_unavailable_or_pending"],
         "nba_exact_original_pregame_heuristic_forecast_reconciled":
             per_state["exact_original_pregame_research_shadow_found_uncertified"],
         "nba_pregame_heuristic_missing_or_different_snapshot":
@@ -195,6 +251,7 @@ def main(argv=None):
     p.add_argument("--comparisons",required=True)
     p.add_argument("--qualification",required=True)
     p.add_argument("--shadow-ledger",required=True)
+    p.add_argument("--sportsdataio-review")
     p.add_argument("--output-dir",default="prospective_validation")
     args=p.parse_args(argv)
     def lines(path):
@@ -204,7 +261,8 @@ def main(argv=None):
         return [json.loads(x) for x in f.read_text(encoding="utf8").splitlines()
                 if x.strip()]
     rows,report=audit(lines(args.candidates),lines(args.comparisons),
-                      lines(args.qualification),lines(args.shadow_ledger))
+                      lines(args.qualification),lines(args.shadow_ledger),
+                      lines(args.sportsdataio_review) if args.sportsdataio_review else None)
     dest=Path(args.output_dir)
     dest.mkdir(parents=True,exist_ok=True)
     (dest/"nba_independent_evidence_training_worklist.jsonl").write_text(
