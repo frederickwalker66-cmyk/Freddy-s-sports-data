@@ -7,6 +7,13 @@ on:
       - '.github/workflows/refresh-nba-mlb-evidence.yml'
       - 'capture_evidence_manifest.py'
       - 'tests/test_capture_evidence_manifest.py'
+      - 'requirements-calibration.txt'
+  pull_request:
+    paths:
+      - '.github/workflows/refresh-nba-mlb-evidence.yml'
+      - 'capture_evidence_manifest.py'
+      - 'tests/test_capture_evidence_manifest.py'
+      - 'requirements-calibration.txt'
   schedule:
     # 12:00, 16:00 and 19:00 Eastern during daylight saving.
     # GitHub scheduled jobs may run late; source age is always checked.
@@ -22,6 +29,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install calibration test dependencies
+        run: python -m pip install -r requirements-calibration.txt
       - name: Run independent code checks
         run: python -m unittest discover -s tests -v
       - name: Retrieve official NBA and MLB evidence
