@@ -46,6 +46,8 @@ def _parse_schedule_response(payload, league, url, requested_day, now):
     eligible, identities = [], set()
     state_counts = Counter()
     invalid = 0
+    wrong_eastern_date = 0
+    started_before_response = 0
     for game in payload["events"]:
         if not isinstance(game, dict):
             invalid += 1
@@ -75,7 +77,14 @@ def _parse_schedule_response(payload, league, url, requested_day, now):
         except (TypeError, ValueError, AttributeError):
             invalid += 1
             continue
-        if state != "pre" or start <= now:
+        if state != "pre":
+            continue
+        if start.astimezone(ZoneInfo("America/New_York")).date().isoformat() != requested_day:
+            wrong_eastern_date += 1
+            invalid += 1
+            continue
+        if start <= now:
+            started_before_response += 1
             continue
         gid = str(game.get("id") or "")
         if (not gid.isdecimal() or not isinstance(home, str)
@@ -96,11 +105,14 @@ def _parse_schedule_response(payload, league, url, requested_day, now):
         "raw_events_listed": len(payload["events"]),
         "state_counts": dict(sorted(state_counts.items())),
         "invalid_or_unusable_listings": invalid,
+        "wrong_requested_eastern_date_listings": wrong_eastern_date,
+        "game_started_before_response_listings": started_before_response,
         "eligible_future_events": len(eligible),
     }
 
 
-def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
+def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
+                    clock=None):
     """Source-only seven-day optional outlook, without probability or wager output.
 
     Default zero-day mode preserves older callers. With lookahead enabled,
@@ -112,6 +124,17 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
     if not isinstance(now, datetime) or now.tzinfo is None:
         raise ValueError("schedule_capture_requires_aware_clock")
     now = now.astimezone(timezone.utc)
+    if lookahead_days and clock is None:
+        raise ValueError("prospective_multiday_scan_requires_actual_response_clock")
+    clock = clock or (lambda: now)  # Legacy one-day diagnostic fixtures.
+    def observed_now():
+        response_at = clock()
+        if not isinstance(response_at, datetime) or response_at.tzinfo is None:
+            raise ValueError("schedule_response_clock_not_aware")
+        response_at = response_at.astimezone(timezone.utc)
+        if response_at < now:
+            raise ValueError("schedule_response_clock_before_scan_started")
+        return response_at
     if type(lookahead_days) is not int or not 0 <= lookahead_days <= MAX_LOOKAHEAD_DAYS:
         raise ValueError("schedule_lookahead_outside_bounded_window")
     day0 = date.fromisoformat(date_et)
@@ -130,10 +153,17 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
             requested_day = (day0 + timedelta(days=delta)).isoformat()
             url = (BASE + "/" + sport + "/" + competition + "/scoreboard?" +
                    urlencode({"dates": requested_day.replace("-", ""), "limit": 500}))
+            request_started = None
             try:
+                request_started = observed_now()
                 payload = fetch(url)
+                response_observed = observed_now()
+                if response_observed < request_started:
+                    raise ValueError("schedule_source_clock_regressed_during_request")
+                if response_observed.astimezone(ZoneInfo("America/New_York")).date()!=day0:
+                    raise ValueError("prospective_scan_crossed_eastern_calendar_day")
                 parsed, counts = _parse_schedule_response(
-                    payload, league, url, requested_day, now)
+                    payload, league, url, requested_day, response_observed)
                 for item in parsed:
                     key = item["provider_game_id"]
                     if key in seen:
@@ -142,7 +172,10 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
                 events.extend(parsed)
                 queries.append({
                     "date_et": requested_day, "status": "retrieved",
-                    "source_url": url, **counts,
+                    "source_url": url,
+                    "request_started_at_utc": request_started.isoformat(),
+                    "response_observed_at_utc": response_observed.isoformat(),
+                    **counts,
                 })
                 if parsed:
                     break
@@ -151,6 +184,9 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0):
                 queries.append({
                     "date_et": requested_day, "status": "unavailable",
                     "source_url": url, "reason": type(exc).__name__,
+                    "request_started_at_utc": (
+                        request_started.isoformat() if request_started else None),
+                    "request_failed_at_utc": observed_now().isoformat(),
                 })
         valid_days = sum(x["status"] == "retrieved" for x in queries)
         failed_days = len(queries) - valid_days
