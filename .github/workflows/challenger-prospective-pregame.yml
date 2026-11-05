@@ -43,6 +43,8 @@ on:
       - 'challenger_nba_source_integrity.py'
       - 'tests/test_challenger_history_coverage.py'
       - 'challenger_research_shadow_baseline.py'
+      - 'challenger_nba_prospective_shadow_ledger.py'
+      - 'tests/test_challenger_nba_prospective_shadow_ledger.py'
       - 'challenger_native_pregame_capture.py'
       - 'challenger_multisport_native_capture.py'
       - 'tests/test_challenger_multisport_native_capture.py'
@@ -467,6 +469,36 @@ jobs:
               assert row["shadow_stake_usd"] == 0
               assert row["certified_prediction"] is False
               assert row["bet_ready"] is False
+          PY
+      - name: "#93 replay exact original NBA snapshot into earliest real-time untrained $0 selection ledger"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_prospective_shadow_ledger.py \
+            --snapshot-root prospective_pregame \
+            --forecast-root prospective_pregame \
+            --output-dir prospective_pregame
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_pregame')
+          r=json.loads((root/'nba_untrained_moneyline_shadow_ledger_report.json').read_text())
+          assert r['native_challenger_001_predictions']==0
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['certified_positive_ev_selections']==0
+          assert r['verified_direct_draftkings_checkout_prices']==0
+          assert r['champion_001_modified'] is False
+          for text in (root/'nba_untrained_moneyline_shadow_ledger.jsonl').read_text().splitlines():
+            row=json.loads(text)
+            assert row['trained_challenger_001_model'] is False
+            assert row['counts_toward_champion_001_certified_shadow_target'] is False
+            assert row['independently_authenticated_source_publication'] is False
+            assert row['sportsbook_price'] is None
+            assert row['bet_ready'] is False
+            assert row['shadow_stake_usd']==0
+            assert row['champion_001_modified'] is False
+          print('New actual pregame NBA research selections:',r['directional_nba_research_selections'])
           PY
       - name: Capture only genuine native Challenger NBA forecasts; fail closed without model and features
         shell: bash
