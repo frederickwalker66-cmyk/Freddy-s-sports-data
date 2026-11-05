@@ -19,6 +19,8 @@ on:
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'challenger_nba_active_list_conflict_gate.py'
       - 'tests/test_challenger_nba_active_list_conflict_gate.py'
+      - 'challenger_nba_official_stats_v3_inactives.py'
+      - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -33,6 +35,8 @@ on:
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'challenger_nba_active_list_conflict_gate.py'
       - 'tests/test_challenger_nba_active_list_conflict_gate.py'
+      - 'challenger_nba_official_stats_v3_inactives.py'
+      - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -56,6 +60,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_pdf_player_rows.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_pregame_roster_identity.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_active_list_conflict_gate.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_official_stats_v3_inactives.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_revision_monitor.py' -v
   capture-current-original-report:
     if: github.event_name != 'pull_request'
@@ -189,6 +194,44 @@ jobs:
               assert row['bet_ready'] is False and row['champion_001_modified'] is False
           print('NBA official injury vs game-roster preliminary conflicts:',
                 r['near_tipoff_manual_conflicts'])
+          PY
+      - name: Read explicit NBA-operated Stats V3 game inactives before tipoff (optional source, no active-player clearance)
+        run: |
+          set -euo pipefail
+          python challenger_nba_official_stats_v3_inactives.py \
+            --roster-dir nba_injury_current_original/pregame_roster_id_review \
+            --output-dir nba_injury_current_original/stats_v3_inactive_receipts \
+            --max-games 4
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('nba_injury_current_original/stats_v3_inactive_receipts')
+          r=json.loads((root/'nba_stats_v3_inactive_report.json').read_text())
+          assert r['source_requests_attempted']<=4
+          for k in ('independently_confirmed_game_day_active_players',
+                    'independently_confirmed_game_day_inactive_players',
+                    'verified_nba_espn_draftkings_player_id_crosswalks',
+                    'qualified_player_prop_training_observations',
+                    'certified_champion_001_predictions','certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert r[k]==0,(k,r[k])
+          assert r['official_final_active_list_authenticated'] is False
+          assert r['complete_game_day_active_list_available'] is False
+          assert r['no_inactive_rows_does_not_mean_everyone_active'] is True
+          assert r['champion_001_modified'] is False
+          for line in (root/'nba_stats_v3_inactive_review.jsonl').read_text().splitlines():
+            row=json.loads(line)
+            assert row['source_explicit_inactive_pregame'] is True
+            assert row['official_final_active_list_authenticated'] is False
+            assert row['confirmed_final_game_inactive'] is False
+            assert row['all_nonlisted_players_assumed_active'] is False
+            assert row['qualified_for_prop_training'] is False
+            assert row['model_probability'] is None and row['bet_ready'] is False
+          for game_id,digest in r['observed_game_source_sha256'].items():
+            raw=(root/'nba_stats_v3_original_source_bytes'/(game_id+'.json')).read_bytes()
+            assert hashlib.sha256(raw).hexdigest()==digest
+          print('NBA Stats V3 explicit pregame inactive rows:',r['explicit_source_inactive_rows'],
+                'source:',r['status'],'failures:',r['source_failures'])
           PY
       - name: Compare latest and prior official NBA injury PDFs for designation changes (no lineup clearance)
         run: |
