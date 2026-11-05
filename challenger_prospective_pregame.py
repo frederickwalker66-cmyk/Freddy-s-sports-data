@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from historical_outcomes import collect, parse_time
-from independent_schedule_review import SOURCES, ingest_schedule
+from independent_schedule_review import SOURCES, ingest_schedule, download_json_original
 from challenger_schedule_crosswalk import MAX_START_DISAGREEMENT_SECONDS
 
 LEAGUES = tuple(SOURCES)
@@ -406,6 +406,7 @@ def build(snapshot, history, odds, official, now, coverage=None):
             "event_start_utc": start.isoformat(), "snapshot_completed_at_utc": now.isoformat(),
             "schedule_source_url": entry["source_url"],
             "schedule_observed_at_utc": entry["observed_at_utc"],
+            "espn_original_schedule_sha256_research_only": entry.get("source_original_sha256"),
             "home_team_form": fh, "away_team_form": fa,
             "team_form_available_for_both_teams": fh is not None and fa is not None,
             "odds_observations": obs,
@@ -491,9 +492,10 @@ def main(argv=None):
     utc_now = datetime.now(timezone.utc)
     day = args.date_et or utc_now.astimezone(ZoneInfo("America/New_York")).date().isoformat()
     # This makes no SharpAPI/SportsGameOdds calls and cannot retrieve paid odds.
-    schedule = ingest_schedule(day, now=utc_now,
+    schedule = ingest_schedule(day, fetch=download_json_original, now=utc_now,
                                lookahead_days=args.lookahead_days,
-                               clock=lambda: datetime.now(timezone.utc))
+                               clock=lambda: datetime.now(timezone.utc),
+                               original_dir=out / "espn_original_schedule_bytes")
     prior_day = date.fromisoformat(day) - timedelta(days=1)
     results, coverage = planned_history(schedule, utc_now, prior_day,
                                         args.history_days, args.football_history_days)
