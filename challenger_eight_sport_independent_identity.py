@@ -1,15 +1,15 @@
-"""Upgrade #76: strict league-operated game identity crosscheck; research only.
+"""Upgrades #76-77: NHL + MLB independent pregame identity; research only.
 
-The independent NHL original HTTP response can corroborate an archived
-ESPN event's team IDs and kickoff. No ESPN/league schedule receipt is an
+Distinct NHL- and MLB-operated original HTTP responses can corroborate an
+archived ESPN event's exact home/away identity and kickoff. No ESPN/league schedule receipt is an
 independent DraftKings checkout quote or a native model prediction.
-Every other league remains explicitly unverified until its own adapter exists.
+The remaining six leagues are explicitly unverified without an adapter.
 """
 from __future__ import annotations
 
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -18,6 +18,10 @@ from zoneinfo import ZoneInfo
 from challenger_nhl_official_score_crosscheck import (
     FULL_TO_ABBREV, day_url, fetch_scoreboard, normalized_name, parse_scoreboard,
 )
+from challenger_mlb_official_pregame_schedule import (
+    day_url as mlb_day_url, fetch_schedule as fetch_mlb_schedule,
+    normalized_name as mlb_normalized_name, parse_schedule as parse_mlb_schedule,
+)
 from challenger_prospective_outcome_validation import instant
 from independent_schedule_review import SOURCES
 
@@ -25,14 +29,16 @@ EASTERN = ZoneInfo("America/New_York")
 MAX_KICKOFF_SKEW_SECONDS = 60
 
 
-def audit(records, nhl_receipts):
+def audit(records, nhl_receipts, mlb_receipts=None):
     """Fail closed on game identity, clocks, duplication, and source custody.
 
     nhl_receipts[yyyy-mm-dd] is {raw: bytes, observed_at_utc: aware ISO datetime,
     source_url: exact official NHL endpoint}. Missing/late/invalid responses
     stay unverified. This function never promotes prices or probabilities.
     """
-    if not isinstance(records, list) or not isinstance(nhl_receipts, dict):
+    if mlb_receipts is None:
+        mlb_receipts = {}
+    if not isinstance(records, list) or not isinstance(nhl_receipts, dict) or not isinstance(mlb_receipts, dict):
         raise ValueError("invalid_independent_identity_inputs")
     parsed = {}
     errors = {}
@@ -48,7 +54,20 @@ def audit(records, nhl_receipts):
                            hashlib.sha256(raw).hexdigest())
         except (KeyError, TypeError, ValueError, UnicodeError, OverflowError) as exc:
             errors[day] = str(exc)[:120]
+    parsed_mlb = {}
+    mlb_errors = {}
+    for day, receipt in mlb_receipts.items():
+        try:
+            if not isinstance(receipt, dict) or receipt.get("source_url") != mlb_day_url(day):
+                raise ValueError("official_mlb_source_url_invalid")
+            observed = instant(receipt["observed_at_utc"])
+            raw = receipt["raw"]
+            games = parse_mlb_schedule(raw, day)
+            parsed_mlb[day] = (games, observed, hashlib.sha256(raw).hexdigest())
+        except (KeyError, TypeError, ValueError, UnicodeError, OverflowError) as exc:
+            mlb_errors[day] = str(exc)[:120]
     seen_espn = set()
+    used_mlb = set()
     used_nhl = set()
     rows = []
     reasons = Counter()
@@ -84,6 +103,12 @@ def audit(records, nhl_receipts):
             "event_start_utc": start.isoformat(),
             "espn_archive_completed_utc": captured.isoformat(),
             "nhl_official_game_id": None,
+            "mlb_official_game_pk": None,
+            "mlb_official_home_team_id": None,
+            "mlb_official_away_team_id": None,
+            "mlb_official_source_url": None,
+            "mlb_original_response_sha256": None,
+            "mlb_response_observed_utc": None,
             "nhl_official_source_url": None,
             "nhl_original_response_sha256": None,
             "nhl_response_observed_utc": None,
@@ -129,17 +154,85 @@ def audit(records, nhl_receipts):
                         result["nhl_official_game_id"] = nhl_id
                         result["official_league_pregame_identity_matched_research_only"] = True
                         status = "nhl_exact_pregame_game_identity_agrees_research_only"
+        elif league == "mlb":
+            eastern_start = start.astimezone(EASTERN)
+            day = eastern_start.date().isoformat()
+            requested = [day]
+            # Stadium-local "officialDate" may precede Eastern date when a
+            # game starts between midnight and 04:59 Eastern.
+            if eastern_start.hour < 5:
+                requested.insert(0, (eastern_start.date() - timedelta(days=1)).isoformat())
+            available = [(d, *parsed_mlb[d]) for d in requested if d in parsed_mlb]
+            result["mlb_official_source_url"] = mlb_day_url(day)
+            if not available:
+                status = ("invalid_mlb_original_response" if
+                          any(d in mlb_errors for d in requested) else
+                          "mlb_official_response_not_captured")
+            else:
+                prospective = [(d, games, observed, digest)
+                               for d, games, observed, digest in available
+                               if captured <= observed < start]
+                if not prospective:
+                    status = "mlb_response_not_observed_pregame"
+                elif not home or not away:
+                    status = "unsupported_mlb_exact_team_identity"
+                else:
+                    # Repeated gamePks with same fields are ordinary; changed
+                    # official start/identity across source days is ambiguous.
+                    possible = {}
+                    conflicts = set()
+                    for d, games, observed, digest in prospective:
+                        for game in games:
+                            if (mlb_normalized_name(game["home_name"]) !=
+                                    mlb_normalized_name(r["home_team"]) or
+                                mlb_normalized_name(game["away_name"]) !=
+                                    mlb_normalized_name(r["away_team"])):
+                                continue
+                            pk = game["mlb_game_pk"]
+                            signature = (game["start"], game["home_id"], game["away_id"])
+                            if pk in possible and possible[pk][0] != signature:
+                                conflicts.add(pk)
+                            else:
+                                possible[pk] = (signature, d, observed, digest)
+                    if conflicts:
+                        status = "mlb_conflicting_official_game_revisions"
+                    elif not possible:
+                        status = "mlb_match_missing_or_ambiguous"
+                    else:
+                        aligned = [(pk, record) for pk, record in possible.items()
+                                   if abs((record[0][0] - start).total_seconds())
+                                   <= MAX_KICKOFF_SKEW_SECONDS]
+                        if len(aligned) != 1:
+                            status = ("mlb_kickoff_disagrees" if possible and not aligned
+                                      else "mlb_match_missing_or_ambiguous")
+                        else:
+                            pk, (sig, chosen_day, observed, digest) = aligned[0]
+                            if pk in used_mlb:
+                                raise ValueError("mlb_official_game_reused_by_multiple_espn_ids")
+                            used_mlb.add(pk)
+                            result["mlb_official_game_pk"] = pk
+                            result["mlb_official_home_team_id"] = sig[1]
+                            result["mlb_official_away_team_id"] = sig[2]
+                            result["mlb_official_source_url"] = mlb_day_url(chosen_day)
+                            result["mlb_original_response_sha256"] = digest
+                            result["mlb_response_observed_utc"] = observed.isoformat()
+                            result["official_league_pregame_identity_matched_research_only"] = True
+                            status = "mlb_exact_pregame_game_identity_agrees_research_only"
         result["identity_status"] = status
         reasons[status] += 1
         rows.append(result)
     matched = sum(x["official_league_pregame_identity_matched_research_only"] for x in rows)
     summary = {
-        "stage": "challenger_76_independent_league_identity_research_only",
+        "stage": "challenger_77_independent_league_identity_research_only",
         "archived_espn_events_reviewed": len(rows),
-        "independently_observed_nhl_pregame_identity_matches_research_only": matched,
+        "independently_observed_nhl_pregame_identity_matches_research_only":
+            sum(x["identity_status"] == "nhl_exact_pregame_game_identity_agrees_research_only" for x in rows),
+        "independently_observed_mlb_pregame_identity_matches_research_only":
+            sum(x["identity_status"] == "mlb_exact_pregame_game_identity_agrees_research_only" for x in rows),
         "independent_identity_unverified": len(rows) - matched,
         "by_status": dict(sorted(reasons.items())),
         "nhl_source_errors": dict(sorted(errors.items())),
+        "mlb_source_errors": dict(sorted(mlb_errors.items())),
         "direct_draftkings_checkout_markets_verified": 0,
         "verified_native_model_probabilities": 0,
         "qualified_chronological_training_games": 0,
@@ -148,15 +241,17 @@ def audit(records, nhl_receipts):
         "certified_positive_ev_bets": 0,
         "bet_ready_selections": 0, "automated_bets_placed": 0,
         "champion_001_modified": False,
-        "warning": "NHL source is a distinct league-operated schedule observed at fetch time, "
-                   "not an authenticated publisher timestamp, player status, independent "
-                   "DraftKings market, native forecast, or positive EV.",
+        "warning": "NHL and MLB game records originate from distinct league-operated "
+                   "schedules observed at fetch time, not independently authenticated "
+                   "publication timestamps, active player status, executable "
+                   "DraftKings markets, native forecasts, or positive EV.",
     }
     return rows, summary
 
 
-def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None):
-    """Bounded NHL schedule queries for dates containing archived future NHL games."""
+def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None,
+        mlb_fetcher=fetch_mlb_schedule):
+    """Capture bounded NHL and MLB original responses for archived future games."""
     root = Path(capture_dir)
     preflight = json.loads((root / "eight_sport_schedule_coverage.json").read_text())
     records = [json.loads(s) for s in
@@ -190,7 +285,34 @@ def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None):
                              "observed_at_utc": observed.isoformat()}
         except (OSError, ValueError, TimeoutError, UnicodeError, OverflowError) as exc:
             failures[day] = type(exc).__name__
-    rows, report = audit(records, receipts)
+    # An offseason/no-game MLB scan makes no official MLB requests.
+    mlb_receipts, mlb_failures = {}, {}
+    mlb_dates = set()
+    for r in records:
+        if r.get("league") != "mlb":
+            continue
+        eastern_start = instant(r["event_start_utc"]).astimezone(EASTERN)
+        mlb_dates.add(eastern_start.date().isoformat())
+        if eastern_start.hour < 5:
+            mlb_dates.add((eastern_start.date() - timedelta(days=1)).isoformat())
+    for day in sorted(mlb_dates):
+        started = instant(clock().isoformat())
+        try:
+            raw = mlb_fetcher(day)
+            observed = instant(clock().isoformat())
+            if observed < started:
+                raise ValueError("official_mlb_source_clock_regressed")
+            if not isinstance(raw, bytes) or not 1 <= len(raw) <= 3_000_000:
+                raise ValueError("invalid_official_mlb_original_wire_bytes")
+            name = "mlb_official_" + day.replace("-", "") + ".json"
+            (output / name).open("xb").write(raw)
+            mlb_receipts[day] = {"raw": raw, "source_url": mlb_day_url(day),
+                                 "observed_at_utc": observed.isoformat()}
+        except (OSError, ValueError, TimeoutError, UnicodeError, OverflowError) as exc:
+            mlb_failures[day] = type(exc).__name__
+    rows, report = audit(records, receipts, mlb_receipts)
+    report["official_mlb_dates_requested"] = sorted(mlb_dates)
+    report["network_mlb_source_failures_by_day"] = mlb_failures
     report["network_source_failures_by_day"] = failures
     report["official_nhl_dates_requested"] = nhl_dates
     (output / "independent_game_identity.jsonl").write_text(
