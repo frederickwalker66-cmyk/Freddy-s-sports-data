@@ -48,8 +48,10 @@ jobs:
           python-version: '3.12'
       - name: Install research-only isotonic dependency
         run: python -m pip install -r requirements-calibration.txt
-      - name: Run offline synthetic safety and chronological tests
-        run: python -m unittest discover -s tests -p 'test_challenger_isotonic_recalibration.py' -v
+      - name: Run offline synthetic safety, archive contract and chronological tests
+        run: |
+          python -m unittest discover -s tests -p 'test_challenger_isotonic_recalibration.py' -v
+          python -m unittest discover -s tests -p 'test_calibration_archive_workflow_contract.py' -v
       - name: Recover recent available pregame/outcome artifacts (no sportsbook API)
         shell: bash
         env:
@@ -79,7 +81,19 @@ jobs:
               fi
               if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
                 --name "$artifact" --dir "calibration_sources/$kind/$run_id"; then
-                echo "Recovered actual $kind source archive from run $run_id (research only)"
+                # A code-only or baseline-only artifact is not native model evidence.
+                # Continue searching for an actually nonempty archive source.
+                if [[ "$kind" == pregame ]]; then
+                  required="calibration_sources/$kind/$run_id/prospective_pregame/native_challenger_forecasts.jsonl"
+                else
+                  required="calibration_sources/$kind/$run_id/prospective_validation/linked_pregame_outcomes.jsonl"
+                fi
+                if [[ ! -s "$required" ]]; then
+                  echo "Run $run_id: artifact exists, but required $kind evidence is empty/missing (research only)"
+                  rm -rf "calibration_sources/$kind/$run_id"
+                  continue
+                fi
+                echo "Recovered nonempty $kind research archive from run $run_id (NOT independently qualified)"
                 found=true
                 break
               fi
@@ -87,7 +101,7 @@ jobs:
               --workflow "$workflow" --branch main --status success \
               --limit 75 --json databaseId --jq '.[].databaseId' || true)
             if [[ "$found" == false ]]; then
-              echo "No accessible $kind evidence archive in the 75 latest successful runs; calibration remains blocked."
+              echo "No nonempty $kind evidence archive in the 75 latest successful runs; calibration remains blocked."
             fi
           done
       - name: Crosslink native Challenger receipts to published finals WITHOUT promotion
@@ -168,6 +182,39 @@ jobs:
               assert sorted(p.name for p in output.iterdir()) == ['report.json']
           print('Research-only calibration:', r['status'],
                 'artifacts:', r['research_artifacts_written'])
+          PY
+      - name: Display actual calibration readiness (not CI job status)
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          bridge_path=Path('challenger_results/calibration_evidence/report.json')
+          cal_path=Path('challenger_results/isotonic_recalibration/report.json')
+          bridge=json.loads(bridge_path.read_text()) if bridge_path.is_file() else {}
+          cal=json.loads(cal_path.read_text()) if cal_path.is_file() else {}
+          status=cal.get('status', 'not_executed')
+          staged=bridge.get('unqualified_native_forecast_outcome_pairs_staged', 0)
+          qualified=bridge.get('independently_qualified_calibration_rows', 0)
+          fitted=cal.get('research_artifacts_written', 0)
+          summary_lines=[
+              '### Challenger-001 calibration readiness',
+              f'- **Actual calibration result:** {status}',
+              f'- **Archived native research forecasts:** {bridge.get("native_forecast_rows_seen", 0)}',
+              f'- **Joined research-only candidates (not approved):** {staged}',
+              f'- **Independently qualified bridge rows:** {qualified}',
+              f'- **Research calibrators fitted:** {fitted}',
+              '- **Champion-001:** unchanged; no certified picks or wagers',
+              '',
+              '**A successful software job does not imply calibration readiness.**',
+              'An actual fit requires 200 independently reviewed, already-settled '
+              'native Challenger out-of-sample forecasts and 50 later, untouched '
+              'evaluations for the same market/version, with documented provenance.',
+          ]
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as output:
+              output.write('\n'.join(summary_lines) + '\n')
+          print('Calibration readiness:',status,'fitted research artifacts:',fitted)
           PY
       - uses: actions/upload-artifact@v4
         with:

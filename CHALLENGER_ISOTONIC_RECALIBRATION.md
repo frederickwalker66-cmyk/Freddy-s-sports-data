@@ -165,3 +165,28 @@ The isotonic dependency is now loaded only when enough evidence is present to
 fit an actual calibrator. Workflows that do not install scikit-learn can still
 import the research script for blocking and safety checks without failing;
 fit-dependent synthetic tests are skipped when that library is not installed.
+
+## November 5 follow-up: prefer real forecast receipts over empty artifacts
+
+The evidence-recovery job now checks the **file contents**, not merely the
+existence of a successful GitHub Actions archive. A pregame download must
+contain a nonempty `prospective_pregame/native_challenger_forecasts.jsonl`;
+an outcome download must contain a nonempty
+`prospective_validation/linked_pregame_outcomes.jsonl`. Empty artifacts are
+discarded and the job checks older completed runs, subject to its 75-run
+discovery limit. This removes a *source-discovery* blocker that could hide
+genuine native forecasts behind newer code-only archives.
+
+A separate GitHub Actions step summary displays the real isotonic result,
+native rows observed, research-only linked candidates, independently qualified
+rows, and number of fitted research calibrators. A green workflow check
+**does not mean** a model has been calibrated. No synthetic, odds-implied,
+historical hindsight, or untrained baseline predictions may be substituted.
+
+**Still blocked until evidence exists:** the present pipeline has not
+authenticated a minimum of 200 earlier real out-of-sample native forecasts
+and 50 later untouched outcomes for any one market/version. Archived
+ESPN-published game scores are not themselves forecasts. Independently
+validate original pregame model outputs, feature availability, outcomes,
+settlement, and chronological separation before creating or supplying the
+calibration input. Champion-001 remains frozen, with no betting deployment.
