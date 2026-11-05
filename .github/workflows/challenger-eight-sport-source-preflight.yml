@@ -1,0 +1,93 @@
+name: Challenger-001 original eight-sport schedule preflight (research only)
+
+on:
+  workflow_dispatch:
+  # One genuine live source preflight on introduction/changes to this workflow
+  # and script. The already-installed twice-daily main capture keeps its
+  # existing schedule; this workflow does not duplicate that recurring scan.
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_eight_sport_source_preflight.py'
+      - 'tests/test_challenger_eight_sport_source_preflight.py'
+      - '.github/workflows/challenger-eight-sport-source-preflight.yml'
+  pull_request:
+    paths:
+      - 'challenger_eight_sport_source_preflight.py'
+      - 'tests/test_challenger_eight_sport_source_preflight.py'
+      - '.github/workflows/challenger-eight-sport-source-preflight.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-source-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test original source custody, empty slates and no betting promotion
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_challenger_eight_sport_source_preflight.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_eight_sport_original_schedule_bytes.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_eight_sport_schedule_outlook.py' -v
+
+  live-eight-sport-source:
+    # Pull requests run synthetic tests only. Push on main or manual dispatch
+    # captures actual source bytes. No secrets, odds, trades or predictions.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    needs: offline-source-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Capture actual ESPN seven-day source original bytes for all eight leagues
+        run: |
+          set -euo pipefail
+          python challenger_eight_sport_source_preflight.py \
+            --lookahead-days 7 \
+            --output-dir seven_day_source_preflight
+      - name: Verify live source coverage totals and frozen research gates
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('seven_day_source_preflight')
+          r=json.loads((root/'preflight_summary.json').read_text())
+          c=json.loads((root/'eight_sport_schedule_coverage.json').read_text())
+          expected={'nba','nfl','mlb','nhl','ncaaf','ncaab','mls','uefa_champions_league'}
+          assert set(r['by_league']) == expected
+          assert r['totals'] == c['totals']
+          assert r['archived_game_fields_verified']==r['totals']['pregame_events_archived']
+          assert r['original_response_bytes_verified']==sum(
+              row['source_days_succeeded'] for row in r['by_league'].values())
+          assert r['source_independently_authenticated'] is False
+          assert r['official_league_schedule_independently_verified'] is False
+          for key in ('qualified_chronological_training_games',
+                      'certified_champion_001_predictions',
+                      'certified_challenger_001_predictions',
+                      'certified_positive_ev_bets',
+                      'bet_ready_selections','automated_bets_placed'):
+              assert r[key] == 0,(key,r[key])
+          assert r['champion_001_modified'] is False
+          print('Verified first live source coverage by league:',
+                {league:(row['future_games_archived'],
+                         row['source_days_failed'],
+                         row['coverage_class'])
+                 for league,row in r['by_league'].items()})
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eight-sport-source-preflight-${{ github.run_id }}
+          path: seven_day_source_preflight/
+          retention-days: 45
+          if-no-files-found: warn
