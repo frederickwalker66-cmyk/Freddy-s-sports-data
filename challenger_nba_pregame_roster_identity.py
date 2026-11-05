@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from challenger_nba_injury_pdf_player_rows import (
-    TEAM_CODES, TEAMS, run as read_original_injury_rows,
+    TEAM_CODES, TEAMS, STATUSES, run as read_original_injury_rows,
     MAX_EVENTS as MAX_EVENT_INPUT,
 )
 from challenger_nba_player_two_source_review import canonical, official_url
@@ -140,7 +140,7 @@ def verify_injury_evidence(rows, filings, receipt, now):
         if c not in TEAM_CODES or row.get("team_name") != TEAM_CODES[c]:
             raise ValueError("bad_original_pdf_team_identity")
         display=canonical(row.get("source_player_name_display"))
-        if not display or not isinstance(row.get("source_injury_designation"), str):
+        if not display or row.get("source_injury_designation") not in STATUSES):
             raise ValueError("invalid_pdf_player_name_or_status")
         matchup=row.get("matchup")
         if not isinstance(matchup, str) or not re.fullmatch("[A-Z]{2,3}@[A-Z]{2,3}", matchup):
@@ -254,7 +254,6 @@ def parse_pregame_nba_box(raw, planned, read_at):
     official_time=instant(g.get("gameTimeUTC"))
     if abs((official_time-planned["start"]).total_seconds())>MAX_ACCEPTED_CLOCK_DIFF_SECONDS:
         raise ValueError("nba_boxscore_and_schedule_start_disagree")
-    players={},{}
     out={}
     all_ids=set()
     for side in ("home","away"):
@@ -271,7 +270,7 @@ def parse_pregame_nba_box(raw, planned, read_at):
         if type(tid) not in (int,str) or not str(tid).isdigit():
             raise ValueError("missing_nba_official_team_id")
         array=team.get("players")
-        if not isinstance(array,list) or len(array)>35:
+        if not isinstance(array,list) or not 1<=len(array)<=35:
             raise ValueError("missing_or_oversized_scheduled_player_list")
         by_name={}
         seen_team_ids=set()
@@ -401,6 +400,7 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
         return review_identity(rows,{},{
             (r["game_date_et"],r["matchup"]):"official_nba_future_schedule_unavailable"
             for r in rows}, {}, {}, observed,events is None)[0],report,{}
+    schedule_observed=current
     candidates,problems=match_official_schedule(rows,schedule,observed,current,events)
     keys=sorted(candidates,key=lambda k:(candidates[k]["start"],candidates[k]["game_id"]))
     if len(keys)>max_games:
@@ -432,7 +432,7 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
     report.update({
         "official_schedule_source_available":True,
         "official_nba_schedule_original_sha256":digest(index_raw),
-        "official_nba_schedule_observed_at_utc":current.isoformat(),
+        "official_nba_schedule_observed_at_utc":schedule_observed.isoformat(),
         "official_game_requests_bounded":len(keys),
         "official_game_source_states":{candidates[k]["game_id"]:source_meta.get(k,{}).get("status")
                                        for k in keys},
@@ -449,6 +449,7 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
 def base_report(receipt, count):
     return {
         "stage":"challenger_nba_scheduled_roster_identity_review_only",
+        "source_class":SOURCE_CLASS,
         "original_nba_injury_pdf_sha256":receipt.get("original_pdf_sha256"),
         "original_pdf_player_rows":count,
         "official_nba_schedule_original_sha256":None,
