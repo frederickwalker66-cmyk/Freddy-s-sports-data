@@ -1,0 +1,37 @@
+name: Challenger-001 recovered Library as-of feature integrity (offline)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'challenger_library_archive_audit.py'
+      - 'challenger_library_asof_replay.py'
+      - 'tests/test_challenger_library_asof_replay.py'
+      - '.github/workflows/challenger-library-asof-review.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_library_archive_audit.py'
+      - 'challenger_library_asof_replay.py'
+      - 'tests/test_challenger_library_asof_replay.py'
+      - '.github/workflows/challenger-library-asof-review.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-time-and-hindsight-separation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Audit hypothetical 48-hour Elo and strict actual-receipt availability separately
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_challenger_library_asof_replay.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_library_archive_audit.py' -v
+          python -m py_compile challenger_library_asof_replay.py
+          echo "Offline software safety passed; NO private ChatGPT Library archive mounted."
