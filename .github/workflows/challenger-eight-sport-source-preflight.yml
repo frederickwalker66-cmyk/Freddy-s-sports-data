@@ -11,18 +11,22 @@ on:
       - 'challenger_eight_sport_source_preflight.py'
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
+      - 'challenger_nba_official_pregame_schedule.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
+      - 'tests/test_challenger_nba_official_pregame_schedule.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
   pull_request:
     paths:
       - 'challenger_eight_sport_source_preflight.py'
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
+      - 'challenger_nba_official_pregame_schedule.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
+      - 'tests/test_challenger_nba_official_pregame_schedule.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
 
 permissions:
@@ -42,6 +46,7 @@ jobs:
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_independent_identity.py' -v
           python -m unittest discover -s tests -p 'test_challenger_mlb_official_pregame_schedule.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_official_pregame_schedule.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_source_preflight.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_original_schedule_bytes.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_schedule_outlook.py' -v
@@ -94,7 +99,7 @@ jobs:
                          row['coverage_class'])
                  for league,row in r['by_league'].items()})
           PY
-      - name: Research-only independent NHL and MLB identity checks (other leagues quarantined)
+      - name: Research-only independent NHL MLB NBA identities (other leagues quarantined)
         run: |
           set -euo pipefail
           python challenger_eight_sport_independent_identity.py \
@@ -108,6 +113,7 @@ jobs:
           assert r['archived_espn_events_reviewed']==s['totals']['pregame_events_archived']
           assert r['independently_observed_nhl_pregame_identity_matches_research_only'] <= s['by_league']['nhl']['future_games_archived']
           assert r['independently_observed_mlb_pregame_identity_matches_research_only'] <= s['by_league']['mlb']['future_games_archived']
+          assert r['independently_observed_nba_pregame_identity_matches_research_only'] <= s['by_league']['nba']['future_games_archived']
           for k in ('direct_draftkings_checkout_markets_verified',
                     'verified_native_model_probabilities',
                     'qualified_chronological_training_games',
