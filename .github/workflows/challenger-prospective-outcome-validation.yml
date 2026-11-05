@@ -29,6 +29,8 @@ on:
       - 'tests/test_challenger_nba_player_two_source_review.py'
       - 'challenger_nba_history_qualification.py'
       - 'challenger_research_shadow_scorecard.py'
+      - 'challenger_nba_prospective_shadow_ledger.py'
+      - 'tests/test_challenger_nba_prospective_shadow_ledger.py'
       - 'tests/test_challenger_research_shadow_scorecard.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
       - 'tests/test_challenger_prospective_receipts.py'
@@ -505,6 +507,40 @@ jobs:
           assert r["validated_positive_ev_bets"] == 0
           assert r["bet_ready_selections"] == r["automated_bets_placed"] == 0
           assert r["champion_001_modified"] is False
+          PY
+      - name: "#96 deduplicate NBA research selections across actual capture runs and review later ESPN finals"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_prospective_shadow_ledger.py \
+            --snapshot-root snapshots \
+            --forecast-root snapshots \
+            --linked-results prospective_validation/linked_pregame_outcomes.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('prospective_validation')
+          r=json.loads((root/'nba_untrained_moneyline_shadow_ledger_report.json').read_text())
+          assert r['native_challenger_001_predictions']==0
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['certified_positive_ev_selections']==0
+          assert r['verified_direct_draftkings_checkout_prices']==0
+          assert r['champion_001_modified'] is False
+          for text in (root/'nba_untrained_moneyline_shadow_ledger.jsonl').read_text().splitlines():
+            row=json.loads(text)
+            assert row['record_type']=='nba_moneyline_prospective_untrained_shadow_research_only'
+            assert row['counts_toward_champion_001_certified_shadow_target'] is False
+            assert row['trained_challenger_001_model'] is False
+            assert row['sportsbook'] is None and row['sportsbook_price'] is None
+            assert row['certified_prediction'] is False and row['bet_ready'] is False
+            assert row['shadow_stake_usd']==0
+            assert row['champion_001_modified'] is False
+          print('Cumulative distinct original-source-reproduced NBA research selections:',
+                r['directional_nba_research_selections'],
+                'ESPN-published outcomes research-linked:',
+                r['linked_to_published_espn_finals_descriptive_only'])
           PY
       - name: Reconcile all eight leagues' original pregame lineage and independent result sources (no models certified)
         run: |
