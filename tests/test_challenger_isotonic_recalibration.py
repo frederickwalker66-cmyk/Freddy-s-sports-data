@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from importlib.util import find_spec
+
+HAS_SKLEARN = find_spec('sklearn') is not None
 
 from challenger_isotonic_recalibration import recalibrate, apply_research_calibrator, main
 
@@ -50,6 +53,7 @@ class TestResearchIsotonic(unittest.TestCase):
         self.assertEqual(report["certified_positive_ev_bets"], 0)
         self.assertFalse(artifacts)
 
+    @unittest.skipUnless(HAS_SKLEARN, "scikit-learn needed for isotonic fit")
     def test_chronological_holdout_and_artifact_remain_research(self):
         report, artifacts = recalibrate(synthetic(), as_of=self.as_of)
         group = report["groups"][0]
@@ -119,6 +123,7 @@ class TestResearchIsotonic(unittest.TestCase):
             self.assertEqual([p.name for p in output.iterdir()], ["report.json"])
             self.assertFalse(report["champion_001_modified"])
 
+    @unittest.skipUnless(HAS_SKLEARN, "scikit-learn needed for isotonic fit")
     def test_artifact_integrity_check_fails_closed(self):
         report, artifacts = recalibrate(synthetic(), as_of=self.as_of)
         self.assertTrue(artifacts)

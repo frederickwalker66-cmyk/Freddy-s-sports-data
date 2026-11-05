@@ -109,3 +109,53 @@ forecasts and settled outcomes (minimum 250 distinct observations per segment,
 chronological split and no training contamination). The existing repository's
 `challenger_oos_calibration.py` and historical-review gates must still pass.
 The daily job stays blocked without authentic data.
+## Automated native-forecast-to-final review bridge (November 5)
+
+The daily GitHub Actions job now **downloads the most recent existing archived
+prospective pregame capture and outcome-validation artifacts** (GitHub Actions
+read-only) and runs `challenger_calibration_evidence_bridge.py` before the
+isotonic calibrator. These are two different evidence levels:
+
+1. `linked_pregame_outcomes.jsonl` contains **ESPN-published** final scores
+   connected to pregame snapshots. It does **not** independently adjudicate
+   league outcomes or provide a native trained model probability.
+2. `research_shadow_forecasts.jsonl` contains an **untrained fixed-form
+   baseline**, explicitly excluded from native Challenger probability
+   calibration. Its hit rate and probability values must not be promoted.
+3. The bridge optionally recognizes an archived file named
+   `native_challenger_forecasts.jsonl` containing **actual prospectively saved
+   outputs** of `challenger_nba_probability.score_future_event`. It demands
+   the exact home-moneyline model version, SHA fingerprint, numeric ESPN event
+   identity, pregame timestamp, correct source fields, and absence of
+   certification or betting status. Missing/invalid receipts remain excluded.
+   A conforming format or SHA **does not authenticate its origin**.
+
+The bridge writes `challenger_results/calibration_evidence/report.json` and
+`review_queue.jsonl`. If both sources are available, joined items are still
+**UNQUALIFIED research candidates**. The bridge refuses to set independent
+review flags, never fabricates native model probabilities, never emits the
+`challenger_oos_probabilities.jsonl` training/calibration file, and never
+silently promotes ESPN-published finals to official bookmaker settlements.
+The currently installed automatic workflow therefore **still blocks calibration**
+without a separately audited native forecast/outcome dataset.
+
+Review the bridge report under the daily GitHub Actions artifacts to see
+whether the blockage is missing native forecasts, absent published finals, or
+insufficient independent provenance. The next actual data prerequisite is:
+independently archive and time-authenticate real native Challenger probability
+outputs **before tipoff**, then independently verify final outcomes; preserve
+train/holdout disjointness and 200+50 examples per identical market/version.
+
+Developer test command:
+
+```bash
+python -m unittest discover -s tests -p 'test_challenger_calibration_evidence_bridge.py' -v
+python challenger_calibration_evidence_bridge.py \
+  --archive-root calibration_sources \
+  --output-dir challenger_results/calibration_evidence
+```
+
+The isotonic dependency is now loaded only when enough evidence is present to
+fit an actual calibrator. Workflows that do not install scikit-learn can still
+import the research script for blocking and safety checks without failing;
+fit-dependent synthetic tests are skipped when that library is not installed.
