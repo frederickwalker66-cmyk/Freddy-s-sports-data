@@ -1,6 +1,10 @@
 name: Collect SharpAPI DraftKings pregame odds
 on:
   workflow_dispatch:
+  # PR validation executes only a fixture-test job, NEVER billable SharpAPI calls.
+  pull_request:
+    paths:
+      - '.github/workflows/collect-sharpapi.yml'
   schedule:
     - cron: '0 16,20,23 * * *'  # UTC; times shift with Eastern daylight saving
 # Prevent overlapping live API collection; code pushes are covered by offline CI.
@@ -10,7 +14,22 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  offline-collector-checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install calibration test dependencies
+        run: python -m pip install -r requirements-calibration.txt
+      - name: Verify SharpAPI collector and integration safety without external API calls
+        run: python -m unittest discover -s tests -v
   collect:
+    # Never expose provider secrets or invoke live SharpAPI on pull requests.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 22
     env:
