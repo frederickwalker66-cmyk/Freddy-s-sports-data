@@ -1,6 +1,14 @@
 name: SportsDataIO research evidence intake
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'sportsdataio_collector.py'
+      - 'challenger_sportsdataio_validation.py'
+      - 'challenger_sportsdataio_ingestion_trust.py'
+      - 'tests/test_challenger_sportsdataio_ingestion_trust.py'
+      - '.github/workflows/sportsdataio-research-intake.yml'
   schedule:
     - cron: '40 12 * * *'
     - cron: '40 0 * * *'
@@ -21,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio }}
+      SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio || secrets.SPORTSDATAIO_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,6 +47,33 @@ jobs:
       - name: Validate quarantined Challenger research evidence
         if: success()
         run: python challenger_sportsdataio_validation.py --input-dir sportsdataio_evidence --output-dir sportsdataio_validation
+      - name: Confirm quantitative values remain quarantined despite valid API responses
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("sportsdataio_validation/validation_report.json").read_text())
+          q=r["provider_source_quality"]
+          assert r["records_validated"]==q["research_records_checked"]
+          assert q["new_training_eligible_rows"]==0
+          assert q["new_certified_challenger_predictions"]==0
+          assert q["new_certified_champion_predictions"]==0
+          assert q["verified_direct_draftkings_checkout_prices"]==0
+          assert q["automated_wagers_placed"]==0
+          assert q["provider_real_unscrambled_data_entitlement_authenticated"] is False
+          assert q["champion_001_modified"] is False
+          assert r["quantitative_values_allowed_for_training"]==0
+          assert r["provider_scores_stats_odds_authenticated"] is False
+          assert r["bet_ready_selections"]==0 and r["certified_predictions"]==0
+          assert r["champion_001_modified"] is False
+          print("Source records:",r["records_validated"],
+                "Numeric quality unverified in:",
+                q["records_with_unverified_numeric_fields_by_league"],
+                "Qualified training rows: 0")
+          PY
       - name: Archive separate validation report
         if: always()
         uses: actions/upload-artifact@v4
