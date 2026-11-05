@@ -471,6 +471,8 @@ def build(snapshot, history, odds, official, now, coverage=None):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date-et")
+    parser.add_argument("--lookahead-days", type=int, default=0,
+                        help="Research-only ESPN future game discovery, 0..7 Eastern days")
     parser.add_argument("--history-days", type=int, default=14)
     parser.add_argument("--football-history-days", type=int, default=FOOTBALL_HISTORY_DAYS)
     parser.add_argument("--sharp-jsonl")
@@ -478,6 +480,8 @@ def main(argv=None):
     parser.add_argument("--official-report")
     parser.add_argument("--output-dir", default="prospective_pregame")
     args = parser.parse_args(argv)
+    if not 0 <= args.lookahead_days <= 7:
+        parser.error("lookahead-days must be between 0 and 7")
     if not 1 <= args.history_days <= MAX_HISTORY_DAYS:
         parser.error("history-days must be 1 to 35")
     if not args.history_days <= args.football_history_days <= MAX_HISTORY_DAYS:
@@ -487,7 +491,8 @@ def main(argv=None):
     utc_now = datetime.now(timezone.utc)
     day = args.date_et or utc_now.astimezone(ZoneInfo("America/New_York")).date().isoformat()
     # This makes no SharpAPI/SportsGameOdds calls and cannot retrieve paid odds.
-    schedule = ingest_schedule(day, now=utc_now)
+    schedule = ingest_schedule(day, now=utc_now,
+                               lookahead_days=args.lookahead_days)
     prior_day = date.fromisoformat(day) - timedelta(days=1)
     results, coverage = planned_history(schedule, utc_now, prior_day,
                                         args.history_days, args.football_history_days)
@@ -495,6 +500,10 @@ def main(argv=None):
     odds = read_jsonl(args.sharp_jsonl) + read_jsonl(args.sgo_jsonl)
     official = read_report(args.official_report)
     records, report = build(schedule, results, odds, official, finish, coverage)
+    report["schedule_lookahead_days_requested"] = args.lookahead_days
+    report["schedule_query_days_by_league"] = {
+        league: schedule["sources"][league]["days_checked"] for league in LEAGUES
+    }
     report["evidence_files"] = provenance({
         "sharpapi_odds": args.sharp_jsonl, "sportsgameodds_odds": args.sgo_jsonl,
         "official_source_report": args.official_report,
