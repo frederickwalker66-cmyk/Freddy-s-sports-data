@@ -14,6 +14,8 @@ on:
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
       - 'challenger_nhl_official_score_crosscheck.py'
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
+      - 'challenger_nfl_secondary_score.py'
+      - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_nba_history_qualification.py'
@@ -35,6 +37,8 @@ on:
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
       - 'challenger_nhl_official_score_crosscheck.py'
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
+      - 'challenger_nfl_secondary_score.py'
+      - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -249,6 +253,38 @@ jobs:
                 assert row['nhl_original_source_sha256'] == digest
           print('NHL second-source agreements (research only):',
                 report['published_final_score_agreements'])
+          PY
+      - name: Cross-check NFL published finals against independent nflverse schedules (research only)
+        run: |
+          set -euo pipefail
+          python challenger_nfl_secondary_score.py \
+            --lineage prospective_validation/original_bytes_lineage_review.jsonl \
+            --output-dir prospective_validation
+          python - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          root=Path("prospective_validation")
+          report=json.loads((root/"nfl_second_source_score_report.json").read_text())
+          for k in ("independently_qualified_training_games", "independently_verified_prop_settlements",
+                    "certified_champion_001_predictions", "certified_challenger_001_predictions",
+                    "certified_positive_ev_bets", "bet_ready_selections", "automated_bets_placed"):
+            assert report[k] == 0,(k,report[k])
+          assert report["champion_001_modified"] is False
+          for line in (root/"nfl_second_source_score_review.jsonl").read_text().splitlines():
+            row=json.loads(line)
+            assert row["qualified_for_challenger_training"] is False
+            assert row["bookmaker_market_settlement_verified"] is False
+            assert row["independently_authenticated_original_capture"] is False
+            assert row["bet_ready"] is False
+          p=root/"nflverse_original_games.csv"
+          if p.is_file():
+            assert report["nflverse_source_valid"] is True
+            digest=hashlib.sha256(p.read_bytes()).hexdigest()
+            for line in (root/"nfl_second_source_score_review.jsonl").read_text().splitlines():
+              row=json.loads(line)
+              assert row["nflverse_source_sha256"] == digest
+          print("NFL independent published-score agreements (uncertified):",
+                report["second_source_final_score_agreements"])
           PY
       - name: Stage NBA historical review candidates WITHOUT qualifying or training
         run: |
