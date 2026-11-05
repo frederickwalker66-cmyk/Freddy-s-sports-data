@@ -93,6 +93,31 @@ def audit(snapshot, report, records):
             raise ValueError("missing_bounded_source_query_receipts")
         good=sum(item.get("status")=="retrieved" for item in q)
         bad=sum(item.get("status")=="unavailable" for item in q)
+        validated_response_keys = set()
+        previous_request_end = at
+        for source_date in q:
+            started = instant(source_date.get("request_started_at_utc"))
+            completed_key = ("response_observed_at_utc" if source_date.get("status")=="retrieved"
+                             else "request_failed_at_utc")
+            completed = instant(source_date.get(completed_key))
+            if not (at <= previous_request_end <= started <= completed <= end):
+                raise ValueError("schedule_query_time_not_original_observation")
+            previous_request_end = completed
+            if source_date["status"] == "retrieved":
+                validated_response_keys.add((
+                    source_date.get("source_url"),
+                    source_date.get("date_et"),
+                    completed.isoformat(),
+                ))
+        for (lg2, event_id), game in event_ids.items():
+            if lg2 != lg:
+                continue
+            event_response_key = (
+                game.get("source_url"), game.get("requested_date_et"),
+                instant(game.get("observed_at_utc")).isoformat(),
+            )
+            if event_response_key not in validated_response_keys:
+                raise ValueError("discovered_pregame_event_missing_actual_response_receipt")
         if (good+bad!=len(q) or good!=src.get("days_retrieved")
             or bad!=src.get("days_unavailable")
             or len(q)!=src.get("days_checked")
