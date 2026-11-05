@@ -127,13 +127,15 @@ def parse_original_finals(raw, required_day):
     return result
 
 
-def review(candidates, primary, now, fetcher=download_original_scoreboard,
+def review(candidates, primary, now, fetcher=None,
            max_days=MAX_DAYS):
     if (not isinstance(now, datetime) or now.tzinfo is None
             or not isinstance(candidates, list) or not isinstance(primary, list)
             or type(max_days) is not int or not 1 <= max_days <= 6):
         raise ValueError("invalid_nba_daily_review_inputs")
     now = now.astimezone(timezone.utc)
+    if fetcher is None:
+        fetcher = download_original_scoreboard
     primary_ids = {}
     for p in primary:
         if (not isinstance(p, dict)
