@@ -16,6 +16,8 @@ on:
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nfl_secondary_score.py'
       - 'tests/test_challenger_nfl_secondary_score.py'
+      - 'challenger_college_ncaa_score_review.py'
+      - 'tests/test_challenger_college_ncaa_score_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_nba_history_qualification.py'
@@ -39,6 +41,8 @@ on:
       - 'tests/test_challenger_nhl_official_score_crosscheck.py'
       - 'challenger_nfl_secondary_score.py'
       - 'tests/test_challenger_nfl_secondary_score.py'
+      - 'challenger_college_ncaa_score_review.py'
+      - 'tests/test_challenger_college_ncaa_score_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -285,6 +289,42 @@ jobs:
               assert row["nflverse_source_sha256"] == digest
           print("NFL independent published-score agreements (uncertified):",
                 report["second_source_final_score_agreements"])
+          PY
+      - name: Compare NCAAF and NCAAB to NCAA.com-derived published scoreboards (uncertified)
+        run: |
+          set -euo pipefail
+          python challenger_college_ncaa_score_review.py \
+            --lineage prospective_validation/original_bytes_lineage_review.jsonl \
+            --output-dir prospective_validation \
+            --max-days 3
+          python - <<'PY'
+          import json,hashlib,re
+          from pathlib import Path
+          root=Path("prospective_validation")
+          r=json.loads((root/"college_ncaa_score_report.json").read_text())
+          assert set(r["by_league"]) == {"ncaaf","ncaab"}
+          assert len(r["requested_routes"]) <= 4
+          for key in ("independently_qualified_training_games",
+                      "verified_player_prop_settlements",
+                      "certified_champion_001_predictions",
+                      "certified_challenger_001_predictions",
+                      "certified_positive_ev_bets",
+                      "bet_ready_selections","automated_bets_placed"):
+              assert r[key] == 0,(key,r[key])
+          assert r["champion_001_modified"] is False
+          for line in (root/"college_ncaa_score_review.jsonl").read_text().splitlines():
+              x=json.loads(line)
+              assert x["qualified_for_challenger_training"] is False
+              assert x["source_original_pregame_publication_verified"] is False
+              assert x["official_market_settlement_verified"] is False
+              assert x["original_pregame_capture_independently_authenticated"] is False
+              assert x["bet_ready"] is False and x["champion_001_modified"] is False
+          for key,digest in r["source_sha256"].items():
+              label=re.sub(r"[^a-zA-Z0-9_-]+","_",key)
+              path=root/"college_ncaa_proxy_original_bytes"/(label+".json")
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
+          print("NCAA.com-derived second-source score comparisons (research only):",
+                r["ncaa_derived_score_agreements"])
           PY
       - name: Stage NBA historical review candidates WITHOUT qualifying or training
         run: |
