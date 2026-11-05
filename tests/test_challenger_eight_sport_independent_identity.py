@@ -63,11 +63,11 @@ class IndependentGameIdentityTests(unittest.TestCase):
         self.assertEqual(report["certified_champion_001_predictions"], 0)
         self.assertFalse(report["champion_001_modified"])
 
-    def test_other_sports_remain_unverified_not_fake_match(self):
+    def test_nba_without_source_remains_unverified_not_fake_match(self):
         rows, report = audit([espn_row("nba", "42"), espn_row()], receipt())
         self.assertEqual(report["archived_espn_events_reviewed"], 2)
         self.assertEqual(report["independent_identity_unverified"], 1)
-        self.assertEqual(rows[0]["identity_status"], "official_league_adapter_not_available")
+        self.assertEqual(rows[0]["identity_status"], "nba_official_response_not_captured")
 
     def test_missing_official_response_fails_closed(self):
         rows, report = audit([espn_row()], {})
