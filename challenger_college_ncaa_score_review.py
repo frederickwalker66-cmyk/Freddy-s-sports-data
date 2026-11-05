@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -447,12 +447,18 @@ def plan(packets, observed, max_dates=MAX_DATES_PER_LEAGUE, football_week=None, 
                     all(day in VERIFIED_FBS_WEEK_BY_EASTERN_DAY
                         for day in selected["ncaaf"])):
                 football_year,football_week = next(iter(source_weeks))
-            elif source_weeks:
-                # Mixed known and unverified historical weeks cannot be
-                # combined in one scoreboard query. No fake cross-week match.
-                pass
-        reqs["ncaaf"] = scoreboard_path("ncaaf", football_week=football_week,
-                                        football_year=football_year)
+            elif source_weeks or any(
+                    day not in {
+                        observed.astimezone(EASTERN).date().isoformat(),
+                        (observed.astimezone(EASTERN).date()-timedelta(days=1)).isoformat()
+                    } for day in selected["ncaaf"]):
+                # Never ask the current-week endpoint to validate old games.
+                # A different historical week needs a separately reviewed
+                # exact NCAA.com week mapping or explicit caller evidence.
+                football_week = -1
+        if football_week != -1:
+            reqs["ncaaf"] = scoreboard_path("ncaaf", football_week=football_week,
+                                            football_year=football_year)
     for day in basketball_dates:
         reqs["ncaab:"+day] = scoreboard_path("ncaab", day=day)
     return reqs
@@ -504,7 +510,9 @@ def corroborate(packets, responses, observed, max_dates=MAX_DATES_PER_LEAGUE,
         if published is None:
             status = "awaiting_espn_published_final"
         elif source_key not in reqs:
-            status = "outside_bounded_ncaa_basketball_dates"
+            status = ("ncaa_historical_football_week_not_verified"
+                      if row["league"] == "ncaaf" else
+                      "outside_bounded_ncaa_basketball_dates")
         elif source_key in errors:
             status = errors[source_key]
         else:
