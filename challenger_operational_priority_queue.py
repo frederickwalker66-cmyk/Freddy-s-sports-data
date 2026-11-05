@@ -27,9 +27,9 @@ def synthesize(release, independent, nfl, rolling):
     if (release.get("archived_pregame_games") != independent.get("archived_espn_events_reviewed")
             or rolling.get("distinct_future_espn_game_ids", -1) <
             release.get("archived_pregame_games", 0)
-            or nfl.get("nfl_games_reviewed") !=
-            release.get("league_operated_identity_matches_research_only", {}).get("nfl", 0)
-            + (nfl.get("nfl_games_reviewed",0) if release.get("league_operated_identity_matches_research_only", {}).get("nfl", 0) == 0 else 0)):
+            or type(nfl.get("nfl_games_reviewed")) is not int
+            or nfl["nfl_games_reviewed"] < 0
+            or nfl["nfl_games_reviewed"] > release.get("archived_pregame_games",0)):
         raise ValueError("unreconciled_operational_counts")
     # No NFL league-operated adapter has been implemented. nflverse is counted
     # only as a third-party signal and NEVER added to official matches.
