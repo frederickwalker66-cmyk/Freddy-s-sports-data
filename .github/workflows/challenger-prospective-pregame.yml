@@ -12,6 +12,9 @@ on:
     branches: [main]
     paths:
       - 'challenger_prospective_pregame.py'
+      - 'independent_schedule_review.py'
+      - 'challenger_all_sports_schedule_coverage.py'
+      - 'tests/test_challenger_eight_sport_schedule_outlook.py'
       - 'challenger_nba_pregame_injury_pdf.py'
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
@@ -50,6 +53,9 @@ on:
       - 'challenger_native_pregame_capture.py'
       - 'tests/test_challenger_native_pregame_capture.py'
       - 'challenger_prospective_pregame.py'
+      - 'independent_schedule_review.py'
+      - 'challenger_all_sports_schedule_coverage.py'
+      - 'tests/test_challenger_eight_sport_schedule_outlook.py'
       - 'challenger_nba_pregame_injury_pdf.py'
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
@@ -136,12 +142,46 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          args=(--history-days 14 --football-history-days 35 --output-dir prospective_pregame)
+          args=(--history-days 14 --football-history-days 35 --lookahead-days 7 --output-dir prospective_pregame)
           sharp="$(find source_sharp -type f -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
           official="$(find source_official -type f -name 'source_refresh_report.json' | sort | tail -n 1)"
           if [[ -n "$sharp" ]]; then args+=(--sharp-jsonl "$sharp"); fi
           if [[ -n "$official" ]]; then args+=(--official-report "$official"); fi
           python challenger_prospective_pregame.py "${args[@]}"
+      - name: Audit all eight ESPN schedules for no-game dates, source failures and missing archived future games
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_all_sports_schedule_coverage.py \
+            --capture-dir prospective_pregame \
+            --output prospective_pregame/eight_sport_schedule_coverage.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('prospective_pregame/eight_sport_schedule_coverage.json')
+          r=json.loads(p.read_text())
+          expected={'nba','nfl','mlb','nhl','ncaaf','ncaab','mls','uefa_champions_league'}
+          assert set(r['by_league'])==expected
+          assert r['totals']['future_games_discovered'] >= r['totals']['pregame_events_archived']
+          for k in ('qualified_chronological_training_games',
+                    'certified_champion_001_predictions',
+                    'certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert r[k]==0,(k,r[k])
+          assert r['independent_league_schedule_verified'] is False
+          assert r['historical_feature_publication_authenticated'] is False
+          assert r['champion_001_modified'] is False
+          for league,info in r['by_league'].items():
+            assert 1 <= info['source_days_attempted'] <= 8
+            assert info['source_days_succeeded']+info['source_days_failed']==info['source_days_attempted']
+            assert info['source_future_games_discovered'] >= info['archived_pregame_games']
+            assert info['qualified_for_model_training']==0
+            assert info['certified_predictions']==0
+          print('Eight sport future schedule research coverage:',
+                {league:(x['source_future_games_discovered'],
+                         x['archived_pregame_games'],x['coverage_class'])
+                 for league,x in r['by_league'].items()})
+          PY
       - name: Install NBA original injury PDF column reader
         run: python -m pip install -r requirements-injury-pdf.txt
       - name: Preserve the latest original NBA official injury report PDF without player-status promotion
