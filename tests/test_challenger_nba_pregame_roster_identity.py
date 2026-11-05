@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from challenger_nba_pregame_roster_identity import (
-    MAX_BOX_BYTES, MAX_SCHEDULE_BYTES, NBA_SCHEDULE_URL, official_url,
+    MAX_BOX_BYTES, MAX_SCHEDULE_BYTES, NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, official_url,
     parse_pregame_nba_box, run, main,
 )
 
