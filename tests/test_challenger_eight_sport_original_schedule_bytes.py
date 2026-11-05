@@ -113,21 +113,21 @@ class EightSportOriginalSourceTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             s,rows,r,path=fresh(tmp)
             s["events"][0]["home_team"]="Green Bay Packers"
-            with self.assertRaisesRegex(ValueError,"original_espn_events_not_equal_saved_snapshot"):
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
                 audit(s,r,rows,original_dir=path)
 
     def test_edited_derived_event_start_with_unchanged_source_is_rejected(self):
         with TemporaryDirectory() as tmp:
             s,rows,r,path=fresh(tmp)
             s["events"][0]["start_utc"]="2026-11-08T19:00:00+00:00"
-            with self.assertRaisesRegex(ValueError,"original_espn_events_not_equal_saved_snapshot"):
+            with self.assertRaisesRegex(ValueError,"archived_game_does_not_match_original_espn_event"):
                 audit(s,r,rows,original_dir=path)
 
     def test_edited_derived_sha_link_is_rejected(self):
         with TemporaryDirectory() as tmp:
             s,rows,r,path=fresh(tmp)
             s["events"][0]["source_original_sha256"]="a"*64
-            with self.assertRaisesRegex(ValueError,"original_espn_events_not_equal_saved_snapshot"):
+            with self.assertRaisesRegex(ValueError,"archived_game_original_espn_sha_receipt_mismatch"):
                 audit(s,r,rows,original_dir=path)
 
     def test_edited_raw_game_listing_counts_are_rejected(self):
