@@ -2,6 +2,13 @@ name: Challenger-001 original eight-sport schedule preflight (research only)
 
 on:
   workflow_dispatch:
+  # Follow the already scheduled/collector-triggered eight-sport capture.
+  # A successful source capture automatically advances every research gate
+  # without the user issuing repeated "Next" requests. No extra cron added.
+  workflow_run:
+    workflows: ["Challenger-001 prospective eight-league pregame evidence capture"]
+    types: [completed]
+    branches: [main]
   # One genuine live source preflight on introduction/changes to this workflow
   # and script. The already-installed twice-daily main capture keeps its
   # existing schedule; this workflow does not duplicate that recurring scan.
@@ -38,6 +45,13 @@ on:
 permissions:
   contents: read
 
+# Serialize research completion runs so one live original-source capture and
+# its downstream checks finish before another starts. Do not cancel in-flight
+# evidence or manufacture a successful result.
+concurrency:
+  group: challenger-sequential-completion-main
+  cancel-in-progress: false
+
 jobs:
   offline-source-safety:
     runs-on: ubuntu-latest
@@ -61,7 +75,7 @@ jobs:
   live-eight-sport-source:
     # Pull requests run synthetic tests only. Push on main or manual dispatch
     # captures actual source bytes. No secrets, odds, trades or predictions.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     needs: offline-source-safety
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -76,6 +90,43 @@ jobs:
           python challenger_eight_sport_source_preflight.py \
             --lookahead-days 7 \
             --output-dir seven_day_source_preflight
+      - name: Record actual upstream trigger and explicit provenance limits
+        shell: bash
+        env:
+          UPSTREAM_RUN_ID: ${{ github.event.workflow_run.id || '' }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p seven_day_source_preflight
+          python - <<'PY'
+          import json,os
+          from datetime import datetime,timezone
+          from pathlib import Path
+          event=os.environ['EVENT_NAME']
+          upstream=os.environ['UPSTREAM_RUN_ID']
+          if event=='workflow_run' and (
+              not upstream.isdecimal() or os.environ['UPSTREAM_CONCLUSION']!='success'):
+              raise SystemExit('upstream_capture_not_successful')
+          manifest={
+              'stage':'challenger_83_automatic_sequential_research_chain',
+              'trigger_event':event,
+              'upstream_prospective_run_id':upstream or None,
+              'upstream_run_conclusion':os.environ['UPSTREAM_CONCLUSION'] or None,
+              'new_independent_source_capture_started_at_utc':
+                  datetime.now(timezone.utc).isoformat(),
+              'upstream_artifact_contents_reused':False,
+              'research_only':True,
+              'certified_predictions':0,
+              'bookmaker_quotes_verified':0,
+              'automated_wagers':0,
+              'champion_001_modified':False,
+              'warning':'Successful upstream run triggers a new source observation; upstream files are not silently treated as independently verified or as current bookmaker quotes.',
+          }
+          Path('seven_day_source_preflight/automatic_chain_provenance.json').write_text(
+              json.dumps(manifest,indent=2,sort_keys=True)+'\\n')
+          print('Automated research chain:',event,'upstream run:',upstream or 'manual/push')
+          PY
       - name: Verify live source coverage totals and frozen research gates
         run: |
           set -euo pipefail
@@ -183,6 +234,45 @@ jobs:
           print('All research stages completed; independent model release BLOCKED.')
           print('Actual future games archived:', r['archived_pregame_games'])
           print('Reason: no verified native training, calibration or direct bookmaker evidence.')
+          PY
+      - name: Summarize the automatic chain without promoting model readiness
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('seven_day_source_preflight')
+          r=json.loads((root/'model_completion/release_readiness.json').read_text())
+          p=json.loads((root/'automatic_chain_provenance.json').read_text())
+          i=json.loads((root/'independent_identity/independent_game_identity_report.json').read_text())
+          assert r['model_update_status']=='BLOCKED_MISSING_INDEPENDENT_EXTERNAL_EVIDENCE'
+          assert r['certified_champion_001_predictions']==0
+          assert r['certified_challenger_001_predictions']==0
+          assert r['certified_positive_ev_bets']==0
+          assert p['champion_001_modified'] is False
+          result={
+              'stage':'challenger_83_unattended_priority_sequence_completed',
+              'trigger_event':p['trigger_event'],
+              'upstream_prospective_run_id':p['upstream_prospective_run_id'],
+              'source_events_archived':r['archived_pregame_games'],
+              'league_identity_matches_research_only':
+                  r['league_operated_identity_matches_research_only'],
+              'nba_source_failures':i['network_nba_source_failures_by_url'],
+              'research_provider_quotes_reviewed':
+                  r['research_aggregator_quote_rows_reviewed'],
+              'certified_predictions':0,
+              'verified_direct_bookmaker_quotes':0,
+              'certified_positive_ev_bets':0,
+              'automated_wagers':0,
+              'champion_001_modified':False,
+              'release_decision':r['release_decision'],
+              'remaining_external_blockers':r['blockers'],
+          }
+          (root/'automatic_chain_status.json').write_text(
+              json.dumps(result,indent=2,sort_keys=True)+'\\n')
+          print('AUTO SEQUENCE FINISHED:',json.dumps(result,sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
