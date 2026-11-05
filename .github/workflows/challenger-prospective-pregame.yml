@@ -19,6 +19,7 @@ on:
       - 'independent_schedule_review.py'
       - 'challenger_all_sports_schedule_coverage.py'
       - 'tests/test_challenger_eight_sport_schedule_outlook.py'
+      - 'tests/test_challenger_eight_sport_original_schedule_bytes.py'
       - 'challenger_nba_pregame_injury_pdf.py'
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
@@ -60,6 +61,7 @@ on:
       - 'independent_schedule_review.py'
       - 'challenger_all_sports_schedule_coverage.py'
       - 'tests/test_challenger_eight_sport_schedule_outlook.py'
+      - 'tests/test_challenger_eight_sport_original_schedule_bytes.py'
       - 'challenger_nba_pregame_injury_pdf.py'
       - 'tests/test_challenger_nba_pregame_injury_pdf.py'
       - 'challenger_nba_injury_pdf_player_rows.py'
@@ -167,6 +169,11 @@ jobs:
           expected={'nba','nfl','mlb','nhl','ncaaf','ncaab','mls','uefa_champions_league'}
           assert set(r['by_league'])==expected
           assert r['totals']['future_games_discovered'] >= r['totals']['pregame_events_archived']
+          schedule=json.loads((p.parent/'espn_schedule_capture.json').read_text())
+          assert schedule['original_source_bytes_capture_enabled'] is True
+          assert r['original_espn_source_responses_verified']==sum(
+              x['source_days_succeeded'] for x in r['by_league'].values())
+          assert r['original_source_hashes_independently_publisher_signed'] is False
           for k in ('qualified_chronological_training_games',
                     'certified_champion_001_predictions',
                     'certified_challenger_001_predictions',
