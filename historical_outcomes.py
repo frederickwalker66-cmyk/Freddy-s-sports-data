@@ -106,7 +106,10 @@ def normalize_game(game,league,source_url,now):
     }
 
 def collect(leagues,days,end_date,fetcher=fetch_json,clock=None,pause_seconds=0.12):
-    now=(clock or (lambda:datetime.now(timezone.utc)))()
+    # The scan-start clock is not a receipt timestamp. Each HTTP response must
+    # be stamped *after* its bytes have actually arrived, for every league.
+    receipt_clock=clock or (lambda:datetime.now(timezone.utc))
+    now=receipt_clock()
     if now.tzinfo is None: raise ValueError("clock must be timezone-aware")
     if not 1<=days<=35: raise ValueError("limit 1-35 days")
     if any(l not in LEAGUES for l in leagues) or len(set(leagues))!=len(leagues): raise ValueError("invalid/duplicate leagues")
@@ -121,11 +124,17 @@ def collect(leagues,days,end_date,fetcher=fetch_json,clock=None,pause_seconds=0.
             stats[league]["days_attempted"]+=1
             try:
                 payload=fetcher(url)
+                observed_at=receipt_clock()
+                if (observed_at.tzinfo is None or observed_at < now):
+                    raise ValueError("invalid source response receipt clock")
+                observed_at=observed_at.astimezone(timezone.utc)
                 if not isinstance(payload,dict) or not isinstance(payload.get("events"),list): raise ValueError("invalid events")
                 if len(payload["events"])>=500: raise ValueError("possibly truncated")
                 stats[league]["days_ok"]+=1
                 for game in payload["events"]:
-                    row=normalize_game(game,league,url,now)
+                    # Never misrepresent the request start as the time this
+                    # completed score was available to the collector.
+                    row=normalize_game(game,league,url,observed_at)
                     if row is None:continue
                     # Never trust the endpoint to stay inside the requested date window.
                     if parse_time(row["event_start_utc"]).astimezone(ZoneInfo("America/New_York")).date()!=day:continue
