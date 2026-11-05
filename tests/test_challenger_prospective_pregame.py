@@ -23,10 +23,10 @@ def schedule():
 
 
 def odds():
-    return {"source": "sportsgameodds_v2", "sportsbook": "draftkings",
+    return {"source": "sharpapi_rest", "sportsbook": "draftkings",
             "certified_prediction": False, "model_probability": None,
             "league": "nba", "home_team": "Atlanta Hawks",
-            "away_team": "Cleveland Cavaliers", "event_id": "sgo:88",
+            "away_team": "Cleveland Cavaliers", "event_id": "sharp:88",
             "market_type": "moneyline", "selection_type": "home",
             "selection": "Atlanta Hawks", "odds_american": -130, "line": None,
             "timestamp": "2026-10-29T21:25:00Z",
@@ -46,6 +46,8 @@ def history():
         day = datetime(2026, 10, 15, tzinfo=timezone.utc) + timedelta(days=n)
         rows.append({
             "league": "nba", "season_type": 2, "record_type": "historical_completed_game_research",
+            "outcome_source": "espn_public_scoreboard",
+            "champion_001_modified": False,
             "home_team": team if home else opponent,
             "away_team": opponent if home else team,
             "home_score": 105 if home else 94, "away_score": 98 if home else 110,
@@ -215,6 +217,47 @@ class ProspectiveTests(unittest.TestCase):
     def test_team_name_normalization_is_not_nickname_guessing(self):
         self.assertEqual(name_key("  Atlanta--Hawks"), "atlanta hawks")
         self.assertNotEqual(name_key("Atlanta Hawks"), name_key("Hawks"))
+
+    def test_all_sport_lineage_replays_actual_historical_source_observations(self):
+        from challenger_all_sports_feature_lineage import build_lineage
+        rows, _ = build(schedule(), history(), [], None, NOW)
+        lineage, audit = build_lineage(rows, history())
+        self.assertEqual(len(lineage), 1)
+        self.assertTrue(lineage[0]["both_team_forms_reproduced"])
+        self.assertEqual(len(lineage[0]["home"]["source_rows"]), 3)
+        self.assertEqual(len(lineage[0]["away"]["source_rows"]), 3)
+        self.assertEqual(
+            lineage[0]["home"]["source_rows"][0]["source_observed_at_utc"],
+            "2026-10-29T21:29:40+00:00")
+        self.assertFalse(audit["historical_pregame_feature_provenance_independently_authenticated"])
+        self.assertEqual(audit["qualified_training_rows"], 0)
+        self.assertEqual(set(audit["by_league"]), set(LEAGUES))
+
+    def test_lineage_rejects_timestamp_rewrite_and_wrong_feature(self):
+        from challenger_all_sports_feature_lineage import build_lineage
+        facts = history()
+        rows, _ = build(schedule(), facts, [], None, NOW)
+        corrupted = [dict(row) for row in facts]
+        corrupted[0]["retrieved_at_utc"] = "2026-10-30T00:00:01Z"
+        with self.assertRaisesRegex(ValueError, "not_observed_before_event"):
+            build_lineage(rows, corrupted)
+        rows[0]["home_team_form"]["win_rate"] = -0.3
+        with self.assertRaisesRegex(ValueError, "does_not_reproduce"):
+            build_lineage(rows, facts)
+
+    def test_lineage_rejects_duplicate_and_handles_no_games(self):
+        from challenger_all_sports_feature_lineage import build_lineage
+        empty, report = build_lineage([], [])
+        self.assertEqual(empty, [])
+        self.assertEqual(len(report["by_league"]), 8)
+        records, _ = build(schedule(), history(), [], None, NOW)
+        with self.assertRaisesRegex(ValueError, "duplicate_or_missing_historical_event_id"):
+            build_lineage(records, history() + [history()[0]])
+
+    def test_opted_out_sports_game_odds_source_rejected(self):
+        sample = odds()
+        sample["source"] = "sportsgameodds_v2"
+        self.assertEqual(validated_odds(sample, NOW)[1], "not_quarantined_draftkings_research")
 
 
 if __name__ == "__main__":
