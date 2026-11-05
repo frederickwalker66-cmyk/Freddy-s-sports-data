@@ -20,6 +20,8 @@ on:
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'challenger_nba_active_list_conflict_gate.py'
       - 'tests/test_challenger_nba_active_list_conflict_gate.py'
+      - 'challenger_nba_official_stats_v3_inactives.py'
+      - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -51,6 +53,8 @@ on:
       - 'tests/test_challenger_nba_pregame_roster_identity.py'
       - 'challenger_nba_active_list_conflict_gate.py'
       - 'tests/test_challenger_nba_active_list_conflict_gate.py'
+      - 'challenger_nba_official_stats_v3_inactives.py'
+      - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
       - 'requirements-injury-pdf.txt'
@@ -265,6 +269,44 @@ jobs:
               assert row['certified_prediction'] is False and row['bet_ready'] is False
           print('NBA injury/roster conflicts needing manual review:',
                 report['near_tipoff_manual_conflicts'])
+          PY
+      - name: Capture official NBA Stats V3 explicit game inactives as observed pregame; never infer active teammates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_official_stats_v3_inactives.py \
+            --roster-dir prospective_pregame/injury_report_original/pregame_roster_id_review \
+            --output-dir prospective_pregame/injury_report_original/stats_v3_inactive_receipts \
+            --max-games 4
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('prospective_pregame/injury_report_original/stats_v3_inactive_receipts')
+          report=json.loads((root/'nba_stats_v3_inactive_report.json').read_text())
+          assert report['source_requests_attempted']<=4
+          assert report['official_final_active_list_authenticated'] is False
+          assert report['no_inactive_rows_does_not_mean_everyone_active'] is True
+          for k in ('independently_confirmed_game_day_active_players',
+                    'independently_confirmed_game_day_inactive_players',
+                    'verified_nba_espn_draftkings_player_id_crosswalks',
+                    'qualified_player_prop_training_observations',
+                    'certified_champion_001_predictions','certified_challenger_001_predictions',
+                    'certified_positive_ev_bets','bet_ready_selections','automated_bets_placed'):
+            assert report[k]==0,(k,report[k])
+          assert report['champion_001_modified'] is False
+          for line in (root/'nba_stats_v3_inactive_review.jsonl').read_text().splitlines():
+            p=json.loads(line)
+            assert p['source_explicit_inactive_pregame'] is True
+            assert p['confirmed_final_game_inactive'] is False
+            assert p['all_nonlisted_players_assumed_active'] is False
+            assert p['qualified_for_prop_training'] is False
+            assert p['model_probability'] is None and p['bet_ready'] is False
+          for game_id,digest in report['observed_game_source_sha256'].items():
+            raw=(root/'nba_stats_v3_original_source_bytes'/(game_id+'.json')).read_bytes()
+            assert hashlib.sha256(raw).hexdigest()==digest
+          print('NBA V3 source inactives (unqualified):',
+                report['explicit_source_inactive_rows'],
+                'state:',report['status'])
           PY
       - name: Audit change between two actual NBA injury PDF revisions against same-run upcoming games
         shell: bash
