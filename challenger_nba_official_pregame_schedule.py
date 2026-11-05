@@ -7,6 +7,7 @@ No cached scoreboard or publisher publication timestamp is inferred.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import hashlib
 import json
 import re
@@ -77,14 +78,14 @@ def parse_original(raw, source_url, observed_at):
         payload, records = validate_same_day_scoreboard(raw, seen_at)
         kind = "nba_daily_scoreboard"
     else:
-        day = seen_at.astimezone(__import__("zoneinfo").ZoneInfo(
-            "America/New_York")).date().isoformat()
+        day = seen_at.astimezone(ZoneInfo("America/New_York")).date().isoformat()
         if source_url != stats_scoreboard_url(day):
             raise ValueError("nba_official_schedule_source_url_not_allowed")
         payload, records = verify_stats_v3_scoreboard(raw, source_url, seen_at)
         kind = "nba_stats_scoreboard_v3"
     team_ids, _ = source_game_records(payload)
-    if len(records) != len(team_ids):
+    if (not set(g["official_nba_game_id"] for g in records).issubset(team_ids)
+            or (kind == "nba_season_schedule" and len(records) != len(team_ids))):
         raise ValueError("nba_scheduled_game_ids_not_fully_reconciled")
     unique = set()
     clean = []
