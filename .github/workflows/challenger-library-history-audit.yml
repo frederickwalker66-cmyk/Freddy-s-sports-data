@@ -1,0 +1,33 @@
+name: Challenger-001 recovered history original-archive integrity (offline)
+
+on:
+  pull_request:
+    paths:
+      - challenger_library_archive_audit.py
+      - tests/test_challenger_library_archive_audit.py
+      - .github/workflows/challenger-library-history-audit.yml
+  push:
+    branches: [main]
+    paths:
+      - challenger_library_archive_audit.py
+      - tests/test_challenger_library_archive_audit.py
+      - .github/workflows/challenger-library-history-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-library-archive-validators:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate synthetic historical ZIP originals and no retrospective pregame promotions
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_challenger_library_archive_audit.py' -v
+          python -m py_compile challenger_library_archive_audit.py
