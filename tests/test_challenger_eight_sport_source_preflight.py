@@ -18,7 +18,7 @@ GAMES={
 }
 
 
-def fixture_fetch(requested, denies=None, changed=None):
+def fixture_fetch(denies=None, changed=None):
     denies=set(denies or [])
     changed=changed or {}
     def fetch(url):
