@@ -52,7 +52,7 @@ def audit(snapshot, report, records):
             raise ValueError("unsafe_espn_discovered_future_event")
         start=instant(entry.get("start_utc"))
         observed=instant(entry.get("observed_at_utc"))
-        if not at<=observed<=end<start:
+        if not (at<=observed<=end and observed<start):
             raise ValueError("schedule_event_not_observed_before_tipoff")
         link=urlparse(entry.get("source_url",""))
         if link.scheme!="https" or link.hostname!="site.api.espn.com":
@@ -78,9 +78,9 @@ def audit(snapshot, report, records):
         if key in archived_ids or key not in event_ids:
             raise ValueError("missing_or_duplicate_original_schedule_for_archive")
         archived_ids.add(key)
-        if instant(entry["snapshot_completed_at_utc"])>end or not (
-            at<=instant(entry["schedule_observed_at_utc"])<instant(entry["event_start_utc"])
-        ):
+        if not (at<=instant(entry["schedule_observed_at_utc"])<=
+                    instant(entry["snapshot_completed_at_utc"])<=end<
+                    instant(entry["event_start_utc"])):
             raise ValueError("archive_record_timestamp_not_pregame")
         archive_by[entry["league"]]+=1
     coverage={}
