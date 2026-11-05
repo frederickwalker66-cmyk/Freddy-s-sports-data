@@ -17,7 +17,12 @@ from pathlib import Path
 import re
 from urllib.request import Request, urlopen
 
-from challenger_nba_schedule_clock import nba_team_name, official_nba_events
+from challenger_nba_schedule_clock import (
+    nba_team_name, official_nba_events, NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL,
+)
+from challenger_nba_daily_scoreboard_fallback import (
+    EASTERN, validate_same_day_scoreboard, source_game_records,
+)
 from challenger_nba_injury_pdf_player_rows import TEAM_CODES, TEAMS
 from challenger_nba_player_two_source_review import canonical
 from challenger_prospective_outcome_validation import instant
@@ -88,7 +93,7 @@ def _decode(raw):
     return obj["boxScoreSummary"]
 
 
-def verify_inputs(roster_dir):
+def verify_inputs(roster_dir, now=None):
     """Read actual archived NBA-owned season schedule and original receipts."""
     root = Path(roster_dir)
     report = json.loads((root / "nba_pregame_roster_identity_report.json").read_text())
@@ -124,26 +129,24 @@ def verify_inputs(roster_dir):
     if (not 1 <= len(raw) <= MAX_SCHEDULE_BYTES or sha(raw) != expected):
         raise ValueError("altered_nba_original_schedule_bytes")
     schedule = json.loads(raw)
+    source_url = report.get("official_nba_schedule_source_url")
+    if source_url == NBA_TODAY_SCOREBOARD_URL:
+        # Only actual capture-time same-day NBA board; no yesterday board
+        # or a source replayed hours later masquerading as a new pregame quote.
+        recorded=instant(report.get("official_nba_schedule_observed_at_utc"))
+        if now is not None:
+            if (recorded>now or (now-recorded).total_seconds()>600
+                    or recorded.astimezone(EASTERN).date() !=
+                       now.astimezone(EASTERN).date()):
+                raise ValueError("stale_daily_scoreboard_receipt_for_inactive_review")
+        validate_same_day_scoreboard(raw,recorded)
+    elif source_url not in (None,NBA_SCHEDULE_URL):
+        raise ValueError("untrusted_nba_official_schedule_source_url")
     games = official_nba_events(schedule)
-    # Read the original source's explicit per-team NBA IDs, not guessed IDs.
-    raw_by_id = {}
-    for group in schedule["leagueSchedule"]["gameDates"]:
-        for game in group.get("games", []):
-            if game.get("gameStatus") not in (1, "1"):
-                continue
-            gid = str(game.get("gameId"))
-            if gid in raw_by_id:
-                raise ValueError("duplicate_nba_schedule_game_id")
-            h, a = game.get("homeTeam"), game.get("awayTeam")
-            if not isinstance(h, dict) or not isinstance(a, dict):
-                raise ValueError("missing_nba_schedule_club")
-            if (type(h.get("teamId")) not in (int, str) or
-                type(a.get("teamId")) not in (int, str) or
-                not str(h["teamId"]).isdigit() or
-                not str(a["teamId"]).isdigit() or
-                h["teamId"] == a["teamId"]):
-                raise ValueError("unverified_schedule_team_ids")
-            raw_by_id[gid] = {"home": str(h["teamId"]), "away": str(a["teamId"])}
+    raw_by_id, source_kind = source_game_records(schedule)
+    claimed_kind=report.get("official_nba_schedule_source_kind")
+    if claimed_kind is not None and claimed_kind!=source_kind:
+        raise ValueError("nba_schedule_source_kind_mismatch")
     results = []
     for g in games:
         gid = g["official_nba_game_id"]
@@ -235,12 +238,18 @@ def run(roster_dir, now=None, fetcher=None, clock=None, max_games=MAX_GAMES):
         raise ValueError("naive_nba_stats_inactive_start_time")
     now = now.astimezone(timezone.utc)
     fetcher = fetcher or fetch_stats
-    _, upstream, games = verify_inputs(roster_dir)
+    _, upstream, games = verify_inputs(roster_dir, now)
     report = {
         "stage": "challenger_official_nba_stats_v3_inactive_pregame_review_only",
         "observed_at_utc": now.isoformat(),
         "nba_stats_v3_source": "https://stats.nba.com/stats/boxscoresummaryv3",
         "max_games_per_scan": MAX_GAMES,
+        "upstream_nba_game_identity_source":
+            upstream.get("official_nba_schedule_source_kind"),
+        "upstream_nba_game_identity_source_url":
+            upstream.get("official_nba_schedule_source_url"),
+        "upstream_nba_game_identity_source_sha256":
+            upstream.get("official_nba_schedule_original_sha256"),
         "eligible_scheduled_games": 0,
         "source_requests_attempted": 0,
         "source_responses_parsed": 0,

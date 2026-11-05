@@ -24,10 +24,11 @@ from challenger_nba_injury_pdf_player_rows import (
 )
 from challenger_nba_player_two_source_review import canonical, official_url
 from challenger_nba_schedule_clock import (
-    NBA_SCHEDULE_URL, official_nba_events, nba_team_name,
+    NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, official_nba_events, nba_team_name,
     MAX_ACCEPTED_CLOCK_DIFF_SECONDS,
 )
 from challenger_prospective_outcome_validation import instant
+from challenger_nba_daily_scoreboard_fallback import validate_same_day_scoreboard
 
 ET = ZoneInfo("America/New_York")
 MAX_GAMES = 4
@@ -54,9 +55,12 @@ def checked_clock(clock):
 
 
 def fetch_source(url, maximum):
-    if url != NBA_SCHEDULE_URL:
+    if url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL):
+        if maximum != MAX_SCHEDULE_BYTES:
+            raise ValueError("wrong_nba_official_schedule_source_size_limit")
+    else:
         game_id = url.rsplit("_", 1)[-1].removesuffix(".json")
-        if url != official_url(game_id):
+        if url != official_url(game_id) or maximum != MAX_BOX_BYTES:
             raise ValueError("unapproved_nba_roster_source_url")
     if maximum not in (MAX_SCHEDULE_BYTES, MAX_BOX_BYTES):
         raise ValueError("unapproved_nba_roster_source_maximum")
@@ -387,16 +391,35 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
     index_raw=None
     schedule=None
     current=now
-    try:
-        index_raw=fetcher(NBA_SCHEDULE_URL,MAX_SCHEDULE_BYTES)
-        current=checked_clock(clock)
-        if current<now or (current-now).total_seconds()>90:
-            raise ValueError("nba_roster_schedule_fetch_clock_invalid")
-        schedule=decode_json(index_raw,MAX_SCHEDULE_BYTES)
-        # Parse the *real* NBA schedule before any game box requests.
-        official_nba_events(schedule)
-    except (OSError,ValueError,TypeError,TimeoutError,UnicodeError,OverflowError,KeyError) as exc:
-        report=empty_report(receipt,len(rows),"official_nba_future_schedule_blocked_"+type(exc).__name__)
+    schedule_source=None
+    errors={}
+    # Only the NBA-operated season URL first; a denied/stale/broken season
+    # response may fall back to the NBA-owned same-day scoreboard. Never
+    # invent game identities, bypass a blocked CDN, or use a yesterday board.
+    for url in (NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL):
+        try:
+            candidate_raw=fetcher(url,MAX_SCHEDULE_BYTES)
+            observed_after=checked_clock(clock)
+            if observed_after<now or (observed_after-now).total_seconds()>90:
+                raise ValueError("nba_roster_schedule_fetch_clock_invalid")
+            if url==NBA_TODAY_SCOREBOARD_URL:
+                candidate,_=validate_same_day_scoreboard(candidate_raw,observed_after)
+            else:
+                candidate=decode_json(candidate_raw,MAX_SCHEDULE_BYTES)
+                if not isinstance(candidate.get("leagueSchedule"),dict):
+                    raise ValueError("primary_nba_season_schedule_schema_missing")
+                official_nba_events(candidate)
+            index_raw=candidate_raw
+            schedule=candidate
+            schedule_source=url
+            current=observed_after
+            break
+        except (OSError,ValueError,TypeError,TimeoutError,UnicodeError,
+                OverflowError,KeyError) as exc:
+            errors[url]=type(exc).__name__
+    if schedule is None:
+        report=empty_report(receipt,len(rows),"official_nba_schedule_and_daily_board_unavailable")
+        report["official_nba_schedule_source_errors"]=errors
         return review_identity(rows,{},{
             (r["game_date_et"],r["matchup"]):"official_nba_future_schedule_unavailable"
             for r in rows}, {}, {}, observed,events is None)[0],report,{}
@@ -431,6 +454,12 @@ def run(capture_dir, events=None, now=None, fetcher=None, clock=None,
     report=base_report(receipt,len(rows))
     report.update({
         "official_schedule_source_available":True,
+        "official_nba_schedule_source_url":schedule_source,
+        "official_nba_schedule_source_kind":(
+            "nba_daily_scoreboard_same_day_fallback"
+            if schedule_source==NBA_TODAY_SCOREBOARD_URL
+            else "nba_season_schedule"),
+        "official_nba_schedule_source_errors":errors,
         "official_nba_schedule_original_sha256":digest(index_raw),
         "official_nba_schedule_observed_at_utc":schedule_observed.isoformat(),
         "official_game_requests_bounded":len(keys),
@@ -454,6 +483,9 @@ def base_report(receipt, count):
         "original_pdf_player_rows":count,
         "official_nba_schedule_original_sha256":None,
         "official_schedule_source_available":False,
+        "official_nba_schedule_source_url":None,
+        "official_nba_schedule_source_kind":None,
+        "official_nba_schedule_source_errors":{},
         "official_game_requests_bounded":0,
         "nba_person_id_candidates_without_id_cross_source_authentication":0,
         "matched_espn_game_crosswalk_candidates":0,
