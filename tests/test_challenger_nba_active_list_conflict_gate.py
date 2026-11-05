@@ -218,17 +218,14 @@ class ActiveListReconciliationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"roster_source_identity_or_status_disagreement"):
                 evaluate(tmp,AT)
 
-    def test_wrong_game_id_rejected_even_with_same_person_name(self):
+    def test_wrong_game_id_stays_blocked_without_player_promotion(self):
         p=record()
         p["nba_game_id_candidate"]="0022600002"
-        rows=None
-        with TemporaryDirectory() as tmp:
-            fixture(tmp,[p])
-            with self.assertRaisesRegex(ValueError,"captured_original_nba_roster_bytes_changed|wrong_nba_game"):
-                # The first source file has an unrecognized game identity, so a
-                # strict refusal is required. It may fail at missing-file level.
-                try:evaluate(tmp,AT)
-                except FileNotFoundError as exc:raise ValueError("wrong_nba_game") from exc
+        rows,r=run_case([p])
+        self.assertEqual(rows[0]["reconciliation_status"],
+                         "original_scheduled_nba_boxscore_not_archived")
+        self.assertIsNone(rows[0]["nba_person_id_candidate"])
+        self.assertEqual(r["independently_confirmed_game_day_active_players"],0)
 
     def test_final_nba_boxscore_must_not_be_accepted_as_pregame_roster(self):
         with TemporaryDirectory() as tmp:
