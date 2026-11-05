@@ -120,6 +120,7 @@ def _audit_second(rows, league, matches, source_name):
     agreement=SOURCE_SPECS[league][2]
     statuses=Counter()
     output={}
+    orphaned=0
     for item in rows:
         if not isinstance(item,dict):
             raise ValueError("invalid_second_source_review_record")
@@ -147,13 +148,17 @@ def _audit_second(rows, league, matches, source_name):
         if not isinstance(status,str) or not status:
             raise ValueError("missing_second_source_review_status")
         if (league,eid) not in matches:
-            raise ValueError("second_source_event_not_in_original_lineage")
+            # NBA published-score research can originate from a broader
+            # evidence review queue than the receipt-authenticated subset.
+            # Quarantine it instead of counting or joining it by similarity.
+            orphaned+=1
+            continue
         if (status==agreement or status in OUTCOME_MISMATCH[league]):
             if matches[(league,eid)].get("published_final_only") is None:
                 raise ValueError("second_source_agreement_without_published_final")
         output[eid]=item
         statuses[status]+=1
-    return output,statuses
+    return output,statuses,orphaned
 
 
 def reconcile(root,now=None):
@@ -176,16 +181,17 @@ def reconcile(root,now=None):
             file,field,agree,provider=SOURCE_SPECS[league]
             data=source_cache[file]
             if data is None:
-                matched,statuses={},Counter()
+                matched,statuses,orphaned={},Counter(),0
                 availability="source_review_artifact_missing"
             else:
-                matched,statuses=_audit_second(data,league,packets,file)
+                matched,statuses,orphaned=_audit_second(data,league,packets,file)
                 availability="source_review_artifact_present"
             counts={
                 "original_pregame_events_receipt_backed":len(originals),
                 "pregame_feature_research_rows":with_features,
                 "linked_published_results":len(published),
                 "second_source_rows_reviewed":len(matched),
+                "source_review_rows_quarantined_without_original_lineage":orphaned,
                 "second_source_published_score_agreements_research_only":statuses[agree],
                 "second_source_score_disagreements_for_review":
                     sum(statuses[k] for k in OUTCOME_MISMATCH[league]),
@@ -205,6 +211,7 @@ def reconcile(root,now=None):
                 "pregame_feature_research_rows":with_features,
                 "linked_published_results":len(published),
                 "second_source_rows_reviewed":0,
+                "source_review_rows_quarantined_without_original_lineage":0,
                 "second_source_published_score_agreements_research_only":0,
                 "second_source_score_disagreements_for_review":0,
                 "second_source_without_original_final":0,
