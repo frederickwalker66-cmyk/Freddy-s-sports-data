@@ -84,6 +84,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Capture actual ESPN seven-day source original bytes for all eight leagues
+        run: |
+          set -euo pipefail
+          python challenger_eight_sport_source_preflight.py \
+            --lookahead-days 7 \
+            --output-dir seven_day_source_preflight
       - name: Record actual upstream trigger and explicit provenance limits
         shell: bash
         env:
@@ -121,12 +127,6 @@ jobs:
               json.dumps(manifest,indent=2,sort_keys=True)+'\\n')
           print('Automated research chain:',event,'upstream run:',upstream or 'manual/push')
           PY
-      - name: Capture actual ESPN seven-day source original bytes for all eight leagues
-        run: |
-          set -euo pipefail
-          python challenger_eight_sport_source_preflight.py \
-            --lookahead-days 7 \
-            --output-dir seven_day_source_preflight
       - name: Verify live source coverage totals and frozen research gates
         run: |
           set -euo pipefail
