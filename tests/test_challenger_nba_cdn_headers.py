@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 from urllib.error import HTTPError
 from unittest.mock import patch
+from challenger_nba_stats_v3_schedule_fallback import stats_url_for_observation
 import unittest
 
 import challenger_nba_pregame_roster_identity as mod
@@ -85,7 +86,7 @@ class NBACompatHeaderTests(unittest.TestCase):
                 mod.fetch_source(mod.NBA_TODAY_SCOREBOARD_URL,mod.MAX_BOX_BYTES)
             opened.assert_not_called()
 
-    def test_two_real_http_403_failures_preserve_exact_denial_without_training(self):
+    def test_three_real_http_403_failures_preserve_exact_denial_without_training(self):
         called=[]
         def denied(url,cap):
             called.append(url)
@@ -94,12 +95,14 @@ class NBACompatHeaderTests(unittest.TestCase):
             "synthetic",now=NOW,clock=lambda:NOW,
             pdf_reader=injury_source,fetcher=denied,
         )
-        self.assertEqual(called,[mod.NBA_SCHEDULE_URL,mod.NBA_TODAY_SCOREBOARD_URL])
+        self.assertEqual(called,[mod.NBA_SCHEDULE_URL,mod.NBA_TODAY_SCOREBOARD_URL,
+                                 stats_url_for_observation(NOW)])
         self.assertEqual(report["official_nba_schedule_source_errors"],{
             mod.NBA_SCHEDULE_URL:"HTTP_403",
             mod.NBA_TODAY_SCOREBOARD_URL:"HTTP_403",
+            stats_url_for_observation(NOW):"HTTP_403",
         })
-        self.assertEqual(report["status"],"official_nba_schedule_and_daily_board_unavailable")
+        self.assertEqual(report["status"],"official_nba_all_three_operated_schedules_unavailable")
         self.assertEqual(rows[0]["crosscheck_status"],"official_nba_future_schedule_unavailable")
         self.assertEqual(originals,{})
         self.assertEqual(report["independently_confirmed_active_players"],0)
@@ -113,7 +116,7 @@ class NBACompatHeaderTests(unittest.TestCase):
             raise HTTPError(url,429,"Too Many Requests",None,None)
         _,report,_=mod.run("synthetic",now=NOW,clock=lambda:NOW,
                            pdf_reader=injury_source,fetcher=denied)
-        self.assertEqual(len(called),2)
+        self.assertEqual(len(called),3)
         self.assertEqual(set(report["official_nba_schedule_source_errors"].values()),{"HTTP_429"})
 
 

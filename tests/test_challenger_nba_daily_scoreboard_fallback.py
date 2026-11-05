@@ -13,6 +13,7 @@ from challenger_nba_daily_scoreboard_fallback import (
 from challenger_nba_schedule_clock import (
     NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL,
 )
+from challenger_nba_stats_v3_schedule_fallback import stats_url_for_observation
 from challenger_nba_pregame_roster_identity import (
     run as roster_run, MAX_SCHEDULE_BYTES, MAX_BOX_BYTES,
 )
@@ -123,6 +124,8 @@ def capture(source=None, bad_season=True, calls=None):
         if url.endswith("boxscore_"+GAME_ID+".json"):
             if cap!=MAX_BOX_BYTES:raise AssertionError("wrong boxscore limit")
             return official_box()
+        if url==stats_url_for_observation(NOW):
+            raise OSError("NBA Stats source unavailable in original two-source fixture")
         raise AssertionError("unexpected network address " + url)
     return fetch
 
@@ -231,11 +234,12 @@ class DailyBoardFallbackTests(unittest.TestCase):
         rows,r,files=roster_run("synthetic",now=NOW,clock=lambda:NOW,
              pdf_reader=read_original,
              fetcher=capture(source=board(day="2026-11-04"),calls=calls))
-        self.assertEqual(calls,[NBA_SCHEDULE_URL,NBA_TODAY_SCOREBOARD_URL])
+        self.assertEqual(calls,[NBA_SCHEDULE_URL,NBA_TODAY_SCOREBOARD_URL,
+                                stats_url_for_observation(NOW)])
         self.assertEqual(r["official_game_requests_bounded"],0)
         self.assertEqual(files,{})
         self.assertIsNone(rows[0]["nba_person_id_candidate"])
-        self.assertEqual(r["status"],"official_nba_schedule_and_daily_board_unavailable")
+        self.assertEqual(r["status"],"official_nba_all_three_operated_schedules_unavailable")
 
     def test_stats_v3_inactive_stage_reads_verified_daily_scoreboard_receipt(self):
         rows,r,files=roster_run("synthetic",now=NOW,clock=lambda:NOW,

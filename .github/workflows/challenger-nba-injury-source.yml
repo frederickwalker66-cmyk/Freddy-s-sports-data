@@ -23,6 +23,8 @@ on:
       - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_daily_scoreboard_fallback.py'
       - 'tests/test_challenger_nba_daily_scoreboard_fallback.py'
+      - 'challenger_nba_stats_v3_schedule_fallback.py'
+      - 'tests/test_challenger_nba_stats_v3_schedule_fallback.py'
       - 'tests/test_challenger_nba_cdn_headers.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
@@ -42,6 +44,8 @@ on:
       - 'tests/test_challenger_nba_official_stats_v3_inactives.py'
       - 'challenger_nba_daily_scoreboard_fallback.py'
       - 'tests/test_challenger_nba_daily_scoreboard_fallback.py'
+      - 'challenger_nba_stats_v3_schedule_fallback.py'
+      - 'tests/test_challenger_nba_stats_v3_schedule_fallback.py'
       - 'tests/test_challenger_nba_cdn_headers.py'
       - 'challenger_nba_injury_revision_monitor.py'
       - 'tests/test_challenger_nba_injury_revision_monitor.py'
@@ -68,6 +72,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_nba_active_list_conflict_gate.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_official_stats_v3_inactives.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_daily_scoreboard_fallback.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_stats_v3_schedule_fallback.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_cdn_headers.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_injury_revision_monitor.py' -v
   capture-current-original-report:
@@ -173,10 +178,15 @@ jobs:
                            'TimeoutError','TypeError','UnicodeError','OverflowError','KeyError'))
                          for v in report['official_nba_schedule_source_errors'].values())
           assert report['official_nba_schedule_source_kind'] in (
-            None,'nba_season_schedule','nba_daily_scoreboard_same_day_fallback')
+            None,'nba_season_schedule','nba_daily_scoreboard_same_day_fallback',
+            'nba_stats_v3_scoreboard_same_day_fallback')
           if report['official_nba_schedule_source_kind']=='nba_daily_scoreboard_same_day_fallback':
             assert report['official_nba_schedule_source_url']==(
               'https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json')
+            assert report['official_nba_schedule_observed_at_utc']
+          if report['official_nba_schedule_source_kind']=='nba_stats_v3_scoreboard_same_day_fallback':
+            assert report['official_nba_schedule_source_url'].startswith(
+                'https://stats.nba.com/stats/scoreboardv3?GameDate=')
             assert report['official_nba_schedule_observed_at_utc']
           print('Scheduled NBA roster person ID review candidates:',
                 report['nba_person_id_candidates_without_id_cross_source_authentication'])
