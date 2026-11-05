@@ -1,0 +1,67 @@
+name: Challenger-001 daily isotonic research calibration
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 11 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_isotonic_recalibration.py'
+      - 'tests/test_challenger_isotonic_recalibration.py'
+      - 'requirements-calibration.txt'
+      - 'CHALLENGER_ISOTONIC_RECALIBRATION.md'
+      - '.github/workflows/challenger-isotonic-calibration.yml'
+  pull_request:
+    paths:
+      - 'challenger_isotonic_recalibration.py'
+      - 'tests/test_challenger_isotonic_recalibration.py'
+      - 'requirements-calibration.txt'
+      - 'CHALLENGER_ISOTONIC_RECALIBRATION.md'
+      - '.github/workflows/challenger-isotonic-calibration.yml'
+permissions:
+  contents: read
+jobs:
+  challenger-isotonic-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install research-only isotonic dependency
+        run: python -m pip install -r requirements-calibration.txt
+      - name: Run offline synthetic safety and chronological tests
+        run: python -m unittest discover -s tests -p 'test_challenger_isotonic_recalibration.py' -v
+      - name: Run daily research-only calibration or report missing evidence
+        run: |
+          python challenger_isotonic_recalibration.py \
+            --evidence challenger_oos_probabilities.jsonl \
+            --output-dir challenger_results/isotonic_recalibration \
+            --allow-missing-evidence
+      - name: Verify Champion remains frozen and no bets are certified
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          output = Path('challenger_results/isotonic_recalibration')
+          r = json.loads((output/'report.json').read_text())
+          assert r['champion_001_modified'] is False
+          assert r['certified_champion_001_predictions'] == 0
+          assert r['certified_challenger_001_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == 0
+          assert r['automated_wagers_placed'] == 0
+          assert r['independent_external_source_authentication_performed'] is False
+          if not Path('challenger_oos_probabilities.jsonl').exists():
+              assert r['status'] == 'blocked_missing_prediction_evidence_file'
+              assert r['research_artifacts_written'] == 0
+              assert sorted(p.name for p in output.iterdir()) == ['report.json']
+          print('Research-only calibration:', r['status'],
+                'artifacts:', r['research_artifacts_written'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: challenger-isotonic-research-${{ github.run_id }}
+          path: challenger_results/isotonic_recalibration/
+          retention-days: 30
+          if-no-files-found: error
