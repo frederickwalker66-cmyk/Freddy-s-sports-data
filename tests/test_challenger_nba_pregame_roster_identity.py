@@ -288,7 +288,11 @@ class PreGameNBAIDTests(unittest.TestCase):
         out,report,files=run("fixture",now=NOW,clock=lambda:NOW,
                              fetcher=fail,pdf_reader=reader())
         self.assertEqual(out[0]["crosscheck_status"],"official_nba_future_schedule_unavailable")
-        self.assertEqual(report["status"],"official_nba_future_schedule_blocked_OSError")
+        self.assertEqual(report["status"],"official_nba_schedule_and_daily_board_unavailable")
+        self.assertEqual(report["official_nba_schedule_source_errors"],{
+            NBA_SCHEDULE_URL:"OSError",
+            NBA_TODAY_SCOREBOARD_URL:"OSError"
+        })
         self.assertEqual(files,{})
 
     def test_game_already_started_not_reused_as_pregame_roster(self):
