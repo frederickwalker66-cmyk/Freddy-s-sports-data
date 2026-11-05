@@ -18,6 +18,8 @@ on:
       - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_college_ncaa_score_review.py'
       - 'tests/test_challenger_college_ncaa_score_review.py'
+      - 'challenger_soccer_regulation_review.py'
+      - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'challenger_nba_history_qualification.py'
@@ -43,6 +45,8 @@ on:
       - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_college_ncaa_score_review.py'
       - 'tests/test_challenger_college_ncaa_score_review.py'
+      - 'challenger_soccer_regulation_review.py'
+      - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_official_final_crosscheck.py'
       - 'tests/test_challenger_prospective_outcome_validation.py'
@@ -325,6 +329,44 @@ jobs:
               assert hashlib.sha256(path.read_bytes()).hexdigest()==digest
           print("NCAA.com-derived second-source score comparisons (research only):",
                 r["ncaa_derived_score_agreements"])
+          PY
+      - name: Review MLS and UEFA 90-minute results from separate publisher (optional key, research only)
+        env:
+          API_NINJAS_KEY: ${{ secrets.API_NINJAS_KEY }}
+        run: |
+          set -euo pipefail
+          python challenger_soccer_regulation_review.py \
+            --lineage prospective_validation/original_bytes_lineage_review.jsonl \
+            --output-dir prospective_validation --max-days 3
+          python - <<'PY'
+          import hashlib,json,re
+          from pathlib import Path
+          root=Path('prospective_validation')
+          report=json.loads((root/'soccer_90min_second_source_report.json').read_text())
+          assert set(report['by_league']) == {'mls','uefa_champions_league'}
+          assert len(report['requested_routes']) <= 6
+          assert report['source_requests_attempted'] <= 6
+          for key in ('independently_authenticated_training_games',
+                      'certified_champion_001_predictions',
+                      'certified_challenger_001_predictions',
+                      'certified_positive_ev_bets','bet_ready_selections',
+                      'automated_bets_placed'):
+              assert report[key] == 0,(key,report[key])
+          assert report['champion_001_modified'] is False
+          for line in (root/'soccer_90min_second_source_review.jsonl').read_text().splitlines():
+              row=json.loads(line)
+              assert row['qualified_for_challenger_training'] is False
+              assert row['independent_league_official_regulation_result_authenticated'] is False
+              assert row['original_pregame_feature_publication_independently_verified'] is False
+              assert row['bookmaker_three_way_settlement_verified'] is False
+              assert row['model_probability'] is None
+              assert row['bet_ready'] is False and row['champion_001_modified'] is False
+          for key,digest in report['source_raw_sha256'].items():
+              filename=re.sub('[^a-zA-Z0-9_-]+','_',key)+'.json'
+              raw=(root/'soccer_second_source_original_bytes'/filename).read_bytes()
+              assert hashlib.sha256(raw).hexdigest() == digest
+          print('Soccer published 90-min score agreements, NOT betting labels:',
+                report['regulation_score_published_agreements'])
           PY
       - name: Stage NBA historical review candidates WITHOUT qualifying or training
         run: |
