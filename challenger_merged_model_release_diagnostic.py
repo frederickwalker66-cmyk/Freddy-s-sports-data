@@ -24,7 +24,7 @@ def clean_zero(report, keys):
         raise ValueError("frozen_champion_integrity_not_confirmed")
 
 
-def assess(intake, official, licensed, qualified, ledger, worklist, native):
+def assess(intake, official, licensed, qualified, ledger, worklist, native, score_integrity=None):
     if not all(isinstance(r,dict) for r in (
             intake,official,licensed,qualified,ledger,worklist,native)):
         raise ValueError("seven_required_provenance_reports_missing")
@@ -105,6 +105,31 @@ def assess(intake, official, licensed, qualified, ledger, worklist, native):
     official_count=official["combined_second_source_score_agreements_research_only"]
     if not (0 <= third <= candidate_count and 0 <= official_count<=candidate_count):
         raise ValueError("invalid_original_score_corroboration_counts")
+    suspicious_dates=0
+    if score_integrity is not None:
+        if not isinstance(score_integrity,dict):
+            raise ValueError("missing_licensed_provider_integrity_report")
+        clean_zero(score_integrity,(
+            "licensed_provider_scores_accepted_for_training",
+            "licensed_provider_player_stats_accepted_for_training",
+            "licensed_provider_odds_accepted_for_positive_ev",
+            "untrusted_provider_scores_auto_corrected",
+            "qualified_challenger_training_games",
+            "certified_champion_001_predictions",
+            "certified_challenger_001_predictions",
+            "certified_positive_ev_bets",
+            "automated_bets_placed",
+        ))
+        if (score_integrity.get("records_seen")!=candidate_count
+                or score_integrity.get("source_successful_dates") !=
+                    licensed.get("source_days_succeeded")
+                or score_integrity.get("by_status")!=licensed.get("by_status")
+                or score_integrity.get(
+                    "sportsdataio_api_key_tier_independently_verified") is not False):
+            raise ValueError("untrusted_provider_integrity_not_reconciled")
+        suspicious_dates=score_integrity.get("suspected_scrambled_score_pattern_days")
+        if type(suspicious_dates) is not int or suspicious_dates<0:
+            raise ValueError("suspected_score_pattern_count_invalid")
     train=qualified["qualified_training_games"]
     holdout=qualified["qualified_holdout_games"]
     thresholds={"train":200,"later_holdout":50}
@@ -140,6 +165,19 @@ def assess(intake, official, licensed, qualified, ledger, worklist, native):
          "next_action":
          "Recover immutable Champion executable and independent reference-output checks; preserve original unmodified"},
     ]
+    if score_integrity is not None:
+        for block in blockers:
+            block["priority"] += 1
+        blockers.insert(0,{
+            "priority":1,
+            "code":"VERIFY_SPORTSDATAIO_REAL_UNSCRAMBLED_DATA_ENTITLEMENT",
+            "status":"provider_score_field_integrity_not_authenticated",
+            "suspected_transformed_score_pattern_days":suspicious_dates,
+            "next_action":("Check account entitlement for real, non-scrambled "
+                           "game scores, player stats and odds; compare exact "
+                           "final scores with league-operated independent source "
+                           "before any data training. Do not rescale altered scores."),
+        })
     return {
         "stage":"challenger_106_combined_operational_training_release_diagnostic",
         "generated_at_utc":datetime.now(timezone.utc).isoformat(),
@@ -151,6 +189,9 @@ def assess(intake, official, licensed, qualified, ledger, worklist, native):
         "nba_third_party_published_score_research_agreements":third,
         "nba_third_party_source_days_succeeded":licensed.get("source_days_succeeded"),
         "nba_third_party_source_failures_by_day":licensed.get("source_failures_by_day"),
+        "suspected_provider_scrambled_score_pattern_days":suspicious_dates,
+        "sportsdataio_subscription_tier_independently_confirmed":False,
+        "sportsdataio_score_fields_authenticated_for_training":False,
         "nba_research_candidate_shortfall_to_250":max(0,250-candidate_count),
         "nba_independently_qualified_training_games":train,
         "nba_independently_qualified_later_holdout_games":holdout,
@@ -177,6 +218,7 @@ def main(argv=None):
     for name in ("intake","official","licensed","qualified","ledger",
                  "worklist","native"):
         p.add_argument("--"+name,required=True)
+    p.add_argument("--score-integrity")
     p.add_argument("--output",required=True)
     args=p.parse_args(argv)
     def read(filename):
@@ -186,7 +228,8 @@ def main(argv=None):
         return json.loads(f.read_text(encoding="utf8"))
     reports=[read(getattr(args,x)) for x in (
         "intake","official","licensed","qualified","ledger","worklist","native")]
-    report=assess(*reports)
+    report=assess(*reports,
+        score_integrity=read(args.score_integrity) if args.score_integrity else None)
     out=Path(args.output)
     if out.exists():
         raise FileExistsError("refuse_unsafe_release_report_overwrite")

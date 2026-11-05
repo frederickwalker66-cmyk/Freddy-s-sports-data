@@ -30,6 +30,8 @@ on:
       - 'challenger_nba_history_qualification.py'
       - 'challenger_nba_published_daily_score_fallback.py'
       - 'challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'challenger_sportsdataio_score_scramble_guard.py'
+      - 'tests/test_challenger_sportsdataio_score_scramble_guard.py'
       - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_merged_model_release_diagnostic.py'
       - 'tests/test_challenger_merged_model_release_diagnostic.py'
@@ -68,6 +70,8 @@ on:
       - 'challenger_nba_history_intake.py'
       - 'challenger_nba_published_daily_score_fallback.py'
       - 'challenger_sportsdataio_nba_final_crosscheck.py'
+      - 'challenger_sportsdataio_score_scramble_guard.py'
+      - 'tests/test_challenger_sportsdataio_score_scramble_guard.py'
       - 'tests/test_challenger_sportsdataio_nba_final_crosscheck.py'
       - 'challenger_merged_model_release_diagnostic.py'
       - 'tests/test_challenger_merged_model_release_diagnostic.py'
@@ -533,6 +537,34 @@ jobs:
                 r['third_party_published_final_score_agreements_research_only'],
                 'source failures:',r['source_failures_by_day'])
           PY
+      - name: "#107–110 audit possible SportsDataIO scrambled game scores/stats and refuse false correction"
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_sportsdataio_score_scramble_guard.py \
+            --review prospective_validation/nba_sportsdataio_published_final_review.jsonl \
+            --provider-report prospective_validation/nba_sportsdataio_published_final_report.json \
+            --output prospective_validation/nba_provider_score_integrity_diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('prospective_validation/nba_provider_score_integrity_diagnostic.json').read_text())
+          for k in ('licensed_provider_scores_accepted_for_training',
+                    'licensed_provider_player_stats_accepted_for_training',
+                    'licensed_provider_odds_accepted_for_positive_ev',
+                    'untrusted_provider_scores_auto_corrected',
+                    'qualified_challenger_training_games',
+                    'certified_champion_001_predictions',
+                    'certified_challenger_001_predictions',
+                    'certified_positive_ev_bets',
+                    'automated_bets_placed'):
+            assert r[k]==0,(k,r[k])
+          assert r['sportsdataio_api_key_tier_independently_verified'] is False
+          assert r['champion_001_modified'] is False
+          print('Provider source dates with systematic transformed-score pattern:',
+                r['suspected_scrambled_score_pattern_days'],
+                'Never use raw suspicious scores for training or pricing.')
+          PY
       - name: Cross-check postgame NBA player boxscores against league-operated records (no props certified)
         run: |
           set -euo pipefail
@@ -692,6 +724,7 @@ jobs:
             --ledger prospective_validation/nba_untrained_moneyline_shadow_ledger_report.json \
             --worklist prospective_validation/nba_independent_evidence_training_worklist_report.json \
             --native prospective_validation/nba_native_training_gate/report.json \
+            --score-integrity prospective_validation/nba_provider_score_integrity_diagnostic.json \
             --output prospective_validation/challenger_model_master_diagnostic.json
           python - <<'PY'
           import json
@@ -699,6 +732,8 @@ jobs:
           root=Path('prospective_validation')
           r=json.loads((root/'challenger_model_master_diagnostic.json').read_text())
           assert r['release_decision']=='HOLD_NO_CERTIFIED_MODEL_NO_WAGERS'
+          assert r['sportsdataio_subscription_tier_independently_confirmed'] is False
+          assert r['sportsdataio_score_fields_authenticated_for_training'] is False
           assert r['native_trained_probability_models_created']==0
           assert r['nba_independently_qualified_training_games']==0
           assert r['nba_independently_qualified_later_holdout_games']==0
