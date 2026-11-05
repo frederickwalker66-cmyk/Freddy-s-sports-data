@@ -255,7 +255,7 @@ class ProspectiveTests(unittest.TestCase):
     def test_opted_out_sports_game_odds_source_rejected(self):
         sample = odds()
         sample["source"] = "sportsgameodds_v2"
-        self.assertEqual(validated_odds(sample, NOW)[1], "not_allowed_source")
+        self.assertEqual(validated_odds(sample, NOW)[1], "not_quarantined_draftkings_research")
 
 
 if __name__ == "__main__":
