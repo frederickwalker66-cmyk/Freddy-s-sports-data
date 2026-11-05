@@ -96,7 +96,7 @@ class CollegeNCAASourceTests(unittest.TestCase):
                          "ncaa_event_not_final_or_incomplete_score")
 
     def test_unknown_school_identity_never_fuzzy_matches(self):
-        p=packet(home="Miami Hurricanes",away="Georgia Bulldogs")
+        p=packet(home="Miami Ohio RedHawks",away="Georgia Bulldogs")
         rows,_=corroborate([p], {"ncaab:2026-11-04":raw(home="Miami",away="Georgia")}, NOW)
         self.assertEqual(rows[0]["crosscheck_status"],"unreviewed_college_school_identity")
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -30,6 +30,18 @@ MAX_GAMES_PER_SOURCE = 400
 MAX_EVENTS = 450
 MAX_BYTES = 4_000_000
 CLOCK_TOLERANCE_SECONDS = 30 * 60
+
+# Exact source-backed historical NCAA scoreboard week, NOT inferred from
+# ISO week or the dates' ordinal. NCAA.com 2026 FBS week 09 explicitly
+# contains Saturday October 31 results:
+# https://www.ncaa.com/scoreboard/football/fbs/2026/09
+VERIFIED_FBS_WEEK_BY_EASTERN_DAY = {
+    "2026-10-31": (2026, 9),
+}
+VERIFIED_FBS_WEEK_SOURCE_URL = (
+    "https://www.ncaa.com/scoreboard/football/fbs/2026/09"
+)
+
 
 # Deliberately narrow, explicitly reviewed display-name crosswalk. Unknown
 # school/multiple-campus identities stay blocked rather than fuzzy matched.
@@ -93,6 +105,159 @@ SOURCE_ALIASES = {
     "villanova": "villanova", "virginia": "virginia",
     "wisconsin": "wisconsin",
 }
+
+# Exact, reviewed 2026 FBS ESPN display identities. ESPN's full team
+# display names and the NCAA proxy's `names.short` differ across publishers.
+# Never derive a school from a mascot substring; especially Miami FL/OH
+# and similarly named state institutions remain explicitly distinguished.
+ESPN_SCHOOLS.update({
+    "air force falcons": "air force",
+    "app state mountaineers": "app state",
+    "arizona state sun devils": "arizona state",
+    "arizona wildcats": "arizona",
+    "arkansas razorbacks": "arkansas",
+    "army black knights": "army west point",
+    "boise state broncos": "boise state",
+    "boston college eagles": "boston college",
+    "bowling green falcons": "bowling green",
+    "byu cougars": "byu",
+    "california golden bears": "california",
+    "cincinnati bearcats": "cincinnati",
+    "coastal carolina chanticleers": "coastal carolina",
+    "colorado buffaloes": "colorado",
+    "colorado state rams": "colorado state",
+    "east carolina pirates": "east carolina",
+    "florida international panthers": "fiu",
+    "fresno state bulldogs": "fresno state",
+    "georgia southern eagles": "georgia southern",
+    "georgia state panthers": "georgia state",
+    "georgia tech yellow jackets": "georgia tech",
+    "indiana hoosiers": "indiana",
+    "iowa hawkeyes": "iowa",
+    "kansas state wildcats": "kansas state",
+    "liberty flames": "liberty",
+    "louisiana tech bulldogs": "louisiana tech",
+    "louisville cardinals": "louisville",
+    "marshall thundering herd": "marshall",
+    "maryland terrapins": "maryland",
+    "memphis tigers": "memphis",
+    "miami hurricanes": "miami fl",
+    "minnesota golden gophers": "minnesota",
+    "mississippi state bulldogs": "mississippi state",
+    "missouri tigers": "missouri",
+    "navy midshipmen": "navy",
+    "nebraska cornhuskers": "nebraska",
+    "nevada wolf pack": "nevada",
+    "new mexico lobos": "new mexico",
+    "north dakota state bison": "north dakota state",
+    "northern illinois huskies": "northern illinois",
+    "northwestern wildcats": "northwestern",
+    "oklahoma sooners": "oklahoma",
+    "oklahoma state cowboys": "oklahoma state",
+    "old dominion monarchs": "old dominion",
+    "ole miss rebels": "ole miss",
+    "oregon state beavers": "oregon state",
+    "pittsburgh panthers": "pittsburgh",
+    "rutgers scarlet knights": "rutgers",
+    "san diego state aztecs": "san diego state",
+    "san jos state spartans": "san jose state",
+    "san jose state spartans": "san jose state",
+    "smu mustangs": "smu",
+    "south alabama jaguars": "south alabama",
+    "south florida bulls": "south florida",
+    "southern miss golden eagles": "southern miss",
+    "stanford cardinal": "stanford",
+    "syracuse orange": "syracuse",
+    "tcu horned frogs": "tcu",
+    "temple owls": "temple",
+    "texas state bobcats": "texas state",
+    "texas tech red raiders": "texas tech",
+    "uab blazers": "uab",
+    "ucla bruins": "ucla",
+    "ul monroe warhawks": "ulm",
+    "unlv rebels": "unlv",
+    "utah state aggies": "utah state",
+    "utah utes": "utah",
+    "utep miners": "utep",
+    "wake forest demon deacons": "wake forest",
+    "washington huskies": "washington",
+    "washington state cougars": "washington state",
+    "western michigan broncos": "western michigan",
+})
+SOURCE_ALIASES.update({
+    "air force": "air force",
+    "app state": "app state",
+    "arizona": "arizona",
+    "arizona st": "arizona state",
+    "arkansas": "arkansas",
+    "army west point": "army west point",
+    "boise st": "boise state",
+    "boston college": "boston college",
+    "bowling green": "bowling green",
+    "byu": "byu",
+    "california": "california",
+    "cincinnati": "cincinnati",
+    "coastal carolina": "coastal carolina",
+    "colorado": "colorado",
+    "colorado st": "colorado state",
+    "east carolina": "east carolina",
+    "fiu": "fiu",
+    "fresno st": "fresno state",
+    "ga southern": "georgia southern",
+    "georgia st": "georgia state",
+    "georgia tech": "georgia tech",
+    "indiana": "indiana",
+    "iowa": "iowa",
+    "kansas st": "kansas state",
+    "liberty": "liberty",
+    "louisiana tech": "louisiana tech",
+    "louisville": "louisville",
+    "marshall": "marshall",
+    "maryland": "maryland",
+    "memphis": "memphis",
+    "miami fl": "miami fl",
+    "minnesota": "minnesota",
+    "mississippi st": "mississippi state",
+    "missouri": "missouri",
+    "navy": "navy",
+    "nebraska": "nebraska",
+    "nevada": "nevada",
+    "new mexico": "new mexico",
+    "niu": "northern illinois",
+    "north dakota st": "north dakota state",
+    "northwestern": "northwestern",
+    "oklahoma": "oklahoma",
+    "oklahoma st": "oklahoma state",
+    "old dominion": "old dominion",
+    "ole miss": "ole miss",
+    "oregon st": "oregon state",
+    "pittsburgh": "pittsburgh",
+    "rutgers": "rutgers",
+    "san diego st": "san diego state",
+    "san jose st": "san jose state",
+    "smu": "smu",
+    "south alabama": "south alabama",
+    "south fla": "south florida",
+    "southern miss": "southern miss",
+    "stanford": "stanford",
+    "syracuse": "syracuse",
+    "tcu": "tcu",
+    "temple": "temple",
+    "texas st": "texas state",
+    "texas tech": "texas tech",
+    "uab": "uab",
+    "ucla": "ucla",
+    "ulm": "ulm",
+    "unlv": "unlv",
+    "utah": "utah",
+    "utah st": "utah state",
+    "utep": "utep",
+    "wake forest": "wake forest",
+    "washington": "washington",
+    "washington st": "washington state",
+    "western mich": "western michigan",
+})
+
 
 
 def norm(value):
@@ -191,14 +356,17 @@ def parse_scoreboard(raw):
             except (ValueError, OverflowError, OSError):
                 start = None
         day = g.get("startDate")
-        if (not isinstance(day, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)):
-            source_day = None
-        else:
-            try:
-                datetime.strptime(day, "%Y-%m-%d")
-                source_day = day
-            except ValueError:
-                source_day = None
+        # The proxy's 2026 converter uses MM/DD/YYYY as well as
+        # YYYY-MM-DD. Parse either only when an unambiguous exact date is
+        # present; never derive it from a game's final score.
+        source_day = None
+        if isinstance(day, str):
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+                try:
+                    source_day = datetime.strptime(day, fmt).date().isoformat()
+                    break
+                except ValueError:
+                    continue
         score_home, score_away = home.get("score"), away.get("score")
         score_ok = (isinstance(score_home, str) and score_home.isdecimal()
                     and isinstance(score_away, str) and score_away.isdecimal()
@@ -261,17 +429,36 @@ def plan(packets, observed, max_dates=MAX_DATES_PER_LEAGUE, football_week=None, 
         start, published = validate_packet(row, observed.astimezone(timezone.utc))
         if published is None:
             continue
+        day = start.astimezone(EASTERN).date().isoformat()
         if row["league"] == "ncaab":
-            day = start.astimezone(EASTERN).date().isoformat()
             selected["ncaab"].add(day)
         else:
-            selected["ncaaf"].add("current" if football_week is None else
-                f"{football_year:04d}/{football_week:02d}")
+            selected["ncaaf"].add(day)
     basketball_dates = sorted(selected["ncaab"], reverse=True)[:max_dates]
     reqs = {}
     if selected["ncaaf"]:
-        reqs["ncaaf"] = scoreboard_path("ncaaf", football_week=football_week,
-                                        football_year=football_year)
+        if football_week is None and football_year is None:
+            # Never silently use this week's scoreboard when the actual
+            # archival events are from a separately verified prior week.
+            source_weeks = {VERIFIED_FBS_WEEK_BY_EASTERN_DAY[day]
+                            for day in selected["ncaaf"]
+                            if day in VERIFIED_FBS_WEEK_BY_EASTERN_DAY}
+            if (len(source_weeks) == 1 and
+                    all(day in VERIFIED_FBS_WEEK_BY_EASTERN_DAY
+                        for day in selected["ncaaf"])):
+                football_year,football_week = next(iter(source_weeks))
+            elif source_weeks or any(
+                    day not in {
+                        observed.astimezone(EASTERN).date().isoformat(),
+                        (observed.astimezone(EASTERN).date()-timedelta(days=1)).isoformat()
+                    } for day in selected["ncaaf"]):
+                # Never ask the current-week endpoint to validate old games.
+                # A different historical week needs a separately reviewed
+                # exact NCAA.com week mapping or explicit caller evidence.
+                football_week = -1
+        if football_week != -1:
+            reqs["ncaaf"] = scoreboard_path("ncaaf", football_week=football_week,
+                                            football_year=football_year)
     for day in basketball_dates:
         reqs["ncaab:"+day] = scoreboard_path("ncaab", day=day)
     return reqs
@@ -323,7 +510,9 @@ def corroborate(packets, responses, observed, max_dates=MAX_DATES_PER_LEAGUE,
         if published is None:
             status = "awaiting_espn_published_final"
         elif source_key not in reqs:
-            status = "outside_bounded_ncaa_basketball_dates"
+            status = ("ncaa_historical_football_week_not_verified"
+                      if row["league"] == "ncaaf" else
+                      "outside_bounded_ncaa_basketball_dates")
         elif source_key in errors:
             status = errors[source_key]
         else:
@@ -380,6 +569,9 @@ def corroborate(packets, responses, observed, max_dates=MAX_DATES_PER_LEAGUE,
         "ncaa_derived_score_agreements": {
             league: by_league[league].get("ncaa_derived_final_score_agrees_research_only", 0)
             for league in LEAGUES},
+        "verified_historical_ncaaf_2026_week_09_evidence":
+            VERIFIED_FBS_WEEK_SOURCE_URL if reqs.get("ncaaf") ==
+            "football/fbs/2026/09/all-conf" else None,
         "independently_qualified_training_games": 0,
         "verified_player_prop_settlements": 0,
         "certified_champion_001_predictions": 0,

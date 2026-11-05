@@ -20,6 +20,7 @@ on:
       - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_college_ncaa_score_review.py'
       - 'tests/test_challenger_college_ncaa_score_review.py'
+      - 'tests/test_challenger_ncaaf_verified_historical_week.py'
       - 'challenger_soccer_regulation_review.py'
       - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
@@ -51,6 +52,7 @@ on:
       - 'tests/test_challenger_nfl_secondary_score.py'
       - 'challenger_college_ncaa_score_review.py'
       - 'tests/test_challenger_college_ncaa_score_review.py'
+      - 'tests/test_challenger_ncaaf_verified_historical_week.py'
       - 'challenger_soccer_regulation_review.py'
       - 'tests/test_challenger_soccer_regulation_review.py'
       - 'challenger_nba_history_intake.py'
@@ -316,6 +318,10 @@ jobs:
           r=json.loads((root/"college_ncaa_score_report.json").read_text())
           assert set(r["by_league"]) == {"ncaaf","ncaab"}
           assert len(r["requested_routes"]) <= 4
+          if r['verified_historical_ncaaf_2026_week_09_evidence']:
+              assert r['requested_routes']['ncaaf']=='football/fbs/2026/09/all-conf'
+              assert r['verified_historical_ncaaf_2026_week_09_evidence']==(
+                  'https://www.ncaa.com/scoreboard/football/fbs/2026/09')
           for key in ("independently_qualified_training_games",
                       "verified_player_prop_settlements",
                       "certified_champion_001_predictions",
