@@ -31,6 +31,18 @@ MAX_EVENTS = 450
 MAX_BYTES = 4_000_000
 CLOCK_TOLERANCE_SECONDS = 30 * 60
 
+# Exact source-backed historical NCAA scoreboard week, NOT inferred from
+# ISO week or the dates' ordinal. NCAA.com 2026 FBS week 09 explicitly
+# contains Saturday October 31 results:
+# https://www.ncaa.com/scoreboard/football/fbs/2026/09
+VERIFIED_FBS_WEEK_BY_EASTERN_DAY = {
+    "2026-10-31": (2026, 9),
+}
+VERIFIED_FBS_WEEK_SOURCE_URL = (
+    "https://www.ncaa.com/scoreboard/football/fbs/2026/09"
+)
+
+
 # Deliberately narrow, explicitly reviewed display-name crosswalk. Unknown
 # school/multiple-campus identities stay blocked rather than fuzzy matched.
 ESPN_SCHOOLS = {
@@ -191,14 +203,17 @@ def parse_scoreboard(raw):
             except (ValueError, OverflowError, OSError):
                 start = None
         day = g.get("startDate")
-        if (not isinstance(day, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day)):
-            source_day = None
-        else:
-            try:
-                datetime.strptime(day, "%Y-%m-%d")
-                source_day = day
-            except ValueError:
-                source_day = None
+        # The proxy's 2026 converter uses MM/DD/YYYY as well as
+        # YYYY-MM-DD. Parse either only when an unambiguous exact date is
+        # present; never derive it from a game's final score.
+        source_day = None
+        if isinstance(day, str):
+            for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+                try:
+                    source_day = datetime.strptime(day, fmt).date().isoformat()
+                    break
+                except ValueError:
+                    continue
         score_home, score_away = home.get("score"), away.get("score")
         score_ok = (isinstance(score_home, str) and score_home.isdecimal()
                     and isinstance(score_away, str) and score_away.isdecimal()
@@ -261,15 +276,28 @@ def plan(packets, observed, max_dates=MAX_DATES_PER_LEAGUE, football_week=None, 
         start, published = validate_packet(row, observed.astimezone(timezone.utc))
         if published is None:
             continue
+        day = start.astimezone(EASTERN).date().isoformat()
         if row["league"] == "ncaab":
-            day = start.astimezone(EASTERN).date().isoformat()
             selected["ncaab"].add(day)
         else:
-            selected["ncaaf"].add("current" if football_week is None else
-                f"{football_year:04d}/{football_week:02d}")
+            selected["ncaaf"].add(day)
     basketball_dates = sorted(selected["ncaab"], reverse=True)[:max_dates]
     reqs = {}
     if selected["ncaaf"]:
+        if football_week is None and football_year is None:
+            # Never silently use this week's scoreboard when the actual
+            # archival events are from a separately verified prior week.
+            source_weeks = {VERIFIED_FBS_WEEK_BY_EASTERN_DAY[day]
+                            for day in selected["ncaaf"]
+                            if day in VERIFIED_FBS_WEEK_BY_EASTERN_DAY}
+            if (len(source_weeks) == 1 and
+                    all(day in VERIFIED_FBS_WEEK_BY_EASTERN_DAY
+                        for day in selected["ncaaf"])):
+                football_year,football_week = next(iter(source_weeks))
+            elif source_weeks:
+                # Mixed known and unverified historical weeks cannot be
+                # combined in one scoreboard query. No fake cross-week match.
+                pass
         reqs["ncaaf"] = scoreboard_path("ncaaf", football_week=football_week,
                                         football_year=football_year)
     for day in basketball_dates:
@@ -380,6 +408,9 @@ def corroborate(packets, responses, observed, max_dates=MAX_DATES_PER_LEAGUE,
         "ncaa_derived_score_agreements": {
             league: by_league[league].get("ncaa_derived_final_score_agrees_research_only", 0)
             for league in LEAGUES},
+        "verified_historical_ncaaf_2026_week_09_evidence":
+            VERIFIED_FBS_WEEK_SOURCE_URL if reqs.get("ncaaf") ==
+            "football/fbs/2026/09/all-conf" else None,
         "independently_qualified_training_games": 0,
         "verified_player_prop_settlements": 0,
         "certified_champion_001_predictions": 0,
