@@ -9,12 +9,16 @@ on:
     branches: [main]
     paths:
       - 'challenger_eight_sport_source_preflight.py'
+      - 'challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
+      - 'tests/test_challenger_eight_sport_independent_identity.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
   pull_request:
     paths:
       - 'challenger_eight_sport_source_preflight.py'
+      - 'challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_eight_sport_source_preflight.py'
+      - 'tests/test_challenger_eight_sport_independent_identity.py'
       - '.github/workflows/challenger-eight-sport-source-preflight.yml'
 
 permissions:
@@ -32,6 +36,7 @@ jobs:
       - name: Test original source custody, empty slates and no betting promotion
         run: |
           set -euo pipefail
+          python -m unittest discover -s tests -p 'test_challenger_eight_sport_independent_identity.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_source_preflight.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_original_schedule_bytes.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_schedule_outlook.py' -v
@@ -83,6 +88,29 @@ jobs:
                          row['source_days_failed'],
                          row['coverage_class'])
                  for league,row in r['by_league'].items()})
+          PY
+      - name: Research-only independent NHL source identity check (all other leagues quarantined)
+        run: |
+          set -euo pipefail
+          python challenger_eight_sport_independent_identity.py \
+            --capture-dir seven_day_source_preflight \
+            --output-dir seven_day_source_preflight/independent_identity
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('seven_day_source_preflight/independent_identity/independent_game_identity_report.json').read_text())
+          s=json.loads(Path('seven_day_source_preflight/preflight_summary.json').read_text())
+          assert r['archived_espn_events_reviewed']==s['totals']['pregame_events_archived']
+          assert r['independently_observed_nhl_pregame_identity_matches_research_only'] <= s['by_league']['nhl']['future_games_archived']
+          for k in ('direct_draftkings_checkout_markets_verified',
+                    'verified_native_model_probabilities',
+                    'qualified_chronological_training_games',
+                    'certified_champion_001_predictions',
+                    'certified_challenger_001_predictions',
+                    'certified_positive_ev_bets',
+                    'bet_ready_selections','automated_bets_placed'):
+              assert r[k]==0,(k,r[k])
+          assert r['champion_001_modified'] is False
           PY
       - uses: actions/upload-artifact@v4
         if: always()
