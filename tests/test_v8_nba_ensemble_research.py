@@ -19,6 +19,15 @@ def row(index):
         "probabilities": {"elo": .58 if winner else .42,
                           "logistic": .55 if winner else .45,
                           "tree": .54 if winner else .46},
+        "component_provenance": {
+            component: {
+                "model_version": f"v8-{component}-research-test",
+                "training_data_cutoff_utc": (start - timedelta(days=3)).isoformat(),
+                "model_trained_utc": (start - timedelta(days=2)).isoformat(),
+                "forecast_recorded_utc": (start - timedelta(hours=2)).isoformat(),
+            }
+            for component in ("elo", "logistic", "tree")
+        },
         "home_won": winner,
     }
 
@@ -59,6 +68,24 @@ class V8NBAEnsembleTests(unittest.TestCase):
         record = row(0)
         record["league"] = "mls"
         with self.assertRaisesRegex(ValueError, "nba_only"):
+            evaluate([record])
+
+    def test_future_trained_tree_rejected(self):
+        record = row(0)
+        record["component_provenance"]["tree"]["model_trained_utc"] = record["start_utc"]
+        with self.assertRaisesRegex(ValueError, "component_training_or_forecast_leakage"):
+            evaluate([record])
+
+    def test_missing_component_provenance_rejected(self):
+        record = row(0)
+        del record["component_provenance"]["logistic"]
+        with self.assertRaisesRegex(ValueError, "component_provenance_missing"):
+            evaluate([record])
+
+    def test_postgame_component_prediction_rejected(self):
+        record = row(0)
+        record["component_provenance"]["elo"]["forecast_recorded_utc"] = record["outcome_verified_utc"]
+        with self.assertRaisesRegex(ValueError, "component_training_or_forecast_leakage"):
             evaluate([record])
 
     def test_same_day_not_split(self):
