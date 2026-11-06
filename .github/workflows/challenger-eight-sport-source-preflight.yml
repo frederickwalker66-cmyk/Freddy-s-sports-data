@@ -2,11 +2,12 @@ name: Challenger-001 original eight-sport schedule preflight (research only)
 
 on:
   workflow_dispatch:
-  # 24 independent cloud collections/day. GitHub Actions uses UTC cron, and
+  # Redundant cloud source attempts each hour. GitHub Actions uses UTC cron, and
   # scheduled starts may be delayed or occasionally skipped by GitHub.
   # No paid provider request, user phone, or local laptop is required.
   schedule:
     - cron: '27 * * * *'
+    - cron: '53 * * * *'  # independent backup attempt if primary was dropped
   # Existing heavier prospective/SharpAPI completion also triggers a deeper
   # seven-day source audit; preserve it without another paid data collector.
   workflow_run:
@@ -495,5 +496,5 @@ jobs:
         with:
           name: eight-sport-source-preflight-${{ github.run_id }}
           path: seven_day_source_preflight/
-          retention-days: 90
+          retention-days: ${{ github.event_name == 'schedule' && 14 || 90 }}
           if-no-files-found: warn

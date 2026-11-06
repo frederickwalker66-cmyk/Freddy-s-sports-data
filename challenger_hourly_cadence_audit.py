@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 HOURLY_MINUTE = 27
+BACKUP_MINUTE = 53
 HOURLY_GRACE_MINUTES = 90
 MAX_WINDOW_HOURS = 48
 
@@ -50,7 +51,8 @@ def evaluate(payload, *, now, activated_at, window_hours=24, grace_minutes=HOURL
         "report_type": "github_hourly_schedule_delivery_diagnostic_research_only",
         "observed_at_utc": now.isoformat(),
         "first_schedule_activation_utc": activated_at.isoformat(),
-        "hourly_cron_utc": f"{HOURLY_MINUTE} * * * *",
+        "hourly_cron_utc": f"{HOURLY_MINUTE},{BACKUP_MINUTE} * * * *",
+        "scheduled_attempts_observed": 0,
         "window_hours": window_hours,
         "delay_grace_minutes": grace_minutes,
         "eligible_scheduled_slots": len(slots),
@@ -95,25 +97,38 @@ def evaluate(payload, *, now, activated_at, window_hours=24, grace_minutes=HOURL
     # A created run is assigned to the latest eligible hourly slot at or
     # before its timestamp; do not double-count delayed/duplicate executions.
     assigned = {}
+    seen_run_ids = set()
     for created, item in eligible:
+        if item["id"] in seen_run_ids:
+            continue
+        seen_run_ids.add(item["id"])
         candidate = None
         for idx, slot in enumerate(slots):
             if slot <= created <= slot + timedelta(minutes=grace_minutes):
                 candidate = idx
-        if candidate is not None and candidate not in assigned:
-            assigned[candidate] = (created, item)
+        if candidate is not None:
+            assigned.setdefault(candidate, []).append((created, item))
     for idx, slot in enumerate(slots):
         if idx not in assigned:
             result["slots"].append({"scheduled_for_utc": slot.isoformat(),
                                     "status": "not_observed_in_github_api"})
             continue
-        created, item = assigned[idx]
-        finished_ok = (item.get("status") == "completed"
-                       and item.get("conclusion") == "success")
+        attempts = assigned[idx]
+        succeeded = [entry for entry in attempts if (
+            entry[1].get("status") == "completed" and
+            entry[1].get("conclusion") == "success")]
+        # Primary failure + backup success should be one successful HOURLY
+        # interval, not an incorrectly failed slot. Multiple successes never
+        # count as multiple completed hours or verified sports observations.
+        created, item = (succeeded or attempts)[0]
+        finished_ok = bool(succeeded)
+        result["scheduled_attempts_observed"] += len(attempts)
         result["slots"].append({
             "scheduled_for_utc": slot.isoformat(),
             "workflow_created_utc": created.isoformat(),
             "github_run_id": item["id"],
+            "github_run_ids_in_slot": [r[1]["id"] for r in attempts],
+            "attempt_count": len(attempts),
             "status": "workflow_success_unverified_source" if finished_ok
                       else "workflow_not_successful_or_still_running",
             "github_run_status": str(item.get("status")),

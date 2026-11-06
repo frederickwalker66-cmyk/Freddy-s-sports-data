@@ -28,6 +28,23 @@ class HourlyCadenceAuditTests(unittest.TestCase):
         self.assertEqual(r["certified_positive_ev_bets"], 0)
         self.assertFalse(r["champion_001_modified"])
 
+    def test_backup_cron_recovers_failed_primary_without_double_counting(self):
+        data = {"workflow_runs": [
+            run(101, "2026-11-06T13:31:00Z", conclusion="failure"),
+            run(102, "2026-11-06T13:55:00Z", conclusion="success"),
+            run(102, "2026-11-06T13:55:00Z", conclusion="success"),
+        ]}
+        report = evaluate(data, now=NOW, activated_at=ACTIVATED)
+        self.assertEqual(report["observed_scheduled_slots"], 1)
+        self.assertEqual(report["successful_scheduled_workflow_runs"], 1)
+        self.assertEqual(report["unsuccessful_or_running_scheduled_workflow_runs"], 0)
+        self.assertEqual(report["scheduled_attempts_observed"], 2)
+        self.assertEqual(report["hourly_cron_utc"], "27,53 * * * *")
+        recorded = [s for s in report["slots"] if "github_run_id" in s]
+        self.assertEqual(recorded[0]["github_run_id"], 102)
+        self.assertEqual(recorded[0]["github_run_ids_in_slot"], [101, 102])
+        self.assertEqual(report["certified_model_predictions"], 0)
+
     def test_delayed_run_cannot_fill_two_slots(self):
         data = {"workflow_runs": [run(42, "2026-11-06T12:35:00Z")]}
         r = evaluate(data, now=NOW, activated_at=ACTIVATED)
