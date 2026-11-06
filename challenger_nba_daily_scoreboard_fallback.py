@@ -7,7 +7,7 @@ Original JSON bytes and actual capture time remain essential; no betting.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import re
 from zoneinfo import ZoneInfo
@@ -20,18 +20,35 @@ MAX_BYTES = 18_000_000
 MAX_GAMES_ON_DAY = 25
 
 
-def validate_same_day_scoreboard(raw, captured_at):
+def validate_same_day_scoreboard(raw, captured_at, *, expected_day_et=None):
+    """Same-day by default; explicit 0..7-day future target for source identity only.
+
+    Passing a future day does NOT authenticate active players or settlement.
+    Only the bounded official Stats V3 parser is permitted to use that mode.
+    """
     if (not isinstance(captured_at, datetime) or captured_at.tzinfo is None
             or not isinstance(raw, bytes) or not 1 <= len(raw) <= MAX_BYTES):
         raise ValueError("nba_scoreboard_requires_original_bytes_and_aware_capture")
     now = captured_at.astimezone(timezone.utc)
+    today_et = now.astimezone(EASTERN).date()
+    required_day = today_et
+    if expected_day_et is not None:
+        if not isinstance(expected_day_et, str):
+            raise ValueError("invalid_future_nba_game_date")
+        try:
+            required_day = date.fromisoformat(expected_day_et)
+        except ValueError as exc:
+            raise ValueError("invalid_future_nba_game_date") from exc
+        if (required_day.isoformat() != expected_day_et
+                or not today_et <= required_day <= today_et + timedelta(days=7)):
+            raise ValueError("future_nba_game_date_not_in_bounded_window")
     doc = json.loads(raw)
     if not isinstance(doc, dict) or not isinstance(doc.get("scoreboard"), dict):
         raise ValueError("unrecognized_nba_daily_scoreboard_schema")
     board = doc["scoreboard"]
     day = board.get("gameDate")
     if (not isinstance(day, str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) is None
-            or date.fromisoformat(day) != now.astimezone(EASTERN).date()
+            or date.fromisoformat(day) != required_day
             or board.get("leagueId") != "00"):
         raise ValueError("stale_or_wrong_league_nba_daily_scoreboard")
     games = board.get("games")
