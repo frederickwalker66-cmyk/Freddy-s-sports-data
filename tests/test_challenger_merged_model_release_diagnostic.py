@@ -111,6 +111,54 @@ class CombinedModelReleaseGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"research_shadow_count"):
             assess(*things)
 
+    def test_pending_future_research_shadows_do_not_crash_or_promote_release(self):
+        reports_in=list(reports())
+        reports_in[4]["research_unique_events_with_reproduced_original_formula"]=62
+        reports_in[4]["directional_nba_research_selections"]=56
+        reports_in[4]["neutral_no_selection_events"]=6
+        reports_in[5].update({
+            "nba_unmatched_research_forecasts_quarantined":9,
+            "nba_future_research_forecasts_awaiting_results":9,
+            "nba_recent_fixtures_missing_final_review":0,
+            "nba_unmatched_research_event_ids":[str(i) for i in range(401909287,401909296)]
+        })
+        output=assess(*reports_in)
+        self.assertEqual(output["nba_structurally_valid_research_candidates"],53)
+        self.assertEqual(output["nba_research_events_with_completed_game_candidate"],53)
+        self.assertEqual(output["nba_unmatched_research_shadows_quarantined"],9)
+        self.assertEqual(output["nba_future_research_shadows_awaiting_results"],9)
+        self.assertEqual(output["native_trained_probability_models_created"],0)
+        self.assertEqual(output["release_decision"],"HOLD_NO_CERTIFIED_MODEL_NO_WAGERS")
+        self.assertEqual(output["certified_challenger_001_predictions"],0)
+        self.assertFalse(output["champion_001_modified"])
+
+    def test_missing_or_false_pending_quarantine_count_rejected(self):
+        reports_in=list(reports())
+        reports_in[4]["research_unique_events_with_reproduced_original_formula"]=62
+        reports_in[4]["directional_nba_research_selections"]=56
+        reports_in[4]["neutral_no_selection_events"]=6
+        reports_in[5].update({
+            "nba_unmatched_research_forecasts_quarantined":8,
+            "nba_future_research_forecasts_awaiting_results":8,
+            "nba_recent_fixtures_missing_final_review":0,
+            "nba_unmatched_research_event_ids":[str(i) for i in range(401909287,401909295)]
+        })
+        with self.assertRaisesRegex(ValueError,"research_shadow_count"):
+            assess(*reports_in)
+        reports_in[5]["nba_unmatched_research_forecasts_quarantined"]=9
+        with self.assertRaisesRegex(ValueError,"research_shadow_quarantine_count"):
+            assess(*reports_in)
+
+    def test_duplicate_or_non_numeric_quarantined_shadow_id_fails_closed(self):
+        reports_in=list(reports())
+        reports_in[5].update({
+            "nba_unmatched_research_forecasts_quarantined":2,
+            "nba_future_research_forecasts_awaiting_results":2,
+            "nba_unmatched_research_event_ids":["401", "401"],
+        })
+        with self.assertRaisesRegex(ValueError,"research_shadow_quarantine"):
+            assess(*reports_in)
+
     def test_unqualified_positive_training_flag_rejected(self):
         things=list(reports())
         things[3]["qualified_training_games"]=1
