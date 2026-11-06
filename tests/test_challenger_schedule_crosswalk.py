@@ -57,6 +57,35 @@ class CrosswalkTests(unittest.TestCase):
         self.assertEqual(report["independently_reverified_sportsbook_prices"], 0)
         self.assertEqual(report["certified_champion_001_predictions"], 0)
 
+    def test_source_unavailable_reports_upstream_failure_without_unlocking_quotes(self):
+        row = quote()
+        src = {"date_et": "2026-10-29",
+               "collected_at_utc": "2026-10-29T19:55:00Z",
+               "events": [],
+               "sources": {"nba": {"status": "unavailable",
+                                   "reason": "HTTPError", "days_checked": 1}}}
+        manifest = build_manifest([row], [src], NOW)
+        self.assertEqual(manifest["schedule_source_gap"], "all_queried_sources_unavailable")
+        self.assertEqual(manifest["schedule_source_queries"][0]["error_type"], "HTTPError")
+        self.assertEqual(manifest["schedule_source_queries"][0]["requested_date_et"], "2026-10-29")
+        self.assertEqual(manifest["provider_event_ids_matched"], 0)
+        self.assertEqual(manifest["bet_ready_selections"], 0)
+        self.assertFalse(manifest["independent_sportsbook_price_verified"])
+        self.assertEqual(manifest["certified_model_predictions"], 0)
+        self.assertFalse(manifest["champion_001_modified"])
+
+    def test_retrieved_empty_espn_scoreboard_is_not_called_a_transport_failure(self):
+        src = {"date_et": "2026-10-29",
+               "collected_at_utc": "2026-10-29T19:55:00Z",
+               "events": [], "sources": {"nba": {"status": "retrieved",
+                                                "scheduled_events": 0,
+                                                "days_checked": 1}}}
+        manifest = build_manifest([quote()], [src], NOW)
+        self.assertEqual(manifest["schedule_source_gap"], "zero_eligible_future_source_events")
+        self.assertIsNone(manifest["schedule_source_queries"][0]["error_type"])
+        self.assertEqual(manifest["provider_event_ids_matched"], 0)
+        self.assertEqual(manifest["bet_ready_selections"], 0)
+
     def test_missing_source_rejects_every_event(self):
         src = quote()
         m = build_manifest([src], [], NOW)
