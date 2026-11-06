@@ -94,10 +94,27 @@ def assess(intake, official, licensed, qualified, ledger, worklist, native, scor
         raise ValueError("publisher_research_scores_cannot_be_reconciled")
     n_research=ledger.get("research_unique_events_with_reproduced_original_formula")
     n_selections=ledger.get("directional_nba_research_selections")
-    if (type(n_research) is not int or n_research<0
+    # #101 archives future pregame research shadows in their OWN quarantine.
+    # They cannot be in the completed-game worklist until a published final is
+    # available. Total research observations may exceed completed candidates
+    # exactly by the independently counted pending events, NEVER by training.
+    pending = worklist.get("nba_unmatched_research_forecasts_quarantined", 0)
+    future = worklist.get("nba_future_research_forecasts_awaiting_results", 0)
+    recent = worklist.get("nba_recent_fixtures_missing_final_review", 0)
+    pending_ids = worklist.get("nba_unmatched_research_event_ids", [])
+    if (any(type(value) is not int or value < 0 for value in (
+            pending, future, recent))
+            or future + recent != pending
+            or not isinstance(pending_ids, list)
+            or len(pending_ids) != pending
+            or any(not isinstance(eid, str) or not eid.isdecimal()
+                   for eid in pending_ids)
+            or len(set(pending_ids)) != len(pending_ids)):
+        raise ValueError("research_shadow_quarantine_count_or_identity_invalid")
+    if (type(n_research) is not int or n_research < 0
             or type(n_selections) is not int
             or not 0 <= n_selections <= n_research
-            or n_research > candidate_count
+            or not pending <= n_research <= candidate_count + pending
             or ledger.get("neutral_no_selection_events") !=
                 n_research-n_selections):
         raise ValueError("research_shadow_count_missing_or_promoted")
@@ -183,6 +200,10 @@ def assess(intake, official, licensed, qualified, ledger, worklist, native, scor
         "generated_at_utc":datetime.now(timezone.utc).isoformat(),
         "nba_structurally_valid_research_candidates":candidate_count,
         "nba_research_captures_with_exact_reproducible_baseline":n_research,
+        "nba_research_events_with_completed_game_candidate":n_research-pending,
+        "nba_unmatched_research_shadows_quarantined":pending,
+        "nba_future_research_shadows_awaiting_results":future,
+        "nba_recent_research_shadows_missing_final":recent,
         "nba_directional_untrained_heuristic_research_picks":n_selections,
         "nba_neutral_untrained_heuristic_research_events":n_research-n_selections,
         "nba_official_published_score_research_agreements":official_count,
