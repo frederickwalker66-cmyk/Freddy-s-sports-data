@@ -154,6 +154,7 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
     if type(lookahead_days) is not int or not 0 <= lookahead_days <= MAX_LOOKAHEAD_DAYS:
         raise ValueError("schedule_lookahead_outside_bounded_window")
     day0 = date.fromisoformat(date_et)
+    capture_eastern_day = now.astimezone(ZoneInfo("America/New_York")).date()
     if (lookahead_days and
             day0 != now.astimezone(ZoneInfo("America/New_York")).date()):
         raise ValueError("future_schedule_outlook_must_start_on_actual_eastern_today")
@@ -192,7 +193,12 @@ def ingest_schedule(date_et, fetch=download_json, now=None, lookahead_days=0,
                         raise ValueError("original_espn_schedule_bytes_differ_from_parsed_response")
                 if response_observed < request_started:
                     raise ValueError("schedule_source_clock_regressed_during_request")
-                if response_observed.astimezone(ZoneInfo("America/New_York")).date()!=day0:
+                # A single-day crosswalk may query a FUTURE Eastern fixture
+                # date. Compare response-time to the actual capture day, not
+                # to the requested fixture date: requiring those to match
+                # incorrectly quarantines every tomorrow/Sunday schedule.
+                if (response_observed.astimezone(ZoneInfo("America/New_York")).date()
+                        != capture_eastern_day):
                     raise ValueError("prospective_scan_crossed_eastern_calendar_day")
                 parsed, counts = _parse_schedule_response(
                     payload, league, url, requested_day, response_observed)
