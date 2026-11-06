@@ -92,7 +92,9 @@ def parse_original(raw, source_url, observed_at):
             raise ValueError("nba_official_schedule_source_url_not_allowed")
         today_et = seen_at.astimezone(ZoneInfo("America/New_York")).date()
         target_et = datetime.fromisoformat(day).date()
-        if not today_et <= target_et <= today_et + timedelta(days=7):
+        if target_et < today_et:
+            raise ValueError("nba_official_schedule_source_url_not_allowed")
+        if target_et > today_et + timedelta(days=7):
             raise ValueError("nba_official_future_scoreboard_day_outside_window")
         payload, records = verify_stats_v3_scoreboard(
             raw, source_url, seen_at, event_day_et=day)
