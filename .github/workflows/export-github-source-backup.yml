@@ -1,0 +1,98 @@
+name: Freddy's Picks AI — full source and branch backup (no APIs)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/export-github-source-backup.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/export-github-source-backup.yml'
+permissions:
+  contents: read
+jobs:
+  github-repositories-source-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Archive all tracked source and all Git branch history
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup_export
+          # No tokens, provider keys, GitHub Actions secrets, odds API calls or wagers.
+          git fetch --force origin '+refs/heads/*:refs/remotes/origin/*'
+          git archive --format=zip --output backup_export/Freddy-s-sports-data-main-source.zip HEAD
+          git bundle create backup_export/Freddy-s-sports-data-ALL-REFS-HISTORY.bundle --all
+          # Second connected PUBLIC repository. Its currently tracked model
+          # source contains only README.md; do not invent a Pro Champs model.
+          git clone --mirror --quiet \
+            https://github.com/frederickwalker66-cmyk/Freddy--ai-model.git \
+            /tmp/Freddy--ai-model.git
+          git --git-dir=/tmp/Freddy--ai-model.git archive \
+            --format=zip --output=backup_export/Freddy--ai-model-main-source.zip main
+          git --git-dir=/tmp/Freddy--ai-model.git bundle create \
+            "$GITHUB_WORKSPACE/backup_export/Freddy--ai-model-ALL-REFS-HISTORY.bundle" --all
+          python - <<'PY'
+          import hashlib, json, subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path("backup_export")
+          files = {}
+          for p in sorted(root.iterdir()):
+              if p.is_file():
+                  files[p.name] = {"size_bytes": p.stat().st_size,
+                                   "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          refs = subprocess.check_output(["git", "for-each-ref", "--format=%(refname)"], text=True).splitlines()
+          report = {"project": "Freddys Picks AI GitHub source and history backup",
+                    "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                    "source_repository": "frederickwalker66-cmyk/Freddy-s-sports-data",
+                    "commit_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+                    "tracked_files_in_source": len(tracked),
+                    "git_refs_archived": len(refs),
+                    "repositories_included": ["Freddy-s-sports-data", "Freddy--ai-model"],
+                    "contains_actions_artifacts": False,
+                    "contains_repository_secrets": False,
+                    "champion_001_original_model_authenticated": False,
+                    "notes": ["This is a tracked-source and full Git history snapshot of two publicly accessible repositories.",
+                              "Workflow-run data and retained GitHub Actions artifacts must be downloaded separately.",
+                              "Does not authenticate original Pro Champs V7 / Champion-001 executable."],
+                    "files": files}
+          (root/"SOURCE_BACKUP_MANIFEST.json").write_text(json.dumps(report, indent=2, sort_keys=True)+"\n")
+          print("Source files:", report["tracked_files_in_source"], "Git refs:", report["git_refs_archived"])
+          PY
+      - name: Verify source bundles and prevent false model-availability claims
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s backup_export/Freddy-s-sports-data-main-source.zip
+          test -s backup_export/Freddy-s-sports-data-ALL-REFS-HISTORY.bundle
+          test -s backup_export/Freddy--ai-model-main-source.zip
+          test -s backup_export/Freddy--ai-model-ALL-REFS-HISTORY.bundle
+          git bundle verify backup_export/Freddy-s-sports-data-ALL-REFS-HISTORY.bundle
+          git --git-dir=/tmp/Freddy--ai-model.git bundle verify \
+            backup_export/Freddy--ai-model-ALL-REFS-HISTORY.bundle
+          python - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          m=json.loads(Path('backup_export/SOURCE_BACKUP_MANIFEST.json').read_text())
+          assert m["champion_001_original_model_authenticated"] is False
+          assert m["contains_actions_artifacts"] is False
+          with zipfile.ZipFile('backup_export/Freddy--ai-model-main-source.zip') as z:
+              assert z.namelist()==['README.md'], z.namelist()
+          with zipfile.ZipFile('backup_export/Freddy-s-sports-data-main-source.zip') as z:
+              assert 'champion_001_authentication.py' in z.namelist()
+          PY
+      - name: Upload repository source export for private account review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freddys-github-source-and-all-branches-${{ github.run_id }}
+          path: backup_export/
+          retention-days: 30
+          if-no-files-found: warn
