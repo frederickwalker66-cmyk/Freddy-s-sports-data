@@ -20,6 +20,8 @@ on:
     branches: [main]
     paths:
       - 'challenger_eight_sport_source_preflight.py'
+      - 'challenger_hourly_cadence_audit.py'
+      - 'tests/test_challenger_hourly_cadence_audit.py'
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
       - 'challenger_nba_official_pregame_schedule.py'
@@ -44,6 +46,8 @@ on:
   pull_request:
     paths:
       - 'challenger_eight_sport_source_preflight.py'
+      - 'challenger_hourly_cadence_audit.py'
+      - 'tests/test_challenger_hourly_cadence_audit.py'
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
       - 'challenger_nba_official_pregame_schedule.py'
@@ -101,6 +105,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_source_preflight.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_original_schedule_bytes.py' -v
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_schedule_outlook.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_hourly_cadence_audit.py' -v
 
   live-eight-sport-source:
     # Pull requests run synthetic tests only. Push on main or manual dispatch
@@ -396,6 +401,25 @@ jobs:
           assert r['champion_001_modified'] is False
           print('Operational #83-86 chain finished. Research captures complete; release held.')
           PY
+      - name: Audit actual hourly schedule delivery using GitHub run metadata
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p seven_day_source_preflight
+          # Compare real schedule-triggered runs to eligible hourly slots.
+          # A missing GitHub event cannot be inferred from a cron expression.
+          if gh api "repos/$GITHUB_REPOSITORY/actions/workflows/challenger-eight-sport-source-preflight.yml/runs?event=schedule&per_page=100" > hourly_schedule_runs.json; then
+            echo "Fetched actual scheduled workflow runs; source artifacts remain independently gated."
+          else
+            echo '{"fetch_error": true}' > hourly_schedule_runs.json
+          fi
+          python challenger_hourly_cadence_audit.py \
+            --runs-json hourly_schedule_runs.json \
+            --output seven_day_source_preflight/hourly_schedule_cadence.json \
+            --activated-at '2026-11-06T10:03:06+00:00'
       - name: Publish hourly cloud collection, validation and archive report
         if: always()
         shell: bash
@@ -443,6 +467,21 @@ jobs:
               lines.append(f"- Model release decision: **{result['release_decision']}**")
           else:
               lines.append("- **Model release:** not verified; research-only hold.")
+          cadence_file = root / "hourly_schedule_cadence.json"
+          if cadence_file.is_file():
+              schedule = json.loads(cadence_file.read_text(encoding="utf-8"))
+              lines.extend(["", "## Hourly schedule delivery audit"])
+              lines.append(f"- GitHub schedule metadata status: **{schedule['metadata_status']}**")
+              lines.append(f"- Matured hourly slots checked: {schedule['eligible_scheduled_slots']}")
+              if schedule["metadata_available"]:
+                  lines.extend([
+                      f"- Actual scheduled runs observed: **{schedule['observed_scheduled_slots']}**",
+                      f"- Successful scheduled workflow runs: **{schedule['successful_scheduled_workflow_runs']}**",
+                      f"- Missed/unobserved matured hourly slots: **{schedule['unobserved_scheduled_slots']}**",
+                  ])
+              else:
+                  lines.append("- Missing hourly slots: **unknown—GitHub API was unavailable**")
+              lines.append("- Successful workflow metadata is not independently verified provider data or a certified wager.")
           lines.extend(["", "GitHub schedules are best-effort and do not guarantee an exact minute. Original-source bytes are research receipts, not independently authenticated sportsbook or training evidence."])
           markdown = "\n".join(lines) + "\n"
           root.mkdir(parents=True, exist_ok=True)
