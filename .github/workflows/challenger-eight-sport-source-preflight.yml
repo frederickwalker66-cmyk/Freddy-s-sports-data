@@ -19,6 +19,8 @@ on:
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
       - 'challenger_nba_official_pregame_schedule.py'
+      - 'challenger_nba_daily_scoreboard_fallback.py'
+      - 'challenger_nba_stats_v3_schedule_fallback.py'
       - 'challenger_exact_market_research_gate.py'
       - 'challenger_model_completion_gate.py'
       - 'challenger_nflverse_pregame_crosscheck.py'
@@ -28,6 +30,8 @@ on:
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
       - 'tests/test_challenger_nba_official_pregame_schedule.py'
+      - 'tests/test_challenger_nba_future_date_fallback.py'
+      - 'tests/test_challenger_nba_stats_v3_schedule_fallback.py'
       - 'tests/test_challenger_model_completion_sequence.py'
       - 'tests/test_challenger_nflverse_pregame_crosscheck.py'
       - 'tests/test_challenger_rolling_pregame_archive.py'
@@ -39,6 +43,8 @@ on:
       - 'challenger_eight_sport_independent_identity.py'
       - 'challenger_mlb_official_pregame_schedule.py'
       - 'challenger_nba_official_pregame_schedule.py'
+      - 'challenger_nba_daily_scoreboard_fallback.py'
+      - 'challenger_nba_stats_v3_schedule_fallback.py'
       - 'challenger_exact_market_research_gate.py'
       - 'challenger_model_completion_gate.py'
       - 'challenger_nflverse_pregame_crosscheck.py'
@@ -48,6 +54,8 @@ on:
       - 'tests/test_challenger_eight_sport_independent_identity.py'
       - 'tests/test_challenger_mlb_official_pregame_schedule.py'
       - 'tests/test_challenger_nba_official_pregame_schedule.py'
+      - 'tests/test_challenger_nba_future_date_fallback.py'
+      - 'tests/test_challenger_nba_stats_v3_schedule_fallback.py'
       - 'tests/test_challenger_model_completion_sequence.py'
       - 'tests/test_challenger_nflverse_pregame_crosscheck.py'
       - 'tests/test_challenger_rolling_pregame_archive.py'
@@ -80,6 +88,8 @@ jobs:
           python -m unittest discover -s tests -p 'test_challenger_eight_sport_independent_identity.py' -v
           python -m unittest discover -s tests -p 'test_challenger_mlb_official_pregame_schedule.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nba_official_pregame_schedule.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_future_date_fallback.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_stats_v3_schedule_fallback.py' -v
           python -m unittest discover -s tests -p 'test_challenger_model_completion_sequence.py' -v
           python -m unittest discover -s tests -p 'test_challenger_nflverse_pregame_crosscheck.py' -v
           python -m unittest discover -s tests -p 'test_challenger_rolling_pregame_archive.py' -v
