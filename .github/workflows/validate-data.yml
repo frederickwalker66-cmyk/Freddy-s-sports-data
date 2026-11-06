@@ -1,22 +1,13 @@
 name: Validate NBA MLB research integrity (offline)
 on:
   workflow_dispatch:
+  # Test ALL changes, including Python model, safety, feature engineering,
+  # workflow and infrastructure changes. Prior narrow path filters let model
+  # code change without a general CI run. A green prior test does not
+  # establish native model calibration or verified sportsbook pricing.
   push:
     branches: [main, challenger-001-validation-20261028]
-    paths:
-      - 'official_source_refresh.py'
-      - 'roster_validation.py'
-      - 'availability_validation.py'
-      - 'challenger_audit.py'
-      - 'tests/**'
-      - '.github/workflows/validate-data.yml'
   pull_request:
-    paths:
-      - 'official_source_refresh.py'
-      - 'roster_validation.py'
-      - 'availability_validation.py'
-      - 'challenger_audit.py'
-      - 'tests/**'
 permissions:
   contents: read
 jobs:
