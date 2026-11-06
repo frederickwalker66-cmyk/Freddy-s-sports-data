@@ -6,7 +6,7 @@ research selection ledger. Never turns reviews into historical_results.jsonl.
 """
 import argparse
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 from pathlib import Path
@@ -36,7 +36,67 @@ def validated_map(rows, id_field, what):
     return found
 
 
-def audit(candidates, comparisons, qualification, ledger, licensed=None):
+
+def quarantine_unmatched_research_shadows(shadows, original, asof_utc):
+    """Preserve genuine ungraded research forecasts without calling them finals.
+
+    Only recent/future pregame records with explicitly missing results can be
+    separated from the final-score worklist. A stale/malformed/claimed-certified
+    orphan still fails closed for independent investigation.
+    """
+    if not isinstance(asof_utc, datetime) or asof_utc.tzinfo is None:
+        raise ValueError("aware_reconciliation_clock_required")
+    observed=asof_utc.astimezone(timezone.utc)
+    pending=[]
+    for eid in sorted(set(shadows)-set(original)):
+        row=shadows[eid]
+        try:
+            start=timestamp(row["event_start_utc"])
+            capture=timestamp(row["snapshot_completed_at_utc"])
+            created=timestamp(row["forecast_created_at_utc"])
+        except (ValueError, KeyError, TypeError, OverflowError) as exc:
+            raise ValueError("orphan_shadow_forecast_not_a_review_candidate") from exc
+        if (row.get("record_type") !=
+                "nba_moneyline_prospective_untrained_shadow_research_only"
+                or row.get("league") != "nba"
+                or row.get("espn_event_id") != eid
+                or not capture <= created < start
+                or row.get("research_selection") not in ("home","away",None)
+                or row.get("published_result_status") not in (
+                    "awaiting_published_result",
+                    "unverified_or_mismatched_result_quarantined")
+                or row.get("espn_published_winner_research_only") is not None
+                or row.get("directional_research_pick_correct_vs_published_final") is not None
+                or row.get("trained_challenger_001_model") is not False
+                or row.get("champion_001_prediction") is not False
+                or row.get("counts_toward_champion_001_certified_shadow_target") is not False
+                or row.get("independently_authenticated_source_publication") is not False
+                or row.get("certified_prediction") is not False
+                or row.get("bet_ready") is not False
+                or row.get("champion_001_modified") is not False
+                or row.get("shadow_stake_usd") != 0
+                or row.get("sportsbook_price") is not None):
+            raise ValueError("orphan_shadow_forecast_not_a_review_candidate")
+        if start+timedelta(hours=48) < observed:
+            raise ValueError("stale_orphan_shadow_forecast_requires_manual_review")
+        status=("future_fixture_awaiting_result_research_only"
+                if start>observed else
+                "recent_fixture_missing_final_review_research_only")
+        pending.append({
+            "record_type":"nba_unmatched_pregame_research_shadow_quarantine_only",
+            "espn_event_id":eid,
+            "quarantine_status":status,
+            "original_research_shadow_record_unchanged":row,
+            "qualified_for_challenger_backtest":False,
+            "training_eligible":False,
+            "certified_prediction":False,
+            "bet_ready":False,
+            "champion_001_modified":False,
+        })
+    return pending
+
+def audit(candidates, comparisons, qualification, ledger, licensed=None,
+          asof_utc=None, pending_out=None):
     original = validated_map(candidates,"event_id","original_candidate")
     official = validated_map(comparisons,"espn_research_event_id","official_comparison")
     claims = validated_map(qualification,"event_id","qualification_audit")
@@ -46,8 +106,10 @@ def audit(candidates, comparisons, qualification, ledger, licensed=None):
                 if licensed is not None else {})
     if set(original) != set(official) or set(original) != set(claims):
         raise ValueError("qualification_candidate_or_official_source_identity_missing")
-    if not set(shadows).issubset(original):
-        raise ValueError("orphan_shadow_forecast_not_a_review_candidate")
+    pending=quarantine_unmatched_research_shadows(
+        shadows, original, asof_utc or datetime.now(timezone.utc))
+    if pending_out is not None:
+        pending_out.extend(pending)
     if licensed is not None and set(provider) != set(original):
         raise ValueError("incomplete_sportsdataio_nba_review_crosswalk")
     per_state = Counter()
@@ -207,6 +269,14 @@ def audit(candidates, comparisons, qualification, ledger, licensed=None):
         item["start_utc"],item["espn_event_id"]))
     return output, {
         "stage":"challenger_100_nba_evidence_to_training_qualification_worklist",
+        "nba_unmatched_research_forecasts_quarantined":len(pending),
+        "nba_future_research_forecasts_awaiting_results":sum(
+            row["quarantine_status"]=="future_fixture_awaiting_result_research_only"
+            for row in pending),
+        "nba_recent_fixtures_missing_final_review":sum(
+            row["quarantine_status"]=="recent_fixture_missing_final_review_research_only"
+            for row in pending),
+        "nba_unmatched_research_event_ids":[row["espn_event_id"] for row in pending],
         "nba_research_candidates_reconciled":len(output),
         "nba_two_source_published_final_score_agreements_research_only":
             per_state["nba_second_source_published_score_agrees"],
@@ -260,11 +330,15 @@ def main(argv=None):
             raise FileNotFoundError(f)
         return [json.loads(x) for x in f.read_text(encoding="utf8").splitlines()
                 if x.strip()]
+    pending=[]
     rows,report=audit(lines(args.candidates),lines(args.comparisons),
                       lines(args.qualification),lines(args.shadow_ledger),
-                      lines(args.sportsdataio_review) if args.sportsdataio_review else None)
+                      lines(args.sportsdataio_review) if args.sportsdataio_review else None,
+                      pending_out=pending)
     dest=Path(args.output_dir)
     dest.mkdir(parents=True,exist_ok=True)
+    (dest/"nba_pending_research_shadows_quarantined.jsonl").write_text(
+        "".join(canonical(x)+"\n" for x in pending),encoding="utf8")
     (dest/"nba_independent_evidence_training_worklist.jsonl").write_text(
         "".join(canonical(x)+"\n" for x in rows),encoding="utf8")
     (dest/"nba_independent_evidence_training_worklist_report.json").write_text(
