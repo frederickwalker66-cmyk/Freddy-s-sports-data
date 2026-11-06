@@ -2,6 +2,16 @@
 
 **This repository contains a research-only sports evidence pipeline and automated GitHub workflows. It is not yet an independently certified real-money betting prediction engine.**
 
+## NEW: V8 One Command — phone and laptop
+
+**[Run NBA / Run Sports / Run Edge Value / Model Status](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml)** — an integrated GitHub Actions research interface, available after the V8 branch merges to main. View the [V8 phone guide](V8_ONE_COMMAND_PHONE_GUIDE.md).
+
+- `run_nba` and `run_sports` collect bounded, historical **public research results** (up to 35 days per league) with downloadable artifacts, no paid bookmaker calls.
+- `run_edge` computes indicative price-vs-model research EV only when real, externally obtained pregame model probabilities and market observations are explicitly supplied through the local CLI; the cloud button defaults to zero rather than fabricating picks.
+- `model_status` runs actual native NBA/eight-sport model readiness, safely blocked where independently qualified training evidence is absent.
+- Weekly public eight-sport research collection is scheduled best-effort; artifacts expire after 90 days and must be archived for durable historical coverage.
+- **No independently validated sports predictions or verified executable sportsbook edge are currently available.** Champion-001 is unchanged and no wagers are placed.
+
 ## Control the project from your phone or Windows laptop
 
 **[Open Freddy's Picks AI Phone Command Center](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml)** — choose **Run workflow** on **main**, then select one of the safe actions:
