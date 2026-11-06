@@ -88,6 +88,28 @@ def build_manifest(rows, schedules, now):
                 invalid_schedule += 1
                 continue
             schedule_events.append((event, start, home, away))
+    # Preserve upstream source status when ESPN produces zero eligible games.
+    # An unavailable scoreboard is NOT equivalent to an independently
+    # corroborated no-game day or a team/clock mismatch. This is diagnostic
+    # only; it does not relax any event identity or betting release gate.
+    source_queries = []
+    for snapshot in schedules:
+        source_date = snapshot.get("date_et")
+        for league, details in snapshot.get("sources", {}).items():
+            if league not in SOURCES or not isinstance(details, dict):
+                continue
+            status = details.get("status")
+            source_queries.append({
+                "league": league,
+                "requested_date_et": source_date if isinstance(source_date, str) else None,
+                "status": status if status in ("retrieved", "unavailable") else "unknown",
+                "error_type": (details.get("reason") if status == "unavailable"
+                               and isinstance(details.get("reason"), str) else None),
+                "source_games_reported": (details.get("scheduled_events")
+                                          if type(details.get("scheduled_events")) is int else None),
+                "days_checked": (details.get("days_checked")
+                                 if type(details.get("days_checked")) is int else None),
+            })
     # Identical ESPN date-endpoint repeats are expected; de-duplicate
     # by league and ESPN ID. Conflicting contents make the identity ambiguous.
     unique = {}
@@ -166,6 +188,15 @@ def build_manifest(rows, schedules, now):
         "schedule_events_seen": len(schedule_events),
         "invalid_schedule_rows": invalid_schedule,
         "conflicting_espn_ids": len(conflicts),
+        "schedule_source_queries": source_queries,
+        "schedule_source_gap": (
+            "no_source_queries_recorded" if not source_queries
+            else "all_queried_sources_unavailable" if all(
+                q["status"] == "unavailable" for q in source_queries)
+            else "zero_eligible_future_source_events" if not schedule_events
+            else "source_events_present_require_exact_team_and_clock_match"
+        ),
+        "schedule_source_observation_not_bookmaker_or_model_verification": True,
         "provider_event_ids_seen": len(source_groups),
         "provider_event_ids_matched": len(manifest),
         "provider_event_ids_quarantined": dict(sorted(rejected.items())),
