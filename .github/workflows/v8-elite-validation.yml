@@ -50,10 +50,23 @@ jobs:
           assert r["certified_predictions"] == 0
           assert r["automated_wagers"] == 0
           PY
+      - name: Produce transparent Instagram research caption (do not auto-post)
+        run: |
+          python v8_public_research_update.py \
+            --report v8_results/dual_milestone/research_milestone_report.json \
+            --output v8_results/public_research_update.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("v8_results/public_research_update.json").read_text())
+          assert x["automated_posting"] is False
+          assert x["certified_selections"] == 0
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: v8-milestone-status
           path: |
             v8_results/milestone_status.json
             v8_results/dual_milestone/research_milestone_report.json
+            v8_results/public_research_update.json
           retention-days: 30
