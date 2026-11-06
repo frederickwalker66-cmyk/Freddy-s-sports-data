@@ -2,16 +2,20 @@ name: Challenger-001 original eight-sport schedule preflight (research only)
 
 on:
   workflow_dispatch:
-  # Follow the already scheduled/collector-triggered eight-sport capture.
-  # A successful source capture automatically advances every research gate
-  # without the user issuing repeated "Next" requests. No extra cron added.
+  # 24 independent cloud collections/day. GitHub Actions uses UTC cron, and
+  # scheduled starts may be delayed or occasionally skipped by GitHub.
+  # No paid provider request, user phone, or local laptop is required.
+  schedule:
+    - cron: '27 * * * *'
+  # Existing heavier prospective/SharpAPI completion also triggers a deeper
+  # seven-day source audit; preserve it without another paid data collector.
   workflow_run:
     workflows: ["Challenger-001 prospective eight-league pregame evidence capture"]
     types: [completed]
     branches: [main]
-  # One genuine live source preflight on introduction/changes to this workflow
-  # and script. The already-installed twice-daily main capture keeps its
-  # existing schedule; this workflow does not duplicate that recurring scan.
+  # Code changes trigger full source verification once on main; pull requests
+  # run offline source-safety tests only. Scheduled hourly runs use a reduced
+  # one-day horizon; original seven-day research captures remain intact.
   push:
     branches: [main]
     paths:
@@ -101,7 +105,7 @@ jobs:
   live-eight-sport-source:
     # Pull requests run synthetic tests only. Push on main or manual dispatch
     # captures actual source bytes. No secrets, odds, trades or predictions.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     needs: offline-source-safety
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -110,11 +114,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Capture actual ESPN seven-day source original bytes for all eight leagues
+      - name: Capture fresh original ESPN bytes hourly for all eight leagues
+        env:
+          TRIGGER_KIND: ${{ github.event_name }}
         run: |
           set -euo pipefail
+          # Hourly source-only 0-day scans cap unnecessary off-day HTTP traffic;
+          # event-triggered full seven-day scans still preserve broad lookahead.
+          if [[ "$TRIGGER_KIND" == schedule ]]; then
+            lookahead=0
+          else
+            lookahead=7
+          fi
           python challenger_eight_sport_source_preflight.py \
-            --lookahead-days 7 \
+            --lookahead-days "$lookahead" \
             --output-dir seven_day_source_preflight
       - name: Record actual upstream trigger and explicit provenance limits
         shell: bash
@@ -383,10 +396,65 @@ jobs:
           assert r['champion_001_modified'] is False
           print('Operational #83-86 chain finished. Research captures complete; release held.')
           PY
+      - name: Publish hourly cloud collection, validation and archive report
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path("seven_day_source_preflight")
+          summary = root / "preflight_summary.json"
+          release = root / "model_completion" / "release_readiness.json"
+          lines = [
+              "# Freddy's Picks AI — Cloud Research Scan",
+              "",
+              f"- Trigger: {os.environ.get('GITHUB_EVENT_NAME', 'unknown')}",
+              f"- GitHub run: {os.environ.get('GITHUB_RUN_ID', 'unknown')}",
+              "- Local laptop or phone required: **No**",
+              "- Direct bookmaker prices independently verified: **0**",
+              "- Certified positive-EV selections: **0**",
+              "- Champion-001: **Frozen**",
+          ]
+          if summary.is_file():
+              info = json.loads(summary.read_text(encoding="utf-8"))
+              totals = info["totals"]
+              lines.extend([
+                  f"- Actual observation started (UTC): {info['started_at_utc']}",
+                  f"- Actual observation ended (UTC): {info['completed_at_utc']}",
+                  f"- Days ahead checked: {info['lookahead_days']}",
+                  f"- New source events archived: {totals['pregame_events_archived']}",
+                  f"- Source dates failed: {totals['source_days_failed']}",
+                  f"- Original ESPN responses verified against archived bytes: {info['original_response_bytes_verified']}",
+                  "",
+                  "## League source availability",
+                  "| League | Source days succeeded | Source days failed | Future games archived |",
+                  "|---|---:|---:|---:|",
+              ])
+              for lg, entry in sorted(info["by_league"].items()):
+                  lines.append(f"| {lg} | {entry['source_days_succeeded']} | {entry['source_days_failed']} | {entry['future_games_archived']} |")
+              assert info["certified_positive_ev_bets"] == 0
+              assert info["champion_001_modified"] is False
+          else:
+              lines.append("- **Capture incomplete:** no trustworthy source summary was written.")
+          if release.is_file():
+              result = json.loads(release.read_text(encoding="utf-8"))
+              lines.append(f"- Model release decision: **{result['release_decision']}**")
+          else:
+              lines.append("- **Model release:** not verified; research-only hold.")
+          lines.extend(["", "GitHub schedules are best-effort and do not guarantee an exact minute. Original-source bytes are research receipts, not independently authenticated sportsbook or training evidence."])
+          markdown = "\n".join(lines) + "\n"
+          root.mkdir(parents=True, exist_ok=True)
+          (root / "hourly_cloud_diagnostic.md").write_text(markdown, encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write(markdown)
+          print(markdown)
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: eight-sport-source-preflight-${{ github.run_id }}
           path: seven_day_source_preflight/
-          retention-days: 45
+          retention-days: 90
           if-no-files-found: warn
