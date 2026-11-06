@@ -217,12 +217,13 @@ class NBAIdentityCrosscheckTests(unittest.TestCase):
                 calls.append(url)
                 if url == NBA_SCHEDULE_URL:
                     raise OSError("blocked public CDN")
-                if url == NBA_TODAY_SCOREBOARD_URL:
+                if url in (NBA_TODAY_SCOREBOARD_URL, stats_scoreboard_url("2026-11-05")):
                     return daily()
-                self.fail("Unexpected third source call")
+                self.fail("Unexpected unknown source call")
             report = run(src, Path(tmp) / "second",
                          nba_fetcher=nba_fetch, clock=lambda: NOW)
-            self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL])
+            self.assertEqual(calls, [NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL,
+                                     stats_scoreboard_url("2026-11-05")])
             self.assertEqual(report["independently_observed_nba_pregame_identity_matches_research_only"], 1)
             self.assertIn(NBA_SCHEDULE_URL, report["network_nba_source_failures_by_url"])
 

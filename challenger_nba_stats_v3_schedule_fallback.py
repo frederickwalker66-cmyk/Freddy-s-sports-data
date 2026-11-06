@@ -20,12 +20,21 @@ def stats_url_for_observation(observed_at):
     return stats_scoreboard_url(observed_at.astimezone(ET).date().isoformat())
 
 
-def verify_stats_v3_scoreboard(raw, source_url, observed_at):
-    """Reject any replay/date/URL mismatch and any non-NBA Stats payload."""
-    expected_url = stats_url_for_observation(observed_at)
+def verify_stats_v3_scoreboard(raw, source_url, observed_at, *, event_day_et=None):
+    """Validate NBA Stats V3 source and date, never future player active status.
+
+    The default (used by player-status sources) still strictly requires the
+    actual current Eastern date. The explicit event-day mode is ONLY for
+    future-game research identity; the caller must use a date present in
+    an existing ESPN pregame archive. Both modes require matching original
+    JSON gameDate, leagueId=00, official team IDs and scheduled future tip.
+    """
+    expected_url = (stats_url_for_observation(observed_at)
+                    if event_day_et is None else stats_scoreboard_url(event_day_et))
     if not isinstance(source_url, str) or source_url != expected_url:
         raise ValueError("nba_stats_scoreboard_source_not_for_observed_eastern_date")
-    payload, future = validate_same_day_scoreboard(raw, observed_at)
-    # The exact NBA-operated URL, actual timestamp and source bytes must
-    # remain together in the original-data capture receipt.
+    payload, future = validate_same_day_scoreboard(
+        raw, observed_at, expected_day_et=event_day_et)
+    # Only the exact fetched NBA-operated URL, actual observation timestamp,
+    # and original bytes are eligible for independent research game identity.
     return payload, future

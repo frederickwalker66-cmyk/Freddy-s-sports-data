@@ -24,7 +24,7 @@ from challenger_nba_official_pregame_schedule import (
 )
 from challenger_nba_schedule_clock import (
     NBA_SCHEDULE_URL, NBA_TODAY_SCOREBOARD_URL, stats_scoreboard_url,
-    nba_team_name,
+    nba_team_name, source_failure_label,
 )
 from challenger_mlb_official_pregame_schedule import (
     day_url as mlb_day_url, fetch_schedule as fetch_mlb_schedule,
@@ -399,18 +399,26 @@ def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None,
     nba_dates = sorted({instant(r["event_start_utc"]).astimezone(EASTERN)
                         .date().isoformat() for r in records if r.get("league") == "nba"})
     if nba_dates:
-        # A season schedule is usable for the bounded future slate; the daily
-        # and Stats-V3 fallbacks only describe the actual current Eastern date.
+        # When the full season schedule is denied, NBA Stats ScoreboardV3
+        # can be requested separately for each actual *archived future*
+        # NBA game date (at most seven calendar days). The NBA daily CDN
+        # remains usable only on the observation's actual Eastern date.
         nba_clock = instant(clock().isoformat())
-        today_et = nba_clock.astimezone(EASTERN).date().isoformat()
+        today_date = nba_clock.astimezone(EASTERN).date()
+        today_et = today_date.isoformat()
+        eligible_dates = [day for day in nba_dates
+                          if today_et <= day <= (today_date + timedelta(days=7)).isoformat()]
         urls = [NBA_SCHEDULE_URL]
-        if today_et in nba_dates:
+        if today_et in eligible_dates:
             urls.append(NBA_TODAY_SCOREBOARD_URL)
-            urls.append(stats_scoreboard_url(today_et))
+        urls.extend(stats_scoreboard_url(day) for day in eligible_dates)
         filenames = {
             NBA_SCHEDULE_URL: "nba_official_season_schedule.json",
             NBA_TODAY_SCOREBOARD_URL: "nba_official_today_scoreboard.json",
-            stats_scoreboard_url(today_et): "nba_official_stats_v3_scoreboard.json",
+            **{stats_scoreboard_url(day): (
+                "nba_official_stats_v3_scoreboard.json" if day == today_et
+                else "nba_official_stats_v3_" + day.replace("-", "") + ".json")
+               for day in eligible_dates},
         }
         for url in urls:
             started = instant(clock().isoformat())
@@ -421,17 +429,22 @@ def run(capture_dir, output_dir, fetcher=fetch_scoreboard, clock=None,
                     raise ValueError("official_nba_source_clock_regressed")
                 if not isinstance(raw, bytes) or not 1 <= len(raw) <= 18_000_000:
                     raise ValueError("invalid_official_nba_original_wire_bytes")
-                # Validate prior to acceptance; retain original bytes even
-                # when malformed for source-error diagnosis.
+                # Retain original bytes even when parsing detects an invalid
+                # league, date or team; never promote a failed response.
                 (output / filenames[url]).open("xb").write(raw)
-                parse_nba_original(raw, url, observed)
+                future, _, kind = parse_nba_original(raw, url, observed)
                 nba_receipts[url] = {"raw": raw, "source_url": url,
                                      "observed_at_utc": observed.isoformat()}
-                # Only use same-day fallbacks when season source was missing.
-                break
+                # Full NBA schedule covers the slate; otherwise separately
+                # gather bounded per-day fallbacks instead of stopping on
+                # the first date with a partial/empty scoreboard.
+                if url == NBA_SCHEDULE_URL and future:
+                    break
             except (OSError, ValueError, TimeoutError, UnicodeError,
                     OverflowError, TypeError, KeyError) as exc:
-                nba_failures[url] = type(exc).__name__
+                # A GitHub-runner HTTP 403/429 is a distinct access blocker,
+                # not a generic "HTTPError" or fabricated schedule.
+                nba_failures[url] = source_failure_label(exc)
     rows, report = audit(records, receipts, mlb_receipts, nba_receipts)
     report["official_nba_source_urls_attempted"] = (
         list(nba_failures) + list(nba_receipts))
