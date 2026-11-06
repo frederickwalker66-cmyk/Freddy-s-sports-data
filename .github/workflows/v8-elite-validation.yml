@@ -1,0 +1,42 @@
+name: V8 Elite two-milestone research verification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'v8_*.py'
+      - 'tests/test_v8_*.py'
+      - '.github/workflows/v8-elite-validation.yml'
+permissions:
+  contents: read
+jobs:
+  v8-offline-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify V8 modules compile
+        run: python -m compileall -q v8_*.py
+      - name: Run V8 offline tests
+        run: python -m unittest discover -s tests -p 'test_v8_*.py' -v
+      - name: Produce no-evidence milestone audit
+        run: |
+          python v8_milestone_tracker.py --output v8_results/milestone_status.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('v8_results/milestone_status.json').read_text())
+          assert not r['milestone_a_nba']['independently_complete']
+          assert not r['milestone_b_eight_sports']['independently_complete']
+          assert r['certified_predictions'] == 0
+          assert r['certified_positive_ev_bets'] == 0
+          assert r['automated_wagers'] == 0
+          assert not r['bet_ready']
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v8-milestone-status
+          path: v8_results/milestone_status.json
+          retention-days: 30
