@@ -244,7 +244,11 @@ def main(argv=None):
             if line.strip()]
     now = datetime.now(timezone.utc)
     dates = collect_snapshot_days(rows, now)
-    snapshots = [ingest_schedule(day.isoformat(), now=now) for day in dates]
+    # Each actual HTTP response needs its own observation timestamp. Do not
+    # backdate future-day schedule receipts to the crosswalk scan start.
+    snapshots = [ingest_schedule(day.isoformat(), now=now,
+                                 clock=lambda: datetime.now(timezone.utc))
+                 for day in dates]
     report = build_manifest(rows, snapshots, datetime.now(timezone.utc))
     out = Path(args.outdir)
     out.mkdir(parents=True, exist_ok=True)
