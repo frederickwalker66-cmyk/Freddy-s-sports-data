@@ -1,0 +1,119 @@
+name: Freddy's Picks AI V8 — One Command (phone + laptop)
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Research command to run (no paid API and no bets)'
+        required: true
+        type: choice
+        default: model_status
+        options:
+          - model_status
+          - run_nba
+          - run_sports
+          - run_nfl
+          - run_nhl
+          - run_mlb
+          - run_ncaaf
+          - run_ncaab
+          - run_mls
+          - run_uefa
+          - run_edge
+      days:
+        description: 'Historical days per league, 1–35 (public sources only)'
+        required: true
+        type: choice
+        default: '7'
+        options: ['1', '7', '14', '35']
+      end_date:
+        description: 'Optional YYYY-MM-DD historical end date (must be before today)'
+        required: false
+        type: string
+  schedule:
+    - cron: '23 9 * * 0' # Weekly all-eight public research capture, no API fees
+  pull_request:
+    paths:
+      - 'v8_one_command.py'
+      - 'v8_edge_value.py'
+      - 'tests/test_v8_one_command.py'
+      - '.github/workflows/v8-one-command.yml'
+permissions:
+  contents: read
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-calibration.txt
+      - name: Test mobile commands, leakage guards and EV math
+        run: python -m unittest discover -s tests -p 'test_v8_*.py' -v
+  cloud-research:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    needs: offline-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-calibration.txt
+      - name: Run requested model research command
+        env:
+          SELECTED_COMMAND: ${{ inputs.command || 'run_sports' }}
+          HISTORY_DAYS: ${{ inputs.days || '7' }}
+          HISTORY_END_DATE: ${{ inputs.end_date }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          params=(--command "$SELECTED_COMMAND" --days "$HISTORY_DAYS"
+                  --output-dir v8_results/one_command)
+          if [[ -n "$HISTORY_END_DATE" ]]; then
+            params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          python v8_one_command.py "${params[@]}"
+      - name: Present report directly in phone run summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path("v8_results/one_command/ONE_COMMAND_REPORT.json")
+          if not p.is_file():
+              print("Research run failed before a validated report was produced.")
+          else:
+              r=json.loads(p.read_text())
+              lines=[
+                  "# Freddy's Picks AI — One Command",
+                  f"**Command:** {r['command']}",
+                  f"**Historic date ending:** {r['historical_end_et']}",
+                  "**Certified picks and certified +EV bets: 0.**",
+                  "**Status:** Historical published scores/research only; not an authenticated betting model.",
+                  "",
+                  "| Sport | Source days successful | Published games | Status |",
+                  "|---|---:|---:|---|",
+              ]
+              for lg,info in r['by_league'].items():
+                  lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_edge':
+                  lines.append(f"Indicative research edges: {len(r['research_edge_candidates'])} (no independently verified executable quotes).")
+              if r['command'] == 'model_status':
+                  lines.append(f"NBA status: {r['model_status']['milestone_a']}.")
+              text="\n".join(lines)+"\n"
+              print(text)
+              summary=os.getenv("GITHUB_STEP_SUMMARY")
+              if summary: Path(summary).open("a").write(text)
+          PY
+      - name: Downloadable historical data + status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-one-command-${{ inputs.command || 'run_sports' }}-${{ github.run_id }}
+          path: v8_results/one_command/
+          retention-days: 90
+          if-no-files-found: warn
