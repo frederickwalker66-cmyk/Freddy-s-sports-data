@@ -31,6 +31,12 @@ on:
         type: string
   schedule:
     - cron: '23 9 * * 0' # Weekly all-eight public research capture, no API fees
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v8-one-command.yml'
+      - 'v8_one_command.py'
+      - 'v8_edge_value.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -52,7 +58,7 @@ jobs:
       - name: Test mobile commands, leakage guards and EV math
         run: python -m unittest discover -s tests -p 'test_v8_*.py' -v
   cloud-research:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
     needs: offline-safety
     runs-on: ubuntu-latest
     timeout-minutes: 45
