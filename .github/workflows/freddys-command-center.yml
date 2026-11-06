@@ -1,0 +1,91 @@
+name: Freddy's Picks AI — Phone Command Center
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'What to run? All commands use GitHub Cloud, not your laptop'
+        required: true
+        type: choice
+        default: status
+        options:
+          - status
+          - all_free_diagnostics
+          - public_eight_sport_scan
+          - code_tests
+          - outcome_review
+          - calibration_research
+          - source_backup
+          - nba_live_paid
+          - sportsdataio_paid
+      confirm_paid_api:
+        description: 'I explicitly authorize this one run to use paid provider API credits'
+        required: false
+        type: boolean
+        default: false
+  # Lightweight dashboard update only, never billable data collection.
+  schedule:
+    - cron: '11 12,23 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'freddys_command_center.py'
+      - 'tests/test_freddys_command_center.py'
+      - 'FREDDYS_PHONE_COMMAND_CENTER.md'
+      - '.github/workflows/freddys-command-center.yml'
+  pull_request:
+    paths:
+      - 'freddys_command_center.py'
+      - 'tests/test_freddys_command_center.py'
+      - '.github/workflows/freddys-command-center.yml'
+permissions:
+  contents: read
+jobs:
+  offline-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Safety test mobile controls, paid opt-in and model release holds
+        run: |
+          python -m py_compile freddys_command_center.py
+          python -m unittest discover -s tests -p 'test_freddys_command_center.py' -v
+  phone-dashboard:
+    needs: [offline-checks]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    permissions:
+      actions: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      COMMAND: ${{ inputs.command || 'status' }}
+      PAID_CONFIRMATION: ${{ inputs.confirm_paid_api || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dispatch allowlisted workflows and inspect latest production runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python freddys_command_center.py \
+            --command "$COMMAND" \
+            --paid-confirmation "$PAID_CONFIRMATION" \
+            --output-dir phone_dashboard
+      - name: Archive phone dashboard and detailed health JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freddys-phone-command-center-${{ github.run_id }}
+          path: phone_dashboard/
+          retention-days: 30
+          if-no-files-found: warn
