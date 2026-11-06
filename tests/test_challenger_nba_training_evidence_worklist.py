@@ -127,6 +127,72 @@ class TrainingEvidenceWorklistTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"orphan_shadow"):
             audit(c,p,q,[row])
 
+
+    def test_future_unreviewed_research_shadow_is_quarantined_not_promoted(self):
+        c,p,q=inputs()
+        orphan=fixed_shadow(c[0], "away")
+        orphan.update({
+            "espn_event_id":"401909287",
+            "event_start_utc":"2026-11-07T00:00:00+00:00",
+            "snapshot_completed_at_utc":"2026-11-06T03:03:48+00:00",
+            "forecast_created_at_utc":"2026-11-06T03:04:14+00:00",
+            "published_result_status":"unverified_or_mismatched_result_quarantined",
+            "espn_published_winner_research_only":None,
+            "directional_research_pick_correct_vs_published_final":None,
+        })
+        pending=[]
+        rows,r=audit(c,p,q,[orphan],
+                     asof_utc=datetime(2026,11,6,12,10,tzinfo=timezone.utc),
+                     pending_out=pending)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(r["nba_research_candidates_reconciled"],1)
+        self.assertEqual(r["nba_unmatched_research_forecasts_quarantined"],1)
+        self.assertEqual(r["nba_future_research_forecasts_awaiting_results"],1)
+        self.assertEqual(r["independently_qualified_training_games"],0)
+        self.assertEqual(r["certified_champion_001_predictions"],0)
+        self.assertFalse(pending[0]["training_eligible"])
+        self.assertFalse(pending[0]["bet_ready"])
+        self.assertEqual(pending[0]["original_research_shadow_record_unchanged"],orphan)
+
+    def test_recent_tipoff_without_final_stays_uncertified(self):
+        c,p,q=inputs()
+        orphan=fixed_shadow(c[0])
+        orphan.update({
+            "espn_event_id":"401909288",
+            "event_start_utc":"2026-11-07T00:00:00+00:00",
+            "snapshot_completed_at_utc":"2026-11-06T03:03:48+00:00",
+            "forecast_created_at_utc":"2026-11-06T03:04:14+00:00",
+            "published_result_status":"awaiting_published_result",
+            "espn_published_winner_research_only":None,
+            "directional_research_pick_correct_vs_published_final":None,
+        })
+        pending=[]
+        _,r=audit(c,p,q,[orphan],
+                  asof_utc=datetime(2026,11,7,2,0,tzinfo=timezone.utc),
+                  pending_out=pending)
+        self.assertEqual(r["nba_recent_fixtures_missing_final_review"],1)
+        self.assertFalse(pending[0]["qualified_for_challenger_backtest"])
+
+    def test_stale_or_falsely_certified_orphan_still_fails_closed(self):
+        c,p,q=inputs()
+        orphan=fixed_shadow(c[0])
+        orphan.update({
+            "espn_event_id":"401909289",
+            "event_start_utc":"2026-11-07T00:00:00+00:00",
+            "snapshot_completed_at_utc":"2026-11-06T03:03:48+00:00",
+            "forecast_created_at_utc":"2026-11-06T03:04:14+00:00",
+            "published_result_status":"awaiting_published_result",
+            "espn_published_winner_research_only":None,
+            "directional_research_pick_correct_vs_published_final":None,
+        })
+        with self.assertRaisesRegex(ValueError,"stale_orphan"):
+            audit(c,p,q,[orphan],
+                  asof_utc=datetime(2026,11,10,0,0,tzinfo=timezone.utc))
+        orphan["certified_prediction"]=True
+        with self.assertRaisesRegex(ValueError,"orphan_shadow"):
+            audit(c,p,q,[orphan],
+                  asof_utc=datetime(2026,11,6,12,10,tzinfo=timezone.utc))
+
     def test_cli_creates_a_review_queue_not_a_trained_model(self):
         c,p,q=inputs()
         with TemporaryDirectory() as folder:
@@ -143,6 +209,8 @@ class TrainingEvidenceWorklistTests(unittest.TestCase):
             self.assertEqual(report["independently_qualified_training_games"],0)
             self.assertFalse((root/"research_model.json").exists())
             self.assertFalse((root/"historical_results.jsonl").exists())
+            self.assertTrue((root/"nba_pending_research_shadows_quarantined.jsonl").exists())
+            self.assertEqual((root/"nba_pending_research_shadows_quarantined.jsonl").read_text(),"")
 
 
     def test_licensed_third_party_result_agreement_does_not_replace_official(self):
