@@ -4,8 +4,9 @@ ESPN corroboration does not validate DraftKings checkout or establish EV.
 """
 import unittest
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from challenger_schedule_crosswalk import build_manifest, collect_snapshot_days
+from independent_schedule_review import ingest_schedule
 from challenger_audit import audit, validate
 
 NOW = datetime(2026, 10, 29, 20, 0, tzinfo=timezone.utc)
@@ -166,6 +167,44 @@ class CrosswalkTests(unittest.TestCase):
         self.assertEqual(m["certified_model_predictions"], 0)
         self.assertEqual(m["bet_ready_selections"], 0)
         self.assertFalse(m["champion_001_modified"])
+
+    def test_future_fixture_date_may_differ_from_capture_day_without_backdating(self):
+        # Reproduces the Nov 6 live SharpAPI crosswalk root cause: 12 future
+        # provider events were rejected because a future ESPN fixture date
+        # was mistaken for the date the HTTP response had to arrive.
+        future = "2026-10-30T23:00:00Z"  # Oct 30 Eastern, captured Oct 29
+        later = NOW + timedelta(seconds=15)
+        game = {"id": "401001", "date": future,
+                "status": {"type": {"state": "pre"}},
+                "competitions": [{"competitors": [
+                    {"homeAway": "home", "team": {"displayName": "Atlanta Hawks"}},
+                    {"homeAway": "away", "team": {"displayName": "Cleveland Cavaliers"}},
+                ]}]}
+        def fetch(url):
+            return {"events": [game] if "/basketball/nba/" in url else []}
+        source = ingest_schedule("2026-10-30", fetch=fetch, now=NOW,
+                                 clock=lambda: later)
+        self.assertEqual(source["sources"]["nba"]["scheduled_events"], 1)
+        self.assertEqual(source["date_et"], "2026-10-30")
+        self.assertEqual(source["events"][0]["observed_at_utc"], later.isoformat())
+        self.assertEqual(source["sources"]["nba"]["lookahead"][0][
+            "response_observed_at_utc"], later.isoformat())
+        m = build_manifest([quote(event_start_time=future)], [source],
+                           later + timedelta(seconds=1))
+        self.assertEqual(m["provider_event_ids_seen"], 1)
+        self.assertEqual(m["provider_event_ids_matched"], 1)
+        self.assertEqual(m["certified_model_predictions"], 0)
+        self.assertFalse(m["independent_sportsbook_price_verified"])
+        self.assertEqual(m["bet_ready_selections"], 0)
+
+    def test_actual_eastern_midnight_crossing_still_rejects_date_backdating(self):
+        capture = datetime(2026, 11, 6, 4, 59, tzinfo=timezone.utc)
+        later = datetime(2026, 11, 6, 5, 1, tzinfo=timezone.utc)
+        source = ingest_schedule("2026-11-06", fetch=lambda _: {"events": []},
+                                 now=capture, clock=lambda: later)
+        self.assertEqual(source["events"], [])
+        self.assertEqual(source["sources"]["nba"]["status"], "unavailable")
+        self.assertEqual(source["sources"]["nba"]["reason"], "ValueError")
 
     def test_only_bounded_future_dates(self):
         days = collect_snapshot_days([quote()], NOW)
