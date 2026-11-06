@@ -6,7 +6,7 @@ No cached scoreboard or publisher publication timestamp is inferred.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import hashlib
 import json
@@ -78,11 +78,26 @@ def parse_original(raw, source_url, observed_at):
         payload, records = validate_same_day_scoreboard(raw, seen_at)
         kind = "nba_daily_scoreboard"
     else:
-        day = seen_at.astimezone(ZoneInfo("America/New_York")).date().isoformat()
+        # NBA Stats ScoreboardV3 is date-addressable. On a hosted runner,
+        # the league's season CDN can be unavailable even when tomorrow's
+        # ESPN pregame events exist. Permit only canonical Stats dates
+        # between the real Eastern observation day and seven days ahead;
+        # this is research game identity, not pregame player clearance.
+        from challenger_nba_schedule_clock import NBA_STATS_SCOREBOARD_V3
+        prefix = NBA_STATS_SCOREBOARD_V3 + "?GameDate="
+        if not isinstance(source_url, str) or not source_url.startswith(prefix):
+            raise ValueError("nba_official_schedule_source_url_not_allowed")
+        day = source_url[len(prefix):].split("&", 1)[0]
         if source_url != stats_scoreboard_url(day):
             raise ValueError("nba_official_schedule_source_url_not_allowed")
-        payload, records = verify_stats_v3_scoreboard(raw, source_url, seen_at)
-        kind = "nba_stats_scoreboard_v3"
+        today_et = seen_at.astimezone(ZoneInfo("America/New_York")).date()
+        target_et = datetime.fromisoformat(day).date()
+        if not today_et <= target_et <= today_et + timedelta(days=7):
+            raise ValueError("nba_official_future_scoreboard_day_outside_window")
+        payload, records = verify_stats_v3_scoreboard(
+            raw, source_url, seen_at, event_day_et=day)
+        kind = ("nba_stats_scoreboard_v3" if target_et == today_et
+                else "nba_stats_scoreboard_v3_future_date")
     team_ids, _ = source_game_records(payload)
     if (not set(g["official_nba_game_id"] for g in records).issubset(team_ids)
             or (kind == "nba_season_schedule" and len(records) != len(team_ids))):
