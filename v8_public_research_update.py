@@ -35,7 +35,7 @@ def safe_public_update(report: dict, as_of: str) -> dict:
     summary = (
         f"FREDDY'S PICKS AI | RESEARCH UPDATE ({as_of})\n\n"
         f"NBA research-model artifact: {'available, unverified' if a.get('research_model_fitted') is True else 'not yet fitted'}.\n"
-        f"Other sports research: {len(raw_models)} of {len(SPORTS)} league models reported as fitted "
+        f"All-sports research: {len(raw_models)} of {len(SPORTS)} league models reported as fitted "
         "(research only; not independently certified).\n"
         "Independent model validation: NOT COMPLETE.\n"
         "Certified positive-EV selections: 0.\n"
