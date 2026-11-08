@@ -12,6 +12,7 @@ pregame feature availability or profitable bets.
    - **run_sports** — collect public historical scores for all eight configured sports.
    - **run_nfl**, **run_nhl**, **run_mlb**, **run_ncaaf**, **run_ncaab**, **run_mls**, **run_uefa** — one league.
    - **run_edge** — show existing research-edge count; without a separately provided forecast and price file it truthfully returns zero.
+   - **run_sharp** — read the five most recent successfully completed SharpAPI research archives (if available), report eligible DraftKings-labeled main-moneyline prices and historical line movement. **No new provider API calls, no added API credit use.**
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -70,3 +71,12 @@ The user-facing goal is **one control interface**. The important remaining
 engineering work is a durable archive, authentic training/holdout data,
 trained calibrated models and independently verified executable bookmaker
 prices; only then can a qualifying EV leaderboard be published.
+
+## SharpAPI: what `run_sharp` means
+
+- The existing [SharpAPI DraftKings collector](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/collect-sharpapi.yml) already captures pregame NBA, NFL and MLB main/prop research odds on its own schedule.
+- **run_sharp** downloads recent existing successful collector artifacts and analyzes *historical main moneyline quotes* using the established timestamp and market-identity guards. It reports available capture date, counts by sport, change in no-vig home win probability, and excluded/invalid rows.
+- A single price snapshot is not evidence of line movement. A change in a DraftKings-labeled price is not proof of **sharp money**, a winning wager or a model edge.
+- The report intentionally does not infer professional betting handle, public versus sharp ticket splits, current availability, or DraftKings checkout verification.
+- `run_sharp` does NOT call the paid SharpAPI service. For a separate **fresh** provider capture, use its existing workflow's *Run workflow* control, mindful of provider quotas/credit charges and the configured API secret. The original scheduled SharpAPI collection remains unchanged.
+- Archived SharpAPI quote artifacts expire after 30 days; preserve the records separately before that expiration if a long-term line movement warehouse is needed.
