@@ -82,13 +82,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p saved_sharp_archives
-          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" \\
-            --workflow collect-sharpapi.yml --branch main \\
-            --status success --limit 5 --json databaseId --jq '.[].databaseId')
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow collect-sharpapi.yml --branch main --status success --limit 5 --json databaseId --jq '.[].databaseId')
           count=0
           for rid in "${ids[@]}"; do
-            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \\
-              --name "sharpapi-pregame-$rid" --dir "saved_sharp_archives/$rid"; then
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "sharpapi-pregame-$rid" --dir "saved_sharp_archives/$rid"; then
               count=$((count+1))
             else
               rm -rf "saved_sharp_archives/$rid"
