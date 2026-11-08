@@ -71,7 +71,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         sharp_report, movements = summarize_sharp_archive(sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
-            "".join(json.dumps(x, sort_keys=True) + "\\n" for x in movements), encoding="utf-8")
+            "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
     elif command == "model_status":
         dual, _, _ = train_both([], [])
         report["model_status"] = {
