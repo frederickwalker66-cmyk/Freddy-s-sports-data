@@ -140,6 +140,17 @@ jobs:
                   lines.append(f"**SharpAPI archive status:** {sharp.get('status', 'not_available')}")
                   lines.append(f"**Archived primary moneyline quotes:** {sharp.get('valid_sharpapi_primary_moneyline_quote_observations', 0)}")
                   lines.append(f"**Observed historical line movements:** {sharp.get('observed_line_movements', 0)}")
+                  lines.append(f"**Upcoming movements to review:** {sharp.get('upcoming_market_movement_observations', 0)}")
+                  lines.append(f"**Sharp bet decision:** {sharp.get('sharp_bet_decision', 'PASS')} — research only.")
+                  watch = sharp.get("ranked_market_movement_watchlist") or []
+                  if watch:
+                      lines.extend(["", "| League | Matchup | Move (home no-vig pp) | Decision |",
+                                    "|---|---|---:|---|"])
+                      for item in watch[:5]:
+                          matchup = f"{item['away_team']} at {item['home_team']}"
+                          lines.append(f"| {item['league'].upper()} | {matchup} | {item['home_no_vig_change_percentage_points']:+.4f} | HOLD |")
+                  else:
+                      lines.append("**No qualified upcoming line movement in saved snapshots.**")
                   lines.append(f"**Last archived quote:** {sharp.get('latest_eligible_capture_utc') or 'No eligible snapshot'}")
                   lines.append("**Sharp money inference:** NOT VERIFIED; no bettor-identity or bet-handle data.")
                   lines.append("**Certified model EV:** 0; data are historical and not live checkout prices.")
