@@ -46,6 +46,36 @@ def summarize_sharp_archive(rows, now=None, archive_run_ids=()):
         captures.append(item["received"])
         accepted.append(row)
     movements, movement_report = analyze_line_movement(accepted)
+    # A watchlist is a ranked audit queue, NOT inferred sharp-money bets.
+    # Old games and future-dated captures are never shown as today's signals.
+    watchlist = []
+    for movement in movements:
+        event_start = datetime.fromisoformat(movement["event_start_utc"])
+        last_capture = datetime.fromisoformat(movement["last_capture_utc"])
+        if event_start <= clock or last_capture > clock:
+            continue
+        delta = movement["home_no_vig_probability_change_percentage_points"]
+        watchlist.append({
+            "league": movement["league"],
+            "provider_event_id": movement["provider_event_id"],
+            "home_team": movement["home_team"],
+            "away_team": movement["away_team"],
+            "event_start_utc": movement["event_start_utc"],
+            "first_capture_utc": movement["first_capture_utc"],
+            "last_capture_utc": movement["last_capture_utc"],
+            "last_home_odds_american": movement["home_american_odds_after"],
+            "last_away_odds_american": movement["away_american_odds_after"],
+            "home_no_vig_change_percentage_points": delta,
+            "absolute_market_movement_percentage_points": round(abs(delta), 4),
+            "direction": movement["direction"],
+            "decision": "HOLD_UNVERIFIED_SHARP_FLOW_MODEL_AND_CHECKOUT",
+            "professional_betting_action_verified": False,
+            "positive_ev_certified": False,
+        })
+    watchlist.sort(key=lambda x: (
+        -x["absolute_market_movement_percentage_points"],
+        x["event_start_utc"], x["league"], x["provider_event_id"],
+        x["last_capture_utc"]))
     # No explicit sharps/public betting percentages, proprietary handle data,
     # multi-book consensus or independently authenticated checkout receipt.
     latest = max(captures) if captures else None
@@ -60,6 +90,13 @@ def summarize_sharp_archive(rows, now=None, archive_run_ids=()):
         "excluded_quote_observations": dict(sorted(rejected.items())),
         "observed_line_movements": len(movements),
         "line_movement_exclusions": movement_report["excluded"],
+        "upcoming_market_movement_observations": len(watchlist),
+        "ranked_market_movement_watchlist": watchlist[:10],
+        "sharp_bet_decision": "HOLD" if watchlist else "PASS",
+        "sharp_bet_decision_reason": (
+            "market_movement_only_no_verified_professional_flow_or_model_ev"
+            if watchlist else "no_eligible_upcoming_market_movement"),
+        "ticket_and_handle_percentages_available": False,
         "latest_eligible_capture_utc": latest.isoformat() if latest else None,
         "minutes_since_latest_eligible_capture": age_minutes,
         "quote_currently_executable": False,
