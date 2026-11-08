@@ -45,6 +45,13 @@ class SharpArchiveTests(unittest.TestCase):
             archive_run_ids=[123],
         )
         self.assertEqual(report["observed_line_movements"], 1)
+        self.assertEqual(report["upcoming_market_movement_observations"], 1)
+        self.assertEqual(report["sharp_bet_decision"], "HOLD")
+        watch = report["ranked_market_movement_watchlist"][0]
+        self.assertEqual(watch["decision"], "HOLD_UNVERIFIED_SHARP_FLOW_MODEL_AND_CHECKOUT")
+        self.assertEqual(watch["direction"], "toward_home")
+        self.assertFalse(watch["professional_betting_action_verified"])
+        self.assertFalse(watch["positive_ev_certified"])
         self.assertEqual(report["valid_sharpapi_primary_moneyline_quote_observations"], 4)
         self.assertEqual(movements[0]["direction"], "toward_home")
         self.assertFalse(report["sharp_money_or_professional_action_inferred"])
@@ -52,6 +59,27 @@ class SharpArchiveTests(unittest.TestCase):
         self.assertFalse(report["bet_ready"])
         self.assertEqual(report["certified_predictions"], 0)
         self.assertEqual(report["archive_run_ids"], [123])
+
+    def test_past_event_movement_is_not_current_watch_signal(self):
+        report, movements = summarize_sharp_archive(
+            observations(), now=datetime(2026, 11, 10, 11, tzinfo=timezone.utc))
+        self.assertEqual(len(movements), 1)  # archival evidence retained
+        self.assertEqual(report["upcoming_market_movement_observations"], 0)
+        self.assertEqual(report["ranked_market_movement_watchlist"], [])
+        self.assertEqual(report["sharp_bet_decision"], "PASS")
+
+    def test_implausible_two_way_overround_cannot_be_sharp_signal(self):
+        rows = observations()
+        rows[0]["odds_american"] = -9000
+        rows[0]["odds_decimal"] = 1 + 100 / 9000
+        rows[2]["odds_american"] = -10000
+        rows[2]["odds_decimal"] = 1 + 100 / 10000
+        report, movements = summarize_sharp_archive(
+            rows, now=datetime(2026, 11, 8, 11, tzinfo=timezone.utc))
+        self.assertEqual(movements, [])
+        self.assertEqual(report["sharp_bet_decision"], "PASS")
+        self.assertEqual(report["line_movement_exclusions"]["implausible_market_overround"], 1)
+        self.assertEqual(report["certified_predictions"], 0)
 
     def test_without_saved_quotes_report_explicitly_unavailable(self):
         with tempfile.TemporaryDirectory() as folder:
