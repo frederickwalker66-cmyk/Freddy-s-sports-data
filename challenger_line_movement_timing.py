@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from collections import Counter, defaultdict
 from datetime import timezone
-from challenger_moneyline_market_baseline import inspect_quote, MAX_PAIR_TIMESTAMP_SKEW_SECONDS
+from challenger_moneyline_market_baseline import inspect_quote, MAX_PAIR_TIMESTAMP_SKEW_SECONDS, MAX_OVERROUND
 
 def analyze_line_movement(rows):
     """Pair home/away snapshots at each capture, then compare chronological snapshots.
@@ -51,6 +51,15 @@ def analyze_line_movement(rows):
             t1, h1, a1 = after
             if t1 <= t0 or h1["quote"] < h0["quote"] or a1["quote"] < a0["quote"]:
                 excluded["nonmonotonic_quote_timestamps"] += 1
+                continue
+            # Reject malformed two-way prices before calculating a direction.
+            # A synthetic/misidentified side can otherwise create a large
+            # apparent line move, even when each individual price is valid.
+            before_overround = h0["implied"] + a0["implied"]
+            after_overround = h1["implied"] + a1["implied"]
+            if not (1 <= before_overround <= MAX_OVERROUND
+                    and 1 <= after_overround <= MAX_OVERROUND):
+                excluded["implausible_market_overround"] += 1
                 continue
             # A new capture is not evidence of movement unless the provider
             # updated at least one of the two sides.
