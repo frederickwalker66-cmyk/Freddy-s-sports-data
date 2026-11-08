@@ -4,9 +4,10 @@
 
 ## NEW: V8 One Command — phone and laptop
 
-**[Run NBA / Run Sports / Run Edge Value / Model Status](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml)** — an integrated GitHub Actions research interface, available after the V8 branch merges to main. View the [V8 phone guide](V8_ONE_COMMAND_PHONE_GUIDE.md).
+**[Run NBA / Run Sports / Run Sharp / Run Edge / Model Status](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml)** — an integrated GitHub Actions research interface, available after the V8 branch merges to main. View the [V8 phone guide](V8_ONE_COMMAND_PHONE_GUIDE.md).
 
 - `run_nba` and `run_sports` collect bounded, historical **public research results** (up to 35 days per league) with downloadable artifacts, no paid bookmaker calls.
+- `run_sharp` analyzes saved SharpAPI DraftKings-labeled moneyline quotes and historical line movement from recent successful archive runs; no fresh paid collection and no inference of professional betting flow.
 - `run_edge` computes indicative price-vs-model research EV only when real, externally obtained pregame model probabilities and market observations are explicitly supplied through the local CLI; the cloud button defaults to zero rather than fabricating picks.
 - `model_status` runs actual native NBA/eight-sport model readiness, safely blocked where independently qualified training evidence is absent.
 - Weekly public eight-sport research collection is scheduled best-effort; artifacts expire after 90 days and must be archived for durable historical coverage.
