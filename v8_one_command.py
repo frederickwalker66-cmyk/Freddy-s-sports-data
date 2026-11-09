@@ -18,10 +18,11 @@ from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
+from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
@@ -73,6 +74,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "source_collection_health": None,
         "certification_review": None,
         "nba_training_intake": None,
+        "nba_oos_research": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -81,6 +83,28 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_nba_oos":
+        backfill_plan("nba", days, stop, now=now)
+        nba_source_dir = out / "nba"
+        kwargs = {"end_date": stop, "days": days, "output_dir": str(nba_source_dir)}
+        if collector is not None:
+            kwargs["collector"] = collector
+        if now is not None:
+            kwargs["clock"] = now
+        receipt = backfill("nba", **kwargs)
+        source_file = nba_source_dir / "published_results.jsonl"
+        published = [json.loads(x) for x in source_file.read_text(encoding="utf-8").splitlines()
+                     if x.strip()]
+        nba_diag, nba_ledger = nba_oos_benchmark(published, receipt, now=now)
+        report["nba_oos_research"] = nba_diag
+        report["by_league"]["nba"] = {
+            "status": nba_diag["status"],
+            "completed_published_games": nba_diag["published_completed_games"],
+            "successful_source_days": nba_diag["source_days_successfully_returned"],
+            "failed_source_days": nba_diag["source_days_failed"],
+            "data_verified_for_model_training": False,
+        }
+        save_nba_oos(nba_diag, nba_ledger, out)
     elif command == "run_nba_train":
         rows, trained_report, trained_model = nba_training_intake(
             nba_review_packets or [], now=now, qualified_history=nba_qualified_history)
