@@ -1,0 +1,111 @@
+name: V8 NFL and NHL actual pregame research capture (no betting)
+
+on:
+  workflow_dispatch:
+  # Best-effort daily capture before typical ET evening games; GitHub cron
+  # may be delayed/missed. Never backdate a late forecast into a prior game.
+  schedule:
+    - cron: '41 20 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'v8_nfl_nhl_forward.py'
+      - 'tests/test_v8_nfl_nhl_forward.py'
+      - '.github/workflows/v8-nfl-nhl-forward.yml'
+  pull_request:
+    paths:
+      - 'v8_nfl_nhl_forward.py'
+      - 'tests/test_v8_nfl_nhl_forward.py'
+      - '.github/workflows/v8-nfl-nhl-forward.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v8-nfl-nhl-forward-research-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reject inaccurate NFL/NHL market or source assumptions
+        run: python -m unittest discover -s tests -p 'test_v8_nfl_nhl_forward.py' -v
+
+  record-original-future-source:
+    needs: offline-safety
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        sport: [nfl, nhl]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Capture genuine original public scores and future schedule for research only
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.sport }}
+        run: |
+          set -euo pipefail
+          python v8_nfl_nhl_forward.py \
+            --league "$LEAGUE" --history-days 35 \
+            --output-dir "v8_results/new_sports/$LEAGUE"
+      - name: Report actual forward research counts and missing source coverage
+        if: always()
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.sport }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          league=os.environ["LEAGUE"]
+          path=Path(f"v8_results/new_sports/{league}/{league.upper()}_FORWARD_RESEARCH_STATUS.json")
+          lines=[f"# {league.upper()} V8 — Actual Prospective Research"]
+          if not path.exists():
+              lines += ["**Collection status: FAIL — source report unavailable.**",
+                        "**No unobserved forecast may be represented as recorded.**"]
+          else:
+              report=json.loads(path.read_text())
+              assert report["league"]==league
+              assert report["original_champion_001_certified_predictions"]==0
+              assert report["certified_positive_ev_bets"]==0
+              assert report["champion_001_modified"] is False
+              lines += [
+                  f"**Recorded at (UTC):** {report['recorded_at_utc']}",
+                  f"**35-day published results:** {report['published_history_retrieved']}",
+                  f"**Matured non-tied games used:** {report['matured_binary_games']}",
+                  f"**Prior tie results omitted:** {report['matured_ties_excluded']}",
+                  f"**Future schedule events found:** {report['schedule_future_events_identified']}",
+                  f"**Genuine pregame research forecasts recorded:** {report['forecast_probabilities_recorded_before_start']}",
+                  f"**Source days failed:** {report['source_days_failed']}",
+                  f"**HOLD causes:** {report['hold_reasons']}",
+                  "**No model skill, bookmaker price or betting edge is certified.**",
+                  "**NFL conditional non-tie target is NOT a normal two-way sportsbook moneyline.**",
+                  "**Original Champion-001 frozen. Certified positive EV: 0; wagers: $0.**",
+              ]
+          output="\n".join(lines)+"\n"
+          print(output)
+          if os.environ.get("GITHUB_STEP_SUMMARY"):
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a",encoding="utf-8") as f:
+                  f.write(output)
+          PY
+      - name: Preserve original pregame ESPN wire responses + clocktime V8 research forecasts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-${{ matrix.sport }}-forward-${{ github.run_id }}
+          path: v8_results/new_sports/${{ matrix.sport }}/
+          retention-days: 90
+          if-no-files-found: warn

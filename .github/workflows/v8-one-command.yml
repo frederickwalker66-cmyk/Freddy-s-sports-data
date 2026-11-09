@@ -25,6 +25,8 @@ on:
           - run_nba_train
           - run_nba_oos
           - run_nba_forward
+          - run_nfl_forward
+          - run_nhl_forward
           - run_nba_grade
           - run_leaderboard
           - run_calibration
@@ -61,6 +63,7 @@ on:
       - 'v8_nba_oos_research.py'
       - 'v8_nba_paired_baseline.py'
       - 'v8_nba_forward_research.py'
+      - 'v8_nfl_nhl_forward.py'
       - 'v8_nba_forward_grade.py'
       - 'v8_forward_leaderboard_view.py'
       - 'v8_forward_calibration_view.py'
@@ -76,6 +79,7 @@ on:
       - 'tests/test_v8_nba_oos_research.py'
       - 'tests/test_v8_nba_paired_baseline.py'
       - 'tests/test_v8_nba_forward_research.py'
+      - 'tests/test_v8_nfl_nhl_forward.py'
       - 'tests/test_v8_nba_forward_grade.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
@@ -245,7 +249,7 @@ jobs:
       - name: Run requested model research command
         env:
           SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
-          HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward') && '35' || inputs.days || '7' }}
+          HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward' || inputs.command == 'run_nfl_forward' || inputs.command == 'run_nhl_forward') && '35' || inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
         run: |
@@ -360,6 +364,21 @@ jobs:
                       "**Champion-001 certified shadows: 0. Independently certified EV bets: 0. Wagers: $0.**",
                       "**Original predictions remain immutable; no missing outcomes are scored as losses.**",
                       "Download NBA_FORWARD_GRADING_REPORT.json and NBA_FORWARD_GRADING_LEDGER.jsonl for per-game source and timestamp details."])
+              if r['command'] in ('run_nfl_forward','run_nhl_forward'):
+                  research=r.get('next_sport_forward_research') or {}
+                  sport=research.get('league') or r['command'].replace('run_','').replace('_forward','')
+                  lines.extend(['',f'## {sport.upper()} GENUINE Prospective V8 Research Forecasts (NOT betting picks)',
+                      f"**Actual recorded at UTC:** {research.get('recorded_at_utc')}",
+                      f"**Published historic games retrieved (35 ET days):** {research.get('published_history_retrieved',0)}",
+                      f"**Matured non-tied regular-season games:** {research.get('matured_binary_games',0)}",
+                      f"**Historical ties excluded:** {research.get('matured_ties_excluded',0)}",
+                      f"**Upcoming scheduled games identified:** {research.get('schedule_future_events_identified',0)}",
+                      f"**Genuine before-start research forecasts:** {research.get('forecast_probabilities_recorded_before_start',0)}",
+                      f"**Source-history failures:** {research.get('source_days_failed',0)}",
+                      f"**HOLD reasons:** {research.get('hold_reasons',{})}",
+                      '**NFL forecasts conditional on no tie are not full market moneyline probabilities; NHL settlement also unverified.**',
+                      '**Champion-001 certified predictions: 0. Verified positive-EV bets: 0. Stakes: $0.**',
+                      f"Download {sport}_forward/{sport.upper()}_FORWARD_RESEARCH_FORECASTS.jsonl and unmodified original ESPN schedule bytes."])
               if r['command'] == 'run_nba_forward':
                   fwd=r.get('nba_forward_research') or {}
                   lines.extend(["", "## NBA REAL Forward Research Forecasts — Created Before Tipoff",
