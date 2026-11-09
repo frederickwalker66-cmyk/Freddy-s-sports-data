@@ -22,6 +22,7 @@ on:
           - run_sharp
           - run_health
           - run_certify
+          - run_nba_train
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -49,6 +50,7 @@ on:
       - 'v8_sharp_archive.py'
       - 'v8_source_cadence_watchdog.py'
       - 'v8_certification_audit.py'
+      - 'v8_nba_training_intake.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -57,6 +59,7 @@ on:
       - 'tests/test_v8_sharp_archive.py'
       - 'tests/test_v8_source_cadence_watchdog.py'
       - 'tests/test_v8_certification_audit.py'
+      - 'tests/test_v8_nba_training_intake.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -120,7 +123,7 @@ jobs:
             echo "Metadata unavailable: reporting unknown instead of invented data."
           fi
       - name: Load last completed real source and price audit receipts for certification review
-        if: ${{ inputs.command == 'run_certify' || github.event_name == 'push' }}
+        if: ${{ inputs.command == 'run_certify' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -146,9 +149,28 @@ jobs:
             fi
           fi
           echo "Research artifacts loaded if available. No paid API, betting or external certification."
+      - name: Read previous prospective NBA original-capture review artifacts (no paid API)
+        if: ${{ inputs.command == 'run_nba_train' || github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p nba_original_reviews
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-prospective-outcome-validation.yml --branch main --status success --limit 4 --json databaseId --jq '.[].databaseId' || true)
+          success=0
+          for rid in "${ids[@]}"; do
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "challenger-prospective-outcome-validation-$rid" --dir "nba_original_reviews/$rid"; then
+              success=$((success+1))
+            else
+              rm -rf "nba_original_reviews/$rid"
+              echo "Earlier review artifact $rid unavailable; no retrospective rows added."
+            fi
+          done
+          echo "Prospective review artifacts downloaded for independent intake: $success"
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_train' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -158,6 +180,9 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_nba_train" ]]; then
+            params+=(--nba-review-dir nba_original_reviews)
           fi
           if [[ "$SELECTED_COMMAND" == "run_certify" ]]; then
             params+=(--certification-source-dir cert_upstream/source
@@ -200,6 +225,17 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_nba_train':
+                  intake=r.get('nba_training_intake') or {}
+                  lines.extend(["", "## NBA Original Evidence Intake & Training Readiness",
+                      f"**Status:** {intake.get('status', 'UNKNOWN')}",
+                      f"**Unique receipt-backed NBA events:** {intake.get('nba_unique_original_capture_events', 0)}",
+                      f"**Original NBA packets with pregame features and published finals:** {intake.get('nba_manual_review_packets_with_pregame_features_and_published_finals', 0)}",
+                      f"**Independently qualified training games:** {intake.get('independently_qualified_training_games', 0)} (minimum 200)",
+                      f"**Independently qualified later holdout games:** {intake.get('independently_qualified_holdout_games', 0)} (minimum 50)",
+                      f"**Native research model fitted:** {intake.get('native_research_model_fitted', False)}",
+                      "**No training on automatic review packets, no certified model or positive EV bets.**",
+                      "Download NBA_RESEARCH_INTAKE.json and NBA_ORIGINAL_REVIEW_WORKLIST.jsonl for review."])
               if r['command'] == 'run_certify':
                   audit=r.get('certification_review') or {}
                   lines.extend(["", "## Certification Evidence Audit — Real Existing GitHub Reports",
@@ -259,7 +295,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_train' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
