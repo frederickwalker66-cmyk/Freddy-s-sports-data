@@ -20,15 +20,17 @@ from v8_certification_audit import inspect_archives as certification_audit
 from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 from v8_nba_forward_research import capture as capture_nba_forward
+from v8_nfl_nhl_forward import capture as capture_new_sport_forward
 from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
+    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
+    "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
@@ -57,7 +59,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             nba_review_packets=None, nba_qualified_history=None,
             nba_forward_runner=None, nba_grading_archive_dir=None,
             nba_grading_outcome_collector=None, leaderboard_file=None,
-            calibration_file=None):
+            calibration_file=None, new_sport_forward_runner=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -86,6 +88,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_forward_grading": None,
         "forward_leaderboard": None,
         "forward_calibration": None,
+        "next_sport_forward_research": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -115,6 +118,23 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             "successful_source_days": None,
             "failed_source_days": None,
             "research_forecasts_graded": grading["real_forward_research_forecasts_graded"],
+            "data_verified_for_model_training": False,
+        }
+    elif command in ("run_nfl_forward", "run_nhl_forward"):
+        if end_date is not None:
+            raise ValueError("forward_prediction_cannot_use_historical_end_date")
+        league = selected(command)[0]
+        runner = new_sport_forward_runner or capture_new_sport_forward
+        original, status = runner(league, out / (league + "_forward"), history_days=days)
+        report["historical_data_only_not_trainable"] = False
+        report["model_training_data_independently_qualified"] = False
+        report["next_sport_forward_research"] = status
+        report["by_league"][league] = {
+            "status": "clocktime_forward_probability_research_only",
+            "completed_published_games": status["published_history_retrieved"],
+            "successful_source_days": status["source_days_ok"],
+            "failed_source_days": status["source_days_failed"],
+            "research_forecast_count": len(original),
             "data_verified_for_model_training": False,
         }
     elif command == "run_nba_forward":
