@@ -24,6 +24,7 @@ on:
           - run_certify
           - run_nba_train
           - run_nba_oos
+          - run_nba_forward
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -36,6 +37,7 @@ on:
         type: string
   schedule:
     - cron: '23 9 * * 0' # Weekly all-eight public research capture, no API fees
+    - cron: '37 20 * * *' # Best-effort daily actual clock-time NBA research forecasts (15:37 EST / 16:37 EDT)
   # Automatically replay archived Sharp prices after a successful paid collector
   # run. The replay reads artifacts only; it never calls SharpAPI itself.
   workflow_run:
@@ -54,6 +56,7 @@ on:
       - 'v8_nba_training_intake.py'
       - 'v8_nba_oos_research.py'
       - 'v8_nba_paired_baseline.py'
+      - 'v8_nba_forward_research.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -65,6 +68,7 @@ on:
       - 'tests/test_v8_nba_training_intake.py'
       - 'tests/test_v8_nba_oos_research.py'
       - 'tests/test_v8_nba_paired_baseline.py'
+      - 'tests/test_v8_nba_forward_research.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -155,7 +159,7 @@ jobs:
           fi
           echo "Research artifacts loaded if available. No paid API, betting or external certification."
       - name: Read previous prospective NBA original-capture review artifacts (no paid API)
-        if: ${{ inputs.command == 'run_nba_train' || github.event_name == 'push' }}
+        if: ${{ inputs.command == 'run_nba_train' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -175,9 +179,9 @@ jobs:
           echo "Prospective review artifacts downloaded for independent intake: $success"
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_oos' || inputs.command || 'run_sports' }}
-          HISTORY_DAYS: ${{ github.event_name == 'push' && '35' || inputs.days || '7' }}
-          HISTORY_END_DATE: ${{ github.event_name == 'push' && '2026-02-15' || inputs.end_date }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_forward' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
+          HISTORY_DAYS: ${{ (github.event_name == 'push' || github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward') && '35' || inputs.days || '7' }}
+          HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
         run: |
           set -euo pipefail
@@ -223,13 +227,26 @@ jobs:
                   f"**Command:** {r['command']}",
                   f"**Historic date ending:** {r['historical_end_et']}",
                   "**Certified picks and certified +EV bets: 0.**",
-                  "**Status:** Historical published scores/research only; not an authenticated betting model.",
+                  "**Status:** Research only. Forward forecasts, when recorded, are NOT independently validated betting predictions.",
                   "",
                   "| Sport | Source days successful | Published games | Status |",
                   "|---|---:|---:|---|",
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_nba_forward':
+                  fwd=r.get('nba_forward_research') or {}
+                  lines.extend(["", "## NBA REAL Forward Research Forecasts — Created Before Tipoff",
+                      f"**Actual clock-time recorded at:** {fwd.get('captured_at_utc', 'not captured')}",
+                      f"**Original NBA public source results:** {fwd.get('history_games_retrieved', 0)}",
+                      f"**NBA historical source days succeeded:** {fwd.get('source_days_succeeded', 0)}; failed: {fwd.get('source_days_failed', 0)}",
+                      f"**Matured prior NBA games available to fixed Elo:** {fwd.get('matured_NBA_history_games', 0)}",
+                      f"**Future scheduled NBA games seen:** {fwd.get('future_schedule_events_seen', 0)}",
+                      f"**Real before-tipoff V8 Elo research probabilities recorded:** {fwd.get('forward_research_probabilities_recorded_before_tipoff', 0)}",
+                      f"**HOLD reasons:** {fwd.get('hold_reasons', {})}",
+                      "**Model lane: V8 ELO v0 RESEARCH ONLY; not Champion-001 and not independent betting certification.**",
+                      "**Certified Champion-001 shadows: 0. Certified EV bets: 0. Stake: $0.**",
+                      "Download nba_forward/NBA_FORWARD_FORECASTS.jsonl with each forecast timestamp, event ID, source hash and probability."])
               if r['command'] == 'run_nba_oos':
                   oos=r.get('nba_oos_research') or {}
                   lines.extend(["", "## NBA Archived-Score Retrospective Elo Evaluation",
