@@ -43,7 +43,8 @@ def _now(clock):
 
 
 def _event(event, day, received_at, source_url, raw_hash):
-    if not isinstance(event, dict) or event.get("season", {}).get("type") != 2:
+    if (not isinstance(event, dict) or not isinstance(event.get("season"), dict)
+            or event["season"].get("type") != 2):
         return None
     state = event.get("status", {})
     if not isinstance(state, dict) or not isinstance(state.get("type"), dict):
@@ -286,8 +287,9 @@ def capture(output_dir, *, history_days=DEFAULT_HISTORY_DAYS,
         try:
             result = fetch_schedule(url)
             received = _now(clock)
-            if not first <= received and received.astimezone(NY).date() == day:
-                raise ValueError("schedule_clock_regressed")
+            if (received < first or
+                    received.astimezone(NY).date() != first.astimezone(NY).date()):
+                raise ValueError("schedule_clock_regressed_or_crossed_eastern_day")
             if not isinstance(result, tuple) or len(result) != 2:
                 raise ValueError("original_schedule_response_bytes_required")
             parsed, raw = result
