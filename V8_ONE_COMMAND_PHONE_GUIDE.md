@@ -16,6 +16,7 @@ pregame feature availability or profitable bets.
    - **run_health** — inspect actual eight-sport source collection runs and their most recent completed success. This is read-only; it cannot force or certify a source.
    - **run_certify** — read the most recent already completed eight-sport source gate and SharpAPI moneyline archive, reconcile source counts, and list per-league blockers. **Evidence audit only, never fake certified predictions.**
    - **run_nba_train** — download recent original NBA prospective review receipts, report real independently unqualified training gaps and produce a downloadable manual-review worklist. It deliberately does not train on unverified review packets.
+   - **run_nba_oos** — fetch up to 35 real NBA historical regular-season score days (public ESPN only), replay a fixed Elo benchmark using a 48-hour result embargo, and report retrospective Brier/log loss. **This is not a real pregame logged forecast, certified calibration, executable EV, or a betting recommendation.**
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -135,3 +136,31 @@ python v8_one_command.py --command run_nba_train --nba-review-dir path\to\downlo
 ```
 
 That separate file must satisfy the original `challenger_nba_probability.train_engine` schema and its 200/50 chronological training/holdout gates. Even a successful research model remains **unverified**, because source-review flags and original receipts cannot independently authenticate themselves. A subsequent external audit of publisher time, outcome and exact bookmaker settlement, model calibration, and executable sportsbook quotes is required before any certified positive-EV recommendation.
+
+## NBA research probability benchmark: `run_nba_oos`
+
+Select **run_nba_oos**, choose **35** days, and select an **in-season past**
+date such as `2026-02-15`. The command fetches only the original public ESPN
+scoreboard dates in that 35-day window; no odds API or subscription credits.
+
+Its JSON artifact records each game ID and a simulated home-win probability
+from a fixed Elo update rule. Prior games are applied only after a **48-hour
+assumed outcome-publication embargo**, with simultaneous events scored before
+either result is incorporated.
+
+After 80 warmup games and at least 30 later games, it reports exploratory
+Brier score, log loss and an **untrained neutral 50/50** reference. The data
+are historical results fetched after the games; the forecasts are **not**
+authentic pre-tipoff recorded shadow predictions. Neither an assumed 48-hour
+publication lag nor a good retrospective Brier score proves actual forecast
+skill, independent NBA source authenticity, bet ROI or current market edge.
+
+If there are fewer than 110 usable regular-season results or the public source
+fails, the command reports HOLD and does not fabricate metrics. Every output
+remains uncertified, and Champion-001 is not modified.
+
+For actual certification, first accumulate separately authenticated pregame
+team/injury data and model versions captured *before* start times, then
+evaluate reproducible probabilities against independently adjudicated
+outcomes on untouched later games and independently verified executable
+bookmaker prices.
