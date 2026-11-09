@@ -18,6 +18,7 @@ pregame feature availability or profitable bets.
    - **run_nba_train** — download recent original NBA prospective review receipts, report real independently unqualified training gaps and produce a downloadable manual-review worklist. It deliberately does not train on unverified review packets.
    - **run_nba_oos** — fetch up to 35 real NBA historical regular-season score days (public ESPN only), replay a fixed Elo benchmark using a 48-hour result embargo, and report retrospective Brier/log loss. **This is not a real pregame logged forecast, certified calibration, executable EV, or a betting recommendation.**
    - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
+   - **run_nba_grade** — read the saved genuine pretipoff V8 research forecasts, check their original schedule-byte hashes and GitHub run timestamps, then grade only games with ESPN final results observed at least 48 hours after their original scheduled tipoff. Never backfill or change an original prediction.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -223,3 +224,45 @@ calibrated probability, a certified pick, guaranteed return or an actionable
 +EV recommendation. To grade it, independently retrieve later final results
 and compare with the **unchanged, timestamped forecast**; retain missing
 forecasts, losses and voids.
+
+## NBA prospective research grading: `run_nba_grade`
+
+Choose **Run workflow → run_nba_grade → Run workflow** in the GitHub phone
+command center, with the historical end-date **blank**. It requires no paid
+sportsbook API and creates no bets. The same read-only grading workflow is
+scheduled at approximately **8:53 a.m. EST / 9:53 a.m. EDT**, best effort.
+
+The grader looks through up to 35 recent successful One Command GitHub runs,
+and downloads only available archived forward-forecast artifacts. The first
+successful November 9, 2026 run has a **legacy artifact name**
+`v8-one-command-run_nba_oos-42699985963`; the grader recognizes that label
+but checks the actual report must say `run_nba_forward` before accepting it.
+
+Each downloaded forecast must match (1) its original saved schedule HTTP
+bytes SHA-256, (2) its exact ESPN event ID, team IDs, and scheduled kickoff,
+(3) its GitHub run-created/completed timestamps surrounding the original
+forecast capture, (4) the fixed model version and its original probability,
+and (5) its explicit research-only and $0 stake flags. Later reforecasts
+cannot revise the **first** accepted probability for the same event. A
+conflicting event identity is quarantined.
+
+Game outcomes stay **PENDING** until the ORIGINAL kickoff time is at least
+48 hours old and a separate public ESPN completed-score record is available.
+Source outages, postponed or shifted games, unresolved official settlement,
+and changing team IDs are reported as **HOLD**, never silently scored as
+losses. Even scored outcomes are ESPN-published *research* results, not
+independent league adjudication.
+
+The downloadable `NBA_FORWARD_GRADING_REPORT.json` and
+`NBA_FORWARD_GRADING_LEDGER.jsonl` provide:
+- True sample counts, pending and excluded records.
+- Per-game original forecast probability, timestamp, source GitHub run ID,
+  later published score, source URL, and each game's Brier/log-loss.
+- Aggregate research Brier, log loss, direction accuracy and an explicit
+  50+ forward-graded-game readiness flag.
+
+A sample below 50 games is **preliminary**; even at 50+, research grading
+does not independently certify calibration, model authenticity, or
+actionable positive EV. **Champion-001 original certified shadows remain 0**
+and no odds or wagers are generated. GitHub artifacts expire after 90 days,
+so a durable externally archived forecast ledger is still needed.

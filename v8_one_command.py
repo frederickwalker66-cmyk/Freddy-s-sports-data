@@ -20,12 +20,13 @@ from v8_certification_audit import inspect_archives as certification_audit
 from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 from v8_nba_forward_research import capture as capture_nba_forward
+from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
+    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
@@ -52,7 +53,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             certification_source_dir=None, certification_sharp_dir=None,
             certification_source_run_id=None, certification_sharp_run_id=None,
             nba_review_packets=None, nba_qualified_history=None,
-            nba_forward_runner=None):
+            nba_forward_runner=None, nba_grading_archive_dir=None,
+            nba_grading_outcome_collector=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -78,6 +80,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_training_intake": None,
         "nba_oos_research": None,
         "nba_forward_research": None,
+        "nba_forward_grading": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -86,6 +89,25 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_nba_grade":
+        if end_date is not None:
+            raise ValueError("prospective_grading_cannot_override_actual_clock")
+        if nba_grading_archive_dir is None:
+            raise ValueError("original_GitHub_forward_archives_required")
+        originals, receipt = load_archived_forecasts(nba_grading_archive_dir)
+        grading, grading_ledger = grade_nba_forward(
+            originals, as_of=now, collector=nba_grading_outcome_collector, receipt=receipt)
+        save_nba_forward_grading(grading, grading_ledger, out)
+        report["nba_forward_grading"] = grading
+        report["historical_data_only_not_trainable"] = False
+        report["by_league"]["nba"] = {
+            "status": grading["status"],
+            "completed_published_games": grading["real_forward_research_forecasts_graded"],
+            "successful_source_days": None,
+            "failed_source_days": None,
+            "research_forecasts_graded": grading["real_forward_research_forecasts_graded"],
+            "data_verified_for_model_training": False,
+        }
     elif command == "run_nba_forward":
         if end_date is not None:
             raise ValueError("forward_prediction_cannot_use_historical_end_date")
@@ -197,6 +219,7 @@ def main(argv=None):
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
     p.add_argument("--nba-review-dir", help="Previously captured original NBA source review packets (research only)")
+    p.add_argument("--nba-grade-archives-dir", help="Saved completed Github forward runs including original schedule bytes and run metadata")
     p.add_argument("--nba-qualified-history", help="Distinct independently reviewed NBA history file; only for unverified native research training")
     p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
     p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
@@ -236,7 +259,8 @@ def main(argv=None):
                      certification_sharp_dir=args.certification_sharp_dir,
                      certification_source_run_id=args.certification_source_run_id,
                      certification_sharp_run_id=args.certification_sharp_run_id,
-                     nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history)
+                     nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history,
+                     nba_grading_archive_dir=args.nba_grade_archives_dir)
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},

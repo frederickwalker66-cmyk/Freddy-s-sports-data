@@ -79,6 +79,30 @@ class OneCommandTests(unittest.TestCase):
             self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
             self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
 
+    def test_run_nba_grade_has_zero_fabricated_results_with_no_real_archives(self):
+        self.assertEqual(selected("run_nba_grade"), ("nba",))
+        with tempfile.TemporaryDirectory() as folder:
+            archives = Path(folder) / "empty_archives"
+            archives.mkdir()
+            r = execute("run_nba_grade", now=datetime(2026,11,9,22,tzinfo=timezone.utc),
+                        output_dir=str(Path(folder)/"output"),
+                        nba_grading_archive_dir=str(archives))
+            result = r["nba_forward_grading"]
+            self.assertEqual(result["forecast_rows_in_scope"], 0)
+            self.assertEqual(result["real_forward_research_forecasts_graded"], 0)
+            self.assertIsNone(result["probability_research_Brier"])
+            self.assertEqual(r["certified_positive_ev_bets"], 0)
+            self.assertTrue((Path(folder)/"output/NBA_FORWARD_GRADING_REPORT.json").is_file())
+            with self.assertRaisesRegex(ValueError, "prospective_grading_cannot_override_actual_clock"):
+                execute("run_nba_grade",end_date=date(2026,2,15),
+                        output_dir=str(Path(folder)/"other"),
+                        nba_grading_archive_dir=str(archives))
+
+    def test_run_nba_grade_without_gitHub_sources_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, "original_GitHub_forward_archives_required"):
+                execute("run_nba_grade",output_dir=folder)
+
     def test_run_nba_forward_requires_true_capture_not_historical_replay(self):
         self.assertEqual(selected("run_nba_forward"), ("nba",))
         used = []
