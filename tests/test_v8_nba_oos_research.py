@@ -68,6 +68,15 @@ class NbaOosResearchTests(unittest.TestCase):
         self.assertIsInstance(diag["brier_score_retrospective_research_only"], float)
         self.assertIsInstance(diag["log_loss_retrospective_research_only"], float)
         self.assertIsInstance(diag["neutral_50_50_brier_comparison_not_bookmaker"], float)
+        prior=diag["paired_rolling_home_baseline_comparison"]
+        self.assertTrue(prior["scores_available"])
+        self.assertEqual(prior["later_reconstructed_evaluation_events"], 40)
+        self.assertEqual(prior["certified_predictions"], 0)
+        self.assertAlmostEqual(prior["elo_brier_unrounded"],
+                               diag["brier_score_retrospective_research_only"], places=4)
+        self.assertIsInstance(prior["rolling_home_win_baseline_brier"], float)
+        self.assertTrue(all("retrospective_rolling_home_baseline_probability" in row
+                            for row in ledger))
         self.assertEqual(len(ledger), 120)
         self.assertTrue(all(x["historical_forecast_actually_recorded_before_tipoff"] is False
                             and x["qualified_as_true_pregame_shadow"] is False
@@ -82,6 +91,8 @@ class NbaOosResearchTests(unittest.TestCase):
         report_obj, ledger = benchmark(rows, report(12), now=NOW)
         self.assertEqual(report_obj["status"], "HOLD_INSUFFICIENT_RESEARCH_HISTORY")
         self.assertIsNone(report_obj["brier_score_retrospective_research_only"])
+        self.assertFalse(report_obj["paired_rolling_home_baseline_comparison"]["scores_available"])
+        self.assertIsNone(report_obj["paired_rolling_home_baseline_comparison"]["rolling_home_win_baseline_brier"])
         self.assertEqual(report_obj["certified_v8_predictions"], 0)
         self.assertEqual(len(ledger), 12)
 
