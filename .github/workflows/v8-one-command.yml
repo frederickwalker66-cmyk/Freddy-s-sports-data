@@ -27,6 +27,7 @@ on:
           - run_nba_forward
           - run_nfl_forward
           - run_nhl_forward
+          - run_sport_board
           - run_nba_grade
           - run_leaderboard
           - run_calibration
@@ -64,6 +65,7 @@ on:
       - 'v8_nba_paired_baseline.py'
       - 'v8_nba_forward_research.py'
       - 'v8_nfl_nhl_forward.py'
+      - 'v8_nfl_nhl_board_view.py'
       - 'v8_nba_forward_grade.py'
       - 'v8_forward_leaderboard_view.py'
       - 'v8_forward_calibration_view.py'
@@ -80,6 +82,9 @@ on:
       - 'tests/test_v8_nba_paired_baseline.py'
       - 'tests/test_v8_nba_forward_research.py'
       - 'tests/test_v8_nfl_nhl_forward.py'
+      - 'tests/test_v8_nfl_nhl_board_view.py'
+      - 'tests/test_v8_nfl_nhl_forward_grade.py'
+      - 'tests/test_v8_nfl_nhl_durable_ledger.py'
       - 'tests/test_v8_nba_forward_grade.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
@@ -246,6 +251,23 @@ jobs:
           else
             echo "Calibration not created yet; no statistics inferred."
           fi
+      - name: Read previously persisted NFL and NHL research scorecards (no collector)
+        if: ${{ inputs.command == 'run_sport_board' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v8_results/sport_board
+          for lg in nfl nhl; do
+            file="v8_results/sport_board/${lg}.json"
+            if gh api "repos/$GITHUB_REPOSITORY/contents/data/v8_forward/${lg}/FORWARD_RESEARCH_LEADERBOARD.json?ref=research%2Fnfl-nhl-forward-ledger" --jq '.content' | base64 --decode > "$file"; then
+              echo "Loaded genuine persisted $lg research report."
+            else
+              rm -f "$file"
+              echo "No verified persistent $lg report yet; show NOT_YET_PERSISTED, not invented zero."
+            fi
+          done
       - name: Run requested model research command
         env:
           SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
@@ -258,6 +280,10 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_sport_board" ]]; then
+            params+=(--nfl-board-file v8_results/sport_board/nfl.json
+                     --nhl-board-file v8_results/sport_board/nhl.json)
           fi
           if [[ "$SELECTED_COMMAND" == "run_calibration" ]]; then
             params+=(--calibration-file v8_results/leaderboard_download/CALIBRATION.json)
@@ -364,6 +390,19 @@ jobs:
                       "**Champion-001 certified shadows: 0. Independently certified EV bets: 0. Wagers: $0.**",
                       "**Original predictions remain immutable; no missing outcomes are scored as losses.**",
                       "Download NBA_FORWARD_GRADING_REPORT.json and NBA_FORWARD_GRADING_LEDGER.jsonl for per-game source and timestamp details."])
+              if r['command'] == 'run_sport_board':
+                  board=r.get('nfl_nhl_forward_board') or {}
+                  lines.extend(["", "## NFL / NHL Permanent Original Forward Research Ledger (read-only)",
+                      "| Sport | First forecasts saved | ESPN finals graded | Pending 48h | Ties excluded | Status |",
+                      "|---|---:|---:|---:|---:|---|"])
+                  for sport,v in (board.get('by_sport') or {}).items():
+                      lines.append(
+                          f"| {sport.upper()} | {v.get('original_saved_forecasts')} | "
+                          f"{v.get('graded_research_games')} | {v.get('pending_48h')} | "
+                          f"{v.get('NFL_ties_excluded_not_losses',0)} | {v.get('status')} |")
+                  lines.extend(["", "**For graded research leaderboard: 50 original before-start non-tied results required per sport/model.**",
+                      "**Git branch is durable but not independent immutable custody; no original Champion-001 certified probabilities.**",
+                      "**Independently certified bets: 0, verified +EV: 0, wagers: $0.**"])
               if r['command'] in ('run_nfl_forward','run_nhl_forward'):
                   research=r.get('next_sport_forward_research') or {}
                   sport=research.get('league') or r['command'].replace('run_','').replace('_forward','')
