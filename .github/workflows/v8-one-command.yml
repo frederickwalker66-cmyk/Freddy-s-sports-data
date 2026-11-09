@@ -20,6 +20,7 @@ on:
           - run_uefa
           - run_edge
           - run_sharp
+          - run_health
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -45,12 +46,14 @@ on:
       - 'v8_one_command.py'
       - 'v8_edge_value.py'
       - 'v8_sharp_archive.py'
+      - 'v8_source_cadence_watchdog.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
       - 'v8_edge_value.py'
       - 'tests/test_v8_one_command.py'
       - 'tests/test_v8_sharp_archive.py'
+      - 'tests/test_v8_source_cadence_watchdog.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -99,6 +102,20 @@ jobs:
             fi
           done
           echo "Archived SharpAPI runs downloaded: $count"
+      - name: Read actual source-run status for phone health view (no dispatch)
+        if: ${{ inputs.command == 'run_health' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v8_results
+          if gh api "repos/$GITHUB_REPOSITORY/actions/workflows/challenger-eight-sport-source-preflight.yml/runs?per_page=100" > v8_results/source_runs.json; then
+            echo "Actual main-source workflow metadata fetched."
+          else
+            echo '{"fetch_error": true}' > v8_results/source_runs.json
+            echo "Metadata unavailable: reporting unknown instead of invented data."
+          fi
       - name: Run requested model research command
         env:
           SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}
@@ -111,6 +128,9 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_health" ]]; then
+            params+=(--source-runs-json v8_results/source_runs.json)
           fi
           if [[ "$SELECTED_COMMAND" == "run_sharp" ]]; then
             params+=(--sharp-archive-dir saved_sharp_archives)
@@ -140,6 +160,16 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_health':
+                  health=r.get('source_collection_health') or {}
+                  lines.append("")
+                  lines.append("## Source capture health (actual GitHub run metadata)")
+                  lines.append(f"**Recovery assessment:** {health.get('recovery_decision','UNKNOWN')}")
+                  lines.append(f"**Reason:** {health.get('reason','no metadata')}")
+                  lines.append(f"**Last successful source run:** {health.get('latest_successful_workflow_completion_utc') or 'not observed'}")
+                  lines.append(f"**Minutes since last completed source run:** {health.get('minutes_since_latest_successful_run')}")
+                  lines.append(f"**Source runs currently in progress:** {len(health.get('in_flight_source_run_ids', []))}")
+                  lines.append("No scheduled source collection is guaranteed. This status button never spends API credits or triggers a recovery.")
               if r['command'] == 'run_sharp':
                   sharp=r.get('sharp_archive') or {}
                   lines.append("")
