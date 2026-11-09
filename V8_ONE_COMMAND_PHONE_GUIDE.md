@@ -20,6 +20,7 @@ pregame feature availability or profitable bets.
    - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
    - **run_nfl_forward** — capture original ESPN NFL pre-start event bytes with a 7-day outlook and prior 35 days of published results. Record fixed Elo v0 research P(home wins | no tie), explicitly NOT an actionable moneyline probability.
    - **run_nhl_forward** — capture original ESPN NHL pre-start event bytes with a 2-day outlook and prior 35 days of published results. Record fixed Elo v0 NHL full-game home-win research probabilities; OT/SO and sportsbook settlement are unverified.
+   - **run_sport_board** — read the persistent NFL/NHL first-forecast research history and separately published outcomes from `research/nfl-nhl-forward-ledger`. This is read-only; it does not generate or place bets.
    - **run_nba_grade** — read the saved genuine pretipoff V8 research forecasts, check their original schedule-byte hashes and GitHub run timestamps, then grade only games with ESPN final results observed at least 48 hours after their original scheduled tipoff. Never backfill or change an original prediction.
    - **run_leaderboard** — read your stored forward research records from the separate `research/forward-ledger` Git branch, show original forecasts, pending games, Brier/log loss and any models with at least 50 real graded forward games. No current game bets or fabricated edge.
    - **run_calibration** — read the saved research reliability report from the same durable Git branch. It shows five fixed probability buckets; empirical win frequencies are withheld for buckets with fewer than 20 graded games, aggregate Brier/log-loss require 50+ games, and exploratory calibration error requires 100+ games and ten per occupied bucket.
@@ -375,3 +376,52 @@ they DO NOT inherit the NBA SQLite database, grading or 50-game
 calibration results. Those require separate sport-specific verified outcome
 grading and durable archiving. Original Champion-001 stays frozen;
 **certified picks: 0, automated wagers: 0**.
+
+## NFL + NHL original forward prediction grading and durable archive
+
+The NFL/NHL first actual main-branch capture ran on **November 9, 2026**
+(GitHub run `42711310554`), recording **14 NFL** conditional non-tie
+research probabilities and **10 NHL** full-game ESPN-win research
+probabilities before their scheduled starts.
+
+The separate workflow `v8-nfl-nhl-forward-grade-ledger.yml` runs after
+a successful source-capture workflow, best-effort daily, and can be
+manually dispatched from GitHub Actions. It downloads actual completed
+GitHub run metadata + the matching `v8-nfl-forward-RUNID` and
+`v8-nhl-forward-RUNID` artifacts and verifies:
+
+- Original complete successful GitHub run, initial event and model version.
+- Original ESPN response JSON bytes and SHA-256, event ID, matchup and UTC tipoff.
+- Original model probability and GitHub run capture **before** the game starts.
+- No self-promoted Champion-001, betting odds or certified model results.
+
+The writer then preserves raw original source files in a distinct Git branch
+`research/nfl-nhl-forward-ledger`, under
+`data/v8_forward/nfl/` and `data/v8_forward/nhl/`.
+Each sport has its own `FIRST_FORECASTS.sqlite`,
+`FIRST_FORECAST_HISTORY.jsonl` and
+`FORWARD_RESEARCH_LEADERBOARD.json`.
+
+Only the **first validated forecast** is ever graded. A later forecast
+does NOT overwrite the original. Conflicting identities are quarantined.
+Published results are fetched **no earlier than 48 hours after the
+original scheduled start**. Missing or delayed games stay pending/HOLD.
+
+**NFL published ties** are recorded as excluded from the conditional
+no-tie binary target: they are **not** wins or losses. NHL scores are
+published full-game results, but overtime/shootout sportsbook grading
+has NOT been independently adjudicated; a tied published NHL score
+is held rather than inventing a winner.
+
+A research leaderboard requires **50 genuinely forward-graded binary
+games for each sport and model** before showing Brier/log loss and
+direction accuracy. Even then this is research only, not calibrated
+bookmaker odds or independent model certification.
+
+Use **Run workflow → run_sport_board → Run workflow** from the main
+V8 One Command screen for a read-only NFL/NHL report. Use the separate
+durable grading workflow to refresh archived originals and scorecards.
+Git branch persistence is useful after temporary GitHub artifacts expire,
+but **is not externally immutable, third-party signed custody**. Back up
+the branch separately. Frozen Champion-001 remains unchanged;
+**certified Champion-001 shadows 0, certified positive EV 0, wagers $0**.
