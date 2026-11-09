@@ -14,6 +14,7 @@ pregame feature availability or profitable bets.
    - **run_edge** — show existing research-edge count; without a separately provided forecast and price file it truthfully returns zero.
    - **run_sharp** — read the five most recent successfully completed SharpAPI research archives (if available), report eligible DraftKings-labeled main-moneyline prices and historical line movement. **No new provider API calls, no added API credit use.**
    - **run_health** — inspect actual eight-sport source collection runs and their most recent completed success. This is read-only; it cannot force or certify a source.
+   - **run_certify** — read the most recent already completed eight-sport source gate and SharpAPI moneyline archive, reconcile source counts, and list per-league blockers. **Evidence audit only, never fake certified predictions.**
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -98,3 +99,24 @@ prices; only then can a qualifying EV leaderboard be published.
   circumvent official NBA 403 access restrictions, verify bookmaker checkout
   odds, train models, certify predicted probabilities, or place wagers.
 - The watchdog does **not** invoke the paid SharpAPI or SportsDataIO collectors.
+
+## Certification evidence inspection: `run_certify`
+
+- Select **run_certify** and read the GitHub run Summary. It downloads the
+  most recent completed source-preflight research audit and SharpAPI archived
+  market baseline, if those GitHub artifacts still exist.
+- Inspect the **CERTIFICATION_AUDIT.json** artifact for the actual source-run IDs,
+  saved event counts, same-run release/identity reconciliation, original frozen
+  Champion-001 status, seven-league research models, and league-specific gaps.
+- This is not model retraining or proof of accuracy. Source timestamps, partial
+  original provider responses, local checksums, successful GitHub tests,
+  reviewer booleans, SharpAPI-labeled odds or positive research EV are **not**
+  independent certificates.
+- Genuine certification requires qualified pregame features and settled
+  outcomes, a reproducible untouched holdout and calibrated model,
+  externally authenticated original model custody and a qualified independent
+  release review. Executable bookmaker prices are needed for an actionable EV
+  betting claim. None can be auto-created from missing historical files.
+- The command **never places bets** or changes Champion-001. It reports zero
+  certified predictions until those requirements are satisfied and checked
+  outside the self-asserted reporting pipeline.

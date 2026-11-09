@@ -16,10 +16,11 @@ from v8_dual_milestone_runner import run as train_both
 from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_source_cadence_watchdog import evaluate as source_health
+from v8_certification_audit import inspect_archives as certification_audit
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
@@ -44,7 +45,9 @@ def default_end_date(now=None):
 
 def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             now=None, output_dir="v8_results/one_command", sharp_rows=None,
-            sharp_run_ids=(), source_run_metadata=None):
+            sharp_run_ids=(), source_run_metadata=None,
+            certification_source_dir=None, certification_sharp_dir=None,
+            certification_source_run_id=None, certification_sharp_run_id=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -66,6 +69,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "research_edge_candidates": [],
         "sharp_archive": None,
         "source_collection_health": None,
+        "certification_review": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -74,6 +78,11 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_certify":
+        report["certification_review"] = certification_audit(
+            source_dir=certification_source_dir, sharp_dir=certification_sharp_dir,
+            source_run_id=certification_source_run_id,
+            sharp_run_id=certification_sharp_run_id)
     elif command == "run_health":
         report["source_collection_health"] = source_health(
             source_run_metadata if source_run_metadata is not None else {"fetch_error": True}, now=now)
@@ -112,6 +121,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 }
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if command == "run_certify":
+        (out / "CERTIFICATION_AUDIT.json").write_text(
+            json.dumps(report["certification_review"], indent=2, sort_keys=True)
+            + "\n", encoding="utf-8")
     return report
 
 
@@ -123,6 +136,10 @@ def main(argv=None):
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
+    p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
+    p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
+    p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
+    p.add_argument("--certification-sharp-run-id", type=int, help="Sharp workflow ID for research price reference")
     p.add_argument("--output-dir", default="v8_results/one_command")
     args = p.parse_args(argv)
     rows = None
@@ -140,7 +157,11 @@ def main(argv=None):
     stop = date.fromisoformat(args.end_date) if args.end_date else None
     report = execute(args.command, args.days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
-                     source_run_metadata=source_metadata)
+                     source_run_metadata=source_metadata,
+                     certification_source_dir=args.certification_source_dir,
+                     certification_sharp_dir=args.certification_sharp_dir,
+                     certification_source_run_id=args.certification_source_run_id,
+                     certification_sharp_run_id=args.certification_sharp_run_id)
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},

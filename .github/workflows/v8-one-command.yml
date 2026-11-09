@@ -21,6 +21,7 @@ on:
           - run_edge
           - run_sharp
           - run_health
+          - run_certify
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -47,6 +48,7 @@ on:
       - 'v8_edge_value.py'
       - 'v8_sharp_archive.py'
       - 'v8_source_cadence_watchdog.py'
+      - 'v8_certification_audit.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -54,6 +56,7 @@ on:
       - 'tests/test_v8_one_command.py'
       - 'tests/test_v8_sharp_archive.py'
       - 'tests/test_v8_source_cadence_watchdog.py'
+      - 'tests/test_v8_certification_audit.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -116,9 +119,36 @@ jobs:
             echo '{"fetch_error": true}' > v8_results/source_runs.json
             echo "Metadata unavailable: reporting unknown instead of invented data."
           fi
+      - name: Load last completed real source and price audit receipts for certification review
+        if: ${{ inputs.command == 'run_certify' || github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cert_upstream/source cert_upstream/sharp
+          src_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-eight-sport-source-preflight.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
+          if [[ "$src_id" =~ ^[0-9]+$ ]]; then
+            if gh run download "$src_id" --repo "$GITHUB_REPOSITORY" --name "eight-sport-source-preflight-$src_id" --dir cert_upstream/source; then
+              echo "$src_id" > cert_upstream/source_run_id
+            else
+              echo "Source artifact unavailable; cannot establish model validation."
+              rm -rf cert_upstream/source && mkdir -p cert_upstream/source
+            fi
+          fi
+          sharp_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow collect-sharpapi.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
+          if [[ "$sharp_id" =~ ^[0-9]+$ ]]; then
+            if gh run download "$sharp_id" --repo "$GITHUB_REPOSITORY" --name "sharpapi-pregame-$sharp_id" --dir cert_upstream/sharp; then
+              echo "$sharp_id" > cert_upstream/sharp_run_id
+            else
+              echo "SharpAPI archived market reference unavailable; no price verification."
+              rm -rf cert_upstream/sharp && mkdir -p cert_upstream/sharp
+            fi
+          fi
+          echo "Research artifacts loaded if available. No paid API, betting or external certification."
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -128,6 +158,16 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_certify" ]]; then
+            params+=(--certification-source-dir cert_upstream/source
+                     --certification-sharp-dir cert_upstream/sharp)
+            if [[ -f cert_upstream/source_run_id ]]; then
+              params+=(--certification-source-run-id "$(cat cert_upstream/source_run_id)")
+            fi
+            if [[ -f cert_upstream/sharp_run_id ]]; then
+              params+=(--certification-sharp-run-id "$(cat cert_upstream/sharp_run_id)")
+            fi
           fi
           if [[ "$SELECTED_COMMAND" == "run_health" ]]; then
             params+=(--source-runs-json v8_results/source_runs.json)
@@ -160,6 +200,21 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_certify':
+                  audit=r.get('certification_review') or {}
+                  lines.extend(["", "## Certification Evidence Audit — Real Existing GitHub Reports",
+                      f"**Release:** {audit.get('status', 'UNKNOWN')}",
+                      f"**Source run:** {audit.get('source_run_id') or 'not found'}",
+                      f"**SharpAPI reference run:** {audit.get('sharp_run_id') or 'not found'}",
+                      f"**Actual archived prospective events:** {audit.get('source_games_archived')}",
+                      f"**Research market pairs, NOT verified odds:** {audit.get('research_moneyline_price_pairs_from_aggregator')}",
+                      f"**Qualified native research models:** {', '.join(audit.get('native_research_models_seen',[])) or 'none'}",
+                      "**Certified predictive probabilities: 0; certified +EV bets: 0.**",
+                      "", "| League | Archived events | Independent game identities (research) | Trained research model |",
+                      "|---|---:|---:|---|"])
+                  for lg,info in (audit.get('by_league') or {}).items():
+                      lines.append(f"| {lg.upper()} | {info['archived_source_games_latest_run']} | {info['league_operated_identity_matches_research_only']} | {info['native_research_model_fitted']} |")
+                  lines.append("See downloadable CERTIFICATION_AUDIT.json for league-level blockers and missing independent evidence.")
               if r['command'] == 'run_health':
                   health=r.get('source_collection_health') or {}
                   lines.append("")
@@ -204,7 +259,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
