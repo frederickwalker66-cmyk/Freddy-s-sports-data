@@ -7,6 +7,7 @@
 **[Run NBA / Run Sports / Run Sharp / Run Edge / Model Status](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml)** — an integrated GitHub Actions research interface, available after the V8 branch merges to main. View the [V8 phone guide](V8_ONE_COMMAND_PHONE_GUIDE.md).
 
 - `run_nba` and `run_sports` collect bounded, historical **public research results** (up to 35 days per league) with downloadable artifacts, no paid bookmaker calls.
+- `run_nba_oos` fetches a bounded authentic NBA published-score window and calculates an exploratory, retrospectively reconstructed 48h-embargo Elo Brier/log-loss benchmark. No authentic time-stamped pregame forecasts, independently certified calibration or sportsbook ROI is claimed.
 - `run_nba_train` collects actual pregame original-source review packets, reports 200/50 qualified-history shortfalls and creates a manual review worklist; never auto-trains on unverified packets. Separate externally reviewed input can be evaluated locally through the native trainer in an unverified research lane.
 - `run_certify` downloads the latest successful original-source and saved SharpAPI research reports, reconciles counts, and lists exact independent-evidence blockers. **This cannot certify missing forecasts or executable odds.**
 - `run_health` reports the last observed source capture status; a separate bounded free-source watchdog can retry missed GitHub scheduled runs without making paid bookmaker requests.
