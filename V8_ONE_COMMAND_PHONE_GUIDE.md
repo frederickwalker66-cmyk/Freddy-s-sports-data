@@ -20,6 +20,7 @@ pregame feature availability or profitable bets.
    - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
    - **run_nba_grade** — read the saved genuine pretipoff V8 research forecasts, check their original schedule-byte hashes and GitHub run timestamps, then grade only games with ESPN final results observed at least 48 hours after their original scheduled tipoff. Never backfill or change an original prediction.
    - **run_leaderboard** — read your stored forward research records from the separate `research/forward-ledger` Git branch, show original forecasts, pending games, Brier/log loss and any models with at least 50 real graded forward games. No current game bets or fabricated edge.
+   - **run_calibration** — read the saved research reliability report from the same durable Git branch. It shows five fixed probability buckets; empirical win frequencies are withheld for buckets with fewer than 20 graded games, aggregate Brier/log-loss require 50+ games, and exploratory calibration error requires 100+ games and ten per occupied bucket.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -301,3 +302,35 @@ ranked scoreboard, sorted by lower Brier score. This minimum allows
 certification. Original Champion-001 model and shadow quota remain frozen
 and separate; certified bets and certified positive EV remain zero until
 independent model/source and sportsbook verification exists.
+
+## Forward-research calibration without inflated accuracy claims
+
+Open **V8 One Command → Run workflow → run_calibration → Run workflow**.
+This read-only command loads `data/v8_forward/CALIBRATION.json` from the
+separate `research/forward-ledger` branch. The daily archival/grading writer
+produces this file from SQLite using ONLY first-retained, actually timestamped
+before-tipoff V8 NBA research predictions and later ESPN-published outcomes.
+It makes no provider API calls and does not modify original probabilities.
+
+- **Fewer than 50 forward-graded games:** Withhold Brier and log loss.
+- **50 or more graded games:** Report descriptive Brier/log loss, including a
+  neutral 50/50 Brier reference (not a sportsbook).
+- **Five FIXED buckets:** P(home) in [0,20%), [20,40%), [40,60%), [60,80%),
+  [80,100%). Display mean forecast and number of games. Empirical home-win
+  frequency and Wilson 95% descriptive interval require **20 games in a bin**.
+- **Calibration error (ECE):** Withhold until **at least 100 forward-graded
+  games** and at least **10 in every occupied bin**. This is an exploratory
+  statistic, not an independently validated calibration certificate.
+- **Uncertainty:** A 1000-resample paired game-day-cluster Brier interval
+  becomes available at >=50 graded games and >=10 distinct game dates.
+
+Games still pending 48h or missing published final results remain UNGRADED.
+Malformed, timestamp-inconsistent or contradictory records cause an explicit
+HOLD/error rather than altered forecasts or inflated performance. Bins
+and threshold rules were fixed BEFORE observing the outcomes of these
+first forward-game forecasts.
+
+This measures only **research probability quality**; it does not establish
+profitable betting, real executable bookmaker prices, verified independent
+publisher custody, the original frozen Champion-001 model or ANY certified
+positive-EV selections. **Champion-001 shadows and certified bets remain 0.**
