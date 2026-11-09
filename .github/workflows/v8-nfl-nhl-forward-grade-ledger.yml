@@ -1,0 +1,174 @@
+name: V8 NFL NHL durable pregame research grading (no bets)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '31 14 * * *' # 09:31 EST / 10:31 EDT, best effort, grades after 48h
+  workflow_run:
+    workflows: ['V8 NFL and NHL actual pregame research capture (no betting)']
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'v8_nfl_nhl_forward_grade.py'
+      - 'v8_nfl_nhl_durable_ledger.py'
+      - 'tests/test_v8_nfl_nhl_forward_grade.py'
+      - 'tests/test_v8_nfl_nhl_durable_ledger.py'
+      - '.github/workflows/v8-nfl-nhl-forward-grade-ledger.yml'
+  pull_request:
+    paths:
+      - 'v8_nfl_nhl_forward_grade.py'
+      - 'v8_nfl_nhl_durable_ledger.py'
+      - 'tests/test_v8_nfl_nhl_forward_grade.py'
+      - 'tests/test_v8_nfl_nhl_durable_ledger.py'
+      - '.github/workflows/v8-nfl-nhl-forward-grade-ledger.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v8-nfl-nhl-durable-research-writer
+  cancel-in-progress: false
+
+jobs:
+  test-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test immutable first forecasts, 48h maturity and NFL conditional ties
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_v8_nfl_nhl_forward_grade.py' -v
+          python -m unittest discover -s tests -p 'test_v8_nfl_nhl_durable_ledger.py' -v
+
+  sync-and-grade:
+    needs: test-research
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read up to 35 genuine completed source runs and their original downloadable archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p saved_nfl_nhl_forward/nfl saved_nfl_nhl_forward/nhl
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow v8-nfl-nhl-forward.yml --branch main --status success --limit 110 --json databaseId --jq '.[].databaseId')
+          downloaded=0
+          for rid in "${ids[@]}"; do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            good=0
+            for sport in nfl nhl; do
+              name="v8-${sport}-forward-${rid}"
+              destination="saved_nfl_nhl_forward/$sport/$rid"
+              mkdir -p "$destination"
+              if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid" > "$destination/github_run.json" \
+                 && gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "$destination" 2>/dev/null; then
+                echo "Saved genuine source artifact $name for first-forecast audit."
+                good=$((good+1))
+              else
+                rm -rf "$destination"
+                echo "Missing/expired research artifact $name — do not fabricate observations."
+              fi
+            done
+            if [[ $good -gt 0 ]]; then downloaded=$((downloaded+1)); fi
+            if [[ $downloaded -ge 35 ]]; then break; fi
+          done
+          echo "Successfully downloaded original NFL/NHL capture run(s): $downloaded"
+      - name: Load separate persistent research branch (never write to NBA or Champion)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p persistent_sports
+          git -C persistent_sports init -q
+          git -C persistent_sports config user.name "Freddy's V8 Research Archive"
+          git -C persistent_sports config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C persistent_sports remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git -C persistent_sports ls-remote --exit-code --heads origin refs/heads/research/nfl-nhl-forward-ledger > /dev/null; then
+            git -C persistent_sports fetch --depth=1 origin refs/heads/research/nfl-nhl-forward-ledger
+            git -C persistent_sports checkout -B research/nfl-nhl-forward-ledger FETCH_HEAD
+            echo "Restored durable separate NFL/NHL first-forecast history."
+          else
+            git -C persistent_sports checkout --orphan research/nfl-nhl-forward-ledger
+            echo "Created independent long-lived NFL/NHL research history."
+          fi
+      - name: Archive untouched NFL and NHL originals, then grade only published mature finals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python v8_nfl_nhl_durable_ledger.py \
+            --league nfl --incoming-archives saved_nfl_nhl_forward \
+            --output-dir persistent_sports/data/v8_forward/nfl
+          python v8_nfl_nhl_durable_ledger.py \
+            --league nhl --incoming-archives saved_nfl_nhl_forward \
+            --output-dir persistent_sports/data/v8_forward/nhl
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          lines=["# NFL and NHL — Durable Real Forward Research Grading"]
+          for league in ("nfl","nhl"):
+              p=Path(f"persistent_sports/data/v8_forward/{league}/FORWARD_RESEARCH_LEADERBOARD.json")
+              r=json.loads(p.read_text())
+              assert r["sport"]==league and r["champion_001_modified"] is False
+              assert r["certified_champion_001_shadows"]==0 and r["certified_positive_ev_bets"]==0
+              lines.extend(["",f"## {league.upper()} research only",
+                  f"**Original genuine pregame forecasts in persistent store:** {r['original_saved_forecasts']}",
+                  f"**Eligible completed ESPN-published games graded:** {r['graded_research_games']}",
+                  f"**Published NFL ties excluded, not counted as losses:** {r['published_NFL_ties_excluded']}",
+                  f"**Games waiting for 48h from originally scheduled start:** {r['pending_48h']}",
+                  f"**Outcomes missing/held or source unavailable:** {r['unmatched_or_source_missing']}",
+                  f"**Quarantined event IDs:** {r['original_game_identity_conflicts_quarantined']}",
+                  f"**Research scorecard status:** {r['status']}",
+                  "**Score metrics withheld until >=50 actual forward-graded non-tied games per sport/model.**"])
+          lines.extend(["", "**Original Champion-001 certified shadows: 0, certified EV: 0, wagers: $0.**",
+              "**NFL target excludes ties; NHL exact OT/SO market settlement remains unverified.**",
+              "**Separate Git branch extends retention but is NOT independent immutable evidence custody.**"])
+          output="\n".join(lines)+"\n"
+          print(output)
+          if os.environ.get("GITHUB_STEP_SUMMARY"):
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a",encoding="utf-8") as f:
+                  f.write(output)
+          PY
+      - name: Commit only separate original research receipts and cumulative scorecards
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C persistent_sports add -- data/v8_forward/
+          if git -C persistent_sports diff --cached --quiet; then
+            echo "No changes to retained original NFL/NHL receipts."
+          else
+            git -C persistent_sports commit -m "Keep NFL NHL first-before-start research forecasts and later published outcomes" -q
+            git -C persistent_sports push origin HEAD:refs/heads/research/nfl-nhl-forward-ledger
+            echo "Original V8 NFL/NHL archives persisted outside expiring Actions artifacts."
+          fi
+      - name: Attach human-readable saved NFL/NHL results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-nfl-nhl-graded-research-${{ github.run_id }}
+          path: |
+            persistent_sports/data/v8_forward/nfl/FORWARD_RESEARCH_LEADERBOARD.json
+            persistent_sports/data/v8_forward/nhl/FORWARD_RESEARCH_LEADERBOARD.json
+            persistent_sports/data/v8_forward/nfl/FIRST_FORECAST_HISTORY.jsonl
+            persistent_sports/data/v8_forward/nhl/FIRST_FORECAST_HISTORY.jsonl
+          retention-days: 90
+          if-no-files-found: warn
