@@ -19,12 +19,13 @@ from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
+from v8_nba_forward_research import capture as capture_nba_forward
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
+    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
@@ -50,7 +51,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             sharp_run_ids=(), source_run_metadata=None,
             certification_source_dir=None, certification_sharp_dir=None,
             certification_source_run_id=None, certification_sharp_run_id=None,
-            nba_review_packets=None, nba_qualified_history=None):
+            nba_review_packets=None, nba_qualified_history=None,
+            nba_forward_runner=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -75,6 +77,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "certification_review": None,
         "nba_training_intake": None,
         "nba_oos_research": None,
+        "nba_forward_research": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -83,6 +86,22 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_nba_forward":
+        if end_date is not None:
+            raise ValueError("forward_prediction_cannot_use_historical_end_date")
+        runner = nba_forward_runner if nba_forward_runner is not None else capture_nba_forward
+        forward, forward_report = runner(out / "nba_forward", history_days=days)
+        report["historical_data_only_not_trainable"] = False
+        report["model_training_data_independently_qualified"] = False
+        report["nba_forward_research"] = forward_report
+        report["by_league"]["nba"] = {
+            "status": "genuine_pregame_forecast_research_only",
+            "completed_published_games": forward_report["history_games_retrieved"],
+            "successful_source_days": forward_report["source_days_succeeded"],
+            "failed_source_days": forward_report["source_days_failed"],
+            "research_forecast_count": len(forward),
+            "data_verified_for_model_training": False,
+        }
     elif command == "run_nba_oos":
         backfill_plan("nba", days, stop, now=now)
         nba_source_dir = out / "nba"
