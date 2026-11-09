@@ -20,6 +20,7 @@ from challenger_elo_walkforward import (
     SETTLEMENT_LAG_HOURS, MIN_GAMES, MIN_EVAL, K, HOME_ADV,
 )
 from historical_outcomes import parse_time
+from v8_nba_paired_baseline import compare as compare_to_rolling_home_prior
 
 
 def benchmark(rows, coverage, now=None):
@@ -66,8 +67,10 @@ def benchmark(rows, coverage, now=None):
     replay, ties = embargoed_forecasts(games, lag_hours=SETTLEMENT_LAG_HOURS)
     if ties or len(replay) != len(games):
         raise ValueError("inconsistent_NBA_replay")
+    baseline_comparison, paired_rows = compare_to_rolling_home_prior(
+        games, replay, warmup=MIN_GAMES, minimum=MIN_EVAL)
     ledger = []
-    for (start, eid, home, away, y), (p, y2, simulated) in zip(games, replay):
+    for (start, eid, home, away, y), (p, y2, simulated), paired in zip(games, replay, paired_rows):
         if y != y2 or simulated != start.isoformat() or not 0 < p < 1:
             raise ValueError("Elo_replay_event_alignment_failure")
         ledger.append({
@@ -76,6 +79,8 @@ def benchmark(rows, coverage, now=None):
             "event_start_utc": start.isoformat(),
             "home_team_espn_id": home, "away_team_espn_id": away,
             "retrospective_simulated_home_win_probability": round(p, 9),
+            "retrospective_rolling_home_baseline_probability": paired["home_win_prior_reconstructed_after_game"],
+            "elo_vs_rolling_baseline_brier_improvement_retro_only": round(paired["paired_brier_improvement"], 9),
             "published_score_home_won_research_label": y,
             "historical_forecast_actually_recorded_before_tipoff": False,
             "probability_source": "fixed_Elo_K20_HA60_embargo48h_reconstructed_after_game",
@@ -114,6 +119,7 @@ def benchmark(rows, coverage, now=None):
         "neutral_50_50_brier_comparison_not_bookmaker": (
             result["neutral_50_50_brier"] if enough else None),
         "calibration_bins_exploratory_only": result["calibration_bins"] if enough else [],
+        "paired_rolling_home_baseline_comparison": baseline_comparison,
         "model_parameters_fixed_before_retrospective_replay": {
             "K": K, "home_advantage_elo_points": HOME_ADV,
             "assumed_previous_result_embargo_hours": SETTLEMENT_LAG_HOURS},
@@ -134,7 +140,9 @@ def benchmark(rows, coverage, now=None):
             "with a presumed 48h result embargo; forecasts were NOT actually "
             "recorded pregame. Brier/log loss are exploratory, not independently "
             "certified out-of-sample skill; the 50/50 comparison is not a market "
-            "baseline. No historical betting ROI, qualified shadows, bets or "
+            "baseline. Rolling home-win-rate comparison and paired day bootstrap "
+            "are retrospective only, not independently validated skill. "
+            "No historical betting ROI, qualified shadows, bets or "
             "actionable positive EV can be inferred."),
     }
     return data, ledger
