@@ -159,6 +159,16 @@ def inspect_archives(source_dir=None, sharp_dir=None, source_run_id=None,
             "blockers": blockers,
         }
 
+    release_blockers = release.get("blockers", []) if release else []
+    if not isinstance(release_blockers, list) or any(
+        not isinstance(item, str) for item in release_blockers
+    ):
+        raise ValueError("invalid_model_release_blocker_list")
+    nba_source_errors = identity.get("network_nba_source_failures_by_url", {}) if identity else {}
+    if (not isinstance(nba_source_errors, dict)
+            or any(not isinstance(key, str) or not isinstance(value, str)
+                   for key, value in nba_source_errors.items())):
+        raise ValueError("invalid_nba_source_failure_diagnostics")
     champion_verified = bool(
         champion and champion.get("original_executable_verified") is True
         and champion.get("immutable_model_version_authenticated") is True
@@ -173,6 +183,12 @@ def inspect_archives(source_dir=None, sharp_dir=None, source_run_id=None,
         "source_games_archived": source_events,
         "research_moneyline_price_pairs_from_aggregator": sharp_pairs,
         "native_research_models_seen": sorted(models),
+        "model_release_decision_from_source_pipeline": (
+            release.get("release_decision") if release is not None else None),
+        "model_release_blockers_from_source_pipeline": release_blockers,
+        "nba_official_source_request_failures": nba_source_errors,
+        "review_attested_historical_training_rows_not_independently_certified": (
+            count(training, "review_attested_records_received") if training else None),
         "prior_artifact_report_claims_champion_verified_untrusted": champion_verified,
         "original_champion_001_authenticated_by_external_review": False,
         "independent_bookmaker_checkout_quotes_verified": 0,
