@@ -53,6 +53,7 @@ on:
       - 'v8_certification_audit.py'
       - 'v8_nba_training_intake.py'
       - 'v8_nba_oos_research.py'
+      - 'v8_nba_paired_baseline.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -63,6 +64,7 @@ on:
       - 'tests/test_v8_certification_audit.py'
       - 'tests/test_v8_nba_training_intake.py'
       - 'tests/test_v8_nba_oos_research.py'
+      - 'tests/test_v8_nba_paired_baseline.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -239,6 +241,10 @@ jobs:
                       f"**Exploratory Brier (not independently validated):** {oos.get('brier_score_retrospective_research_only')}",
                       f"**Exploratory log loss (not independently validated):** {oos.get('log_loss_retrospective_research_only')}",
                       f"**Neutral 50/50 Brier (NOT a sportsbook baseline):** {oos.get('neutral_50_50_brier_comparison_not_bookmaker')}",
+                      f"**Moving prior home-win Brier (48h presumed results embargo):** {(oos.get('paired_rolling_home_baseline_comparison') or {}).get('rolling_home_win_baseline_brier')}",
+                      f"**Elo Brier improvement relative to moving home-win prior (positive is better):** {(oos.get('paired_rolling_home_baseline_comparison') or {}).get('elo_minus_rolling_baseline_brier_improvement')}",
+                      f"**Exploratory 95% game-day-cluster interval for improvement (not certification):** {(oos.get('paired_rolling_home_baseline_comparison') or {}).get('approximate_paired_day_bootstrap_brier_improvement_95pct_CI')}",
+                      f"**Elo clearly better than moving prior under exploratory interval:** {(oos.get('paired_rolling_home_baseline_comparison') or {}).get('elo_beat_rolling_prior_with_exploratory_day_interval', False)}",
                       "**These probabilities were reconstructed after the games, not logged pregame. Certified model picks / EV remain 0.**",
                       "Download NBA_ELO_RETROSPECTIVE_REPORT.json and NBA_ELO_RETROSPECTIVE_LEDGER.jsonl for full research evidence."])
               if r['command'] == 'run_nba_train':
