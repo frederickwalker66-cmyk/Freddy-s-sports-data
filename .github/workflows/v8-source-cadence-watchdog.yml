@@ -1,0 +1,119 @@
+name: V8 public-source schedule recovery (research only)
+
+on:
+  workflow_dispatch:
+  # This scheduler is independent of the source workflow's existing twice
+  # hourly cron. GitHub can still delay/drop any scheduled execution.
+  schedule:
+    - cron: '17 * * * *'
+  # Other source pipelines provide another opportunity to check a stale
+  # source preflight; never trigger on our own target to avoid recursion.
+  workflow_run:
+    workflows:
+      - "Freddy's Picks AI — Phone Command Center"
+      - "Challenger-001 prospective eight-league pregame evidence capture"
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'v8_source_cadence_watchdog.py'
+      - 'tests/test_v8_source_cadence_watchdog.py'
+      - '.github/workflows/v8-source-cadence-watchdog.yml'
+  pull_request:
+    paths:
+      - 'v8_source_cadence_watchdog.py'
+      - 'tests/test_v8_source_cadence_watchdog.py'
+      - '.github/workflows/v8-source-cadence-watchdog.yml'
+
+concurrency:
+  group: v8-source-recovery-watchdog-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  watchdog-safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fail-closed metadata and dispatch fixture tests
+        run: python -m unittest discover -s tests -p 'test_v8_source_cadence_watchdog.py' -v
+
+  check-and-recover:
+    # Pull requests are read-only synthetic tests. A successful upstream
+    # completion can trigger a recovery check, but cannot certify data.
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    needs: [watchdog-safety-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch actual source workflow metadata (not source authenticity)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v8_results
+          if gh api "repos/$GITHUB_REPOSITORY/actions/workflows/challenger-eight-sport-source-preflight.yml/runs?per_page=100" > v8_results/source_runs.json; then
+            echo "Source run metadata retrieved."
+          else
+            echo '{"fetch_error": true}' > v8_results/source_runs.json
+            echo "GitHub Actions API unavailable; no recovery dispatch."
+          fi
+      - name: Check 150-minute source run age; bounded dispatch if stale
+        shell: bash
+        run: |
+          set -euo pipefail
+          python v8_source_cadence_watchdog.py \
+            --runs-json v8_results/source_runs.json \
+            --output v8_results/source_watchdog.json --execute-recovery
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads(Path('v8_results/source_watchdog.json').read_text())
+          assert r['source_workflow']=='challenger-eight-sport-source-preflight.yml'
+          assert r['certified_positive_ev_bets']==r['automated_wagers']==0
+          assert r['source_data_independently_authenticated'] is False
+          line=[
+            "# Freddy's Picks AI — Source Collection Reliability",
+            f"**Status:** {r['recovery_decision']}",
+            f"**Reason:** {r['reason']}",
+            f"**Last confirmed source workflow completion:** {r['latest_successful_workflow_completion_utc'] or 'none'}",
+            f"**Minutes since previous successful run:** {r['minutes_since_latest_successful_run']}",
+            f"**In-flight source runs:** {len(r['in_flight_source_run_ids'])}",
+            f"**24-hour manual/recovery dispatches observed:** {r['recent_workflow_dispatch_runs_24h']}",
+            "**Verified source content, model probabilities and positive EV:** NOT ESTABLISHED.",
+            "**Certified positive-EV bets and automated wagers:** 0.",
+            "",
+            "A successful GitHub dispatch request is not a successful collection.",
+            "GitHub cron is best-effort; dropped schedules remain possible.",
+          ]
+          text="\n".join(line)+"\n"
+          print(text)
+          if os.getenv('GITHUB_STEP_SUMMARY'):
+            with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a',encoding='utf-8') as f:
+              f.write(text)
+          PY
+      - name: Archive source watchdog diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-source-watchdog-${{ github.run_id }}
+          path: v8_results/source_watchdog.json
+          retention-days: 30
+          if-no-files-found: warn
