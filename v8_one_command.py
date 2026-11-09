@@ -121,6 +121,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 }
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if command == "run_certify":
+        (out / "CERTIFICATION_AUDIT.json").write_text(
+            json.dumps(report["certification_review"], indent=2, sort_keys=True)
+            + "\n", encoding="utf-8")
     return report
 
 
