@@ -19,7 +19,8 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from challenger_elo_walkforward import K, HOME_ADV, pregame_probability, validate_game
-from historical_outcomes import collect as collect_scores, parse_time
+from historical_outcomes import collect as collect_scores, parse_time, scoreboard_url
+from challenger_research_features import validated as validate_source_record
 from independent_schedule_review import download_json_original
 
 NY = ZoneInfo("America/New_York")
@@ -120,7 +121,10 @@ def _ratings(history, asof, min_history=MIN_HISTORY_GAMES):
         raise ValueError("historical_result_list_required")
     seen, eligible = set(), []
     for row in history:
+        validate_source_record(row)
         league, when, eid, home, away, y = validate_game(row)
+        if row.get("source_url") != scoreboard_url("nba", when.astimezone(NY).date()):
+            raise ValueError("historical_NBA_scoreboard_day_or_url_mismatch")
         if league != "nba" or y not in (0, 1):
             raise ValueError("invalid_NBA_historical_full_game_result")
         if eid in seen:
