@@ -126,6 +126,40 @@ class OneCommandTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "original_GitHub_forward_archives_required"):
                 execute("run_nba_grade",output_dir=folder)
 
+    def test_nfl_nhl_phone_commands_record_only_research_without_bets(self):
+        for league in ("nfl", "nhl"):
+            command="run_"+league+"_forward"
+            self.assertEqual(selected(command),(league,))
+            with self.subTest(league=league), tempfile.TemporaryDirectory() as folder:
+                def fake_runner(actual, dest, history_days):
+                    self.assertEqual(actual,league)
+                    self.assertEqual(history_days,35)
+                    Path(dest).mkdir(parents=True,exist_ok=True)
+                    (Path(dest)/(league.upper()+"_FORWARD_RESEARCH_FORECASTS.jsonl")).write_text("")
+                    return [],{
+                        "league":league,
+                        "published_history_retrieved":29,
+                        "source_days_ok":35,
+                        "source_days_failed":0,
+                        "forecast_probabilities_recorded_before_start":0,
+                        "hold_reasons":{"minimum_matured_binary_history_unmet":1},
+                        "certified_positive_ev_bets":0,
+                        "original_champion_001_certified_predictions":0,
+                        "champion_001_modified":False,
+                        "bet_ready":False,
+                    }
+                out=Path(folder)/"report"
+                result=execute(command,days=35,output_dir=out,
+                               new_sport_forward_runner=fake_runner)
+                self.assertEqual(result["by_league"][league]["research_forecast_count"],0)
+                self.assertEqual(result["certified_positive_ev_bets"],0)
+                self.assertEqual(result["next_sport_forward_research"]["league"],league)
+                self.assertFalse(result["model_training_data_independently_qualified"])
+                with self.assertRaisesRegex(ValueError,"forward_prediction_cannot_use_historical_end_date"):
+                    execute(command,days=35,end_date=date(2026,1,15),
+                            output_dir=Path(folder)/"blocked",
+                            new_sport_forward_runner=fake_runner)
+
     def test_run_nba_forward_requires_true_capture_not_historical_replay(self):
         self.assertEqual(selected("run_nba_forward"), ("nba",))
         used = []
