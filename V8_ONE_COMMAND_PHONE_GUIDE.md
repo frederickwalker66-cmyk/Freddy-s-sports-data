@@ -13,6 +13,7 @@ pregame feature availability or profitable bets.
    - **run_nfl**, **run_nhl**, **run_mlb**, **run_ncaaf**, **run_ncaab**, **run_mls**, **run_uefa** — one league.
    - **run_edge** — show existing research-edge count; without a separately provided forecast and price file it truthfully returns zero.
    - **run_sharp** — read the five most recent successfully completed SharpAPI research archives (if available), report eligible DraftKings-labeled main-moneyline prices and historical line movement. **No new provider API calls, no added API credit use.**
+   - **run_health** — inspect actual eight-sport source collection runs and their most recent completed success. This is read-only; it cannot force or certify a source.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -80,3 +81,20 @@ prices; only then can a qualifying EV leaderboard be published.
 - The report intentionally does not infer professional betting handle, public versus sharp ticket splits, current availability, or DraftKings checkout verification.
 - `run_sharp` does NOT call the paid SharpAPI service. For a separate **fresh** provider capture, use its existing workflow's *Run workflow* control, mindful of provider quotas/credit charges and the configured API secret. The original scheduled SharpAPI collection remains unchanged.
 - Archived SharpAPI quote artifacts expire after 30 days; preserve the records separately before that expiration if a long-term line movement warehouse is needed.
+
+## Source-reliability watchdog (research-only)
+
+- The `v8-source-cadence-watchdog.yml` workflow is a separate automatic
+  safety mechanism for missed or delayed GitHub Actions source runs.
+- It checks only real GitHub metadata from the existing eight-sport original-source
+  preflight. Its own hourly schedule and two upstream triggers are best-effort.
+- If there is no active preflight run, the last completed success is more than
+  150 minutes old, and fewer than four workflow dispatches were created in the
+  last 24 hours, the watchdog requests **one** manual GitHub Actions dispatch
+  of the existing FREE public-source preflight workflow on `main`.
+- Missing GitHub API metadata blocks recovery, rather than declaring a source
+  missing or successful. A dispatch acknowledgment is not a successful source run.
+- Neither `run_health` nor the watchdog can authenticate NBA schedule bytes,
+  circumvent official NBA 403 access restrictions, verify bookmaker checkout
+  odds, train models, certify predicted probabilities, or place wagers.
+- The watchdog does **not** invoke the paid SharpAPI or SportsDataIO collectors.

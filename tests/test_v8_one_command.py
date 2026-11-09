@@ -34,6 +34,28 @@ class OneCommandTests(unittest.TestCase):
         now = datetime(2026, 11, 6, 4, tzinfo=timezone.utc)
         self.assertEqual(default_end_date(now), date(2026, 11, 4))
 
+    def test_health_command_uses_actual_workflow_metadata(self):
+        now = datetime(2026, 11, 9, 17, tzinfo=timezone.utc)
+        stamp = (now - timedelta(minutes=40)).isoformat()
+        rows = {"workflow_runs": [{
+            "id": 121, "event": "schedule", "head_branch": "main",
+            "created_at": stamp, "updated_at": stamp,
+            "status": "completed", "conclusion": "success",
+        }]}
+        with tempfile.TemporaryDirectory() as folder:
+            result = execute("run_health", now=now, source_run_metadata=rows, output_dir=folder)
+            health = result["source_collection_health"]
+            self.assertEqual(health["reason"], "recent_successful_source_workflow")
+            self.assertEqual(health["latest_successful_workflow_run_id"], 121)
+            self.assertFalse(health["dispatch_attempted"])
+            self.assertEqual(result["certified_positive_ev_bets"], 0)
+
+    def test_health_without_github_metadata_remains_unknown(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = execute("run_health", output_dir=folder)
+            self.assertEqual(result["source_collection_health"]["reason"], "metadata_unavailable")
+            self.assertFalse(result["source_collection_health"]["dispatch_attempted"])
+
     def test_empty_model_status(self):
         with tempfile.TemporaryDirectory() as folder:
             result = execute("model_status", output_dir=folder)
