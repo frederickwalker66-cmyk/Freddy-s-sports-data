@@ -126,6 +126,18 @@ class OneCommandTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "original_GitHub_forward_archives_required"):
                 execute("run_nba_grade",output_dir=folder)
 
+    def test_phone_nfl_nhl_board_never_invents_unpersisted_results(self):
+        self.assertEqual(selected("run_sport_board"), ())
+        with tempfile.TemporaryDirectory() as folder:
+            output=Path(folder)/"status"
+            report=execute("run_sport_board", output_dir=output)
+            view=report["nfl_nhl_forward_board"]
+            self.assertEqual(view["by_sport"]["nfl"]["status"],"NOT_YET_PERSISTED")
+            self.assertIsNone(view["by_sport"]["nhl"]["original_saved_forecasts"])
+            self.assertEqual(view["certified_positive_ev_bets"],0)
+            self.assertEqual(report["certified_positive_ev_bets"],0)
+            self.assertTrue((output/"ONE_COMMAND_REPORT.json").is_file())
+
     def test_nfl_nhl_phone_commands_record_only_research_without_bets(self):
         for league in ("nfl", "nhl"):
             command="run_"+league+"_forward"
