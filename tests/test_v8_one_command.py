@@ -79,6 +79,18 @@ class OneCommandTests(unittest.TestCase):
             self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
             self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
 
+    def test_phone_calibration_command_does_not_invent_metrics(self):
+        self.assertEqual(selected("run_calibration"), ())
+        with tempfile.TemporaryDirectory() as folder:
+            output=Path(folder)/"out"
+            r=execute("run_calibration",output_dir=output)
+            view=r["forward_calibration"]
+            self.assertEqual(view["status"],"NOT_YET_PERSISTED")
+            self.assertIsNone(view["graded_research_NBA_games"])
+            self.assertEqual(view["certified_positive_ev_bets"],0)
+            self.assertFalse(view["bet_ready"])
+            self.assertEqual(r["certified_positive_ev_bets"],0)
+
     def test_phone_leaderboard_requires_real_stored_evidence(self):
         self.assertEqual(selected("run_leaderboard"), ())
         with tempfile.TemporaryDirectory() as folder:

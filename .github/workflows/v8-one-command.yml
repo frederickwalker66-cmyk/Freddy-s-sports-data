@@ -27,6 +27,7 @@ on:
           - run_nba_forward
           - run_nba_grade
           - run_leaderboard
+          - run_calibration
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -62,6 +63,7 @@ on:
       - 'v8_nba_forward_research.py'
       - 'v8_nba_forward_grade.py'
       - 'v8_forward_leaderboard_view.py'
+      - 'v8_forward_calibration_view.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -77,6 +79,8 @@ on:
       - 'tests/test_v8_nba_forward_grade.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
+      - 'tests/test_v8_forward_calibration.py'
+      - 'tests/test_v8_forward_calibration_view.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -211,7 +215,7 @@ jobs:
           done
           echo "Original completed forward-run artifacts downloaded: $downloaded"
       - name: Download persisted research leaderboard from dedicated long-lived Git branch
-        if: ${{ inputs.command == 'run_leaderboard' }}
+        if: ${{ inputs.command == 'run_leaderboard' || inputs.command == 'run_calibration' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -228,6 +232,16 @@ jobs:
           else
             echo "Durable branch or scorecard unavailable; will report NOT_YET_PERSISTED."
           fi
+          if gh api "repos/$GITHUB_REPOSITORY/contents/data/v8_forward/CALIBRATION.json?ref=research%2Fforward-ledger" --jq '.content' > v8_results/leaderboard_download/calibration_encoded.txt; then
+            if base64 --decode v8_results/leaderboard_download/calibration_encoded.txt > v8_results/leaderboard_download/CALIBRATION.json; then
+              echo "Read original-forward NBA research calibration from durable ledger branch."
+            else
+              rm -f v8_results/leaderboard_download/CALIBRATION.json
+              echo "Saved calibration unavailable; must report NOT_YET_PERSISTED."
+            fi
+          else
+            echo "Calibration not created yet; no statistics inferred."
+          fi
       - name: Run requested model research command
         env:
           SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
@@ -240,6 +254,9 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_calibration" ]]; then
+            params+=(--calibration-file v8_results/leaderboard_download/CALIBRATION.json)
           fi
           if [[ "$SELECTED_COMMAND" == "run_leaderboard" ]]; then
             params+=(--leaderboard-file v8_results/leaderboard_download/LEADERBOARD.json)
@@ -291,6 +308,26 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_calibration':
+                  calib=r.get('forward_calibration') or {}
+                  lines.extend(["", "## NBA Genuine Forward Research — Calibration Readiness",
+                      f"**Status:** {calib.get('status','UNKNOWN')}",
+                      f"**Original forward games archived:** {calib.get('archived_original_forward_forecasts')}",
+                      f"**Genuine forward research games graded:** {calib.get('graded_research_NBA_games')}",
+                      f"**Unsettled/pending forecasts:** {calib.get('pending_ungraded')}",
+                      "**Require 50 forward-graded results before reporting Brier/log loss; require 100+ and populated fixed bins for exploratory calibration error.**",
+                      "**Champion-001 independently certified shadows: 0. Independently certified betting +EV: 0. Stake: $0.**"])
+                  for m in calib.get('models') or []:
+                      lines.extend(["", f"### {m['model_version']}",
+                          f"**Forward-graded games:** {m['original_forward_pregame_games_graded']}",
+                          f"**Exploratory Brier:** {m['research_Brier']}",
+                          f"**Exploratory log loss:** {m['research_log_loss']}",
+                          f"**Exploratory expected calibration error:** {m['exploratory_expected_calibration_error']}",
+                          "| P(home) | N | Observed wins | Average forecast | Observed win frequency | 95% descriptive interval |",
+                          "|---|---:|---:|---:|---:|---|"])
+                      for b in m['fixed_predeclared_probability_bins']:
+                          lines.append(f"| {b['probability_min_inclusive']:.1f}-{b['probability_max_exclusive']:.1f} | {b['observations']} | {b['home_wins']} | {b['mean_original_forecast_probability']} | {b['observed_home_win_frequency']} | {b['wilson_95pct_descriptive_interval']} |")
+                  lines.append("All observations are exploratory ESPN-published results, NOT certified probability calibration or executable sportsbook prices.")
               if r['command'] == 'run_leaderboard':
                   leader=r.get('forward_leaderboard') or {}
                   lines.extend(["", "## Saved NBA Forward Research Leaderboard",
