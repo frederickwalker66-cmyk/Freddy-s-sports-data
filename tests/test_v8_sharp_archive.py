@@ -46,10 +46,13 @@ class SharpArchiveTests(unittest.TestCase):
         )
         self.assertEqual(report["observed_line_movements"], 1)
         self.assertEqual(report["upcoming_market_movement_observations"], 1)
+        self.assertEqual(report["research_watchlist_max_age_minutes"], 120)
+        self.assertEqual(report["stale_upcoming_market_movement_observations_excluded"], 0)
         self.assertEqual(report["sharp_bet_decision"], "HOLD")
         watch = report["ranked_market_movement_watchlist"][0]
         self.assertEqual(watch["decision"], "HOLD_UNVERIFIED_SHARP_FLOW_MODEL_AND_CHECKOUT")
         self.assertEqual(watch["direction"], "toward_home")
+        self.assertAlmostEqual(watch["signal_age_minutes"], 52.0)
         self.assertFalse(watch["professional_betting_action_verified"])
         self.assertFalse(watch["positive_ev_certified"])
         self.assertEqual(report["valid_sharpapi_primary_moneyline_quote_observations"], 4)
@@ -59,6 +62,26 @@ class SharpArchiveTests(unittest.TestCase):
         self.assertFalse(report["bet_ready"])
         self.assertEqual(report["certified_predictions"], 0)
         self.assertEqual(report["archive_run_ids"], [123])
+
+    def test_stale_upcoming_movement_is_pass_not_sharp_signal(self):
+        report, movements = summarize_sharp_archive(
+            observations(), now=datetime(2026, 11, 8, 14, 30, tzinfo=timezone.utc))
+        self.assertEqual(len(movements), 1)  # keep historical audit evidence
+        self.assertEqual(report["upcoming_market_movement_observations"], 0)
+        self.assertEqual(report["stale_upcoming_market_movement_observations_excluded"], 1)
+        self.assertEqual(report["ranked_market_movement_watchlist"], [])
+        self.assertEqual(report["sharp_bet_decision"], "PASS")
+        self.assertEqual(report["sharp_bet_decision_reason"], "upcoming_movements_stale")
+        self.assertFalse(report["bet_ready"])
+
+    def test_automatic_sharp_replay_is_read_only_after_collector(self):
+        workflow = Path(".github/workflows/v8-one-command.yml").read_text()
+        self.assertIn("workflow_run:", workflow)
+        self.assertIn("Collect SharpAPI DraftKings pregame odds", workflow)
+        self.assertIn("github.event.workflow_run.conclusion == \'success\'", workflow)
+        self.assertIn("github.event_name == \'workflow_run\' && \'run_sharp\'", workflow)
+        self.assertIn("actions: read", workflow)
+        self.assertIn("--sharp-archive-dir saved_sharp_archives", workflow)
 
     def test_past_event_movement_is_not_current_watch_signal(self):
         report, movements = summarize_sharp_archive(
