@@ -23,6 +23,7 @@ on:
           - run_health
           - run_certify
           - run_nba_train
+          - run_nba_oos
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -51,6 +52,7 @@ on:
       - 'v8_source_cadence_watchdog.py'
       - 'v8_certification_audit.py'
       - 'v8_nba_training_intake.py'
+      - 'v8_nba_oos_research.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -60,6 +62,7 @@ on:
       - 'tests/test_v8_source_cadence_watchdog.py'
       - 'tests/test_v8_certification_audit.py'
       - 'tests/test_v8_nba_training_intake.py'
+      - 'tests/test_v8_nba_oos_research.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -170,9 +173,9 @@ jobs:
           echo "Prospective review artifacts downloaded for independent intake: $success"
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_train' || inputs.command || 'run_sports' }}
-          HISTORY_DAYS: ${{ inputs.days || '7' }}
-          HISTORY_END_DATE: ${{ inputs.end_date }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_oos' || inputs.command || 'run_sports' }}
+          HISTORY_DAYS: ${{ github.event_name == 'push' && '35' || inputs.days || '7' }}
+          HISTORY_END_DATE: ${{ github.event_name == 'push' && '2026-02-15' || inputs.end_date }}
         shell: bash
         run: |
           set -euo pipefail
@@ -225,6 +228,19 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_nba_oos':
+                  oos=r.get('nba_oos_research') or {}
+                  lines.extend(["", "## NBA Archived-Score Retrospective Elo Evaluation",
+                      f"**Research status:** {oos.get('status','UNKNOWN')}",
+                      f"**Real published NBA regular-season games collected:** {oos.get('published_completed_games', 0)}",
+                      f"**Successful source days:** {oos.get('source_days_successfully_returned', 0)}; failed: {oos.get('source_days_failed', 0)}",
+                      f"**First games used as fixed-rule warmup:** {oos.get('warmup_games', 0)}",
+                      f"**Later retrospectively simulated games:** {oos.get('retrospective_evaluation_games', 0)}",
+                      f"**Exploratory Brier (not independently validated):** {oos.get('brier_score_retrospective_research_only')}",
+                      f"**Exploratory log loss (not independently validated):** {oos.get('log_loss_retrospective_research_only')}",
+                      f"**Neutral 50/50 Brier (NOT a sportsbook baseline):** {oos.get('neutral_50_50_brier_comparison_not_bookmaker')}",
+                      "**These probabilities were reconstructed after the games, not logged pregame. Certified model picks / EV remain 0.**",
+                      "Download NBA_ELO_RETROSPECTIVE_REPORT.json and NBA_ELO_RETROSPECTIVE_LEDGER.jsonl for full research evidence."])
               if r['command'] == 'run_nba_train':
                   intake=r.get('nba_training_intake') or {}
                   lines.extend(["", "## NBA Original Evidence Intake & Training Readiness",
@@ -295,7 +311,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_train' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_oos' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
