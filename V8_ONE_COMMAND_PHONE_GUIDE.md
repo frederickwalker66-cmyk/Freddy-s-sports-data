@@ -164,3 +164,23 @@ team/injury data and model versions captured *before* start times, then
 evaluate reproducible probabilities against independently adjudicated
 outcomes on untouched later games and independently verified executable
 bookmaker prices.
+
+## Interpretation of NBA retrospective skill: compare with an evolving baseline
+
+The `run_nba_oos` report also measures a **rolling home-win-rate
+baseline**, computed entirely from previously presumed-matured results. This
+reference uses Beta(1,1) smoothing and the same 48-hour assumed result
+availability embargo as the fixed Elo replay. The comparison includes:
+
+- Retrospective Elo versus rolling-prior Brier and log loss on the same later games.
+- Paired Brier improvement = **rolling-prior Brier minus Elo Brier**. Positive
+  numbers indicate Elo outperformed that benchmark over this historical sample.
+- An approximate 95% *game-day-cluster bootstrap* interval for the Brier
+  difference, which is only exploratory (1000 deterministic resamples).
+- The existing 50/50 neutral reference, which is **not** a sportsbook baseline.
+
+An Elo Brier score slightly below 0.25 is **not enough** by itself to show
+skill. Compare against the rolling home prior and examine uncertainty first.
+Neither comparison repairs unverified original result-publication timestamps,
+establishes actual pregame forecast receipts, demonstrates profitable bets,
+or permits promotion to certified betting predictions.
