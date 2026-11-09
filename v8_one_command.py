@@ -17,10 +17,11 @@ from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
+from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
@@ -47,7 +48,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             now=None, output_dir="v8_results/one_command", sharp_rows=None,
             sharp_run_ids=(), source_run_metadata=None,
             certification_source_dir=None, certification_sharp_dir=None,
-            certification_source_run_id=None, certification_sharp_run_id=None):
+            certification_source_run_id=None, certification_sharp_run_id=None,
+            nba_review_packets=None, nba_qualified_history=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -70,6 +72,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_archive": None,
         "source_collection_health": None,
         "certification_review": None,
+        "nba_training_intake": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -78,6 +81,19 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_nba_train":
+        rows, trained_report, trained_model = nba_training_intake(
+            nba_review_packets or [], now=now, qualified_history=nba_qualified_history)
+        report["nba_training_intake"] = trained_report
+        (out / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
+        (out / "NBA_RESEARCH_INTAKE.json").write_text(
+            json.dumps(trained_report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if trained_model is not None:
+            artifact = out / "NBA_UNVERIFIED_RESEARCH_MODEL.json"
+            if artifact.exists():
+                raise FileExistsError("refusing_to_overwrite_existing_native_research_artifact")
+            artifact.write_text(json.dumps(trained_model, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     elif command == "run_certify":
         report["certification_review"] = certification_audit(
             source_dir=certification_source_dir, sharp_dir=certification_sharp_dir,
@@ -137,6 +153,8 @@ def main(argv=None):
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
+    p.add_argument("--nba-review-dir", help="Previously captured original NBA source review packets (research only)")
+    p.add_argument("--nba-qualified-history", help="Distinct independently reviewed NBA history file; only for unverified native research training")
     p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
     p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
     p.add_argument("--certification-sharp-run-id", type=int, help="Sharp workflow ID for research price reference")
@@ -154,6 +172,19 @@ def main(argv=None):
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
         source_metadata = json.loads(Path(args.source_runs_json).read_text(encoding="utf-8"))
+    nba_review_packets = []
+    nba_qualified_history = None
+    if args.command == "run_nba_train":
+        if args.nba_review_dir:
+            nba_review_packets, _ = load_review_packets(args.nba_review_dir)
+        if args.nba_qualified_history:
+            native_path = Path(args.nba_qualified_history)
+            if not native_path.is_file() or native_path.is_symlink() or native_path.name in (
+                    "original_bytes_lineage_review.jsonl", "all_sports_evidence_review_queue.jsonl",
+                    "historical_published_results.jsonl"):
+                raise ValueError("unreviewed_or_missing_nba_native_training_file")
+            nba_qualified_history = [json.loads(x) for x in native_path.read_text(encoding="utf-8").splitlines()
+                                     if x.strip()]
     stop = date.fromisoformat(args.end_date) if args.end_date else None
     report = execute(args.command, args.days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
@@ -161,7 +192,8 @@ def main(argv=None):
                      certification_source_dir=args.certification_source_dir,
                      certification_sharp_dir=args.certification_sharp_dir,
                      certification_source_run_id=args.certification_source_run_id,
-                     certification_sharp_run_id=args.certification_sharp_run_id)
+                     certification_sharp_run_id=args.certification_sharp_run_id,
+                     nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history)
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},
