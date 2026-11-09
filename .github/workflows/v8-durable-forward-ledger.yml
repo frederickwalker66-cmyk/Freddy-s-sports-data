@@ -1,0 +1,166 @@
+name: V8 durable NBA forward research ledger and leaderboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 15 * * *' # Best-effort daily: preserve archived forecasts before expiry
+  workflow_run:
+    workflows: ["Freddy's Picks AI V8 — One Command (phone + laptop)"]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'v8_durable_forward_ledger.py'
+      - 'v8_forward_leaderboard_view.py'
+      - 'tests/test_v8_durable_forward_ledger.py'
+      - 'tests/test_v8_forward_leaderboard_view.py'
+      - '.github/workflows/v8-durable-forward-ledger.yml'
+  pull_request:
+    paths:
+      - 'v8_durable_forward_ledger.py'
+      - 'v8_forward_leaderboard_view.py'
+      - 'tests/test_v8_durable_forward_ledger.py'
+      - 'tests/test_v8_forward_leaderboard_view.py'
+      - '.github/workflows/v8-durable-forward-ledger.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v8-durable-forward-writer-main
+  cancel-in-progress: false
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-calibration.txt
+      - name: Test actual archived research ledger and fail-closed mobile leaderboard
+        run: |
+          python -m unittest discover -s tests -p 'test_v8_durable_forward_ledger.py' -v
+          python -m unittest discover -s tests -p 'test_v8_forward_leaderboard_view.py' -v
+
+  persist-research:
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
+    needs: offline-safety
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-calibration.txt
+      - name: Download up to 35 completed forward research runs and their original GitHub run metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p saved_original_forward_runs
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow v8-one-command.yml --branch main --status success --limit 110 --json databaseId --jq '.[].databaseId')
+          count=0
+          for rid in "${ids[@]}"; do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|oos)-${rid}$" | head -n 1 || true)"
+            [[ -n "$artifact_name" ]] || continue
+            folder="saved_original_forward_runs/$rid"
+            mkdir -p "$folder"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid" > "$folder/github_run.json" \
+               && gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$folder"; then
+              count=$((count+1))
+              if [[ $count -ge 35 ]]; then break; fi
+            else
+              echo "Forward research artifact for run $rid unavailable: excluded."
+              rm -rf "$folder"
+            fi
+          done
+          echo "Completed candidate GH forward research artifacts downloaded: $count"
+      - name: Load dedicated durable Git branch or initialize it if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p persistent_branch
+          git -C persistent_branch init -q
+          git -C persistent_branch config user.name "Freddy's Picks AI Research Archive"
+          git -C persistent_branch config user.email "github-actions[bot]@users.noreply.github.com"
+          git -C persistent_branch remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git -C persistent_branch ls-remote --exit-code --heads origin refs/heads/research/forward-ledger > /dev/null; then
+            git -C persistent_branch fetch --depth=1 origin refs/heads/research/forward-ledger
+            git -C persistent_branch checkout -B research/forward-ledger FETCH_HEAD
+            echo "Loaded existing durable research branch (never reset it)."
+          else
+            git -C persistent_branch checkout --orphan research/forward-ledger
+            echo "Initialized a separate long-lived Git branch for NBA research evidence."
+          fi
+      - name: Append original forward forecast receipts and grade eligible ESPN finals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python v8_durable_forward_ledger.py \
+            --incoming-archives saved_original_forward_runs \
+            --output-dir persistent_branch/data/v8_forward
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads(Path("persistent_branch/data/v8_forward/LEADERBOARD.json").read_text())
+          assert r["certified_positive_ev_bets"]==r["certified_champion_001_shadows"]==0
+          assert r["champion_001_modified"] is False and r["bet_ready"] is False
+          lines=[
+            "# Freddy's Picks AI — Durable NBA Prospective Research Archive",
+            f"**Original pre-tipoff forecasts preserved:** {r['nba_unique_original_forecasts_archived']}",
+            f"**Later ESPN-published results graded:** {r['nba_forward_forecasts_graded_research_only']}",
+            f"**Waiting for 48h maturity:** {r['nba_forecasts_pending_48h']}",
+            f"**Due but missing valid published results:** {r['nba_forecasts_due_without_published_grade']}",
+            f"**Quarantined conflicting event identities:** {r['nba_original_forecasts_quarantined']}",
+            f"**Research model leaderboard:** {r['ranking_status']}",
+            "**Independently certified Champion-001 predictions and +EV:** 0.",
+            "**Important:** Git branch storage is persistent but NOT externally immutable.",
+          ]
+          if r["research_only_ranked_models"]:
+            lines.extend(["", "| Model | Graded | Brier | Log loss |",
+                          "|---|---:|---:|---:|"])
+            for m in r["research_only_ranked_models"]:
+              lines.append(f"| {m['model_version']} | {m['graded_forward_research_games']} | {m['mean_Brier_lower_is_better']} | {m['mean_log_loss_lower_is_better']} |")
+          text="\n".join(lines)+"\n"
+          print(text)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+            with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a",encoding="utf-8") as handle:
+              handle.write(text)
+          PY
+      - name: Commit only evidence and scorecard changes to separate durable research branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C persistent_branch add -- data/v8_forward/
+          if git -C persistent_branch diff --cached --quiet; then
+            echo "Durable research records unchanged; no new commit needed."
+          else
+            git -C persistent_branch commit -m "Archive genuine NBA V8 forward research forecasts and provisional grading" -q
+            git -C persistent_branch push origin HEAD:refs/heads/research/forward-ledger
+            echo "Research receipts, SQLite data and JSONL leaderboard pushed to separate long-lived branch."
+          fi
+      - name: Optional portable research scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-durable-forward-status-${{ github.run_id }}
+          path: |
+            persistent_branch/data/v8_forward/LEADERBOARD.json
+            persistent_branch/data/v8_forward/FORECAST_HISTORY.jsonl
+          retention-days: 90
+          if-no-files-found: warn
