@@ -54,6 +54,17 @@ class V8ResearchGateTests(unittest.TestCase):
         self.assertFalse(result["bet_ready"])
         self.assertEqual(result["certified_positive_ev_bets"], 0)
 
+    def test_all_eight_league_ids_are_supported_without_self_certifying(self):
+        from v8_milestone_tracker import LEAGUES
+        for league in LEAGUES:
+            with self.subTest(league=league):
+                result = release_gate({"league": league, "champion_001_modified": False})
+                self.assertNotIn("unsupported_league", result["blockers"])
+                self.assertEqual(result["certified_predictions"], 0)
+                self.assertFalse(result["bet_ready"])
+        invalid = release_gate({"league": "uefa", "champion_001_modified": False})
+        self.assertIn("unsupported_league", invalid["blockers"])
+
     def test_research_comparison_is_never_certified(self):
         result = research_price_comparison(.58, -110)
         self.assertFalse(result["certified_prediction"])
