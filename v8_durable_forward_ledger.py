@@ -27,6 +27,7 @@ from historical_outcomes import parse_time
 from v8_nba_forward_grade import (
     MAX_SOURCE_DAYS, grade as grade_forward, load_archived_forecasts,
 )
+from v8_forward_calibration import build_from_database as build_forward_calibration
 
 NY = ZoneInfo("America/New_York")
 DATABASE_VERSION = 1
@@ -361,6 +362,13 @@ def sync(incoming_root, output_dir, *, now=None, collector=None):
         sync_counts["mature_outcome_source_days_checked"]=days
         board,history=_scoreboard(db,clock,receipt,sync_counts,grade_summary,deferred)
         db.commit()
+    calibration = build_forward_calibration(
+        db_path, root / "CALIBRATION.json")
+    board["forward_calibration_report_version"] = calibration["version"]
+    board["forward_calibration_status"] = calibration["status"]
+    board["forward_calibration_graded_NBA_games"] = calibration["graded_research_NBA_games"]
+    if board["forward_calibration_graded_NBA_games"] != board["nba_forward_forecasts_graded_research_only"]:
+        raise ValueError("calibration_and_original_ledger_grades_do_not_reconcile")
     (root/"LEADERBOARD.json").write_text(
         json.dumps(board,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     (root/"FORECAST_HISTORY.jsonl").write_text(
@@ -383,6 +391,7 @@ def main(argv=None):
         "new_forecasts":board["new_forecast_sync"]["new_forecasts_inserted"],
         "new_grades":board["new_forecast_sync"]["new_ESPN_published_outcomes_recorded"],
         "ranked_eligible_research_models":len(board["research_only_ranked_models"]),
+        "forward_calibration_status":board["forward_calibration_status"],
         "champion_001_certified_shadows":0,"certified_positive_EV_bets":0,
     },sort_keys=True))
 
