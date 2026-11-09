@@ -79,6 +79,31 @@ class OneCommandTests(unittest.TestCase):
             self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
             self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
 
+    def test_nba_research_backtest_command_graceful_empty_source(self):
+        self.assertEqual(selected("run_nba_oos"), ())
+        def empty_public_collector(leagues, days, end_date):
+            self.assertEqual(leagues, ("nba",))
+            return [], {
+                "leagues": ["nba"], "total_completed_results": 0,
+                "by_league": {"nba": {
+                    "days_attempted": days, "days_ok": days,
+                    "days_failed": 0, "completed_games": 0, "draws": 0,
+                    "error_types": {},
+                }}
+            }
+        with tempfile.TemporaryDirectory() as folder:
+            report = execute(
+                "run_nba_oos", days=2, end_date=date(2026, 2, 15),
+                now=datetime(2026, 11, 9, tzinfo=timezone.utc),
+                collector=empty_public_collector, output_dir=folder)
+            oos = report["nba_oos_research"]
+            self.assertEqual(oos["status"], "HOLD_INSUFFICIENT_RESEARCH_HISTORY")
+            self.assertIsNone(oos["brier_score_retrospective_research_only"])
+            self.assertEqual(oos["certified_positive_ev_bets"], 0)
+            self.assertEqual(report["certified_positive_ev_bets"], 0)
+            self.assertTrue((Path(folder) / "NBA_ELO_RETROSPECTIVE_REPORT.json").is_file())
+            self.assertTrue((Path(folder) / "NBA_ELO_RETROSPECTIVE_LEDGER.jsonl").is_file())
+
     def test_empty_model_status(self):
         with tempfile.TemporaryDirectory() as folder:
             result = execute("model_status", output_dir=folder)
