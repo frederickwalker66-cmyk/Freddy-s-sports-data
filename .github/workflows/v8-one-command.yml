@@ -120,7 +120,7 @@ jobs:
             echo "Metadata unavailable: reporting unknown instead of invented data."
           fi
       - name: Load last completed real source and price audit receipts for certification review
-        if: ${{ inputs.command == 'run_certify' }}
+        if: ${{ inputs.command == 'run_certify' || github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -148,7 +148,7 @@ jobs:
           echo "Research artifacts loaded if available. No paid API, betting or external certification."
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -259,7 +259,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_certify' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
