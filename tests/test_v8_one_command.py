@@ -56,6 +56,16 @@ class OneCommandTests(unittest.TestCase):
             self.assertEqual(result["source_collection_health"]["reason"], "metadata_unavailable")
             self.assertFalse(result["source_collection_health"]["dispatch_attempted"])
 
+    def test_run_certify_returns_real_evidence_inventory_not_picks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = execute("run_certify", output_dir=folder)
+            audit = result["certification_review"]
+            self.assertEqual(audit["status"], "HOLD_MISSING_INDEPENDENT_MODEL_AND_PRICE_PROOF")
+            self.assertEqual(audit["certified_v8_predictions"], 0)
+            self.assertIsNone(audit["source_games_archived"])
+            self.assertEqual(result["certified_positive_ev_bets"], 0)
+            self.assertTrue((Path(folder) / "CERTIFICATION_AUDIT.json").is_file())
+
     def test_empty_model_status(self):
         with tempfile.TemporaryDirectory() as folder:
             result = execute("model_status", output_dir=folder)
