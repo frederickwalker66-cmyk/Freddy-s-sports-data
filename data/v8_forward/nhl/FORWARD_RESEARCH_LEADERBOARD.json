@@ -1,0 +1,43 @@
+{
+  "ESPN_final_is_independently_verified_bookmaker_settlement": false,
+  "automated_wagers": 0,
+  "bet_ready": false,
+  "branch_durable_but_independently_tamperproof": false,
+  "certified_champion_001_shadows": 0,
+  "certified_positive_ev_bets": 0,
+  "champion_001_modified": false,
+  "generated_at_utc": "2026-11-09T22:38:01.666026+00:00",
+  "graded_research_games": 0,
+  "last_synchronization": {
+    "due_forecast_rows_checked": 0,
+    "later_repeated_forecasts_ignored": 0,
+    "new_ESPN_binary_research_outcomes": 0,
+    "new_NFL_ties_excluded_from_binary_grading": 0,
+    "new_conflicting_event_ids_quarantined": 0,
+    "new_original_forecasts": 10,
+    "original_source_receipt_files_saved": 6
+  },
+  "matured_date_queries_deferred_due_to_budget": 0,
+  "original_game_identity_conflicts_quarantined": 0,
+  "original_saved_forecasts": 10,
+  "pending_48h": 10,
+  "published_NFL_ties_excluded": 0,
+  "research_model_scorecards_including_insufficient_samples": [],
+  "research_ranked_models_after_50": [],
+  "source_research_receipts": {
+    "first_unique_event_forecasts_accepted": 10,
+    "independently_certified_predictions": 0,
+    "league": "nhl",
+    "original_completed_github_run_ids": [
+      42711310554
+    ],
+    "source_exclusions": {},
+    "source_forward_rows_loaded": 10
+  },
+  "sport": "nhl",
+  "status": "HOLD_Fewer_than_50_research_forward_grades_per_model",
+  "unmatched_or_source_missing": 0,
+  "verified_sportsbook_checkout_quotes": 0,
+  "version": "v8-NFL-NHL-durable-forward-v1",
+  "warning": "Original V8 research forecasts were saved before start, but Git branch and local SHA256 are not external signatures. NFL ties are excluded from conditional non-tie binary forecasts. NHL OT/SO sportsbook market grading unaudited. 50 published-forward non-tie games only unlock provisional research metrics; no calibrated betting model, odds or profit claims."
+}
