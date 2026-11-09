@@ -10,7 +10,7 @@ import math
 from typing import Any
 
 VERSION = "v8-elite-research-gate-v0"
-SUPPORTED = frozenset({"nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls", "uefa"})
+SUPPORTED = frozenset({"nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls", "uefa_champions_league"})
 MIN_TRAIN = 200
 MIN_HOLDOUT = 50
 
