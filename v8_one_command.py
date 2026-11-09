@@ -21,10 +21,11 @@ from v8_nba_training_intake import audit as nba_training_intake, load_review_pac
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 from v8_nba_forward_research import capture as capture_nba_forward
 from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
+from v8_forward_leaderboard_view import read_leaderboard
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
@@ -54,7 +55,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             certification_source_run_id=None, certification_sharp_run_id=None,
             nba_review_packets=None, nba_qualified_history=None,
             nba_forward_runner=None, nba_grading_archive_dir=None,
-            nba_grading_outcome_collector=None):
+            nba_grading_outcome_collector=None, leaderboard_file=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -81,6 +82,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_oos_research": None,
         "nba_forward_research": None,
         "nba_forward_grading": None,
+        "forward_leaderboard": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -89,6 +91,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_leaderboard":
+        report["forward_leaderboard"] = read_leaderboard(leaderboard_file)
     elif command == "run_nba_grade":
         if end_date is not None:
             raise ValueError("prospective_grading_cannot_override_actual_clock")
@@ -220,6 +224,7 @@ def main(argv=None):
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
     p.add_argument("--nba-review-dir", help="Previously captured original NBA source review packets (research only)")
     p.add_argument("--nba-grade-archives-dir", help="Saved completed Github forward runs including original schedule bytes and run metadata")
+    p.add_argument("--leaderboard-file", help="Read-only persisted V8 forward-research scorecard")
     p.add_argument("--nba-qualified-history", help="Distinct independently reviewed NBA history file; only for unverified native research training")
     p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
     p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
@@ -260,7 +265,8 @@ def main(argv=None):
                      certification_source_run_id=args.certification_source_run_id,
                      certification_sharp_run_id=args.certification_sharp_run_id,
                      nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history,
-                     nba_grading_archive_dir=args.nba_grade_archives_dir)
+                     nba_grading_archive_dir=args.nba_grade_archives_dir,
+                     leaderboard_file=args.leaderboard_file)
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},

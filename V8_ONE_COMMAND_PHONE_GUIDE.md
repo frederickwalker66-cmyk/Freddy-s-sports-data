@@ -19,6 +19,7 @@ pregame feature availability or profitable bets.
    - **run_nba_oos** — fetch up to 35 real NBA historical regular-season score days (public ESPN only), replay a fixed Elo benchmark using a 48-hour result embargo, and report retrospective Brier/log loss. **This is not a real pregame logged forecast, certified calibration, executable EV, or a betting recommendation.**
    - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
    - **run_nba_grade** — read the saved genuine pretipoff V8 research forecasts, check their original schedule-byte hashes and GitHub run timestamps, then grade only games with ESPN final results observed at least 48 hours after their original scheduled tipoff. Never backfill or change an original prediction.
+   - **run_leaderboard** — read your stored forward research records from the separate `research/forward-ledger` Git branch, show original forecasts, pending games, Brier/log loss and any models with at least 50 real graded forward games. No current game bets or fabricated edge.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -266,3 +267,37 @@ does not independently certify calibration, model authenticity, or
 actionable positive EV. **Champion-001 original certified shadows remain 0**
 and no odds or wagers are generated. GitHub artifacts expire after 90 days,
 so a durable externally archived forecast ledger is still needed.
+
+## Long-lived forecast archive and forward-performance dashboard
+
+The separate GitHub Actions workflow
+`v8-durable-forward-ledger.yml` collects previously completed original NBA
+research forecast captures after each One Command workflow success and once
+daily (best-effort). It preserves the original GitHub run JSON, before-tipoff
+probability JSONL, model version, full schedule response bytes and local
+SHA-256 digests under the dedicated Git branch:
+
+`research/forward-ledger` → `data/v8_forward/`
+
+It builds `NBA_FORWARD_RESEARCH.sqlite`, `FORECAST_HISTORY.jsonl`, and
+`LEADERBOARD.json`. Git branch storage outlives GitHub's normal 90-day
+workflow artifact period, but **is not externally immutable** or a guarantee
+of independent event/source custody. Keep separate off-repository backups.
+
+A timestamped original forecast cannot be overwritten by a later forecast.
+Duplicate or conflicting event identities are quarantined. ESPN published
+final outcomes are added separately only after a minimum 48-hour waiting
+period; missing scores do not count as losses. Existing recorded grades are
+not silently replaced on each refresh.
+
+For a quick status from Android/iPhone or Windows choose:
+**Run workflow → run_leaderboard → Run workflow**.
+This is a READ-ONLY lookup and does not trigger the data collector or place
+a bet. The separate durable writer owns archival updates.
+
+Only research models with at least **50 forward-graded games** enter the
+ranked scoreboard, sorted by lower Brier score. This minimum allows
+**preliminary comparison**, not independent calibration or betting
+certification. Original Champion-001 model and shadow quota remain frozen
+and separate; certified bets and certified positive EV remain zero until
+independent model/source and sportsbook verification exists.
