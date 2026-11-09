@@ -25,6 +25,7 @@ on:
           - run_nba_train
           - run_nba_oos
           - run_nba_forward
+          - run_nba_grade
       days:
         description: 'Historical days per league, 1–35 (public sources only)'
         required: true
@@ -38,6 +39,7 @@ on:
   schedule:
     - cron: '23 9 * * 0' # Weekly all-eight public research capture, no API fees
     - cron: '37 20 * * *' # Best-effort daily actual clock-time NBA research forecasts (15:37 EST / 16:37 EDT)
+    - cron: '53 13 * * *' # Best-effort daily NBA forward outcome grading, 48h maturation
   # Automatically replay archived Sharp prices after a successful paid collector
   # run. The replay reads artifacts only; it never calls SharpAPI itself.
   workflow_run:
@@ -57,6 +59,7 @@ on:
       - 'v8_nba_oos_research.py'
       - 'v8_nba_paired_baseline.py'
       - 'v8_nba_forward_research.py'
+      - 'v8_nba_forward_grade.py'
   pull_request:
     paths:
       - 'v8_one_command.py'
@@ -69,6 +72,7 @@ on:
       - 'tests/test_v8_nba_oos_research.py'
       - 'tests/test_v8_nba_paired_baseline.py'
       - 'tests/test_v8_nba_forward_research.py'
+      - 'tests/test_v8_nba_forward_grade.py'
       - '.github/workflows/v8-one-command.yml'
 permissions:
   contents: read
@@ -88,7 +92,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     needs: offline-safety
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -177,9 +181,34 @@ jobs:
             fi
           done
           echo "Prospective review artifacts downloaded for independent intake: $success"
+      - name: Retrieve completed NBA forward research artifacts and original GitHub run metadata
+        if: ${{ inputs.command == 'run_nba_grade' || github.event.schedule == '53 13 * * *' || github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p saved_nba_forward_archives
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow v8-one-command.yml --branch main --status success --limit 35 --json databaseId --jq '.[].databaseId')
+          downloaded=0
+          for rid in "${ids[@]}"; do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|oos)-${rid}$" | head -n 1 || true)"
+            [[ -n "$artifact_name" ]] || continue
+            dest="saved_nba_forward_archives/$rid"
+            mkdir -p "$dest"
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid" > "$dest/github_run.json" \
+               && gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$dest"; then
+              downloaded=$((downloaded+1))
+            else
+              echo "Source run $rid could not be downloaded; it is excluded from grading."
+              rm -rf "$dest"
+            fi
+          done
+          echo "Original completed forward-run artifacts downloaded: $downloaded"
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward') && '35' || inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -189,6 +218,9 @@ jobs:
                   --output-dir v8_results/one_command)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_nba_grade" ]]; then
+            params+=(--nba-grade-archives-dir saved_nba_forward_archives)
           fi
           if [[ "$SELECTED_COMMAND" == "run_nba_train" ]]; then
             params+=(--nba-review-dir nba_original_reviews)
@@ -234,6 +266,21 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              if r['command'] == 'run_nba_grade':
+                  scored=r.get('nba_forward_grading') or {}
+                  lines.extend(["", "## NBA Forward Research — First-Receipt Outcome Scorecard",
+                      f"**Status:** {scored.get('status','unknown')}",
+                      f"**Original archived forward forecasts:** {scored.get('forecast_rows_in_scope',0)}",
+                      f"**Graded ESPN-published final outcomes:** {scored.get('real_forward_research_forecasts_graded',0)}",
+                      f"**Still pending or source-unmatched:** {scored.get('forecasts_still_pending_or_unmatched',0)}",
+                      f"**Outcome statuses:** {scored.get('outcome_status_counts',{})}",
+                      f"**Research Brier (first-forecast only, unverified):** {scored.get('probability_research_Brier')}",
+                      f"**Research log loss:** {scored.get('probability_research_log_loss')}",
+                      f"**Direction accuracy (no-vig, not ROI):** {scored.get('classification_accuracy_provisional')}",
+                      f"**50+ forward-graded games:** {scored.get('meets_minimum_50_forward_graded_games',False)}",
+                      "**Champion-001 certified shadows: 0. Independently certified EV bets: 0. Wagers: $0.**",
+                      "**Original predictions remain immutable; no missing outcomes are scored as losses.**",
+                      "Download NBA_FORWARD_GRADING_REPORT.json and NBA_FORWARD_GRADING_LEDGER.jsonl for per-game source and timestamp details."])
               if r['command'] == 'run_nba_forward':
                   fwd=r.get('nba_forward_research') or {}
                   lines.extend(["", "## NBA REAL Forward Research Forecasts — Created Before Tipoff",
@@ -334,7 +381,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
