@@ -18,6 +18,8 @@ pregame feature availability or profitable bets.
    - **run_nba_train** — download recent original NBA prospective review receipts, report real independently unqualified training gaps and produce a downloadable manual-review worklist. It deliberately does not train on unverified review packets.
    - **run_nba_oos** — fetch up to 35 real NBA historical regular-season score days (public ESPN only), replay a fixed Elo benchmark using a 48-hour result embargo, and report retrospective Brier/log loss. **This is not a real pregame logged forecast, certified calibration, executable EV, or a betting recommendation.**
    - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
+   - **run_nfl_forward** — capture original ESPN NFL pre-start event bytes with a 7-day outlook and prior 35 days of published results. Record fixed Elo v0 research P(home wins | no tie), explicitly NOT an actionable moneyline probability.
+   - **run_nhl_forward** — capture original ESPN NHL pre-start event bytes with a 2-day outlook and prior 35 days of published results. Record fixed Elo v0 NHL full-game home-win research probabilities; OT/SO and sportsbook settlement are unverified.
    - **run_nba_grade** — read the saved genuine pretipoff V8 research forecasts, check their original schedule-byte hashes and GitHub run timestamps, then grade only games with ESPN final results observed at least 48 hours after their original scheduled tipoff. Never backfill or change an original prediction.
    - **run_leaderboard** — read your stored forward research records from the separate `research/forward-ledger` Git branch, show original forecasts, pending games, Brier/log loss and any models with at least 50 real graded forward games. No current game bets or fabricated edge.
    - **run_calibration** — read the saved research reliability report from the same durable Git branch. It shows five fixed probability buckets; empirical win frequencies are withheld for buckets with fewer than 20 graded games, aggregate Brier/log-loss require 50+ games, and exploratory calibration error requires 100+ games and ten per occupied bucket.
@@ -334,3 +336,42 @@ This measures only **research probability quality**; it does not establish
 profitable betting, real executable bookmaker prices, verified independent
 publisher custody, the original frozen Champion-001 model or ANY certified
 positive-EV selections. **Champion-001 shadows and certified bets remain 0.**
+
+## NFL and NHL original forward research (new V8 lanes)
+
+Choose **Run workflow → run_nfl_forward** or **run_nhl_forward** from your
+phone or Windows computer in **V8 One Command**. Leave `end_date` empty.
+The workflow selects 35 source days automatically for either forward lane.
+
+There is also a dedicated scheduled GitHub workflow,
+`v8-nfl-nhl-forward.yml`, which captures both lanes separately around
+**3:41 p.m. Eastern (standard time) / 4:41 p.m. (daylight time)** daily.
+GitHub schedule runs are best-effort: they can start late or be missed.
+The two separate downloadable artifacts are:
+- `NFL_FORWARD_RESEARCH_FORECASTS.jsonl` and original
+  `nfl_original_future_schedule_YYYYMMDD.json` responses.
+- `NHL_FORWARD_RESEARCH_FORECASTS.jsonl` and original
+  `nhl_original_future_schedule_YYYYMMDD.json` responses.
+
+Both use a fixed initial Elo rule that has NOT been trained or calibrated:
+NFL K=18, home advantage=45 Elo points, >=35 prior 48h-matured
+**non-tie** published regular-season games; NHL K=16, home advantage=35,
+>=50 prior 48h-matured non-tie regular-season published games. They fetch
+at most 35 historical days and save the future schedule **wire bytes** and
+local SHA-256. NFL scans 7 upcoming Eastern dates, NHL 2. All original
+outcomes and odds stay blank until independently reviewed later. Failed
+source days prevent probability creation and remain recorded as explicit
+HOLDs instead of invented history.
+
+**Critical NFL market-definition warning:** a two-outcome NFL Elo result
+with ties omitted is conditional on no tie and is **not equivalent to an
+executable NFL sportsbook moneyline price**. NHL overtime/shootout
+grading and exact house settlement are also not validated. No bankroll,
+bet slip, bookmaker checkout price or verified positive-EV computation
+is generated from these research probabilities.
+
+These newly recorded sports are still **V8 separate forward research**;
+they DO NOT inherit the NBA SQLite database, grading or 50-game
+calibration results. Those require separate sport-specific verified outcome
+grading and durable archiving. Original Champion-001 stays frozen;
+**certified picks: 0, automated wagers: 0**.
