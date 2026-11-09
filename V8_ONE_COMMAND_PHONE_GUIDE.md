@@ -15,6 +15,7 @@ pregame feature availability or profitable bets.
    - **run_sharp** — read the five most recent successfully completed SharpAPI research archives (if available), report eligible DraftKings-labeled main-moneyline prices and historical line movement. **No new provider API calls, no added API credit use.**
    - **run_health** — inspect actual eight-sport source collection runs and their most recent completed success. This is read-only; it cannot force or certify a source.
    - **run_certify** — read the most recent already completed eight-sport source gate and SharpAPI moneyline archive, reconcile source counts, and list per-league blockers. **Evidence audit only, never fake certified predictions.**
+   - **run_nba_train** — download recent original NBA prospective review receipts, report real independently unqualified training gaps and produce a downloadable manual-review worklist. It deliberately does not train on unverified review packets.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -120,3 +121,17 @@ prices; only then can a qualifying EV leaderboard be published.
 - The command **never places bets** or changes Champion-001. It reports zero
   certified predictions until those requirements are satisfied and checked
   outside the self-asserted reporting pipeline.
+
+## NBA original-data training stage: `run_nba_train`
+
+The phone action downloads up to four recent successful **prospective outcome-validation** archives, rechecks their saved original-capture NBA review packets, and produces:
+- `NBA_RESEARCH_INTAKE.json`: real packet counts, pregame features/final-result review readiness, 200-train/50-holdout independent-evidence shortfall, and unresolved source/settlement requirements.
+- `NBA_ORIGINAL_REVIEW_WORKLIST.jsonl`: deduplicated NBA event references with original line hashes, unverified source run numbers and blockers. Its contents **must not be fed into the native trainer**.
+
+The phone button does not automatically qualify research data; original review packets explicitly contain `qualified_for_challenger_training=false`. When a genuinely externally reviewed separate history dataset becomes available on a Windows machine, the existing native research trainer can be invoked through the CLI without changing Champion-001:
+
+```powershell
+python v8_one_command.py --command run_nba_train --nba-review-dir path\to\downloaded_outcome_artifacts --nba-qualified-history path\to\externally_reviewed_nba_history.jsonl
+```
+
+That separate file must satisfy the original `challenger_nba_probability.train_engine` schema and its 200/50 chronological training/holdout gates. Even a successful research model remains **unverified**, because source-review flags and original receipts cannot independently authenticate themselves. A subsequent external audit of publisher time, outcome and exact bookmaker settlement, model calibration, and executable sportsbook quotes is required before any certified positive-EV recommendation.
