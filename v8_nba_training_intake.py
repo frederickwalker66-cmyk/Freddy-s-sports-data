@@ -125,6 +125,7 @@ def audit(packets, now=None, *, qualified_history=None):
     if not isinstance(packets, list):
         raise ValueError("review_packets_must_be_list")
     accepted = {}
+    quarantined_events = set()
     errors = Counter()
     for row in packets:
         try:
@@ -137,6 +138,9 @@ def audit(packets, now=None, *, qualified_history=None):
                 errors[why] += 1
             continue
         key = item["event_id"]
+        if key in quarantined_events:
+            errors["previously_conflicted_event_quarantined"] += 1
+            continue
         if key in accepted:
             original = accepted[key]
             if (item["snapshot_completed_at_utc"] < original["snapshot_completed_at_utc"]):
@@ -145,6 +149,7 @@ def audit(packets, now=None, *, qualified_history=None):
             elif (item["snapshot_completed_at_utc"] == original["snapshot_completed_at_utc"]
                   and item["source_event_line_sha256"] != original["source_event_line_sha256"]):
                 accepted.pop(key)
+                quarantined_events.add(key)
                 errors["conflicting_earliest_capture_quarantined"] += 1
             else:
                 errors["duplicate_or_newer_event_snapshot_ignored"] += 1
@@ -158,7 +163,7 @@ def audit(packets, now=None, *, qualified_history=None):
     report = {
         "version": "v8-nba-original-intake-v1",
         "status": "HOLD_UNQUALIFIED_INDEPENDENT_EVIDENCE",
-        "nb_original_review_packet_rows_received": len(packets),
+        "nba_original_review_packet_rows_received": len(packets),
         "nba_unique_original_capture_events": len(rows),
         "nba_manual_review_packets_with_pregame_features_and_published_finals": ready_to_review,
         "excluded_review_packet_reasons": dict(sorted(errors.items())),
