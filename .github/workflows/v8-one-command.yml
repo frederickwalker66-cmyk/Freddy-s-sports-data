@@ -32,6 +32,12 @@ on:
         type: string
   schedule:
     - cron: '23 9 * * 0' # Weekly all-eight public research capture, no API fees
+  # Automatically replay archived Sharp prices after a successful paid collector
+  # run. The replay reads artifacts only; it never calls SharpAPI itself.
+  workflow_run:
+    workflows: ['Collect SharpAPI DraftKings pregame odds']
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -64,7 +70,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     needs: offline-safety
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -75,7 +81,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements-calibration.txt
       - name: Retrieve recent completed SharpAPI research archives (no API charges)
-        if: ${{ inputs.command == 'run_sharp' }}
+        if: ${{ inputs.command == 'run_sharp' || github.event_name == 'workflow_run' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -95,7 +101,7 @@ jobs:
           echo "Archived SharpAPI runs downloaded: $count"
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -140,7 +146,8 @@ jobs:
                   lines.append(f"**SharpAPI archive status:** {sharp.get('status', 'not_available')}")
                   lines.append(f"**Archived primary moneyline quotes:** {sharp.get('valid_sharpapi_primary_moneyline_quote_observations', 0)}")
                   lines.append(f"**Observed historical line movements:** {sharp.get('observed_line_movements', 0)}")
-                  lines.append(f"**Upcoming movements to review:** {sharp.get('upcoming_market_movement_observations', 0)}")
+                  lines.append(f"**Fresh upcoming movements (within {sharp.get('research_watchlist_max_age_minutes', 120)} minutes of capture):** {sharp.get('upcoming_market_movement_observations', 0)}")
+                  lines.append(f"**Stale upcoming movements excluded:** {sharp.get('stale_upcoming_market_movement_observations_excluded', 0)}")
                   lines.append(f"**Sharp bet decision:** {sharp.get('sharp_bet_decision', 'PASS')} — research only.")
                   watch = sharp.get("ranked_market_movement_watchlist") or []
                   if watch:
@@ -167,7 +174,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn

@@ -7,7 +7,10 @@ odds as model forecasts, or certify value edges or available checkout prices.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+# Strictly a research display limit: this does NOT verify a bookmaker quote.
+MAX_RESEARCH_WATCHLIST_AGE_MINUTES = 120
 import json
 from pathlib import Path
 
@@ -49,10 +52,15 @@ def summarize_sharp_archive(rows, now=None, archive_run_ids=()):
     # A watchlist is a ranked audit queue, NOT inferred sharp-money bets.
     # Old games and future-dated captures are never shown as today's signals.
     watchlist = []
+    stale_upcoming = 0
     for movement in movements:
         event_start = datetime.fromisoformat(movement["event_start_utc"])
         last_capture = datetime.fromisoformat(movement["last_capture_utc"])
         if event_start <= clock or last_capture > clock:
+            continue
+        signal_age = (clock - last_capture).total_seconds() / 60
+        if signal_age > MAX_RESEARCH_WATCHLIST_AGE_MINUTES:
+            stale_upcoming += 1
             continue
         delta = movement["home_no_vig_probability_change_percentage_points"]
         watchlist.append({
@@ -63,6 +71,7 @@ def summarize_sharp_archive(rows, now=None, archive_run_ids=()):
             "event_start_utc": movement["event_start_utc"],
             "first_capture_utc": movement["first_capture_utc"],
             "last_capture_utc": movement["last_capture_utc"],
+            "signal_age_minutes": round(signal_age, 1),
             "last_home_odds_american": movement["home_american_odds_after"],
             "last_away_odds_american": movement["away_american_odds_after"],
             "home_no_vig_change_percentage_points": delta,
@@ -91,11 +100,14 @@ def summarize_sharp_archive(rows, now=None, archive_run_ids=()):
         "observed_line_movements": len(movements),
         "line_movement_exclusions": movement_report["excluded"],
         "upcoming_market_movement_observations": len(watchlist),
+        "stale_upcoming_market_movement_observations_excluded": stale_upcoming,
+        "research_watchlist_max_age_minutes": MAX_RESEARCH_WATCHLIST_AGE_MINUTES,
         "ranked_market_movement_watchlist": watchlist[:10],
         "sharp_bet_decision": "HOLD" if watchlist else "PASS",
         "sharp_bet_decision_reason": (
             "market_movement_only_no_verified_professional_flow_or_model_ev"
-            if watchlist else "no_eligible_upcoming_market_movement"),
+            if watchlist else "upcoming_movements_stale"
+            if stale_upcoming else "no_eligible_upcoming_market_movement"),
         "ticket_and_handle_percentages_available": False,
         "latest_eligible_capture_utc": latest.isoformat() if latest else None,
         "minutes_since_latest_eligible_capture": age_minutes,
