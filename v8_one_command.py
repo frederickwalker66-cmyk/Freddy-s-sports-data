@@ -21,13 +21,14 @@ from v8_nba_training_intake import audit as nba_training_intake, load_review_pac
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 from v8_nba_forward_research import capture as capture_nba_forward
 from v8_nfl_nhl_forward import capture as capture_new_sport_forward
+from v8_nfl_nhl_board_view import read_boards as read_sport_research_boards
 from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
@@ -59,7 +60,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             nba_review_packets=None, nba_qualified_history=None,
             nba_forward_runner=None, nba_grading_archive_dir=None,
             nba_grading_outcome_collector=None, leaderboard_file=None,
-            calibration_file=None, new_sport_forward_runner=None):
+            calibration_file=None, new_sport_forward_runner=None,
+            nfl_nhl_board_files=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -89,6 +91,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "forward_leaderboard": None,
         "forward_calibration": None,
         "next_sport_forward_research": None,
+        "nfl_nhl_forward_board": None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
@@ -97,6 +100,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+    elif command == "run_sport_board":
+        report["nfl_nhl_forward_board"] = read_sport_research_boards(nfl_nhl_board_files)
     elif command == "run_calibration":
         report["forward_calibration"] = read_calibration(calibration_file)
     elif command == "run_leaderboard":
@@ -251,6 +256,8 @@ def main(argv=None):
     p.add_argument("--nba-grade-archives-dir", help="Saved completed Github forward runs including original schedule bytes and run metadata")
     p.add_argument("--leaderboard-file", help="Read-only persisted V8 forward-research scorecard")
     p.add_argument("--calibration-file", help="Read-only persisted V8 forward calibration report")
+    p.add_argument("--nfl-board-file", help="Read-only persistent NFL forward research scorecard")
+    p.add_argument("--nhl-board-file", help="Read-only persistent NHL forward research scorecard")
     p.add_argument("--nba-qualified-history", help="Distinct independently reviewed NBA history file; only for unverified native research training")
     p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
     p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
@@ -293,7 +300,8 @@ def main(argv=None):
                      nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history,
                      nba_grading_archive_dir=args.nba_grade_archives_dir,
                      leaderboard_file=args.leaderboard_file,
-                     calibration_file=args.calibration_file)
+                     calibration_file=args.calibration_file,
+                     nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file})
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},
