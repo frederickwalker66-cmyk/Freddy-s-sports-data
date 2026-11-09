@@ -66,6 +66,19 @@ class OneCommandTests(unittest.TestCase):
             self.assertEqual(result["certified_positive_ev_bets"], 0)
             self.assertTrue((Path(folder) / "CERTIFICATION_AUDIT.json").is_file())
 
+    def test_nba_training_command_with_no_review_qualified_data_fails_closed(self):
+        self.assertEqual(selected("run_nba_train"), ())
+        with tempfile.TemporaryDirectory() as folder:
+            result = execute("run_nba_train", output_dir=folder)
+            intake = result["nba_training_intake"]
+            self.assertEqual(intake["nba_unique_original_capture_events"], 0)
+            self.assertFalse(intake["native_research_model_fitted"])
+            self.assertEqual(intake["independently_qualified_training_games"], 0)
+            self.assertEqual(result["certified_positive_ev_bets"], 0)
+            self.assertTrue((Path(folder) / "NBA_RESEARCH_INTAKE.json").is_file())
+            self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
+            self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
+
     def test_empty_model_status(self):
         with tempfile.TemporaryDirectory() as folder:
             result = execute("model_status", output_dir=folder)
