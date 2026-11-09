@@ -6,7 +6,7 @@ import unittest
 from datetime import timedelta, datetime, timezone
 from pathlib import Path
 
-from tests.test_v8_nba_forward_grade import (
+from test_v8_nba_forward_grade import (
     write_run, results_collector, FORECAST, START, AFTER, RUN,
 )
 from v8_durable_forward_ledger import sync, GRADED_STATUS
