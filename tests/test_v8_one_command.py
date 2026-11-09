@@ -79,6 +79,17 @@ class OneCommandTests(unittest.TestCase):
             self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
             self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
 
+    def test_phone_leaderboard_requires_real_stored_evidence(self):
+        self.assertEqual(selected("run_leaderboard"), ())
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "out"
+            data = execute("run_leaderboard", output_dir=output)
+            view = data["forward_leaderboard"]
+            self.assertEqual(view["status"], "NOT_YET_PERSISTED")
+            self.assertEqual(view["certified_positive_ev_bets"], 0)
+            self.assertFalse(view["bet_ready"])
+            self.assertTrue((output / "ONE_COMMAND_REPORT.json").is_file())
+
     def test_run_nba_grade_has_zero_fabricated_results_with_no_real_archives(self):
         self.assertEqual(selected("run_nba_grade"), ("nba",))
         with tempfile.TemporaryDirectory() as folder:
