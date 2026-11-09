@@ -13,8 +13,12 @@ on:
     paths:
       - 'v8_durable_forward_ledger.py'
       - 'v8_forward_leaderboard_view.py'
+      - 'v8_forward_calibration.py'
+      - 'v8_forward_calibration_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
+      - 'tests/test_v8_forward_calibration.py'
+      - 'tests/test_v8_forward_calibration_view.py'
       - '.github/workflows/v8-durable-forward-ledger.yml'
   pull_request:
     paths:
@@ -47,6 +51,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_v8_durable_forward_ledger.py' -v
           python -m unittest discover -s tests -p 'test_v8_forward_leaderboard_view.py' -v
+          python -m unittest discover -s tests -p 'test_v8_forward_calibration.py' -v
+          python -m unittest discover -s tests -p 'test_v8_forward_calibration_view.py' -v
 
   persist-research:
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
@@ -118,6 +124,9 @@ jobs:
           import json, os
           from pathlib import Path
           r=json.loads(Path("persistent_branch/data/v8_forward/LEADERBOARD.json").read_text())
+          calibration=json.loads(Path("persistent_branch/data/v8_forward/CALIBRATION.json").read_text())
+          assert calibration["certified_positive_ev_bets"]==calibration["original_Champion_001_certified_shadows"]==0
+          assert calibration["graded_research_NBA_games"]==r["nba_forward_forecasts_graded_research_only"]
           assert r["certified_positive_ev_bets"]==r["certified_champion_001_shadows"]==0
           assert r["champion_001_modified"] is False and r["bet_ready"] is False
           lines=[
@@ -128,6 +137,8 @@ jobs:
             f"**Due but missing valid published results:** {r['nba_forecasts_due_without_published_grade']}",
             f"**Quarantined conflicting event identities:** {r['nba_original_forecasts_quarantined']}",
             f"**Research model leaderboard:** {r['ranking_status']}",
+            f"**Original-forward calibration status:** {calibration['status']}",
+            f"**Calibration graded sample:** {calibration['graded_research_NBA_games']} (minimum Brier 50; exploratory ECE 100 with populated bins)",
             "**Independently certified Champion-001 predictions and +EV:** 0.",
             "**Important:** Git branch storage is persistent but NOT externally immutable.",
           ]
@@ -162,5 +173,6 @@ jobs:
           path: |
             persistent_branch/data/v8_forward/LEADERBOARD.json
             persistent_branch/data/v8_forward/FORECAST_HISTORY.jsonl
+            persistent_branch/data/v8_forward/CALIBRATION.json
           retention-days: 90
           if-no-files-found: warn
