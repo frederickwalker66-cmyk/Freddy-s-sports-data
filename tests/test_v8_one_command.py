@@ -79,6 +79,32 @@ class OneCommandTests(unittest.TestCase):
             self.assertTrue((Path(folder) / "NBA_ORIGINAL_REVIEW_WORKLIST.jsonl").is_file())
             self.assertFalse((Path(folder) / "NBA_UNVERIFIED_RESEARCH_MODEL.json").exists())
 
+    def test_run_nba_forward_requires_true_capture_not_historical_replay(self):
+        self.assertEqual(selected("run_nba_forward"), ("nba",))
+        used = []
+        def runner(dest, history_days):
+            used.append(history_days)
+            Path(dest).mkdir(parents=True, exist_ok=True)
+            (Path(dest) / "NBA_FORWARD_FORECASTS.jsonl").write_text("")
+            return [], {
+                "stage": "v8_elo_genuine_forward_clocktime_research_only",
+                "history_games_retrieved": 75,
+                "source_days_succeeded": history_days,
+                "source_days_failed": 0,
+                "forward_research_probabilities_recorded_before_tipoff": 0,
+            }
+        with tempfile.TemporaryDirectory() as folder:
+            r = execute("run_nba_forward", days=35, output_dir=folder,
+                        nba_forward_runner=runner)
+            self.assertEqual(used,[35])
+            self.assertEqual(r["by_league"]["nba"]["research_forecast_count"], 0)
+            self.assertFalse(r["model_training_data_independently_qualified"])
+            self.assertEqual(r["certified_positive_ev_bets"], 0)
+            self.assertTrue((Path(folder) / "nba_forward/NBA_FORWARD_FORECASTS.jsonl").is_file())
+            with self.assertRaisesRegex(ValueError, "forward_prediction_cannot_use_historical_end_date"):
+                execute("run_nba_forward", days=35, end_date=date(2026, 2, 15),
+                        output_dir=folder, nba_forward_runner=runner)
+
     def test_nba_research_backtest_command_graceful_empty_source(self):
         self.assertEqual(selected("run_nba_oos"), ())
         def empty_public_collector(leagues, days, end_date):

@@ -17,6 +17,7 @@ pregame feature availability or profitable bets.
    - **run_certify** — read the most recent already completed eight-sport source gate and SharpAPI moneyline archive, reconcile source counts, and list per-league blockers. **Evidence audit only, never fake certified predictions.**
    - **run_nba_train** — download recent original NBA prospective review receipts, report real independently unqualified training gaps and produce a downloadable manual-review worklist. It deliberately does not train on unverified review packets.
    - **run_nba_oos** — fetch up to 35 real NBA historical regular-season score days (public ESPN only), replay a fixed Elo benchmark using a 48-hour result embargo, and report retrospective Brier/log loss. **This is not a real pregame logged forecast, certified calibration, executable EV, or a betting recommendation.**
+   - **run_nba_forward** — capture original NBA future schedule bytes and score-history receipts right now; record actual timestamped before-tipoff Elo research probabilities if 80+ sufficiently matured prior games and all 35 source days are available. This is a separate V8 research lane, NOT the frozen Champion-001 certification quota.
    - **model_status** — check actual NBA/eight-sport native training gates; no valid supplied evidence currently means blocked.
 4. Choose a **days** budget (1, 7, 14, or 35). Optionally supply a past **end_date** as YYYY-MM-DD. Leave blank for yesterday (U.S. Eastern).
 5. Click green **Run workflow**. Open its run page and read **Summary**. Download the **v8-one-command** artifact for game-level results and JSON status.
@@ -184,3 +185,41 @@ skill. Compare against the rolling home prior and examine uncertainty first.
 Neither comparison repairs unverified original result-publication timestamps,
 establishes actual pregame forecast receipts, demonstrates profitable bets,
 or permits promotion to certified betting predictions.
+
+## LIVE forward NBA research: `run_nba_forward`
+
+Use this from GitHub Actions on your Android/iPhone or Windows laptop. Choose
+`run_nba_forward` and **leave the historical end-date blank**. The phone
+workflow automatically chooses the 35-day public history budget, and scans
+ESPN NBA original future schedule bytes for today and tomorrow. It uses no
+paid sportsbook APIs and places no bets.
+
+On successful capture, download `nba_forward/NBA_FORWARD_FORECASTS.jsonl`,
+`nba_forward/NBA_FORWARD_RESEARCH_STATUS.json` and
+`nba_forward/nba_original_future_schedule_YYYYMMDD.json`.
+
+Each **actually pre-tipoff recorded** research row includes source event ID,
+home/away ESPN IDs, captured schedule SHA-256, model/version, specific home
+moneyline research probability, captured UTC forecast time and future tipoff
+time. Later settlements are **not** incorporated at forecast time, and no
+outcomes are filled in ahead of a later result review.
+
+The base algorithm is a **new fixed Elo v0 research benchmark** (K20, home
+advantage 60; 1500 initial ratings) replaying 35 days of *already completed*
+ESPN-published NBA regular-season games. Prior results are used only if
+their start was at least 48 hours before the current forecast and their
+score was actually retrieved before the forecast. This is an assumed
+conservative result-availability rule, not authenticated publisher timing.
+
+The workflow is also scheduled best-effort daily around **3:37 pm Eastern
+during standard time / 4:37 pm during daylight time**, as well as an initial
+main-branch install run. GitHub scheduled events are best-effort and may be
+late or missed; games already started are excluded.
+
+**Do not merge this lane into Champion-001.** The original frozen Champion-001
+has 0 certified shadows until original executable and probabilities are
+authenticated. V8 research rows are NOT a sportsbook quote, an independently
+calibrated probability, a certified pick, guaranteed return or an actionable
++EV recommendation. To grade it, independently retrieve later final results
+and compare with the **unchanged, timestamped forecast**; retain missing
+forecasts, losses and voids.
