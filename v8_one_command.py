@@ -17,6 +17,7 @@ from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
+from v8_audit_reconciliation import inspect_full as full_audit
 from v8_nba_training_intake import audit as nba_training_intake, load_review_packets
 from v8_nba_oos_research import benchmark as nba_oos_benchmark, save as save_nba_oos
 from v8_nba_forward_research import capture as capture_nba_forward
@@ -28,7 +29,7 @@ from v8_forward_calibration_view import read_calibration
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
@@ -61,7 +62,9 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             nba_forward_runner=None, nba_grading_archive_dir=None,
             nba_grading_outcome_collector=None, leaderboard_file=None,
             calibration_file=None, new_sport_forward_runner=None,
-            nfl_nhl_board_files=None):
+            nfl_nhl_board_files=None, audit_outcome_dir=None,
+            audit_calibration_dir=None, audit_outcome_run_id=None,
+            audit_calibration_run_id=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -84,6 +87,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_archive": None,
         "source_collection_health": None,
         "certification_review": None,
+        "comprehensive_audit": None,
         "nba_training_intake": None,
         "nba_oos_research": None,
         "nba_forward_research": None,
@@ -193,6 +197,14 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             if artifact.exists():
                 raise FileExistsError("refusing_to_overwrite_existing_native_research_artifact")
             artifact.write_text(json.dumps(trained_model, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    elif command == "run_audit":
+        report["comprehensive_audit"] = full_audit(
+            source_dir=certification_source_dir, sharp_dir=certification_sharp_dir,
+            outcome_dir=audit_outcome_dir, calibration_dir=audit_calibration_dir,
+            source_run_id=certification_source_run_id,
+            sharp_run_id=certification_sharp_run_id,
+            outcome_run_id=audit_outcome_run_id,
+            calibration_run_id=audit_calibration_run_id)
     elif command == "run_certify":
         report["certification_review"] = certification_audit(
             source_dir=certification_source_dir, sharp_dir=certification_sharp_dir,
@@ -236,6 +248,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 }
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if command == "run_audit":
+        (out / "FULL_AUDIT_REPORT.json").write_text(
+            json.dumps(report["comprehensive_audit"], indent=2, sort_keys=True)
+            + "\n", encoding="utf-8")
     if command == "run_certify":
         (out / "CERTIFICATION_AUDIT.json").write_text(
             json.dumps(report["certification_review"], indent=2, sort_keys=True)
@@ -259,6 +275,10 @@ def main(argv=None):
     p.add_argument("--nfl-board-file", help="Read-only persistent NFL forward research scorecard")
     p.add_argument("--nhl-board-file", help="Read-only persistent NHL forward research scorecard")
     p.add_argument("--nba-qualified-history", help="Distinct independently reviewed NBA history file; only for unverified native research training")
+    p.add_argument("--audit-outcome-dir", help="Saved completed outcome review artifact root")
+    p.add_argument("--audit-calibration-dir", help="Saved completed calibration artifact root")
+    p.add_argument("--audit-outcome-run-id", type=int)
+    p.add_argument("--audit-calibration-run-id", type=int)
     p.add_argument("--certification-sharp-dir", help="Downloaded SharpAPI market baseline artifact directory")
     p.add_argument("--certification-source-run-id", type=int, help="Source workflow ID for evidence tracking")
     p.add_argument("--certification-sharp-run-id", type=int, help="Sharp workflow ID for research price reference")
@@ -297,6 +317,10 @@ def main(argv=None):
                      certification_sharp_dir=args.certification_sharp_dir,
                      certification_source_run_id=args.certification_source_run_id,
                      certification_sharp_run_id=args.certification_sharp_run_id,
+                     audit_outcome_dir=args.audit_outcome_dir,
+                     audit_calibration_dir=args.audit_calibration_dir,
+                     audit_outcome_run_id=args.audit_outcome_run_id,
+                     audit_calibration_run_id=args.audit_calibration_run_id,
                      nba_review_packets=nba_review_packets, nba_qualified_history=nba_qualified_history,
                      nba_grading_archive_dir=args.nba_grade_archives_dir,
                      leaderboard_file=args.leaderboard_file,

@@ -22,6 +22,7 @@ on:
           - run_sharp
           - run_health
           - run_certify
+          - run_audit
           - run_nba_train
           - run_nba_oos
           - run_nba_forward
@@ -153,7 +154,7 @@ jobs:
             echo "Metadata unavailable: reporting unknown instead of invented data."
           fi
       - name: Load last completed real source and price audit receipts for certification review
-        if: ${{ inputs.command == 'run_certify' }}
+        if: ${{ inputs.command == 'run_certify' || inputs.command == 'run_audit' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -179,6 +180,33 @@ jobs:
             fi
           fi
           echo "Research artifacts loaded if available. No paid API, betting or external certification."
+      - name: Reconcile saved outcomes and calibration audits without paid source calls
+        if: ${{ inputs.command == 'run_audit' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit_upstream/outcome audit_upstream/calibration
+          outcome_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-prospective-outcome-validation.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
+          if [[ "$outcome_id" =~ ^[0-9]+$ ]]; then
+            if gh run download "$outcome_id" --repo "$GITHUB_REPOSITORY" --name "challenger-prospective-outcome-validation-$outcome_id" --dir audit_upstream/outcome; then
+              echo "$outcome_id" > audit_upstream/outcome_run_id
+            else
+              rm -rf audit_upstream/outcome && mkdir -p audit_upstream/outcome
+              echo "Outcome source missing: explicit unknown; no fabricated training."
+            fi
+          fi
+          calibration_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-isotonic-calibration.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
+          if [[ "$calibration_id" =~ ^[0-9]+$ ]]; then
+            if gh run download "$calibration_id" --repo "$GITHUB_REPOSITORY" --name "challenger-isotonic-research-$calibration_id" --dir audit_upstream/calibration; then
+              echo "$calibration_id" > audit_upstream/calibration_run_id
+            else
+              rm -rf audit_upstream/calibration && mkdir -p audit_upstream/calibration
+              echo "Calibration source missing: explicit unknown; no fake calibration."
+            fi
+          fi
+          echo "Read-only audit receives only completed saved GH artifacts; no provider API calls."
       - name: Read previous prospective NBA original-capture review artifacts (no paid API)
         if: ${{ inputs.command == 'run_nba_train' }}
         env:
@@ -297,7 +325,7 @@ jobs:
           if [[ "$SELECTED_COMMAND" == "run_nba_train" ]]; then
             params+=(--nba-review-dir nba_original_reviews)
           fi
-          if [[ "$SELECTED_COMMAND" == "run_certify" ]]; then
+          if [[ "$SELECTED_COMMAND" == "run_certify" || "$SELECTED_COMMAND" == "run_audit" ]]; then
             params+=(--certification-source-dir cert_upstream/source
                      --certification-sharp-dir cert_upstream/sharp)
             if [[ -f cert_upstream/source_run_id ]]; then
@@ -305,6 +333,16 @@ jobs:
             fi
             if [[ -f cert_upstream/sharp_run_id ]]; then
               params+=(--certification-sharp-run-id "$(cat cert_upstream/sharp_run_id)")
+            fi
+          fi
+          if [[ "$SELECTED_COMMAND" == "run_audit" ]]; then
+            params+=(--audit-outcome-dir audit_upstream/outcome
+                     --audit-calibration-dir audit_upstream/calibration)
+            if [[ -f audit_upstream/outcome_run_id ]]; then
+              params+=(--audit-outcome-run-id "$(cat audit_upstream/outcome_run_id)")
+            fi
+            if [[ -f audit_upstream/calibration_run_id ]]; then
+              params+=(--audit-calibration-run-id "$(cat audit_upstream/calibration_run_id)")
             fi
           fi
           if [[ "$SELECTED_COMMAND" == "run_health" ]]; then
@@ -474,6 +512,21 @@ jobs:
                   for lg,info in (audit.get('by_league') or {}).items():
                       lines.append(f"| {lg.upper()} | {info['archived_source_games_latest_run']} | {info['league_operated_identity_matches_research_only']} | {info['native_research_model_fitted']} |")
                   lines.append("See downloadable CERTIFICATION_AUDIT.json for league-level blockers and missing independent evidence.")
+              if r['command'] == 'run_audit':
+                  a=r.get('comprehensive_audit') or {}
+                  lines.extend(["", "## Comprehensive V8 Evidence Audit",
+                      f"**Decision:** {a.get('status', 'UNKNOWN')}",
+                      f"**Original archived pregame source events:** {a.get('source_pregame_events_archived')}",
+                      f"**NBA research candidates (untrained):** {a.get('nba_original_research_candidates')}",
+                      f"**NBA independent training / holdout:** {a.get('nba_independently_qualified_training_games')} / {a.get('nba_independently_qualified_holdout_games')}",
+                      f"**Suspected transformed-score source dates (not proof of key tier):** {a.get('suspected_sportsdataio_scrambled_score_dates')}",
+                      f"**Challenger calibration:** {a.get('calibration_status') or 'UNAVAILABLE'}",
+                      f"**Contradictory upstream claims quarantined:** {a.get('upstream_conflicts', [])}",
+                      "**Champion-001 authenticated: NO; executable sportsbook quotes: 0; certified forecasts, EV and bets: 0.**",
+                      "", "### Priority remediation (external evidence needed)"])
+                  for item in (a.get('priority_remediation') or [])[:6]:
+                      lines.append(f"- **{item['blocker']}:** {item['action']}")
+                  lines.append("Full details: FULL_AUDIT_REPORT.json. Job success is NOT prediction certification.")
               if r['command'] == 'run_health':
                   health=r.get('source_collection_health') or {}
                   lines.append("")
