@@ -8,6 +8,7 @@ on:
     paths:
       - 'challenger_authenticated_chronological_dataset.py'
       - 'v8_external_price_receipt_audit.py'
+      - 'challenger_multisport_native_training.py'
       - 'evidence_gate_tests/**'
       - '.github/workflows/independent-evidence-gates.yml'
   push:
@@ -15,6 +16,7 @@ on:
     paths:
       - 'challenger_authenticated_chronological_dataset.py'
       - 'v8_external_price_receipt_audit.py'
+      - 'challenger_multisport_native_training.py'
       - 'evidence_gate_tests/**'
       - '.github/workflows/independent-evidence-gates.yml'
 
