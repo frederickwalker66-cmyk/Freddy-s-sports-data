@@ -1,0 +1,72 @@
+name: Challenger independent evidence and sportsbook quote gates (research only)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 13 * * *'
+  pull_request:
+    paths:
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/independent-evidence-gates.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/independent-evidence-gates.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  strict-offline-evidence-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deterministic validation dependencies
+        run: python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
+      - name: Test independently signed source bytes, time boundaries, and exact quote joins
+        run: python -m unittest discover -s evidence_gate_tests -p 'test_*.py' -v
+      - name: Report actual evidence gap without making up 250 training games
+        run: |
+          python challenger_authenticated_chronological_dataset.py --outdir evidence_gate_reports
+          python v8_external_price_receipt_audit.py --out evidence_gate_reports/price_receipt_report.json
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          root=Path("evidence_gate_reports")
+          a=json.loads((root/"admission_report.json").read_text())
+          p=json.loads((root/"price_receipt_report.json").read_text())
+          assert a["admitted_games"]==0
+          assert not a.get("externally_witnessed_leagues_meeting_200_50")
+          assert a["champion_001_modified"] is False
+          assert p["independently_verified_live_sportsbook_checkout_quotes"]==0
+          assert p["certified_positive_ev_picks"]==0
+          assert p["automated_bets_placed"]==0
+          assert p["bet_ready"] is False
+          summary=("### Independent evidence admission and sportsbook audit\n"
+                   "- **Source authentication:** HOLD (no independent trust anchors or original signed records supplied)\n"
+                   "- **200 earlier training + 50 untouched later holdout:** NOT YET VERIFIED\n"
+                   "- **Original first forecasts:** preserved by existing V8 durable ledgers (not imported or re-written here)\n"
+                   "- **Direct executable DraftKings checkout:** NOT VERIFIED\n"
+                   "- **Certified positive EV / bets:** 0\n"
+                   "- **Champion-001:** unchanged\n")
+          print(summary)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+                  f.write(summary)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-source-and-price-gate-${{ github.run_id }}
+          path: evidence_gate_reports/*.json
+          retention-days: 90
+          if-no-files-found: warn
