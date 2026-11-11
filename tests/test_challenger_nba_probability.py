@@ -118,7 +118,7 @@ class NbaProbabilityEngineTests(unittest.TestCase):
         rows = [synthetic_game(i) for i in range(260)]
         with self.assertRaisesRegex(ValueError, "event_missing"):
             train_engine(rows, as_of=AS_OF,
-                         sealed_holdout_ids=["missing"] * 50)
+                         sealed_holdout_ids=["missing" + str(i) for i in range(50)])
         ids = [r["event_id"] for r in rows[:50]]
         with self.assertRaisesRegex(ValueError, "holdout_date_overlaps"):
             train_engine(rows, as_of=AS_OF, sealed_holdout_ids=ids)
