@@ -24,8 +24,10 @@ from challenger_research_features import validated as validate_source_record
 from independent_schedule_review import download_json_original
 
 NY = ZoneInfo("America/New_York")
-VERSION = "v8-nba-elo-forward-research-v0-fixed-k20-ha60"
+VERSION = "v8-nba-elo-forward-research-v1-team-history-gated-k20-ha60"
 MIN_HISTORY_GAMES = 80
+# Five is an explicit minimum coverage gate, not proof of probability calibration.
+MIN_TEAM_HISTORY_GAMES = 5
 MAX_HISTORY_DAYS = 35
 DEFAULT_HISTORY_DAYS = 21
 SETTLEMENT_ASSUMPTION_HOURS = 48
@@ -137,8 +139,12 @@ def _ratings(history, asof, min_history=MIN_HISTORY_GAMES):
             continue
         eligible.append((when, eid, home, away, y))
     eligible.sort(key=lambda z: (z[0], z[1]))
+    team_counts = Counter()
+    for _, _, home, away, _ in eligible:
+        team_counts[home] += 1
+        team_counts[away] += 1
     if len(eligible) < min_history:
-        return None, len(eligible)
+        return None, len(eligible), dict(team_counts)
     rating = defaultdict(lambda: 1500.)
     pending = []
     for when, eid, home, away, y in eligible:
@@ -157,7 +163,7 @@ def _ratings(history, asof, min_history=MIN_HISTORY_GAMES):
         delta = K * (final - p)
         rating[h] += delta
         rating[a] -= delta
-    return dict(rating), len(eligible)
+    return dict(rating), len(eligible), dict(team_counts)
 
 
 def project(history, schedule, coverage, asof):
@@ -182,10 +188,11 @@ def project(history, schedule, coverage, asof):
     reasons = Counter()
     rating = None
     qualified_history = 0
+    team_game_counts = {}
     if failed:
         reasons["incomplete_historical_published_result_source_days"] += failed
     else:
-        rating, qualified_history = _ratings(history, when)
+        rating, qualified_history, team_game_counts = _ratings(history, when)
         if rating is None:
             reasons["insufficient_prior_matured_NBA_games"] += 1
     records, seen = [], set()
@@ -206,7 +213,15 @@ def project(history, schedule, coverage, asof):
             raise ValueError("invalid_NBA_team_ids")
         if rating is None:
             continue
-        p = pregame_probability(rating.get(home, 1500.), rating.get(away, 1500.))
+        # A league-wide sample of 80+ games cannot establish team strength
+        # for a team with no (or nearly no) mature source history. Never
+        # silently substitute an Elo=1500 cold start as a betting signal.
+        home_games = team_game_counts.get(home, 0)
+        away_games = team_game_counts.get(away, 0)
+        if min(home_games, away_games) < MIN_TEAM_HISTORY_GAMES:
+            reasons["insufficient_matured_NBA_games_for_one_or_both_teams"] += 1
+            continue
+        p = pregame_probability(rating[home], rating[away])
         if not 0 < p < 1:
             raise ValueError("invalid_forecast_probability")
         records.append({
@@ -223,6 +238,10 @@ def project(history, schedule, coverage, asof):
             "model_probability_home_win_research_only": round(p, 9),
             "estimated_away_win_probability_research_only": round(1-p, 9),
             "historical_matured_games_available_at_forecast": qualified_history,
+            "home_team_matured_games_in_source_window": home_games,
+            "away_team_matured_games_in_source_window": away_games,
+            "team_coverage_gate_minimum_games": MIN_TEAM_HISTORY_GAMES,
+            "team_ratings_not_independently_calibrated": True,
             "assumed_result_maturity_hours": SETTLEMENT_ASSUMPTION_HOURS,
             "official_result_verified": False,
             "model_probability_independently_calibrated": False,
@@ -244,6 +263,9 @@ def project(history, schedule, coverage, asof):
         "source_days_failed": failed,
         "history_games_retrieved": len(history),
         "matured_NBA_history_games": qualified_history,
+        "minimum_matured_history_games_per_team": MIN_TEAM_HISTORY_GAMES,
+        "teams_seen_in_matured_NBA_history": len(team_game_counts),
+        "matured_history_games_by_team_espn_id": dict(sorted(team_game_counts.items())),
         "future_schedule_events_seen": len(schedule),
         "forward_research_probabilities_recorded_before_tipoff": len(records),
         "research_lane": VERSION,
@@ -260,7 +282,9 @@ def project(history, schedule, coverage, asof):
                     "captured now, and assumes 48h game-result maturity. A local "
                     "digest and GitHub timestamp are not publisher-signed independent "
                     "model/source authentication. No independent calibration, "
-                    "injuries or executable sportsbook prices. Champion-001 shadows=0.")
+                    "injuries or executable sportsbook prices. Teams lacking at "
+                    "least five matured games are held; this research guard "
+                    "is not probability calibration. Champion-001 shadows=0.")
     }
     return records, report
 
