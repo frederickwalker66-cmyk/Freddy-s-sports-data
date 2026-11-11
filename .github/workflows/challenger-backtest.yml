@@ -41,12 +41,14 @@ permissions:
 jobs:
   challenger-backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install offline research validation dependencies
+        run: python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
       - name: Run offline tests (all fixtures synthetic; no API keys)
         run: python -m unittest discover -s tests -v
       - name: Review NBA independent evidence (fail closed)
