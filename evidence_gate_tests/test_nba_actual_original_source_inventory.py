@@ -104,6 +104,27 @@ class ActualOriginalInventoryTests(unittest.TestCase):
         self.assertFalse(rows)
         self.assertTrue(any("team_id_or_name" in x for x in report["rejected_or_redundant"]))
 
+    def test_conflicting_first_receipt_remains_quarantined_after_later_duplicate(self):
+        # Synthetic original ESPN payloads can have the same event identity
+        # and timestamp but different preserved bytes. A later forecast must
+        # never silently restore a disputed first receipt to review inventory.
+        other=self.run/"nba_forward"/"nba_original_future_schedule_alt.json"
+        other.write_text(json.dumps(self.schedule,indent=2))
+        first=dict(self.forecast)
+        conflicting=dict(self.forecast,
+                         schedule_original_sha256_local_receipt=digest(other.read_bytes()))
+        later=dict(self.forecast,
+                   forecast_recorded_utc="2026-11-09T21:11:35Z")
+        path=self.run/"nba_forward"/"NBA_FORWARD_FORECASTS.jsonl"
+        path.write_text("".join(json.dumps(r)+"\n" for r in (first,conflicting,later)))
+        rows, report=audit_archives(self.root)
+        self.assertEqual(rows,[])
+        self.assertEqual(report["unique_nba_first_original_research_forecasts_reviewable"],0)
+        self.assertEqual(report["rejected_or_redundant"].get("conflicting_first_original_quarantined"),1)
+        self.assertEqual(report["rejected_or_redundant"].get("already_quarantined_first_original_ignored"),1)
+        self.assertEqual(report["qualified_chronological_training_games"],0)
+        self.assertEqual(report["certified_positive_ev_selections"],0)
+
     def test_repository_without_real_original_runs_never_fakes_games(self):
         with TemporaryDirectory() as folder:
             rows,report=audit_archives(folder)
