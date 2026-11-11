@@ -178,7 +178,7 @@ def audit_archives(root, live_metadata_dir=None):
     ) if root.is_dir() and not root.is_symlink() else []
     if len(runs) > MAX_RUNS:
         raise ValueError("too_many_archived_original_runs")
-    selected, excluded = {}, Counter()
+    selected, excluded, quarantined = {}, Counter(), set()
     run_reports = []
     for run in runs:
         rid = int(run.name)
@@ -204,7 +204,11 @@ def audit_archives(root, live_metadata_dir=None):
                     row = json.loads(line)
                     item = audit_forecast(run, rid, row, saved, live, schedule_cache)
                     key = item["espn_event_id"]
-                    if key in selected:
+                    if key in quarantined:
+                        # A conflicting first original is never readmitted by
+                        # subsequent repeated or later archived receipts.
+                        excluded["already_quarantined_first_original_ignored"] += 1
+                    elif key in selected:
                         prior = selected[key]
                         if item["first_observed_forecast_utc"] < prior["first_observed_forecast_utc"]:
                             selected[key] = item
@@ -212,6 +216,7 @@ def audit_archives(root, live_metadata_dir=None):
                         elif item["first_observed_forecast_utc"] == prior["first_observed_forecast_utc"] \
                                 and item["original_schedule_sha256"] != prior["original_schedule_sha256"]:
                             selected.pop(key)
+                            quarantined.add(key)
                             excluded["conflicting_first_original_quarantined"] += 1
                         else:
                             excluded["later_or_equal_original_ignored"] += 1
