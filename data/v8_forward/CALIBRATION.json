@@ -1,6 +1,6 @@
 {
   "ESPN_published_final_is_official_bet_settlement": false,
-  "archived_original_forward_forecasts": 14,
+  "archived_original_forward_forecasts": 28,
   "automatic_wagers": 0,
   "bet_ready": false,
   "certified_positive_ev_bets": 0,
@@ -14,7 +14,7 @@
   "models": [],
   "original_Champion_001_certified_shadows": 0,
   "original_Champion_001_executable_authenticated": false,
-  "pending_ungraded": 14,
+  "pending_ungraded": 28,
   "quarantined": 0,
   "stage": "genuinely_forward_recorded_NBA_research_calibration_only",
   "status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
