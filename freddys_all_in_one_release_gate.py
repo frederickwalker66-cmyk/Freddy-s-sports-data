@@ -158,8 +158,8 @@ def _nba_market_side_research(original_root, valid_review_rows):
 
 
 def _refresh_nba_ledger(source, outdir, now, enabled):
-    path=Path(source)
-    if not path.is_dir():
+    path=Path(source) if source is not None else None
+    if path is None or not path.is_dir():
         return {"status":"NO_PERSISTED_NBA_FORWARD_LEDGER","original_forecasts":0,
                 "graded":0,"pending":0,"research_only":True}
     original=read_leaderboard(path/"LEADERBOARD.json")
@@ -189,9 +189,9 @@ def _refresh_nba_ledger(source, outdir, now, enabled):
 
 
 def _refresh_other_league(league, research_root, outdir, now, enabled):
-    root=Path(research_root)
-    src=root/league
-    if not src.is_dir():
+    root=Path(research_root) if research_root is not None else None
+    src=root/league if root is not None else None
+    if src is None or not src.is_dir():
         return {"status":"NO_PERSISTED_"+league.upper()+"_FORWARD_LEDGER",
                 "original_forecasts":0,"graded":0,"research_only":True}
     header=src/"FORWARD_RESEARCH_LEADERBOARD.json"
