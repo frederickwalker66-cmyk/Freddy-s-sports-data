@@ -16,7 +16,7 @@ NY = ZoneInfo("America/New_York")
 NOW = datetime(2026, 11, 9, 20, 0, tzinfo=timezone.utc)
 
 
-def completed(i, captured=None):
+def completed(i, captured=None, home_id="101", away_id="102"):
     captured = captured or NOW - timedelta(minutes=2)
     start = datetime(2026, 10, 15, 19, 0, tzinfo=timezone.utc) + timedelta(days=i // 6, minutes=i % 6)
     day = start.astimezone(NY).date()
@@ -25,8 +25,8 @@ def completed(i, captured=None):
         "season": {"type": 2},
         "status": {"type": {"state": "post", "completed": True}},
         "competitions": [{"competitors": [
-            {"homeAway":"home","team":{"id":"101","displayName":"Home Team"},"score": 112 if i % 3 else 90},
-            {"homeAway":"away","team":{"id":"102","displayName":"Away Team"},"score": 103},
+            {"homeAway":"home","team":{"id":home_id,"displayName":"Home Team"},"score": 112 if i % 3 else 90},
+            {"homeAway":"away","team":{"id":away_id,"displayName":"Away Team"},"score": 103},
         ]}],
     }
     return normalize_game(item, "nba", scoreboard_url("nba", day), captured)
@@ -98,6 +98,53 @@ class ForwardResearchTests(unittest.TestCase):
         self.assertEqual(r["v8_research_forward_predictions"],1)
         self.assertEqual(r["original_champion_001_predictions_certified"],0)
         self.assertFalse(r["champion_001_modified"])
+
+    def test_unseen_nba_team_is_held_not_assigned_neutral_elo(self):
+        # 100 valid league games do not make an unseen home team's 1500
+        # default an independently defensible team-strength estimate.
+        event=future_event()
+        event["home_team_espn_id"]="999"
+        forecasts,report=project(prior(),[event],source_coverage(),NOW)
+        self.assertEqual(forecasts,[])
+        self.assertEqual(report["hold_reasons"]["insufficient_matured_NBA_games_for_one_or_both_teams"],1)
+        self.assertNotIn("999",report["matured_history_games_by_team_espn_id"])
+        self.assertEqual(report["certified_positive_ev_bets"],0)
+
+    def test_team_with_four_prior_games_held_despite_large_league_sample(self):
+        rows=prior()+[completed(i,home_id="103") for i in range(101,105)]
+        event=future_event()
+        event["home_team_espn_id"]="103"
+        forecasts,report=project(rows,[event],source_coverage(n=len(rows)),NOW)
+        self.assertEqual(forecasts,[])
+        self.assertEqual(report["matured_history_games_by_team_espn_id"]["103"],4)
+        self.assertEqual(report["hold_reasons"]["insufficient_matured_NBA_games_for_one_or_both_teams"],1)
+
+    def test_five_matured_team_games_allow_research_with_coverage_metadata(self):
+        rows=prior()+[completed(i,home_id="103") for i in range(101,106)]
+        event=future_event()
+        event["home_team_espn_id"]="103"
+        forecasts,report=project(rows,[event],source_coverage(n=len(rows)),NOW)
+        self.assertEqual(len(forecasts),1)
+        forecast=forecasts[0]
+        self.assertEqual(forecast["home_team_matured_games_in_source_window"],5)
+        self.assertEqual(forecast["away_team_matured_games_in_source_window"],105)
+        self.assertEqual(forecast["team_coverage_gate_minimum_games"],5)
+        self.assertTrue(forecast["team_ratings_not_independently_calibrated"])
+        self.assertFalse(forecast["bet_ready"])
+        self.assertFalse(forecast["certified_prediction"])
+        self.assertFalse(report["champion_001_modified"])
+
+    def test_recent_undermatured_games_cannot_satisfy_team_gate(self):
+        # 2026-11-09 19:00 UTC start; a 20:00 UTC forecast is too soon
+        # to treat any of these results as available settled team history.
+        rows=prior()+[completed(i,home_id="103") for i in range(150,155)]
+        event=future_event()
+        event["home_team_espn_id"]="103"
+        forecasts,report=project(rows,[event],source_coverage(n=len(rows)),NOW)
+        self.assertEqual(forecasts,[])
+        self.assertEqual(report["matured_history_games_by_team_espn_id"].get("103",0),0)
+        self.assertEqual(report["hold_reasons"]["insufficient_matured_NBA_games_for_one_or_both_teams"],1)
+        self.assertEqual(report["automated_wagers"],0)
 
     def test_started_games_never_become_pregame_predictions(self):
         gone=future_event(start=NOW-timedelta(minutes=3))
