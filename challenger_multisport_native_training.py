@@ -194,15 +194,34 @@ def main(argv=None):
     parser.add_argument("--evidence", default="challenger_reviewed_pregame_games.jsonl")
     parser.add_argument("--output-dir", default="challenger_results/native_model_training")
     parser.add_argument("--allow-missing-evidence", action="store_true")
+    parser.add_argument("--original-evidence-root", default="external_original_source_bytes")
+    parser.add_argument("--pregame-witness-public-key")
+    parser.add_argument("--outcome-witness-public-key")
     args = parser.parse_args(argv)
     path = Path(args.evidence)
     if not path.exists() and not args.allow_missing_evidence:
         raise FileNotFoundError(path)
     rows = ([json.loads(x) for x in path.read_text(encoding="utf8").splitlines() if x.strip()]
             if path.is_file() else [])
-    report, models = train(rows)
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    if rows:
+        # Do not fit or export a model from self-attested rows. External
+        # witness keys must be supplied separately from the repository, and
+        # original source bytes must be present for independent verification.
+        from challenger_authenticated_chronological_dataset import (
+            build as authenticate, key_from_path, write_output)
+        pre = (key_from_path(args.pregame_witness_public_key)
+               if args.pregame_witness_public_key else None)
+        outcome = (key_from_path(args.outcome_witness_public_key)
+                   if args.outcome_witness_public_key else None)
+        admission, admitted = authenticate(rows, args.original_evidence_root, pre, outcome)
+        write_output(out / "witnessed_evidence", admission, admitted)
+        rows = [game for league in sorted(admitted)
+                for part in ("train", "holdout") for game in admitted[league][part]]
+    report, models = train(rows)
+    if path.is_file() and not rows:
+        report["source_status"] = "BLOCKED_NO_EXTERNALLY_WITNESSED_200_50_DATASET"
     if path.is_file():
         for league, model in models.items():
             destination = out / (league + ".json")
