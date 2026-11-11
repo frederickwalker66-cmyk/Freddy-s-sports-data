@@ -336,19 +336,35 @@ def main(argv=None):
     original_gate = None
     sealed_holdout_ids = None
     if rows:
-        from challenger_nba_independent_source_admission import build, save
-        from challenger_authenticated_chronological_dataset import key_from_path
-        pre = (key_from_path(args.pregame_witness_public_key)
-               if args.pregame_witness_public_key else None)
-        final_key = (key_from_path(args.final_witness_public_key)
-                     if args.final_witness_public_key else None)
-        original_gate, groups = build(rows, args.original_evidence_root, pre, final_key)
-        save(dest / "original_source_admission", original_gate, groups)
-        if groups is None:
+        if not args.pregame_witness_public_key or not args.final_witness_public_key:
+            # Safety-only zero-admission path needs no crypto/numerical imports;
+            # older offline audit workflows must never train on self-attested rows.
+            original_gate = {
+                "status": "HOLD_MISSING_EXTERNAL_NBA_TRUST_ANCHORS",
+                "nba_original_games_witness_admitted": 0,
+                "rows_submitted": len(rows),
+                "certified_nba_predictions": 0,
+                "certified_positive_ev_bets": 0,
+                "champion_001_modified": False,
+                "bet_ready": False,
+            }
+            location = dest / "original_source_admission"
+            location.mkdir(parents=True, exist_ok=True)
+            (location / "nba_admission_report.json").write_text(
+                json.dumps(original_gate, sort_keys=True, indent=2) + "\\n")
             rows = []
         else:
-            rows = groups["train"] + groups["holdout"]
-            sealed_holdout_ids = [r["event_id"] for r in groups["holdout"]]
+            from challenger_nba_independent_source_admission import build, save
+            from challenger_authenticated_chronological_dataset import key_from_path
+            pre = key_from_path(args.pregame_witness_public_key)
+            final_key = key_from_path(args.final_witness_public_key)
+            original_gate, groups = build(rows, args.original_evidence_root, pre, final_key)
+            save(dest / "original_source_admission", original_gate, groups)
+            if groups is None:
+                rows = []
+            else:
+                rows = groups["train"] + groups["holdout"]
+                sealed_holdout_ids = [r["event_id"] for r in groups["holdout"]]
     report, model = train_engine(rows, sealed_holdout_ids=sealed_holdout_ids)
     if original_gate is not None:
         report["nba_original_source_admission_status"] = original_gate["status"]
