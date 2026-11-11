@@ -12,12 +12,14 @@ on:
     paths:
       - 'challenger_isotonic_recalibration.py'
       - 'challenger_calibration_evidence_bridge.py'
+      - 'challenger_calibration_readiness.py'
       - 'challenger_multisport_calibration_review.py'
       - 'tests/test_challenger_multisport_calibration_review.py'
       - 'challenger_multisport_native_capture.py'
       - 'tests/test_challenger_multisport_native_capture.py'
       - 'tests/test_challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_calibration_evidence_bridge.py'
+      - 'tests/test_challenger_calibration_readiness.py'
       - 'requirements-calibration.txt'
       - 'CHALLENGER_ISOTONIC_RECALIBRATION.md'
       - '.github/workflows/challenger-isotonic-calibration.yml'
@@ -30,6 +32,8 @@ on:
       - 'challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_isotonic_recalibration.py'
       - 'tests/test_challenger_calibration_evidence_bridge.py'
+      - 'tests/test_challenger_calibration_readiness.py'
+      - 'challenger_calibration_readiness.py'
       - 'requirements-calibration.txt'
       - 'CHALLENGER_ISOTONIC_RECALIBRATION.md'
       - '.github/workflows/challenger-isotonic-calibration.yml'
@@ -52,6 +56,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_challenger_isotonic_recalibration.py' -v
           python -m unittest discover -s tests -p 'test_calibration_archive_workflow_contract.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_calibration_readiness.py' -v
       - name: Recover recent available pregame/outcome artifacts (no sportsbook API)
         shell: bash
         env:
@@ -183,6 +188,15 @@ jobs:
           print('Research-only calibration:', r['status'],
                 'artifacts:', r['research_artifacts_written'])
           PY
+      - name: Explain missing native forecast evidence without promoting review data
+        run: |
+          python challenger_calibration_readiness.py \
+            --bridge-report challenger_results/calibration_evidence/report.json \
+            --calibration-report challenger_results/isotonic_recalibration/report.json \
+            --evidence challenger_oos_probabilities.jsonl \
+            --output-dir challenger_results/calibration_evidence
+          cat challenger_results/calibration_evidence/DEPENDENCY_STATUS.md >> "$GITHUB_STEP_SUMMARY"
+          test ! -e challenger_results/calibration_evidence/challenger_oos_probabilities.jsonl
       - name: Display actual calibration readiness (not CI job status)
         if: always()
         run: |
