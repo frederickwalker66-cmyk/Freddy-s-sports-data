@@ -15,6 +15,63 @@ Challenger model, verified live bookmaker checkout, or any +EV betting pick.
 - The existing SharpAPI feed remains **aggregator research**, not direct
   DraftKings sportsbook checkout.
 
+## Actual already-archived NBA original-source evidence inventory
+
+New read-only script: `nba_actual_original_source_inventory.py`.
+
+The long-lived `research/forward-ledger` branch retains first-observed
+NBA research forecasts, ESPN original schedule payloads, and the GitHub
+Actions run metadata that created them. This script inventories real,
+already-captured original bytes rather than creating retrospective
+historical games or simulated source evidence.
+
+The scheduled/draft PR `independent-evidence-gates.yml` workflow now:
+
+1. Fetches the durable research branch **read-only**.
+2. Verifies its original schedule file SHA256 against the receipt stored
+   in each forecast, before trusting game identity and kickoff time.
+3. Crosschecks exact ESPN game ID, tipoff UTC, home/away team IDs and
+   names against the original schedule response.
+4. Rejects non-pregame schedule states, late forecasts, changed source
+   files, unsupported model probability fields and any false assertions
+   of certified or bet-ready status.
+5. Fetches the real GitHub Actions run metadata through authenticated
+   GitHub API access and verifies the archived run ID, commit SHA,
+   creation/start time and successful completion.
+6. Keeps the **earliest** retained forecast per event, quarantines
+   invalid or conflicted entries, emits a per-game manual source-review
+   worklist and a numeric audit report.
+7. Explicitly records **zero independently qualified training and
+   holdout games, zero verified direct sportsbook checkout prices,
+   zero positive-EV certifications**, until separately verifiable
+   original publication/feature/outcome sources are provided.
+
+This is deliberately distinct from the signed-witness trainer gate:
+GitHub corroborates the *archive workflow timing*, not original ESPN
+publication time or the fidelity of a derived pregame feature. An ESPN
+response can also contain DraftKings-labeled odds: these are still
+**not actual independently verified sportsbook checkout quotes**.
+
+If the durable source archive is unavailable or the real-world rows
+cannot pass review-time integrity checks, the CI inventory job fails
+rather than claiming qualified training data.
+
+The inventory can be run offline once a copy of the genuine original
+run directories is present:
+
+```bash
+python nba_actual_original_source_inventory.py \
+  --archive-root downloaded_original_evidence/data/v8_forward/original_run_receipts \
+  --live-run-metadata-dir live_original_run_metadata \
+  --outdir challenger_results/nba_actual_original_source_inventory
+```
+
+Output review-only files:
+- `nba_reviewable_original_source_candidates.jsonl`
+- `nba_actual_original_source_inventory.json`
+
+The existing raw archived data and Champion-001 are never overwritten.
+
 ## NBA dedicated original-source admission (200 + 50)
 
 The NBA home-moneyline research engine now has its own original-source
