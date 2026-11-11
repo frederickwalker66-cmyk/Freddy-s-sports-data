@@ -351,7 +351,7 @@ def main(argv=None):
             location = dest / "original_source_admission"
             location.mkdir(parents=True, exist_ok=True)
             (location / "nba_admission_report.json").write_text(
-                json.dumps(original_gate, sort_keys=True, indent=2) + "\\n")
+                json.dumps(original_gate, sort_keys=True, indent=2) + "\n")
             rows = []
         else:
             from challenger_nba_independent_source_admission import build, save
