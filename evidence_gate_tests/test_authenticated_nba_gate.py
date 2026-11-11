@@ -7,11 +7,12 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives import serialization
 
 from challenger_authenticated_chronological_dataset import canon, sha256
 from challenger_nba_independent_source_admission import (
     ROW_TYPE, build, outcome_attestation, pregame_attestation, save)
-from challenger_nba_probability import train_engine
+from challenger_nba_probability import train_engine, main as nba_training_main
 
 NOW = datetime(2027, 1, 1, tzinfo=timezone.utc)
 
@@ -97,6 +98,37 @@ class NBAOriginalEvidenceTests(unittest.TestCase):
         self.assertEqual(model["fit"]["training_rows"], 200)
         self.assertFalse(model["holdout_was_used_to_fit_or_refit_model"])
         self.assertEqual(summary["certified_champion_001_predictions"], 0)
+
+    def test_signed_250_games_flow_through_real_training_cli_research_only(self):
+        rows = [self.make(i) for i in range(250)]
+        history = self.root / "signed_candidates.jsonl"
+        history.write_bytes(b"".join(canon(row) + b"\n" for row in rows))
+        pub_encoding = serialization.Encoding.PEM
+        pub_format = serialization.PublicFormat.SubjectPublicKeyInfo
+        pre_path = self.root / "pregame_external_public.pem"
+        final_path = self.root / "outcome_external_public.pem"
+        pre_path.write_bytes(self.pre.public_key().public_bytes(pub_encoding, pub_format))
+        final_path.write_bytes(self.final.public_key().public_bytes(pub_encoding, pub_format))
+        output = self.root / "nba_training_output"
+        self.assertEqual(nba_training_main([
+            "--history", str(history),
+            "--original-evidence-root", str(self.root),
+            "--pregame-witness-public-key", str(pre_path),
+            "--final-witness-public-key", str(final_path),
+            "--output-dir", str(output),
+        ]), 0)
+        report = json.loads((output / "report.json").read_text())
+        fitted = json.loads((output / "research_model.json").read_text())
+        self.assertEqual(report["nba_externally_witness_admitted_games"], 250)
+        self.assertEqual(report["chronological_train_games"], 200)
+        self.assertEqual(report["chronological_holdout_games"], 50)
+        self.assertEqual(fitted["fit"]["training_rows"], 200)
+        self.assertFalse(fitted["holdout_was_used_to_fit_or_refit_model"])
+        self.assertFalse(fitted["qualified_for_real_money_wagers"])
+        self.assertEqual(report["certified_challenger_001_predictions"], 0)
+        self.assertEqual(report["bet_ready_selections"], 0)
+        self.assertTrue((output / "original_source_admission"
+                         / "nba_holdout_local_seal.json").is_file())
 
     def test_249_is_not_qualified_and_self_flags_are_not_evidence(self):
         report, groups = self.gate([self.make(i) for i in range(249)])
