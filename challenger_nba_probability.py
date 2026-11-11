@@ -145,11 +145,12 @@ def holdout_metrics(model, test):
     }
 
 
-def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
+def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST,
+                 sealed_holdout_ids=None):
     """Train research model only on review-attested, point-in-time rows.
 
-    The holdout model is fitted without knowledge of test-period outcomes;
-    only after evaluation is a separate final research artifact refitted.
+    A training-only model is fitted and evaluated on a genuinely separate
+    holdout. It is NEVER refitted on holdout outcomes.
     """
     if type(min_train) is not int or type(min_test) is not int or min_train < 2 or min_test < 2:
         raise ValueError("invalid sample thresholds")
@@ -203,10 +204,25 @@ def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
     if any(sorted(row["features"]) != names for row in accepted):
         report["blocker"] = "inconsistent_feature_schema"
         return report, None
-    split_index = int(len(accepted) * 0.8)
-    split_day = timestamp(accepted[split_index]["start_utc"]).date()
-    prior = [r for r in accepted if timestamp(r["start_utc"]).date() < split_day]
-    test = [r for r in accepted if timestamp(r["start_utc"]).date() >= split_day]
+    if sealed_holdout_ids is not None:
+        if (not isinstance(sealed_holdout_ids, list)
+                or len(sealed_holdout_ids) < min_test
+                or len(set(sealed_holdout_ids)) != len(sealed_holdout_ids)):
+            raise ValueError("invalid_externally_admitted_nba_holdout_identity_set")
+        sealed = set(sealed_holdout_ids)
+        if not sealed.issubset({r["event_id"] for r in accepted}):
+            raise ValueError("sealed_nba_holdout_event_missing_from_evidence")
+        prior = [r for r in accepted if r["event_id"] not in sealed]
+        test = [r for r in accepted if r["event_id"] in sealed]
+        if (not prior or not test
+                or max(timestamp(r["start_utc"]) for r in prior).date()
+                   >= min(timestamp(r["start_utc"]) for r in test).date()):
+            raise ValueError("holdout_date_overlaps_prior_training")
+    else:
+        split_index = int(len(accepted) * 0.8)
+        split_day = timestamp(accepted[split_index]["start_utc"]).date()
+        prior = [r for r in accepted if timestamp(r["start_utc"]).date() < split_day]
+        test = [r for r in accepted if timestamp(r["start_utc"]).date() >= split_day]
     earliest_snapshot = min(timestamp(r["snapshot_utc"]) for r in test)
     eligible_train = [r for r in prior
                       if timestamp(r["outcome_verified_at_utc"]) <= earliest_snapshot]
@@ -221,18 +237,19 @@ def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
         return report, None
     held_model = fit(eligible_train, names)
     report["out_of_sample_exploratory_metrics"] = holdout_metrics(held_model, test)
-    # The artifact fitted on *all already settled evidence* is a new model.
-    # Holdout metrics above refer only to the pre-refit model, not this artifact.
-    final = fit(accepted, names)
+    # Never contaminate the fitted research artifact with holdout labels.
+    # The inspected model and the scored model must have identical weights.
+    final = held_model
     model = {
         "version": VERSION,
         "lane": "Challenger-001",
         "market_type": "nba_home_moneyline",
         "status": "unverified_research_model_not_deployed",
         "trained_at_utc": iso(now),
-        "historical_source_evidence_digest": digest(accepted),
-        "last_training_event_start_utc": accepted[-1]["start_utc"],
+        "historical_source_evidence_digest": digest(eligible_train),
+        "last_training_event_start_utc": eligible_train[-1]["start_utc"],
         "holdout_metrics_apply_to_pre_refit_model_only": True,
+        "holdout_was_used_to_fit_or_refit_model": False,
         "fit": final,
         "qualified_for_real_money_wagers": False,
         "champion_001_modified": False,
@@ -307,13 +324,36 @@ def main(argv=None):
     parser.add_argument("--history", default="historical_results.jsonl")
     parser.add_argument("--output-dir", default="challenger_results/nba_probability")
     parser.add_argument("--candidate", help="single future NBA event JSON; research only")
+    parser.add_argument("--original-evidence-root", default="nba_external_original_source_bytes")
+    parser.add_argument("--pregame-witness-public-key")
+    parser.add_argument("--final-witness-public-key")
     args = parser.parse_args(argv)
     history_path = Path(args.history)
     rows = ([json.loads(line) for line in history_path.read_text(encoding="utf-8").splitlines()
              if line.strip()] if history_path.is_file() else [])
-    report, model = train_engine(rows)
     dest = Path(args.output_dir)
     dest.mkdir(parents=True, exist_ok=True)
+    original_gate = None
+    sealed_holdout_ids = None
+    if rows:
+        from challenger_nba_independent_source_admission import build, save
+        from challenger_authenticated_chronological_dataset import key_from_path
+        pre = (key_from_path(args.pregame_witness_public_key)
+               if args.pregame_witness_public_key else None)
+        final_key = (key_from_path(args.final_witness_public_key)
+                     if args.final_witness_public_key else None)
+        original_gate, groups = build(rows, args.original_evidence_root, pre, final_key)
+        save(dest / "original_source_admission", original_gate, groups)
+        if groups is None:
+            rows = []
+        else:
+            rows = groups["train"] + groups["holdout"]
+            sealed_holdout_ids = [r["event_id"] for r in groups["holdout"]]
+    report, model = train_engine(rows, sealed_holdout_ids=sealed_holdout_ids)
+    if original_gate is not None:
+        report["nba_original_source_admission_status"] = original_gate["status"]
+        report["nba_externally_witness_admitted_games"] = original_gate["nba_original_games_witness_admitted"]
+        report["nba_model_release_certified"] = False
     if model is not None:
         (dest / "research_model.json").write_text(
             json.dumps(model, sort_keys=True, indent=2) + "\n", encoding="utf-8")
