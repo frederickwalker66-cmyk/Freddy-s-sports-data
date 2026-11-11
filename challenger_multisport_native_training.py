@@ -159,7 +159,9 @@ def train(rows, now=None, min_train=MIN_TRAIN, min_holdout=MIN_HOLDOUT):
         if not score["brier_improves_prior"] or not score["log_loss_improves_prior"]:
             report["status"] = "blocked_no_out_of_sample_improvement"
             continue
-        fitted = make_fit(games, names, league)
+        # Never refit on the untouched holdout: a post-holdout refit would
+        # invalidate any claim that this artifact was independently held out.
+        fitted = preliminary
         artifact = {"model_version": f"challenger-001-{league}-native-trained-v1",
                     "league": league, "market_type": MARKETS[league],
                     "settlement_scope": SCOPE[league], "lane": "Challenger-001",
@@ -169,7 +171,7 @@ def train(rows, now=None, min_train=MIN_TRAIN, min_holdout=MIN_HOLDOUT):
                     "champion_001_modified": False,
                     "chronological_training_rows": len(training),
                     "later_holdout_rows": len(holdout),
-                    "historical_source_evidence_sha256": digest(games),
+                    "historical_source_evidence_sha256": digest(training),
                     "trained_at_utc": now.isoformat(), **fitted}
         artifact["artifact_sha256"] = digest(artifact)
         check_model(artifact, league, now)
