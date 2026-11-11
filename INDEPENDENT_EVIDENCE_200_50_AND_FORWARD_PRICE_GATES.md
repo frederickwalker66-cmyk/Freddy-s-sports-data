@@ -15,6 +15,70 @@ Challenger model, verified live bookmaker checkout, or any +EV betting pick.
 - The existing SharpAPI feed remains **aggregator research**, not direct
   DraftKings sportsbook checkout.
 
+## NBA dedicated original-source admission (200 + 50)
+
+The NBA home-moneyline research engine now has its own original-source
+admission path: `challenger_nba_independent_source_admission.py`. This
+**is not** the seven-league non-NBA validator, and it preserves the NBA
+engine's binary home-win outcome schema.
+
+A candidate record must have `record_type:
+nba_original_pregame_and_outcome_witness_v1`, the existing NBA historical
+schema, `settlement_scope: including_overtime`,
+`champion_001_modified: false`, a numeric official-compatible game ID,
+and two separate attached proofs: `pregame_proof` and `outcome_proof`.
+
+The NBA pregame Ed25519-signed attestation must bind `role:
+independent_nba_pregame_custodian`, `league`, `event_id`, `market_type`,
+`selection_type`, `settlement_scope`, `event_source_url`, `source_url`,
+`original_sha256`, `features_sha256`, `features_asof_utc`,
+`captured_at_utc`, `start_utc`. The final-result signed attestation
+binds `role: independent_nba_final_custodian`, the same event and
+market identity, original outcome bytes SHA256 and numeric `home_won`
+label, result observation time and start time. Both original evidence
+files must be retained under `--evidence-root`, and both keys must be
+vetted by outside custodians rather than generated in the repository.
+
+```bash
+python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
+python challenger_nba_independent_source_admission.py \
+  --candidates independently_witnessed_nba_games.jsonl \
+  --evidence-root nba_preserved_original_bytes \
+  --pregame-public-key original_pregame_witness.pem \
+  --final-public-key original_final_witness.pem \
+  --outdir challenger_results/nba_authenticated_admission
+```
+
+This outputs a research-only signed-evidence inventory. Only after
+**200 earlier admissible NBA games plus at least 50 later games on distinct
+UTC game dates** are available does it create two separate train/holdout
+JSONL files and a local holdout digest lock. Earlier game final outcomes
+must have been observed before the first holdout pregame snapshot.
+
+The **NBA training CLI now enforces this gate**, requires distinct
+externally supplied public keys when historical rows are present, and
+refuses to train from URL+hash+Boolean self-attestation alone:
+
+```bash
+python challenger_nba_probability.py \
+  --history independently_witnessed_nba_games.jsonl \
+  --original-evidence-root nba_preserved_original_bytes \
+  --pregame-witness-public-key original_pregame_witness.pem \
+  --final-witness-public-key original_final_witness.pem \
+  --output-dir challenger_results/nba_probability
+```
+
+The admitted holdout IDs are passed into the trainer explicitly, to
+avoid silently replacing the exact audited split with a default percentage
+split. The fitted model uses **training outcomes only**. The holdout may
+be used once for research evaluation and is not refit into the persisted
+model artifact. An externally vetted primary publisher, trusted
+independent as-of timestamps, and externally immutable holdout custody
+are still needed before treating these as genuinely qualified source rows.
+
+Unit tests are synthetic, and the source-authentication scripts
+explicitly report the gap rather than claiming 250 real NBA records.
+
 ## Evidence admission contract (seven non-NBA leagues)
 
 Entry point: `challenger_authenticated_chronological_dataset.py`.
