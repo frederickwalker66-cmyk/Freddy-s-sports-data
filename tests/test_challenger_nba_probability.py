@@ -84,7 +84,10 @@ class NbaProbabilityEngineTests(unittest.TestCase):
                                      as_of=AS_OF)
         self.assertEqual(report["result"], "fitted_unverified_research_model")
         self.assertEqual(model["version"], VERSION)
-        self.assertEqual(model["fit"]["training_rows"], 260)
+        self.assertEqual(model["fit"]["training_rows"], 208)
+        self.assertFalse(model["holdout_was_used_to_fit_or_refit_model"])
+        self.assertEqual(model["historical_source_evidence_digest"],
+                         digest([synthetic_game(i) for i in range(208)]))
         self.assertEqual(report["chronological_train_games"], 208)
         self.assertEqual(report["chronological_holdout_games"], 52)
         self.assertEqual(report["out_of_sample_exploratory_metrics"]["holdout_games"], 52)
@@ -95,6 +98,43 @@ class NbaProbabilityEngineTests(unittest.TestCase):
         self.assertFalse(report["champion_001_modified"])
         self.assertEqual(digest({k: v for k, v in model.items()
                                  if k != "artifact_sha256"}), model["artifact_sha256"])
+
+    def test_sealed_holdout_forbids_leaking_later_outcomes_into_model(self):
+        from challenger_nba_probability import fit
+        rows = [synthetic_game(i) for i in range(260)]
+        holdout_ids = [row["event_id"] for row in rows[210:]]
+        report, model = train_engine(rows, as_of=AS_OF,
+                                     sealed_holdout_ids=holdout_ids)
+        self.assertIsNotNone(model)
+        self.assertEqual(report["chronological_train_games"], 210)
+        self.assertEqual(report["chronological_holdout_games"], 50)
+        expected = fit(rows[:210], sorted(rows[0]["features"]))
+        self.assertEqual(model["fit"], expected)
+        self.assertEqual(model["historical_source_evidence_digest"],
+                         digest(rows[:210]))
+        self.assertFalse(model["holdout_was_used_to_fit_or_refit_model"])
+
+    def test_sealed_holdout_wrong_identity_or_date_must_fail(self):
+        rows = [synthetic_game(i) for i in range(260)]
+        with self.assertRaisesRegex(ValueError, "event_missing"):
+            train_engine(rows, as_of=AS_OF,
+                         sealed_holdout_ids=["missing"] * 50)
+        ids = [r["event_id"] for r in rows[:50]]
+        with self.assertRaisesRegex(ValueError, "holdout_date_overlaps"):
+            train_engine(rows, as_of=AS_OF, sealed_holdout_ids=ids)
+
+    def test_nba_cli_rejects_self_attested_historical_rows_no_model(self):
+        with TemporaryDirectory() as temp:
+            p = Path(temp)
+            candidates = p / "self_attested.jsonl"
+            candidates.write_text(json.dumps(synthetic_game(1)) + "\n")
+            self.assertEqual(main(["--history", str(candidates),
+                                   "--output-dir", str(p / "blocked")]), 0)
+            self.assertFalse((p / "blocked" / "research_model.json").exists())
+            report = json.loads((p / "blocked" / "report.json").read_text())
+            self.assertEqual(report["nba_externally_witness_admitted_games"], 0)
+            self.assertEqual(report["certified_challenger_001_predictions"], 0)
+            self.assertEqual(report["result"], BLOCKED)
 
     def test_quarantined_rows_never_enter_train(self):
         rows = [synthetic_game(i) for i in range(4)]
