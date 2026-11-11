@@ -51,8 +51,17 @@ def original_bytes(root, relative):
     if not isinstance(relative, str) or not relative or Path(relative).is_absolute():
         raise ValueError("unsafe_original_evidence_path")
     base = Path(root).resolve(strict=True)
-    file = (base / relative).resolve(strict=True)
-    if not file.is_relative_to(base) or not file.is_file() or file.is_symlink():
+    raw_path = base / relative
+    # Check each component before following symlinks (resolve hides symlinks).
+    if any(part in (".", "..") for part in Path(relative).parts):
+        raise ValueError("unsafe_original_evidence_path")
+    step = base
+    for part in Path(relative).parts:
+        step = step / part
+        if step.is_symlink():
+            raise ValueError("unsafe_original_evidence_path")
+    file = raw_path.resolve(strict=True)
+    if not file.is_relative_to(base) or not file.is_file():
         raise ValueError("unsafe_original_evidence_path")
     if file.stat().st_size <= 0 or file.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("empty_or_oversized_original_source")
