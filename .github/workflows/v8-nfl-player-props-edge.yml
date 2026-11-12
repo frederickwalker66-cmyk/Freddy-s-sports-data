@@ -1,4 +1,4 @@
-name: Freddy's Picks AI V8 — NFL + Player Props Sharp Edge (one click)
+name: Freddy's Picks AI V8 — NBA + NFL Games & Player Props Sharp Edge (one click)
 on:
   workflow_dispatch:
   # First deploy validates the dedicated one-click action. Subsequent captures
@@ -8,6 +8,8 @@ on:
     paths:
       - '.github/workflows/v8-nfl-player-props-edge.yml'
       - 'v8_sharp_player_props.py'
+      - 'v8_sharp_game_markets.py'
+      - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_one_command.py'
       - 'tests/test_v8_sharp_player_props.py'
   workflow_run:
@@ -32,8 +34,10 @@ jobs:
           python-version: '3.12'
       - name: Install offline analysis dependencies
         run: python -m pip install -r requirements-calibration.txt
-      - name: Validate exact-market research guards (offline)
-        run: python -m unittest discover -s tests -p 'test_v8_sharp_player_props.py' -v
+      - name: Validate player props and full game market guards (offline)
+        run: |
+          python -m unittest discover -s tests -p 'test_v8_sharp_player_props.py' -v
+          python -m unittest discover -s tests -p 'test_v8_sharp_game_markets.py' -v
       - name: Read saved SharpAPI archives only; no paid API requests
         shell: bash
         env:
@@ -53,7 +57,7 @@ jobs:
             fi
           done
           echo "Saved research archives retrieved: $count"
-      - name: Execute NFL moneyline + NBA/NFL exact-line player-prop research
+      - name: Scan NBA NFL full-game moneylines spreads totals and player props
         run: |
           python v8_one_command.py --command run_nfl_props_edge \
             --sharp-archive-dir saved_sharp_archives \
@@ -72,6 +76,7 @@ jobs:
               data=json.loads(path.read_text())
               sharp=data.get("sharp_archive") or {}
               props=data.get("sharp_player_props") or {}
+              games=data.get("sharp_full_game_markets") or {}
               edge=data.get("nfl_and_player_props_edge_research") or {}
               if (data.get("command") != "run_nfl_props_edge"
                       or data.get("certified_positive_ev_bets") != 0
@@ -83,6 +88,9 @@ jobs:
                   "**Executed command:** run_nfl_props_edge",
                   f"**Saved SharpAPI runs:** {sharp.get('archive_run_ids', [])}",
                   f"**NFL primary game moneyline quotes:** {edge.get('nfl_primary_moneyline_archive_observations', 0)}",
+                  f"**Today's fully paired NBA/NFL full-game board games:** {games.get('today_recent_upcoming_full_games', 0)}",
+                  f"**Today's fresh moneyline/spread/total repricing observations:** {games.get('today_recent_upcoming_market_movement_observations', 0)}",
+                  f"**Full-game accepted quote observations by market:** {games.get('validated_source_quote_observations_by_league_and_market', {})}",
                   f"**NFL exact-player prop quotes:** {edge.get('nfl_exact_prop_archive_observations', 0)}",
                   f"**NBA exact-player prop quotes:** {edge.get('nba_exact_prop_archive_observations', 0)}",
                   f"**Historical exact-stat/line repricings:** {props.get('exact_player_stat_line_repricings_historical', 0)}",
@@ -92,6 +100,28 @@ jobs:
                   f"**Provider-ID-plus-name quotes (IDs still unauthenticated):** {props.get('valid_provider_id_plus_name_quote_observations_research_only', 0)}",
                   f"**Conflicting player-identity groups quarantined:** {props.get('conflicting_provider_identity_market_groups_excluded', 0)}",
                   "**Player identities are NOT independently authenticated. Source-name-only matching is archive research, never verification of active players.**",
+                  "",
+                  "## Today's NBA/NFL Full-Game Markets — moneyline, spread, total",
+                  "**Provider event IDs and bookmaker-labeled quotes are not independent sportsbook checkout receipts or model edges.**",
+                  "| Matchup | Moneyline (home / away) | Spread (home / away) | Total (Over / Under) | Verdict |",
+                  "|---|---|---|---|---|",
+              ]
+              board=games.get('today_game_market_board') or []
+              for g in board[:10]:
+                  markets=g['paired_primary_markets']
+                  def show(m):
+                      a=markets.get(m)
+                      if not a:
+                          return "not paired"
+                      odds=f"{a['home_or_over_odds']:+g} / {a['away_or_under_odds']:+g}"
+                      if m=="moneyline":
+                          return odds
+                      return f"{a['home_or_over_line']:+g} / {a['away_or_under_line']:+g} ({odds})"
+                  lines.append(f"| {g['away_team']} @ {g['home_team']} | {show('moneyline')} | {show('point_spread')} | {show('total_points')} | HOLD |")
+              if not board:
+                  lines.append("| No current fully paired markets available | — | — | — | HOLD |")
+              lines.extend([
+                  "",
                   "**Decision: PASS / HOLD — no independently certified +EV or executable DraftKings quote.**",
                   "**Champion-001 frozen; automated wagers: 0; research stake: $0.**",
               ]
