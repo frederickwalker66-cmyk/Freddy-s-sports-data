@@ -74,6 +74,48 @@ class DurableForwardTests(unittest.TestCase):
             self.assertEqual(later["nba_forward_forecasts_graded_research_only"],1)
             self.assertEqual(later["new_forecast_sync"]["existing_or_later_forecasts_ignored"],1)
 
+    def test_live_sync_accepts_source_receipt_created_after_scan_begins(self):
+        # Production regression: the ESPN score receipt must be newer than
+        # the initial workflow timestamp, yet not later than the actual fetch.
+        with tempfile.TemporaryDirectory() as folder:
+            archives=Path(folder)/"input"
+            archives.mkdir()
+            saved=Path(folder)/"persistent"
+            write_run(archives)
+
+            def post_download_receipt(*args):
+                rows, coverage = results_collector(*args)
+                rows[0]["retrieved_at_utc"]=datetime.now(timezone.utc).isoformat()
+                return rows, coverage
+
+            report, ledger=sync(
+                archives,saved,collector=post_download_receipt)
+            self.assertEqual(report["nba_forward_forecasts_graded_research_only"],1)
+            self.assertEqual(report["new_forecast_sync"]["new_ESPN_published_outcomes_recorded"],1)
+            self.assertEqual(ledger[0]["grade_status"],GRADED_STATUS)
+            self.assertFalse(report["bet_ready"])
+            self.assertEqual(report["certified_positive_ev_bets"],0)
+            self.assertTrue((saved/"NBA_FORWARD_RESEARCH.sqlite").is_file())
+
+    def test_explicit_historical_clock_rejects_later_source_receipt(self):
+        # A strict caller-provided retrospective cutoff is not relaxed by
+        # the live post-fetch fix.
+        with tempfile.TemporaryDirectory() as folder:
+            archives=Path(folder)/"input"
+            archives.mkdir()
+            saved=Path(folder)/"persistent"
+            write_run(archives)
+
+            def artificially_future_receipt(*args):
+                rows, coverage = results_collector(*args)
+                rows[0]["retrieved_at_utc"]=(AFTER+timedelta(seconds=1)).isoformat()
+                return rows,coverage
+
+            with self.assertRaisesRegex(
+                    ValueError,"unsupported_published_outcome_source"):
+                sync(archives,saved,now=AFTER,
+                     collector=artificially_future_receipt)
+
     def test_invalid_or_corrupted_receipt_detected_even_after_copy(self):
         with tempfile.TemporaryDirectory() as folder:
             archives=Path(folder)/"input"
