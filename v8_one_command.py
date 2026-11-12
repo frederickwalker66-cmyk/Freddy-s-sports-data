@@ -122,6 +122,13 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 prop_report["valid_prop_quotes_by_league"].get("nba", 0),
             "upcoming_research_prop_repricings":
                 prop_report["upcoming_repricing_research_observations"],
+            "prop_quotes_matched_by_provider_name_only_unverified":
+                prop_report["valid_provider_name_only_quote_observations_research_only"],
+            "prop_quotes_with_provider_id_unverified":
+                prop_report["valid_provider_id_plus_name_quote_observations_research_only"],
+            "prop_identity_conflict_market_groups_quarantined":
+                prop_report["conflicting_provider_identity_market_groups_excluded"],
+            "independently_verified_athlete_identities": 0,
             "verified_professional_sharp_flow": False,
             "verified_native_model_probabilities": 0,
             "verified_draftkings_checkout_quotes": 0,
