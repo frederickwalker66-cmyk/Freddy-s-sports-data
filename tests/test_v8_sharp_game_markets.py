@@ -134,7 +134,7 @@ class FullGameMarketTests(unittest.TestCase):
             {"is_main_line":False}, {"certified_prediction":True},
             {"model_probability":0.71},
             {"recorded_at":"2026-11-12T16:10:00Z"},
-            {"timestamp":"2026-11-12T15:40:00Z"},
+            {"timestamp":"2026-11-12T15:30:00Z"},
             {"event_start_time":"2026-11-12T15:00:00Z"},
         ):
             with self.subTest(change=change):
