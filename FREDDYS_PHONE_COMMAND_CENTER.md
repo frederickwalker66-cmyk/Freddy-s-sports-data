@@ -10,6 +10,7 @@ Open the [Freddy's Picks AI Phone Command Center](https://github.com/frederickwa
 | --- | --- | --- |
 | status | Inspect actual GitHub production Actions runs, branch protection and model hold status | No |
 | all_free_diagnostics | Request offline code tests, public eight-sport source capture, and outcome review | No dedicated paid provider calls |
+| full_refresh_recalibrate | Request eight research workflows: tests, eight-sport source capture, prospective forecast and outcome review, Challenger recalibration and native training safety, V8 model readiness, and NBA/NFL game/prop Sharp Edge replay of *saved* market archives | **No new paid-provider calls, no bets, Champion frozen** |
 | public_eight_sport_scan | Request an original ESPN source capture for the eight research leagues | No |
 | code_tests | Launch full Python offline regression suite | No |
 | outcome_review | Request pregame observations and published-outcome reconciliation | No dedicated paid provider calls |
@@ -22,7 +23,7 @@ Paid workflows are rejected unless you explicitly tick **I authorize this run to
 
 ## Read the results
 
-Open **Actions → Freddy's Picks AI — Phone Command Center → latest run → phone-dashboard** and read the **Summary**. Its ZIP artifact contains PHONE_DASHBOARD.md and PHONE_DASHBOARD.json for 30 days. Dispatched workflows start separately: a successful command request is NOT evidence that the downstream job or provider connection succeeded. Tap the corresponding workflow link, open its newest run, and review actual archive receipts and timestamps.
+Open **Actions → Freddy's Picks AI — Phone Command Center → latest run → phone-dashboard** and read the **Summary**. Its ZIP artifact contains PHONE_DASHBOARD.md and PHONE_DASHBOARD.json for 30 days. Dispatched workflows start separately: a successful command request is NOT evidence that the downstream job or provider connection succeeded. The **full_refresh_recalibrate** command sends eight independent safe workflow requests; **it is not a completed eight-sport retraining or calibration release**. Parallel tasks can inspect different archive ages. The existing outcome-completion trigger may request a subsequent Challenger recalibration, but its separate actual completed run and eligible evidence must be verified. Missing or unauthenticated forecasts mean HOLD, not a manufactured success. Tap the corresponding workflow link, open its newest run, and review actual archive receipts and timestamps.
 
 GitHub also requests two automatic **status-only** dashboards daily. The separate eight-sport original-source collector requests public source checks at minute 27 and 53 UTC each hour; GitHub scheduling can still be delayed or dropped. The phone dashboard reports actual runs, not assumed execution.
 
