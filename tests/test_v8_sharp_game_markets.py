@@ -89,7 +89,6 @@ class FullGameMarketTests(unittest.TestCase):
         r,moves=summarize_full_game_markets(rows,now=NOW)
         self.assertEqual(len(moves),1)
         self.assertEqual(r["today_recent_upcoming_market_movement_observations"],1)
-        self.assertIsNone(moves[0]["line_change"] if False else None)
         self.assertEqual(moves[0]["line_change"],0)
         self.assertGreater(moves[0]["same_line_no_vig_market_price_change_pp"],0)
         self.assertFalse(moves[0]["changed_line_cannot_compare_probability"])
