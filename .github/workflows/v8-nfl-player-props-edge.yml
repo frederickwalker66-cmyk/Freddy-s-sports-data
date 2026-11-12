@@ -124,7 +124,7 @@ jobs:
                   "",
                   "**Decision: PASS / HOLD — no independently certified +EV or executable DraftKings quote.**",
                   "**Champion-001 frozen; automated wagers: 0; research stake: $0.**",
-              ]
+              ])
           content="\n".join(lines)+"\n"
           print(content)
           if os.getenv("GITHUB_STEP_SUMMARY"):
