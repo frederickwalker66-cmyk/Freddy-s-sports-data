@@ -10,6 +10,7 @@ on:
         options:
           - status
           - all_free_diagnostics
+          - full_refresh_recalibrate
           - public_eight_sport_scan
           - code_tests
           - outcome_review
