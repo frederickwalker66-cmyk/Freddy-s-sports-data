@@ -29,10 +29,11 @@ from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_for
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
+from v8_arbitrage_research import scan_arbitrage
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
@@ -40,6 +41,7 @@ COMMAND_LEAGUES = {
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
     "run_nfl_props_edge": ("nba", "nfl"),
+    "run_arbitrage": SPORTS,
 }
 
 
@@ -59,6 +61,7 @@ def default_end_date(now=None):
 
 def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             now=None, output_dir="v8_results/one_command", sharp_rows=None,
+            arbitrage_rows=None,
             sharp_run_ids=(), source_run_metadata=None,
             certification_source_dir=None, certification_sharp_dir=None,
             certification_source_run_id=None, certification_sharp_run_id=None,
@@ -93,6 +96,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_full_game_markets": None,
         "sharp_edge_calibration": None,
         "sharp_edge_clv": None,
+        "arbitrage_research": None,
         "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
         "certification_review": None,
@@ -108,6 +112,15 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
+    elif command == "run_arbitrage":
+        # Crossbook mathematical screening independent of predictive model EV.
+        # Existing SharpAPI archives only contain one book and cannot certify
+        # execution or create opportunities from missing second-book prices.
+        arb = scan_arbitrage(arbitrage_rows if arbitrage_rows is not None
+                             else (sharp_rows or []), now=now)
+        report["arbitrage_research"] = arb
+        (out / "ARBITRAGE_RESEARCH.json").write_text(
+            json.dumps(arb, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     elif command in ("run_sharp", "run_nfl_props_edge"):
         # Read only already downloaded SharpAPI archives. Sportsbook-labeled
         # moneylines and exact-line player prop repricing are market research,
@@ -388,6 +401,7 @@ def main(argv=None):
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
+    p.add_argument("--arbitrage-input", help="Optional local canonical crossbook research-quote JSONL; never a live betting feed")
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
     p.add_argument("--nba-review-dir", help="Previously captured original NBA source review packets (research only)")
@@ -413,7 +427,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command in ("run_sharp", "run_nfl_props_edge") and args.sharp_archive_dir:
+    if args.command in ("run_sharp", "run_nfl_props_edge", "run_arbitrage") and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
@@ -431,9 +445,22 @@ def main(argv=None):
                 raise ValueError("unreviewed_or_missing_nba_native_training_file")
             nba_qualified_history = [json.loads(x) for x in native_path.read_text(encoding="utf-8").splitlines()
                                      if x.strip()]
+    arbitrage_rows = None
+    if args.command == "run_arbitrage" and args.arbitrage_input:
+        path = Path(args.arbitrage_input)
+        if not path.is_file() or path.is_symlink():
+            raise ValueError("arbitrage_input_must_be_local_existing_file")
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if len(lines) > 50000:
+            raise ValueError("arbitrage_input_row_budget_exceeded")
+        arbitrage_rows = [json.loads(s) for s in lines if s.strip()]
+        # Distinct manual sportsbook evidence may accompany downloaded
+        # single-book archival observations, but cannot attest real checkout.
+        arbitrage_rows += sharp_rows
     stop = date.fromisoformat(args.end_date) if args.end_date else None
     report = execute(args.command, args.days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
+                     arbitrage_rows=arbitrage_rows,
                      source_run_metadata=source_metadata,
                      certification_source_dir=args.certification_source_dir,
                      certification_sharp_dir=args.certification_sharp_dir,
