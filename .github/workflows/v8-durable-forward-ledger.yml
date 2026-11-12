@@ -15,16 +15,20 @@ on:
       - 'v8_forward_leaderboard_view.py'
       - 'v8_forward_calibration.py'
       - 'v8_forward_calibration_view.py'
+      - 'v8_nba_forward_grade.py'
       - 'tests/test_v8_durable_forward_ledger.py'
+      - 'tests/test_v8_nba_forward_grade.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
       - 'tests/test_v8_forward_calibration.py'
       - 'tests/test_v8_forward_calibration_view.py'
       - '.github/workflows/v8-durable-forward-ledger.yml'
   pull_request:
     paths:
+      - 'v8_nba_forward_grade.py'
       - 'v8_durable_forward_ledger.py'
       - 'v8_forward_leaderboard_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
+      - 'tests/test_v8_nba_forward_grade.py'
       - 'tests/test_v8_forward_leaderboard_view.py'
       - '.github/workflows/v8-durable-forward-ledger.yml'
 
