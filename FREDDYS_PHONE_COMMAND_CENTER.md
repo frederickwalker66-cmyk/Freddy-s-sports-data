@@ -27,6 +27,12 @@ Open **Actions → Freddy's Picks AI — Phone Command Center → latest run →
 
 GitHub also requests two automatic **status-only** dashboards daily. The separate eight-sport original-source collector requests public source checks at minute 27 and 53 UTC each hour; GitHub scheduling can still be delayed or dropped. The phone dashboard reports actual runs, not assumed execution.
 
+## Repeat full model refresh and recalibration
+
+To repeat the existing safe refresh from your phone, use the Phone Command Center workflow on `main`, choose `full_refresh_recalibrate`, and tap **Run workflow**. This requests eight separate research workflows (code integrity, eight-sport public pregame sources, prospective forecasts, outcomes, Challenger isotonic calibration, native training safety, V8 readiness and saved-archive NBA/NFL games/props). This does not charge paid odds providers or place bets.
+
+A workflow dispatch accepted by GitHub is not a complete recalibration. Check each workflow's actual run conclusion and the calibration artifact's eligible original pregame forecast/outcome counts. Missing independently qualified forecast history means `HOLD`, no calibrated production probability, and no certified expected-value picks. The original Champion-001 remains frozen.
+
 ## Laptop quick update
 
 Open Windows PowerShell inside your working repository clone and run these commands separately:
