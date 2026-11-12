@@ -138,6 +138,13 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 game_report["today_recent_upcoming_full_games"],
             "today_full_game_market_movement_research_observations":
                 game_report["today_recent_upcoming_market_movement_observations"],
+            "today_full_game_price_probability_boards":
+                game_report["today_recent_upcoming_full_games"],
+            "today_paired_prop_price_probability_markets":
+                prop_report["today_recent_two_sided_prop_markets"],
+            "price_implied_and_no_vig_probabilities_available": True,
+            "independent_sharp_bettor_probability_available": False,
+            "certified_model_probability_available": False,
             "validated_full_game_quote_rows_by_market":
                 game_report["validated_source_quote_observations_by_league_and_market"],
             "verified_professional_sharp_flow": False,
