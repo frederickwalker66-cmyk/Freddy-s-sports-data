@@ -190,3 +190,52 @@ ESPN-published game scores are not themselves forecasts. Independently
 validate original pregame model outputs, feature availability, outcomes,
 settlement, and chronological separation before creating or supplying the
 calibration input. Champion-001 remains frozen, with no betting deployment.
+
+
+## November 11, 2026: missing-input root-cause diagnostic (no promotion)
+
+The November 11 scheduled calibration run **did not find any nonempty native
+Challenger pregame forecast archive** among the latest 75 successful pregame
+workflow runs. The outcome workflow did supply a nonempty linked-published-final
+research archive. The bridge therefore returned
+`blocked_no_native_challenger_forecasts` with zero joined native
+forecast/outcome pairs. The isotonic runner separately and correctly reported
+`blocked_missing_prediction_evidence_file` because no
+`challenger_oos_probabilities.jsonl` was supplied.
+
+This is **missing independently authenticated upstream prediction evidence**,
+not evidence that the isotonic algorithm failed. Neither linked ESPN scores nor
+the untrained baseline may be converted into native Challenger forecasts.
+
+The workflow now invokes `challenger_calibration_readiness.py` to
+write two explicitly **diagnostic-only** outputs alongside the existing reports:
+
+- `challenger_results/calibration_evidence/dependency_diagnostic.json`
+- `challenger_results/calibration_evidence/DEPENDENCY_STATUS.md`
+
+The GitHub run summary displays the underlying blocker and a specific safe next
+action. It distinguishes (a) no native forecasts, (b) no linked outcomes,
+(c) unmatched / timing-invalid research records, and (d) missing independent
+review or separately provided calibration input. A local file's existence
+**does not** constitute authentication. No evidence file is created or copied,
+no flags are promoted, and no automatic training or wagering is enabled.
+
+For local report diagnostics after generating bridge and isotonic reports:
+
+```bash
+python challenger_calibration_readiness.py \
+  --bridge-report challenger_results/calibration_evidence/report.json \
+  --calibration-report challenger_results/isotonic_recalibration/report.json \
+  --evidence challenger_oos_probabilities.jsonl \
+  --output-dir challenger_results/calibration_evidence
+python -m unittest discover -s tests -p 'test_challenger_calibration_readiness.py' -v
+```
+
+The genuine data prerequisite remains at least **200** earlier, verified,
+settled native out-of-sample Challenger probabilities plus **50** later untouched
+evaluations for the *same market and model version*, with original pregame model
+receipts, independently reviewed feature timestamps and outcomes. Do not
+fabricate, retroactively backfill or relabel probabilities to satisfy a quota.
+
+**Champion-001 remains frozen and unchanged. All bets and EV certifications
+remain zero.**

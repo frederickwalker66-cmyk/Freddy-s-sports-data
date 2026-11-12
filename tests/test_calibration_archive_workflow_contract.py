@@ -35,6 +35,18 @@ class CalibrationArchiveWorkflowContract(unittest.TestCase):
         self.assertIn("independently_qualified_calibration_rows", self.workflow)
         self.assertIn("research_artifacts_written", self.workflow)
 
+    def test_root_cause_diagnostics_do_not_create_evidence(self):
+        self.assertIn("test_challenger_calibration_readiness.py", self.workflow)
+        self.assertIn("name: Explain missing native forecast evidence", self.workflow)
+        self.assertIn("python challenger_calibration_readiness.py", self.workflow)
+        self.assertIn("--bridge-report challenger_results/calibration_evidence/report.json", self.workflow)
+        self.assertIn("--calibration-report challenger_results/isotonic_recalibration/report.json", self.workflow)
+        self.assertIn("DEPENDENCY_STATUS.md", self.workflow)
+        self.assertIn(
+            "test ! -e challenger_results/calibration_evidence/challenger_oos_probabilities.jsonl",
+            self.workflow,
+        )
+
     def test_frozen_champion_and_no_synthetic_data_promotion(self):
         self.assertIn("assert r['champion_001_modified'] is False", self.workflow)
         self.assertIn("assert r['independently_qualified_calibration_rows'] == 0", self.workflow)
