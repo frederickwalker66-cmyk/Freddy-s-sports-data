@@ -572,6 +572,9 @@ jobs:
                       f"**Historical exact-line prop repricings:** {props.get('exact_player_stat_line_repricings_historical',0)}",
                       f"**Upcoming, recent prop repricing observations:** {props.get('upcoming_repricing_research_observations',0)}",
                       f"**Prop exclusion reasons:** {props.get('excluded_prop_rows_or_snapshots',{})}",
+                      f"**Source-name-only prop quotes, missing ID (unverified):** {props.get('valid_provider_name_only_quote_observations_research_only',0)}",
+                      f"**Ambiguous/mixed provider player IDs quarantined:** {props.get('conflicting_provider_identity_market_groups_excluded',0)}",
+                      "**Provider-name research matches are NOT independently confirmed athlete identities or active-player evidence.**",
                       "**No validated player-active status, independent prop model, professional sharp flow, or verified DraftKings checkout prices.**",
                       "**Props research: HOLD/PASS; certified model EV and bets: 0; stake $0.**"])
                   prop_watch=props.get('ranked_prop_repricing_watchlist') or []
