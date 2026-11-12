@@ -21,6 +21,8 @@ WATCH = {
     "Prospective game capture": "challenger-prospective-pregame.yml",
     "V8 all-sports model readiness": "v8-elite-validation.yml",
     "NBA/NFL Sharp Edge and props": "v8-nfl-player-props-edge.yml",
+    "V8 One Command (phone/laptop)": "v8-one-command.yml",
+    "Persistent NBA forward grade ledger": "v8-durable-forward-ledger.yml",
     "Outcome adjudication": "challenger-prospective-outcome-validation.yml",
     "Calibration research": "challenger-isotonic-calibration.yml",
     "Historical training": "challenger-multisport-training.yml",
@@ -50,6 +52,17 @@ COMMANDS = {
     "sportsdataio_paid": ("sportsdataio-research-intake.yml",),
 }
 PAID = {"nba_live_paid", "sportsdataio_paid"}
+
+# Checks the latest workflow RUN, not the age of an underlying bookmaker quote.
+# Limits exceed expected scheduled gaps plus GitHub's best-effort delays.
+# Stale work is a dashboard warning, NEVER automatic paid data collection.
+CADENCE_LIMITS_MINUTES = {
+    "Hourly source capture": 150,
+    "SharpAPI multi-sport": 24 * 60,
+    "NBA/NFL Sharp Edge and props": 24 * 60,
+    "Persistent NBA forward grade ledger": 48 * 60,
+}
+
 
 def approve(command, paid_confirmed):
     if command not in COMMANDS or type(paid_confirmed) is not bool:
@@ -102,6 +115,25 @@ def compose(payloads, branch_protected, accepted, now):
     for display, path in WATCH.items():
         state = latest(payloads.get(path, {"error": True}))
         state["workflow_link"] = f"{HOME}/actions/workflows/{path}"
+        # Do not misread a green 18-hour-old job as real-time odds coverage.
+        # Even a recent job is not evidence its data/quotes are current.
+        if display in CADENCE_LIMITS_MINUTES:
+            state["operational_freshness"] = "UNKNOWN_NOT_A_DATA_COVERAGE_CLAIM"
+            state["minutes_since_latest_run_start"] = None
+            if isinstance(state.get("created_at_utc"), str):
+                created = datetime.fromisoformat(state["created_at_utc"])
+                minutes = (now.astimezone(timezone.utc) - created).total_seconds()/60
+                if 0 <= minutes:
+                    state["minutes_since_latest_run_start"] = round(minutes, 1)
+                    if (state["status"] == "job_success_not_model_certification"
+                            and minutes > CADENCE_LIMITS_MINUTES[display]):
+                        state["operational_freshness"] = "STALE_LAST_COMPLETED_SUCCESSFUL_JOB"
+                    elif state["status"] == "job_success_not_model_certification":
+                        state["operational_freshness"] = "RECENT_JOB_NOT_SOURCE_VERIFICATION"
+                    else:
+                        state["operational_freshness"] = "NO_RECENT_COMPLETED_SUCCESS_CONFIRMED"
+                else:
+                    state["operational_freshness"] = "UNTRUSTED_FUTURE_RUN_TIMESTAMP"
         workflows[display] = state
     return {
         "created_at_utc": now.astimezone(timezone.utc).isoformat(),
@@ -130,12 +162,24 @@ def markdown(report):
         "**Champion-001 FROZEN | Challenger-001 UNVALIDATED | Certified bets: 0.**",
         f"Main branch protected: **{report['branch_protected'] if report['branch_protected'] is not None else 'UNKNOWN'}**",
         "",
-        "| Subsystem | Latest result | Link |",
-        "|---|---|---|",
+        "| Subsystem | Latest result | Operational age | Link |",
+        "|---|---|---|---|",
     ]
+    stale = []
     for name, state in report["latest_runs"].items():
         link = state["url"] or state["workflow_link"]
-        lines.append(f"| {name} | {state['status'].replace('_', ' ')} | [View]({link}) |")
+        age = state.get("minutes_since_latest_run_start")
+        freshness = state.get("operational_freshness")
+        age_label = (f"{age:.0f} minutes — {freshness.replace('_', ' ').lower()}"
+                     if age is not None and freshness else
+                     (freshness.replace('_', ' ').lower() if freshness else "n/a"))
+        lines.append(f"| {name} | {state['status'].replace('_', ' ')} | {age_label} | [View]({link}) |")
+        if freshness == "STALE_LAST_COMPLETED_SUCCESSFUL_JOB":
+            stale.append(name)
+    if stale:
+        lines.extend(["", "**Stale scheduled-job warning:** " + ", ".join(stale) +
+                      ". GitHub jobs may be delayed; no automatic paid rerun attempted."])
+    lines.append("**Job-run age is NOT quote freshness, independently verified odds, or calibrated model data.**")
     lines.extend(["", "## Commands requested", ""])
     if report["requested_workflow_dispatches"]:
         for item in report["requested_workflow_dispatches"]:
