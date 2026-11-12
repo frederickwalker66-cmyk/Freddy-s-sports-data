@@ -1,4 +1,4 @@
-name: Freddy's Picks AI V8 — NFL + Player Props Sharp Edge (one click)
+name: Freddy's Picks AI V8 — NBA + NFL Games & Player Props Sharp Edge (one click)
 on:
   workflow_dispatch:
   # First deploy validates the dedicated one-click action. Subsequent captures
@@ -57,7 +57,7 @@ jobs:
             fi
           done
           echo "Saved research archives retrieved: $count"
-      - name: Execute NFL moneyline + NBA/NFL exact-line player-prop research
+      - name: Scan NBA NFL full-game moneylines spreads totals and player props
         run: |
           python v8_one_command.py --command run_nfl_props_edge \
             --sharp-archive-dir saved_sharp_archives \
@@ -113,7 +113,7 @@ jobs:
                       a=markets.get(m)
                       if not a:
                           return "not paired"
-                      odds=f"{a['home_or_over_odds']:+d} / {a['away_or_under_odds']:+d}"
+                      odds=f"{a['home_or_over_odds']:+g} / {a['away_or_under_odds']:+g}"
                       if m=="moneyline":
                           return odds
                       return f"{a['home_or_over_line']:+g} / {a['away_or_under_line']:+g} ({odds})"
