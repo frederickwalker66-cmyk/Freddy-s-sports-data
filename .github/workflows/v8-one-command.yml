@@ -62,6 +62,7 @@ on:
       - 'v8_sharp_archive.py'
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
+      - 'v8_sharp_probability_display.py'
       - 'v8_source_cadence_watchdog.py'
       - 'v8_certification_audit.py'
       - 'v8_nba_training_intake.py'
@@ -81,6 +82,7 @@ on:
       - 'tests/test_v8_sharp_archive.py'
       - 'tests/test_v8_sharp_player_props.py'
       - 'tests/test_v8_sharp_game_markets.py'
+      - 'tests/test_v8_sharp_probability_display.py'
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
       - 'v8_sharp_archive.py'
@@ -585,6 +587,18 @@ jobs:
                       lines.append(f"| {g['away_team']} @ {g['home_team']} | {game_str('moneyline')} | {game_str('point_spread')} | {game_str('total_points')} | HOLD |")
                   if not game.get('today_game_market_board'):
                       lines.append("| No verified paired research game markets | — | — | — | HOLD |")
+                  lines.extend(["", "## NBA/NFL Sharp Edge — Price Probabilities (not model forecasts)",
+                      "**No-vig market % = price-implied side / sum of both sides. Break-even % = implied by that side's American odds. These are NOT model predictions, sharp-bettor flow probabilities, or verified EV.**",
+                      "| Game | Moneyline no-vig H/A | Spread no-vig H/A | Total no-vig O/U | Verified model p | Certified EV |",
+                      "|---|---|---|---|---|---|"])
+                  def pair_percent(m):
+                      if not m: return "N/A"
+                      return f"{m['first_side_no_vig_market_percent']:.2f}%/{m['second_side_no_vig_market_percent']:.2f}%"
+                  for g in (game.get('today_game_market_board') or [])[:10]:
+                      gm=g["paired_primary_markets"]
+                      lines.append(f"| {g['away_team']} @ {g['home_team']} | {pair_percent(gm.get('moneyline'))} | {pair_percent(gm.get('point_spread'))} | {pair_percent(gm.get('total_points'))} | N/A | N/A |")
+                  if not game.get('today_game_market_board'):
+                      lines.append("| No paired current prices | — | — | — | N/A | N/A |")
                   props=r.get('sharp_player_props') or {}
                   combined=r.get('nfl_and_player_props_edge_research') or {}
                   lines.extend(["", "## NBA & NFL Player Props — Exact-Line Research Only",
@@ -607,6 +621,23 @@ jobs:
                           lines.append(f"| {prop['league'].upper()} | {prop['player_name']} | {prop['prop_stat']} | {prop['line']} | {prop['over_no_vig_market_change_pp']:+.4f} | HOLD |")
                   else:
                       lines.append("**No qualifying upcoming two-sided same-line prop repricing detected.**")
+                  lines.extend(["", "## NBA/NFL Prop Price Probabilities",
+                      "**Over/Under no-vig market percentages and break-even percentages use paired bookmaker-labeled prices; player identity and model projections are NOT independently verified.**",
+                      "| Sport | Player | Stat | Line | Over/Under prices | O/U no-vig % | O/U break-even % | Model / EV |",
+                      "|---|---|---|---:|---|---|---|---|"])
+                  propboards=props.get("today_player_prop_market_probability_board") or {}
+                  count=0
+                  for league in ("nba","nfl"):
+                      for q in (propboards.get(league) or [])[:6]:
+                          count+=1
+                          lines.append(
+                              f"| {league.upper()} | {q['player_name']} | {q['prop_stat']} | {q['line']:g} | "
+                              f"{q['over_american_odds']:+g}/{q['under_american_odds']:+g} | "
+                              f"{q['first_side_no_vig_market_percent']:.2f}%/{q['second_side_no_vig_market_percent']:.2f}% | "
+                              f"{q['first_side_break_even_percent']:.2f}%/{q['second_side_break_even_percent']:.2f}% | N/A / HOLD |")
+                  if not count:
+                      lines.append("| No current two-sided prop markets | — | — | — | — | — | — | HOLD |")
+                  lines.append("**Verified independent sharp-bettor probability: UNAVAILABLE. Native calibrated model probability: UNAVAILABLE. Certified +EV: zero.**")
               if r['command'] == 'run_edge':
                   lines.append(f"Indicative research edges: {len(r['research_edge_candidates'])} (no independently verified executable quotes).")
               if r['command'] == 'model_status':
