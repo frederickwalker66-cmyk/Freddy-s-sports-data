@@ -61,6 +61,7 @@ on:
       - 'v8_edge_value.py'
       - 'v8_sharp_archive.py'
       - 'v8_sharp_player_props.py'
+      - 'v8_sharp_game_markets.py'
       - 'v8_source_cadence_watchdog.py'
       - 'v8_certification_audit.py'
       - 'v8_nba_training_intake.py'
@@ -79,7 +80,9 @@ on:
       - 'tests/test_v8_one_command.py'
       - 'tests/test_v8_sharp_archive.py'
       - 'tests/test_v8_sharp_player_props.py'
+      - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_sharp_player_props.py'
+      - 'v8_sharp_game_markets.py'
       - 'v8_sharp_archive.py'
       - 'tests/test_v8_source_cadence_watchdog.py'
       - 'tests/test_v8_certification_audit.py'
@@ -563,6 +566,25 @@ jobs:
                   lines.append(f"**Last archived quote:** {sharp.get('latest_eligible_capture_utc') or 'No eligible snapshot'}")
                   lines.append("**Sharp money inference:** NOT VERIFIED; no bettor-identity or bet-handle data.")
                   lines.append("**Certified model EV:** 0; data are historical and not live checkout prices.")
+                  game=r.get('sharp_full_game_markets') or {}
+                  lines.extend(["", "## NBA & NFL Full Games — Moneyline, Spreads, Totals",
+                      f"**Today recent fully paired game boards:** {game.get('today_recent_upcoming_full_games',0)}",
+                      f"**Today fresh ML/spread/total repricings:** {game.get('today_recent_upcoming_market_movement_observations',0)}",
+                      "**These are provider-labeled historical quotes, NOT independently verified sportsbook checkout or certified EV.**",
+                      "| Matchup | Home/Away ML | Home/Away spread (price) | Over/Under total (price) | Status |",
+                      "|---|---|---|---|---|"])
+                  for g in (game.get('today_game_market_board') or [])[:10]:
+                      gm=g['paired_primary_markets']
+                      def game_str(m):
+                          q=gm.get(m)
+                          if not q:
+                              return "unavailable"
+                          odds=f"{q['home_or_over_odds']:+g}/{q['away_or_under_odds']:+g}"
+                          if m=="moneyline": return odds
+                          return f"{q['home_or_over_line']:+g}/{q['away_or_under_line']:+g} ({odds})"
+                      lines.append(f"| {g['away_team']} @ {g['home_team']} | {game_str('moneyline')} | {game_str('point_spread')} | {game_str('total_points')} | HOLD |")
+                  if not game.get('today_game_market_board'):
+                      lines.append("| No verified paired research game markets | — | — | — | HOLD |")
                   props=r.get('sharp_player_props') or {}
                   combined=r.get('nfl_and_player_props_edge_research') or {}
                   lines.extend(["", "## NBA & NFL Player Props — Exact-Line Research Only",
