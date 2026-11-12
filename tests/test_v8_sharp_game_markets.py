@@ -177,5 +177,68 @@ class FullGameMarketTests(unittest.TestCase):
             self.assertFalse(r["champion_001_modified"])
 
 
+    def test_github_actions_embedded_game_summary_is_valid_and_renders_hold(self):
+        # The previous main-branch run failed at a Python SyntaxError only
+        # after odds research and the safety tests had succeeded. Parse and
+        # actually run the *embedded workflow script* with a realistic board.
+        import ast
+        import subprocess
+        import sys
+        import textwrap
+        workflow=Path(".github/workflows/v8-nfl-player-props-edge.yml").read_text()
+        section=workflow.split(
+            "      - name: Show research results and mandatory HOLD decision\n",1)[1]
+        script=textwrap.dedent(section.split(
+            "          python - <<'PY'\n",1)[1].split("\n          PY",1)[0])
+        ast.parse(script,filename="github-actions-full-game-summary.py")
+        report={
+            "command":"run_nfl_props_edge",
+            "certified_positive_ev_bets":0,
+            "champion_001_modified":False,
+            "sharp_archive":{"archive_run_ids":[101]},
+            "sharp_player_props":{"valid_provider_name_only_quote_observations_research_only":4},
+            "nfl_and_player_props_edge_research":{
+                "certified_positive_ev_bets":0,
+                "champion_001_modified":False,
+                "nfl_primary_moneyline_archive_observations":2,
+                "nfl_exact_prop_archive_observations":4},
+            "sharp_full_game_markets":{
+                "today_recent_upcoming_full_games":1,
+                "today_recent_upcoming_market_movement_observations":0,
+                "validated_source_quote_observations_by_league_and_market":{
+                    "nfl_moneyline":2,"nfl_point_spread":2,"nfl_total_points":2},
+                "today_game_market_board":[{
+                    "league":"nfl","away_team":"Away","home_team":"Home",
+                    "paired_primary_markets":{
+                        "moneyline":{"home_or_over_odds":-135,
+                                     "away_or_under_odds":+115},
+                        "point_spread":{"home_or_over_line":-2.5,
+                                        "away_or_under_line":+2.5,
+                                        "home_or_over_odds":-110,
+                                        "away_or_under_odds":-110},
+                        "total_points":{"home_or_over_line":41.5,
+                                        "away_or_under_line":41.5,
+                                        "home_or_over_odds":-108,
+                                        "away_or_under_odds":-112}
+                    }
+                }],
+            },
+        }
+        with tempfile.TemporaryDirectory() as root:
+            dest=Path(root)/"v8_results/nfl_props_edge"
+            dest.mkdir(parents=True)
+            import json
+            (dest/"ONE_COMMAND_REPORT.json").write_text(json.dumps(report))
+            done=subprocess.run([sys.executable,"-c",script],cwd=root,
+                                capture_output=True,text=True,timeout=15)
+            self.assertEqual(done.returncode,0,done.stderr)
+            self.assertIn("Away @ Home",done.stdout)
+            self.assertIn("-135 / +115",done.stdout)
+            self.assertIn("-2.5 / +2.5",done.stdout)
+            self.assertIn("+41.5 / +41.5",done.stdout)
+            self.assertIn("PASS / HOLD",done.stdout)
+            self.assertIn("Champion-001 frozen",done.stdout)
+
+
 if __name__=="__main__":
     unittest.main()
