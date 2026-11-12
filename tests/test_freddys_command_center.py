@@ -66,6 +66,47 @@ class MobileControlTests(unittest.TestCase):
         self.assertFalse(s["champion_001_modified"])
         self.assertFalse(s["branch_protected"])
         self.assertIn("Phone Command Center",markdown(s))
+    def test_stale_scheduled_jobs_are_visible_not_auto_refreshed(self):
+        from datetime import timedelta
+        payload = {
+            "challenger-eight-sport-source-preflight.yml": {
+                "workflow_runs":[run(1)]},
+            "collect-sharpapi.yml":{
+                "workflow_runs":[run(2)]},
+        }
+        late = NOW + timedelta(days=2)
+        report = compose(payload, True, [], late)
+        source = report["latest_runs"]["Hourly source capture"]
+        odds = report["latest_runs"]["SharpAPI multi-sport"]
+        self.assertEqual(source["operational_freshness"],
+                         "STALE_LAST_COMPLETED_SUCCESSFUL_JOB")
+        self.assertEqual(odds["operational_freshness"],
+                         "STALE_LAST_COMPLETED_SUCCESSFUL_JOB")
+        self.assertEqual(report["requested_workflow_dispatches"],[])
+        view=markdown(report)
+        self.assertIn("Stale scheduled-job warning",view)
+        self.assertIn("NOT quote freshness",view)
+        self.assertIn("Persistent NBA forward grade ledger", view)
+
+    def test_recent_success_not_confused_with_verified_bookmaker_quote(self):
+        payload = {"collect-sharpapi.yml":{"workflow_runs":[run(1)]}}
+        report = compose(payload, True, [], NOW)
+        state = report["latest_runs"]["SharpAPI multi-sport"]
+        self.assertEqual(state["operational_freshness"],
+                         "RECENT_JOB_NOT_SOURCE_VERIFICATION")
+        self.assertEqual(report["direct_draftkings_checkout_quotes_verified"],0)
+        self.assertFalse(report["champion_001_modified"])
+
+    def test_old_failed_job_does_not_appear_healthy(self):
+        from datetime import timedelta
+        payload = {"collect-sharpapi.yml":{
+            "workflow_runs":[run(5,conclusion="failure")]}}
+        report=compose(payload,None,[],NOW+timedelta(days=2))
+        state=report["latest_runs"]["SharpAPI multi-sport"]
+        self.assertEqual(state["status"],"job_failed_or_cancelled")
+        self.assertEqual(state["operational_freshness"],
+                         "NO_RECENT_COMPLETED_SUCCESS_CONFIRMED")
+
     def test_invalid_time_or_branch_status_fails_closed(self):
         with self.assertRaisesRegex(ValueError,"real_aware_timestamp"):
             compose({},None,[],datetime(2026,11,6,21))
