@@ -31,6 +31,7 @@ MAX_ARCHIVE_RUNS = 35
 MAX_ARCHIVE_FORECASTS = 2000
 MAX_SOURCE_DAYS = 35
 MAX_BYTES_PER_FILE = 10_000_000
+MIN_MATURE_GRADED_FOR_AGGREGATES = 50  # Same threshold as durable NBA leaderboard.
 
 
 def read_json(path):
@@ -298,16 +299,22 @@ def grade(records, as_of=None, collector=None, receipt=None):
         "official_league_final_independently_verified": False,
         "model_has_untouched_prospective_research_scorecard": count > 0,
         "model_calibration_independently_certified": False,
+        # Individual forward outcomes remain auditable, but aggregate skill
+        # numbers are withheld until enough genuine graded predictions exist.
+        # Reporting a 1- or 8-game "accuracy" creates misleading confidence.
         "probability_research_Brier": round(mean((p-y)**2 for p,y,_ in graded), 7)
-            if count else None,
+            if count >= MIN_MATURE_GRADED_FOR_AGGREGATES else None,
         "probability_research_log_loss": round(mean(
             -(y*math.log(p)+(1-y)*math.log1p(-p)) for p,y,_ in graded), 7)
-            if count else None,
-        "neutral_50_50_Brier_not_sportsbook": .25 if count else None,
+            if count >= MIN_MATURE_GRADED_FOR_AGGREGATES else None,
+        "neutral_50_50_Brier_not_sportsbook": (
+            .25 if count >= MIN_MATURE_GRADED_FOR_AGGREGATES else None),
         "classification_decisions_home_vs_away": len(decisions),
         "classification_accuracy_provisional": round(
-            mean(int((p>.5)==bool(y)) for p,y in decisions), 6) if decisions else None,
-        "meets_minimum_50_forward_graded_games": count >= 50,
+            mean(int((p>.5)==bool(y)) for p,y in decisions), 6)
+            if count >= MIN_MATURE_GRADED_FOR_AGGREGATES and decisions else None,
+        "minimum_mature_grades_for_aggregate_skill": MIN_MATURE_GRADED_FOR_AGGREGATES,
+        "meets_minimum_50_forward_graded_games": count >= MIN_MATURE_GRADED_FOR_AGGREGATES,
         "independent_publisher_or_GitHub_signatures_verified": False,
         "original_champion_001_executable_authenticated": False,
         "original_champion_001_shadows_certified": 0,
