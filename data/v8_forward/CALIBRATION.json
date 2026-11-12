@@ -6,15 +6,83 @@
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
   "data_is_independently_publisher_authenticated": false,
-  "graded_research_NBA_games": 0,
+  "graded_research_NBA_games": 8,
   "independently_certified_models": 0,
   "independently_verified_sportsbook_checkout_quotes": 0,
   "minimum_forward_graded_games_for_exploratory_calibration": 100,
   "minimum_forward_graded_games_for_initial_research_metrics": 50,
-  "models": [],
+  "models": [
+    {
+      "day_cluster_bootstrap_approximate_Brier_95pct_CI": null,
+      "exploratory_expected_calibration_error": null,
+      "fixed_predeclared_probability_bins": [
+        {
+          "home_wins": 0,
+          "mean_original_forecast_probability": null,
+          "observations": 0,
+          "observed_home_win_frequency": null,
+          "probability_max_exclusive": 0.2,
+          "probability_min_inclusive": 0.0,
+          "wilson_95pct_descriptive_interval": null,
+          "withheld_small_bin": false
+        },
+        {
+          "home_wins": 0,
+          "mean_original_forecast_probability": null,
+          "observations": 0,
+          "observed_home_win_frequency": null,
+          "probability_max_exclusive": 0.4,
+          "probability_min_inclusive": 0.2,
+          "wilson_95pct_descriptive_interval": null,
+          "withheld_small_bin": false
+        },
+        {
+          "home_wins": 1,
+          "mean_original_forecast_probability": 0.5291535,
+          "observations": 4,
+          "observed_home_win_frequency": null,
+          "probability_max_exclusive": 0.6,
+          "probability_min_inclusive": 0.4,
+          "wilson_95pct_descriptive_interval": null,
+          "withheld_small_bin": true
+        },
+        {
+          "home_wins": 4,
+          "mean_original_forecast_probability": 0.6387665,
+          "observations": 4,
+          "observed_home_win_frequency": null,
+          "probability_max_exclusive": 0.8,
+          "probability_min_inclusive": 0.6,
+          "wilson_95pct_descriptive_interval": null,
+          "withheld_small_bin": true
+        },
+        {
+          "home_wins": 0,
+          "mean_original_forecast_probability": null,
+          "observations": 0,
+          "observed_home_win_frequency": null,
+          "probability_max_exclusive": 1.0,
+          "probability_min_inclusive": 0.8,
+          "wilson_95pct_descriptive_interval": null,
+          "withheld_small_bin": false
+        }
+      ],
+      "independent_model_calibration_certified": false,
+      "minimum_bin_size_for_observed_rate": 20,
+      "minimum_games_for_exploratory_Brier": 50,
+      "minimum_games_for_exploratory_ECE": 100,
+      "model_betting_ready": false,
+      "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
+      "neutral_50_50_Brier_NOT_sportsbook": null,
+      "original_forward_pregame_games_graded": 8,
+      "research_Brier": null,
+      "research_log_loss": null,
+      "retained_uncertainty_not_certification": true
+    }
+  ],
   "original_Champion_001_certified_shadows": 0,
   "original_Champion_001_executable_authenticated": false,
-  "pending_ungraded": 28,
+  "pending_ungraded": 20,
   "quarantined": 0,
   "stage": "genuinely_forward_recorded_NBA_research_calibration_only",
   "status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
