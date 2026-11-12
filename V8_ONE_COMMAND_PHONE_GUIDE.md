@@ -4,6 +4,12 @@
 It is NOT a certified prediction engine; historical results do not prove point-in-time
 pregame feature availability or profitable bets.
 
+## NBA + NFL Games AND Player Props — same one-click scan
+
+The existing [one-click Sharp Edge workflow](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-nfl-player-props-edge.yml) now archives a **same-day full-game board** alongside NBA/NFL player props. The board explicitly displays the latest fully paired **moneyline home/away**, **main spread home/away**, and **full-game total over/under**, with original provider price receipts and source event identifiers. The new research file `NBA_NFL_FULL_GAME_MARKETS_RESEARCH.json` contains the complete paired game-level board, rejected/uncertain market records and unverified same-market movement records; `sharp_game_market_movements.jsonl` preserves observations across archives.
+
+A matching market requires an original provider game ID, same league/teams/start time, same main-line type, two distinct sides, coherent opposing spreads or identical totals, consistent pregame timestamps, and plausible two-way vig. Price changes at a **changed handicap line are NOT treated as model-probability changes at the old line**. Quotes older than 120 minutes or games not scheduled for the current Eastern date are excluded from the *today* board. Raw records and strict exclusions may still be present as historical data. Every displayed row stays `HOLD_RESEARCH_ONLY` because neither the original provider game ID nor the DraftKings checkout quote, active player, native calibrated probability or professional bettor activity is independently verified. Frozen Champion-001 remains unchanged; all wager stakes $0.
+
 ## One-click NFL + Player Props Sharp Edge (no command dropdown)
 
 Open [NFL + NBA Player Props — One Click](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-nfl-player-props-edge.yml), select **Run workflow**, then confirm **Run workflow**. This dedicated action always executes `run_nfl_props_edge` and reads at most the latest five successful saved SharpAPI captures; it **does not call SharpAPI, place bets, or use API credits**. It also replays automatically after successful SharpAPI collector runs, and runs once when its new workflow is deployed on `main`.
