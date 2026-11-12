@@ -2,6 +2,14 @@
 
 **This repository contains a research-only sports evidence pipeline and automated GitHub workflows. It is not yet an independently certified real-money betting prediction engine.**
 
+### Operational integrity — November 12, 2026
+
+- Fixed the failed `run_nba_grade` pipeline: live ESPN receipt timestamps are validated against **post-fetch time**, while explicit retrospective grading still respects the original `as_of` cutoff. The audited production rerun graded **8 of 28** genuine NBA research forecasts and retained 20 pending, with **no certified bets**.
+- The individual historical outcomes remain visible, but the aggregate research Brier, log loss, and direction accuracy are **withheld until 50 mature graded original forecasts**. This is distinct from and does not certify actual model calibration, EV or CLV.
+- The [phone/laptop command center](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml) lists individual production workflow health, warns when source/odds/ledger jobs have aged beyond their expected cadence, and links the durable NBA ledger and V8 One Command interface. A green GitHub run never proves that bookmaker prices, lineup information, or Champion-001 probabilities are current or validated.
+- The durable NBA research ledger refreshes when outcome-grader logic changes. All original Champion-001 behavior remains frozen; no automated wagers, paid API refreshes, or production betting selections are created by these repairs.
+
+
 ## NEW: V8 One Command — phone and laptop
 
 **[Run NBA / Run Sports / Run Sharp / Run Edge / Model Status](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml)** — an integrated GitHub Actions research interface, available after the V8 branch merges to main. View the [V8 phone guide](V8_ONE_COMMAND_PHONE_GUIDE.md).
