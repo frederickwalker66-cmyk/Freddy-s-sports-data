@@ -65,7 +65,9 @@ jobs:
       contents: read
     env:
       GH_TOKEN: ${{ github.token }}
-      COMMAND: ${{ inputs.command || 'status' }}
+      # One-shot free research refresh can be explicitly requested by a tagged main merge.
+      # Normal push/schedule events remain status-only, with no paid calls.
+      COMMAND: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-model-refresh]') && 'full_refresh_recalibrate' || inputs.command || 'status' }}
       PAID_CONFIRMATION: ${{ inputs.confirm_paid_api || 'false' }}
     steps:
       - uses: actions/checkout@v4
