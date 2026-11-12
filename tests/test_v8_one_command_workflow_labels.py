@@ -7,6 +7,7 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from v8_sharp_probability_display import price_pair_probabilities
 
 
 class PhoneWorkflowLabelsTests(unittest.TestCase):
@@ -99,10 +100,25 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
                     "home_or_over_line":220.5,"away_or_under_line":220.5},
             },
         }
+        def odds_implied(v):
+            return 100 / (v+100) if v > 0 else abs(v) / (abs(v)+100)
+        for market in game["paired_primary_markets"].values():
+            market.update(price_pair_probabilities(
+                odds_implied(market["home_or_over_odds"]),
+                odds_implied(market["away_or_under_odds"])))
+        prop={
+            "player_name":"Sample Athlete","prop_stat":"player_points","line":24.5,
+            "over_american_odds":-125,"under_american_odds":105,
+            **price_pair_probabilities(odds_implied(-125), odds_implied(105)),
+        }
         payload={
             "command":"run_nfl_props_edge","certified_positive_ev_bets":0,
             "sharp_archive":{"archive_run_ids":[123]},
-            "sharp_player_props":{"valid_provider_name_only_quote_observations_research_only":0},
+            "sharp_player_props":{
+                "valid_provider_name_only_quote_observations_research_only":2,
+                "today_player_prop_market_probability_board":{
+                    "nba":[prop],"nfl":[]}},
+
             "sharp_full_game_markets":{
                 "today_recent_upcoming_full_games":1,
                 "today_recent_upcoming_market_movement_observations":0,
@@ -123,6 +139,11 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
             self.assertIn("-140 / +120",result.stdout)
             self.assertIn("-2.5 / +2.5",result.stdout)
             self.assertIn("+220.5 / +220.5",result.stdout)
+            self.assertIn("Sharp Edge Probability View",result.stdout)
+            self.assertIn("50.00% / 50.00%",result.stdout)
+            self.assertIn("Sample Athlete",result.stdout)
+            self.assertIn("Model p / EV",result.stdout)
+            self.assertIn("N/A / HOLD",result.stdout)
             self.assertIn("HOLD",result.stdout)
             payload["certified_positive_ev_bets"]=1
             report.write_text(json.dumps(payload))
