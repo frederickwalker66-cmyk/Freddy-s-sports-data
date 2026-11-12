@@ -94,6 +94,29 @@ class FullGameMarketTests(unittest.TestCase):
         self.assertFalse(moves[0]["changed_line_cannot_compare_probability"])
         self.assertFalse(moves[0]["certified_positive_ev"])
 
+    def test_clv_not_fabricated_from_early_bookmaker_repricing(self):
+        rows=pair(market="total_points",line=220.5,
+                  quoted="2026-11-12T15:19:00Z",received="2026-11-12T15:20:00Z")
+        rows+=pair(market="total_points",line=220.5,
+                   quoted="2026-11-12T15:49:00Z",received="2026-11-12T15:50:00Z",
+                   first_odds=-125,second_odds=+105)
+        with tempfile.TemporaryDirectory() as root:
+            result=execute("run_nfl_props_edge",sharp_rows=rows,now=NOW,
+                           output_dir=root)
+            clv=result["sharp_edge_clv"]
+            self.assertEqual(clv["exact_market_entry_close_pairs"],0)
+            self.assertEqual(clv["tracked_verified_entry_receipts_in_this_run"],0)
+            self.assertEqual(clv["tracked_matching_verified_closing_quote_receipts_in_this_run"],0)
+            self.assertEqual(clv["archived_provider_market_repricing_observations"],1)
+            self.assertIsNone(clv["realized_clv_percent"])
+            self.assertIsNone(clv["measured_positive_clv_bets"])
+            self.assertFalse(clv["market_repricing_is_verified_clv"])
+            self.assertFalse(clv["champion_001_modified"])
+            self.assertEqual(clv["automated_wagers"],0)
+            self.assertTrue((Path(root)/"NBA_NFL_SHARP_EDGE_CLV.json").is_file())
+            saved=json.loads((Path(root)/"NBA_NFL_SHARP_EDGE_CLV.json").read_text())
+            self.assertIsNone(saved["realized_clv_percent"])
+
     def test_handicap_line_move_never_claims_same_outcome_probability(self):
         rows=pair(market="point_spread",line=-4.5,
                   quoted="2026-11-12T15:19:00Z",received="2026-11-12T15:20:00Z")
