@@ -58,6 +58,9 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertNotIn("python collector.py", dedicated)
         self.assertNotIn("default: model_status", dedicated)
         self.assertNotIn("run_edge --edge-input", dedicated)
+        self.assertIn("      - 'v8_sharp_player_props.py'", dedicated)
+        self.assertIn("      - 'tests/test_v8_sharp_player_props.py'", dedicated)
+        self.assertIn("**Name-only provider quotes (IDs missing; unverified athletes):**", dedicated)
 
 
 if __name__ == "__main__":
