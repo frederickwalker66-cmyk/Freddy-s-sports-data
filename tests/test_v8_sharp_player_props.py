@@ -22,7 +22,7 @@ def prop(side="over", odds=-110, capture="2026-11-12T10:01:00Z",
             else "provider-nba-2026-1",
         "home_team": "Home Test", "away_team": "Away Test",
         "player_id": "42", "player_name": "Example Player",
-        "market_type": "receiving_yards" if league=="nfl" else "points",
+        "market_type": "player_receiving_yards" if league=="nfl" else "player_points",
         "line": 64.5 if league=="nfl" else 24.5,
         "selection_type": side, "selection": "Over" if side=="over" else "Under",
         "is_player_prop": True, "is_main_line": True,
@@ -101,15 +101,17 @@ class NFLPlayerPropSharpResearchTests(unittest.TestCase):
         report,moves=summarize_player_props(rows,now=NOW)
         self.assertEqual(moves,[])
         rows=two_snapshots()
-        rows[2]["market_type"]="receptions"
-        rows[3]["market_type"]="receptions"
+        rows[2]["market_type"]="player_receptions"
+        rows[3]["market_type"]="player_receptions"
         report,moves=summarize_player_props(rows,now=NOW)
         self.assertEqual(moves,[])
 
     def test_missing_player_id_primary_line_and_source_quarantined(self):
-        for key,value in (("player_id",None),("is_main_line",None),
+        for key,value in (("player_name",None),("is_main_line",None),
                           ("is_alternate_line",True),("source","other"),
-                          ("line",-1),("selection_type","home")):
+                          ("line",-1),("selection_type","home"),
+                          ("market_type","player_assists_combo_"),
+                          ("market_type","player_assists_h2h_moneyline")):
             with self.subTest(key=key):
                 row=prop(**{key:value})
                 item,reason=inspect_player_prop(row)
@@ -118,6 +120,81 @@ class NFLPlayerPropSharpResearchTests(unittest.TestCase):
                 report,moves=summarize_player_props([row],now=NOW)
                 self.assertEqual(report["valid_exact_player_prop_quote_observations"],0)
                 self.assertEqual(moves,[])
+
+    def test_real_sharpapi_missing_player_id_recovers_archival_exact_line_only(self):
+        # Saved source receipts set every player_id=None but provide exact
+        # player_name, event, stat, line, side and source quote timestamps.
+        for league in ("nba", "nfl"):
+            with self.subTest(league=league):
+                rows=[dict(row,player_id=None) for row in two_snapshots(league)]
+                report,moves=summarize_player_props(rows,now=NOW)
+                self.assertEqual(report["valid_exact_player_prop_quote_observations"],4)
+                self.assertEqual(
+                    report["valid_provider_name_only_quote_observations_research_only"],4)
+                self.assertEqual(
+                    report["valid_provider_id_plus_name_quote_observations_research_only"],0)
+                self.assertEqual(report["two_sided_same_line_snapshots"],2)
+                self.assertEqual(report["exact_player_stat_line_repricings_historical"],1)
+                self.assertEqual(moves[0]["player_id"],None)
+                self.assertEqual(
+                    moves[0]["player_identity_match_basis"],
+                    "provider_name_only_unverified")
+                self.assertFalse(moves[0]["player_identity_independently_verified"])
+                self.assertFalse(moves[0]["player_active_independently_verified"])
+                self.assertFalse(moves[0]["direct_draftkings_checkout_verified"])
+                self.assertEqual(report["certified_positive_ev_bets"],0)
+                self.assertFalse(report["champion_001_modified"])
+
+    def test_missing_id_does_not_bridge_different_names_players_or_stats(self):
+        rows=[dict(row,player_id=None) for row in two_snapshots()]
+        rows[2]["player_name"]="Another Athlete"
+        rows[3]["player_name"]="Another Athlete"
+        report,moves=summarize_player_props(rows,now=NOW)
+        self.assertEqual(moves,[])
+        rows=[dict(row,player_id=None) for row in two_snapshots()]
+        rows[2]["line"]=65.5
+        rows[3]["line"]=65.5
+        report,moves=summarize_player_props(rows,now=NOW)
+        self.assertEqual(moves,[])
+        rows=[dict(row,player_id=None) for row in two_snapshots()]
+        rows[2]["event_id"]="another-provider-event"
+        rows[3]["event_id"]="another-provider-event"
+        report,moves=summarize_player_props(rows,now=NOW)
+        self.assertEqual(moves,[])
+
+    def test_mixed_missing_and_present_or_conflicting_ids_are_quarantined(self):
+        for new_id in ("another_id",None):
+            with self.subTest(new_id=new_id):
+                rows=two_snapshots()
+                rows[2]["player_id"]=new_id
+                rows[3]["player_id"]=new_id
+                report,moves=summarize_player_props(rows,now=NOW)
+                self.assertEqual(moves,[])
+                self.assertEqual(report["valid_exact_player_prop_quote_observations"],0)
+                self.assertEqual(
+                    report["conflicting_provider_identity_market_groups_excluded"],1)
+                self.assertEqual(
+                    report["excluded_prop_rows_or_snapshots"][
+                        "ambiguous_or_mixed_provider_player_ids"],4)
+                self.assertEqual(report["certified_positive_ev_bets"],0)
+
+    def test_non_single_player_combo_h2h_market_never_matched_as_prop(self):
+        for typ in ("player_assists_combo_","player_assists_h2h_moneyline",
+                    "player_made_threes_each_","point_spread"):
+            with self.subTest(typ=typ):
+                report,moves=summarize_player_props(
+                    [dict(row,player_id=None,market_type=typ)
+                     for row in two_snapshots("nba")],now=NOW)
+                self.assertEqual(report["valid_exact_player_prop_quote_observations"],0)
+                self.assertEqual(moves,[])
+                self.assertEqual(
+                    report["excluded_prop_rows_or_snapshots"][
+                        "unsupported_or_ambiguous_prop_settlement_market"],4)
+
+    def test_name_only_quotes_do_not_satisfy_native_ev_player_identity(self):
+        example=edge_prop("nfl",player_id=None)
+        with self.assertRaisesRegex(ValueError,"exact_non_alt_player_stat_line_required"):
+            research_edge(example)
 
     def test_future_stale_and_inplay_prices_fail_closed(self):
         for changes in (

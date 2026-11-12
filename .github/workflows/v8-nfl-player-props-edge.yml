@@ -7,6 +7,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v8-nfl-player-props-edge.yml'
+      - 'v8_sharp_player_props.py'
+      - 'v8_one_command.py'
+      - 'tests/test_v8_sharp_player_props.py'
   workflow_run:
     workflows: ['Collect SharpAPI DraftKings pregame odds']
     types: [completed]
@@ -85,6 +88,10 @@ jobs:
                   f"**Historical exact-stat/line repricings:** {props.get('exact_player_stat_line_repricings_historical', 0)}",
                   f"**Upcoming recent prop repricings:** {props.get('upcoming_repricing_research_observations', 0)}",
                   f"**Excluded records:** {props.get('excluded_prop_rows_or_snapshots', {})}",
+                  f"**Name-only provider quotes (IDs missing; unverified athletes):** {props.get('valid_provider_name_only_quote_observations_research_only', 0)}",
+                  f"**Provider-ID-plus-name quotes (IDs still unauthenticated):** {props.get('valid_provider_id_plus_name_quote_observations_research_only', 0)}",
+                  f"**Conflicting player-identity groups quarantined:** {props.get('conflicting_provider_identity_market_groups_excluded', 0)}",
+                  "**Player identities are NOT independently authenticated. Source-name-only matching is archive research, never verification of active players.**",
                   "**Decision: PASS / HOLD — no independently certified +EV or executable DraftKings quote.**",
                   "**Champion-001 frozen; automated wagers: 0; research stake: $0.**",
               ]
