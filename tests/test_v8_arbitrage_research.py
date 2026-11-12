@@ -157,6 +157,48 @@ class V8CrossBookArbitrageTests(unittest.TestCase):
                                   quote("away",150,"b")],now=NOW)
                 self.assertEqual(r["theoretical_arbitrage_candidates"],0)
 
+    def test_phone_command_scans_research_only_and_writes_receipt(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from v8_one_command import execute, selected
+        self.assertEqual(len(selected("run_arbitrage")), 8)
+        with tempfile.TemporaryDirectory() as root:
+            one_book=[quote("home", 180, "draftkings"),
+                      quote("away", 180, "draftkings")]
+            result=execute("run_arbitrage", sharp_rows=one_book,
+                           now=NOW, output_dir=root)
+            report=result["arbitrage_research"]
+            self.assertEqual(report["theoretical_arbitrage_candidates"],0)
+            self.assertEqual(report["accepted_sportsbook_names"],["draftkings"])
+            self.assertEqual(result["certified_positive_ev_bets"],0)
+            self.assertFalse(result["champion_001_modified"])
+            output=Path(root)/"ARBITRAGE_RESEARCH.json"
+            self.assertTrue(output.is_file())
+            self.assertEqual(json.loads(output.read_text())["automated_wagers"],0)
+
+    def test_manual_crossbook_input_does_not_promote_a_real_bet(self):
+        import tempfile
+        from v8_one_command import execute
+        with tempfile.TemporaryDirectory() as root:
+            report=execute("run_arbitrage",
+                           arbitrage_rows=[
+                               quote("home", 120, "book_a"),
+                               quote("away", 120, "book_b"),
+                           ],now=NOW,output_dir=root)
+            self.assertEqual(
+                report["arbitrage_research"]["theoretical_arbitrage_candidates"],1)
+            self.assertEqual(report["certified_positive_ev_bets"],0)
+            self.assertEqual(report["money_wagered_usd"],0)
+
+    def test_phone_workflow_exposes_arbitrage_without_paid_provider(self):
+        from pathlib import Path
+        workflow=Path(".github/workflows/v8-one-command.yml").read_text()
+        self.assertIn("          - run_arbitrage\n",workflow)
+        self.assertIn("inputs.command == 'run_arbitrage'",workflow)
+        self.assertIn("ARBITRAGE_RESEARCH.json",workflow)
+        self.assertNotIn("python collector.py",workflow)
+
     def test_invalid_input_rejected_and_no_model_probabilities(self):
         self.assertEqual(str(american_decimal(-110)),str(Decimal("1")+Decimal(100)/Decimal(110)))
         for invalid in (0,99,True,1000000):
