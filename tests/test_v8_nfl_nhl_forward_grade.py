@@ -197,5 +197,89 @@ class ResearchLeagueGradingTests(unittest.TestCase):
             self.assertEqual(r["source_exclusions"]["later_forecast_ignored"],1)
 
 
+    def test_real_download_received_after_scan_start_is_not_falsely_rejected(self):
+        # Regression for run 43138348816: HTTP response receipt follows
+        # the initial grading cutoff, while 48-hour maturity stays fixed.
+        with tempfile.TemporaryDirectory() as folder:
+            write_original(folder,"nfl")
+            forecasts,_=load_archives(folder,"nfl")
+            final=published("nfl")
+            final["retrieved_at_utc"]=(MATURE+timedelta(seconds=7)).isoformat()
+            def download(*_):
+                return [final],{
+                    "leagues":["nfl"],"champion_001_modified":False,
+                    "total_completed_results":1,
+                    "by_league":{"nfl":{"days_attempted":1,"days_ok":1,"days_failed":0}},
+                }
+            report,rows=grade("nfl",forecasts,now=MATURE,collector=download,
+                              receipt_clock=lambda:MATURE+timedelta(seconds=9))
+            self.assertEqual(report["actual_ESPN_published_grades"],1)
+            self.assertEqual(rows[0]["grade_status"],GRADED)
+            self.assertEqual(report["certified_positive_ev_bets"],0)
+
+    def test_receipt_later_than_post_fetch_observation_is_quarantined(self):
+        with tempfile.TemporaryDirectory() as folder:
+            write_original(folder,"nhl")
+            forecasts,_=load_archives(folder,"nhl")
+            final=published("nhl")
+            final["retrieved_at_utc"]=(MATURE+timedelta(minutes=2)).isoformat()
+            def download(*_):
+                return [final],{
+                    "leagues":["nhl"],"champion_001_modified":False,
+                    "total_completed_results":1,
+                    "by_league":{"nhl":{"days_attempted":1,"days_ok":1,"days_failed":0}},
+                }
+            report,rows=grade("nhl",forecasts,now=MATURE,collector=download,
+                              receipt_clock=lambda:MATURE+timedelta(seconds=10))
+            self.assertEqual(report["actual_ESPN_published_grades"],0)
+            self.assertEqual(rows[0]["grade_status"],
+                             "HOLD_INVALID_OR_DUPLICATE_PUBLISHED_SOURCE")
+            self.assertEqual(report["published_score_source_exclusions_research_only"],
+                             {"invalid_published_score_source_shape":1})
+
+    def test_nonregular_published_season_and_duplicates_fail_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            write_original(folder,"nfl")
+            forecasts,_=load_archives(folder,"nfl")
+            final=published("nfl")
+            unexpected=dict(final,season_type=3)
+            def source(results):
+                return lambda *_:(results,{
+                    "leagues":["nfl"],"champion_001_modified":False,
+                    "total_completed_results":len(results),
+                    "by_league":{"nfl":{"days_attempted":1,"days_ok":1,"days_failed":0}},
+                })
+            rejected,rows=grade("nfl",forecasts,now=MATURE,collector=source([unexpected]))
+            self.assertEqual(rejected["actual_ESPN_published_grades"],0)
+            self.assertEqual(rows[0]["grade_status"],
+                             "HOLD_INVALID_OR_DUPLICATE_PUBLISHED_SOURCE")
+            duplicated,rows=grade("nfl",forecasts,now=MATURE,
+                                  collector=source([final,dict(final)]))
+            self.assertEqual(duplicated["actual_ESPN_published_grades"],0)
+            self.assertEqual(rows[0]["grade_status"],
+                             "HOLD_INVALID_OR_DUPLICATE_PUBLISHED_SOURCE")
+            self.assertEqual(
+                duplicated["published_score_source_exclusions_research_only"],
+                {"duplicate_published_event_id":1})
+            self.assertFalse(duplicated["champion_001_modified"])
+
+    def test_malformed_result_is_reported_without_league_crash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            write_original(folder,"nhl")
+            forecasts,_=load_archives(folder,"nhl")
+            def source(*_):
+                return [{"not_a_published_game":True}],{
+                    "leagues":["nhl"],"champion_001_modified":False,
+                    "total_completed_results":1,
+                    "by_league":{"nhl":{"days_attempted":1,"days_ok":1,"days_failed":0}},
+                }
+            report,rows=grade("nhl",forecasts,now=MATURE,collector=source)
+            self.assertEqual(report["actual_ESPN_published_grades"],0)
+            self.assertEqual(rows[0]["grade_status"],"HOLD_NO_PUBLISHED_COMPLETED_EVENT")
+            self.assertEqual(
+                report["published_score_source_exclusions_research_only"],
+                {"invalid_published_score_source_shape":1})
+
+
 if __name__=="__main__":
     unittest.main()

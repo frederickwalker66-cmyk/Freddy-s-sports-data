@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/collect-sharpapi.yml'
+      - 'challenger_schedule_crosswalk.py'
+      - 'tests/test_challenger_schedule_crosswalk.py'
   schedule:
     - cron: '0 16,20,23 * * *'  # UTC; times shift with Eastern daylight saving
 # Prevent overlapping live API collection; code pushes are covered by offline CI.
