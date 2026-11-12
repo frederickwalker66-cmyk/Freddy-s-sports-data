@@ -228,7 +228,9 @@ class CrosswalkTests(unittest.TestCase):
         self.assertEqual(m["bet_ready_selections"],0)
 
     def test_future_valid_quote_can_match_but_remains_uncertified(self):
-        m = build_manifest([quote()], [snapshot(date_et="2026-10-29")], NOW)
+        src = snapshot()
+        src["date_et"] = "2026-10-29"
+        m = build_manifest([quote()], [src], NOW)
         self.assertEqual(
             m["quote_observation_timing_research_only"],
             {"eligible_future_quote_rows_not_yet_matched":1})
