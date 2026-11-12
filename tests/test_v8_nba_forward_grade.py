@@ -120,9 +120,14 @@ class ForwardGradingTests(unittest.TestCase):
             self.assertEqual(forecasts[0]["model_probability_home_win_research_only"],.6)
             result,ledger=grade(forecasts,AFTER,collector=results_collector,receipt=receipt)
             self.assertEqual(result["real_forward_research_forecasts_graded"],1)
-            self.assertAlmostEqual(result["probability_research_Brier"],.16,places=7)
-            self.assertAlmostEqual(result["probability_research_log_loss"],-.0-__import__("math").log(.6),places=7)
-            self.assertEqual(result["classification_accuracy_provisional"],1.0)
+            # One genuine graded outcome is useful per-event evidence, but
+            # too small to report an aggregate skill score.
+            self.assertIsNone(result["probability_research_Brier"])
+            self.assertIsNone(result["probability_research_log_loss"])
+            self.assertIsNone(result["classification_accuracy_provisional"])
+            self.assertIsNone(result["neutral_50_50_Brier_not_sportsbook"])
+            self.assertEqual(result["minimum_mature_grades_for_aggregate_skill"],50)
+            self.assertFalse(result["meets_minimum_50_forward_graded_games"])
             self.assertEqual(ledger[0]["graded_published_result"]["home_won_from_ESPN_published_final"],1)
             self.assertFalse(ledger[0]["original_forecast_modified"])
             self.assertFalse(result["bet_ready"])
