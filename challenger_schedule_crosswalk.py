@@ -55,6 +55,39 @@ def _quote_identity(row, now):
     return (str(row["event_id"]), row["league"], home, away, start)
 
 
+def quote_time_diagnostics(rows, now):
+    """Classify source-price observation timing without authorizing a quote.
+
+    A late-night run can have many valid *historical* aggregator rows but
+    absolutely no eligible future provider event. That is a coverage gap,
+    not a reason to match an already-started event to tomorrow's schedule.
+    """
+    counts = Counter()
+    for row in rows:
+        if not isinstance(row, dict) or row.get("league") not in SOURCES:
+            counts["invalid_or_unsupported_row"] += 1
+            continue
+        try:
+            start = parse_time(row["event_start_time"])
+            recorded = parse_time(row["recorded_at"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            counts["invalid_or_missing_time"] += 1
+            continue
+        if recorded > now:
+            counts["observation_timestamp_in_future"] += 1
+        elif recorded >= start:
+            counts["quote_recorded_after_start"] += 1
+        elif start <= now:
+            counts["game_started_before_audit"] += 1
+        elif start > now + timedelta(days=MAX_AHEAD_DAYS):
+            counts["outside_bounded_pregame_horizon"] += 1
+        elif _quote_identity(row, now) is None:
+            counts["invalid_untrusted_quote_identity"] += 1
+        else:
+            counts["eligible_future_quote_rows_not_yet_matched"] += 1
+    return dict(sorted(counts.items()))
+
+
 def build_manifest(rows, schedules, now):
     if now.tzinfo is None:
         raise ValueError("current time requires timezone")
@@ -197,6 +230,11 @@ def build_manifest(rows, schedules, now):
             else "source_events_present_require_exact_team_and_clock_match"
         ),
         "schedule_source_observation_not_bookmaker_or_model_verification": True,
+        "quote_observation_timing_research_only": quote_time_diagnostics(rows, now),
+        "source_fixture_dates_queried_et": sorted({
+            q["requested_date_et"] for q in source_queries
+            if q["requested_date_et"] is not None
+        }),
         "provider_event_ids_seen": len(source_groups),
         "provider_event_ids_matched": len(manifest),
         "provider_event_ids_quarantined": dict(sorted(rejected.items())),
