@@ -16,6 +16,7 @@ on:
       - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_one_command.py'
       - 'tests/test_v8_sharp_player_props.py'
+      - 'SHARP_EDGE_RERUN_REQUEST.md'
   workflow_run:
     workflows: ['Collect SharpAPI DraftKings pregame odds']
     types: [completed]
