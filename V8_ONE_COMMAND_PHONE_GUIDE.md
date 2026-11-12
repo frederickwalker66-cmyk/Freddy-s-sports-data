@@ -8,6 +8,14 @@ pregame feature availability or profitable bets.
 
 Open [NFL + NBA Player Props — One Click](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-nfl-player-props-edge.yml), select **Run workflow**, then confirm **Run workflow**. This dedicated action always executes `run_nfl_props_edge` and reads at most the latest five successful saved SharpAPI captures; it **does not call SharpAPI, place bets, or use API credits**. It also replays automatically after successful SharpAPI collector runs, and runs once when its new workflow is deployed on `main`.
 
+### November 12 source-matching repair: name-only research
+
+The downloaded SharpAPI archives contain hundreds of player-prop observations with **exact provider player names** but **null `player_id`**. A missing provider ID must not be made up or inferred from a similar-looking roster name. The research scanner can now group quotes by the identical provider event ID, league, home/away teams, named player spelling, original market/stat identifier, exact numeric line, event start and source-book; it also demands exactly one **over** and one **under** price at each pregame capture.
+
+Every name-only observation is labeled `provider_name_only_unverified`: it is an **archived price comparison, NOT authenticated player identity or evidence the player is active**. Changing/contradictory provider IDs, mismatched names, event identifiers, line changes, duplicates, alternate markets, combo/head-to-head settlements, implausible two-way overround and stale/in-play prices remain quarantined. The model must independently validate player identifiers, active status, settlement rules, native player probabilities and actual DraftKings checkout prices before any certified edge. Without these, **zero certified bets; PASS/HOLD; $0**.
+
+The dedicated one-click GitHub action automatically reruns this read-only audit when the matching code changes, without paid API collection. Its phone run Summary exposes separate **name-only** and **provider-ID-present** observation counts plus explicit identity conflicts; the audit JSON retains all exclusions.
+
 The original V8 One Command action now **defaults to `run_nfl_props_edge` instead of `model_status`** so tapping through with the default cannot silently produce another model-status-only audit. Other manual commands remain available via the dropdown. Results are `PASS/HOLD` unless entirely separate independent model, player active-status, and DraftKings executable checkout evidence is authenticated. Research-only reports: `NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json` and `sharp_prop_line_movements.jsonl`.
 
 ## Phone (Android/iPhone) or Windows browser
