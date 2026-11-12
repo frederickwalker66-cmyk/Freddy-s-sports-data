@@ -105,7 +105,7 @@ jobs:
                   "**Provider event IDs and bookmaker-labeled quotes are not independent sportsbook checkout receipts or model edges.**",
                   "| Matchup | Moneyline (home / away) | Spread (home / away) | Total (Over / Under) | Verdict |",
                   "|---|---|---|---|---|",
-              ])
+              ]
               board=games.get('today_game_market_board') or []
               for g in board[:10]:
                   markets=g['paired_primary_markets']
