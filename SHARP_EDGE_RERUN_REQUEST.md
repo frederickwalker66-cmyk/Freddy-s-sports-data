@@ -18,3 +18,5 @@
 - Bet policy: certified positive-EV best bets only if independent evidence qualifies; otherwise **PASS/HOLD**, **$0 shadow stake**, **no automated wagers**
 
 Edit this request file via a reviewed GitHub change whenever another on-demand archive-only Sharp Edge scan is needed. A successful workflow execution does not certify sports betting profitability.
+
+- **2026-11-12 3:28 PM ET fresh user-requested Sharp Edge BEST BET scan:** Re-evaluate every scheduled NBA (DET@WAS, TOR@PHI, DAL@MIN, CHA@PHX) and NFL (WAS@NYG) game and primary player prop in already saved SharpAPI archived receipts; inspect moneylines, full-game spreads and totals, exact-player/line props, source timestamps and lineup context, calibrated native Champion-001 probability, EV and original entry/close CLV matches. Rank only independently verified positive-EV bets; if no authentic exact-line timely model-and-bookmaker evidence exists, return **zero certified picks, PASS/HOLD**, no wager. No paid provider calls, no changes to frozen Champion-001.
