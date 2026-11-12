@@ -59,6 +59,7 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("--workflow collect-sharpapi.yml", dedicated)
         self.assertIn("github.event.workflow_run.conclusion == 'success'", dedicated)
         self.assertIn("    branches: [main]", dedicated)
+        self.assertIn("      - 'SHARP_EDGE_RERUN_REQUEST.md'", dedicated)
         self.assertIn("actions: read", dedicated)
         self.assertIn("cancel-in-progress: false", dedicated)
         self.assertNotIn("SHARPAPI_KEY", dedicated)
