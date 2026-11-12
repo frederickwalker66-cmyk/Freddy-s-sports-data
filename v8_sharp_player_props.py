@@ -19,6 +19,30 @@ from historical_outcomes import parse_time
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
 
 PROP_SPORTS = frozenset(("nba", "nfl"))
+# This gate admits only individually identified, two-sided player statistics.
+# The provider's *_combo_ / *_either_ / *_each_ / *_h2h_* markets have
+# different settlement semantics and must not be treated as single-player props.
+PRIMARY_PLAYER_STATS = {
+    "nba": frozenset((
+        "player_points", "player_rebounds", "player_assists",
+        "player_made_threes", "player_steals", "player_blocks",
+        "player_turnovers", "player_points_+_rebounds",
+        "player_points_+_assists", "player_rebounds_+_assists",
+        "player_points_+_rebounds_+_assists",
+    )),
+    "nfl": frozenset((
+        "player_passing_yards", "player_passing_touchdowns",
+        "player_passing_attempts", "player_passing_completions",
+        "player_rushing_yards", "player_rushing_attempts",
+        "player_receiving_yards", "player_receptions",
+        "player_longest_reception", "player_longest_rush",
+        "player_passing_+_rushing_yards",
+        "player_rushing_+_receiving_yards",
+        "player_interceptions", "player_extra_points_made",
+        "player_field_goals_made", "player_kicking_points",
+        "player_longest_passing_completion",
+    )),
+}
 MAX_PROP_MOVEMENTS = 20000
 
 
@@ -42,14 +66,22 @@ def inspect_player_prop(row):
         row.get("event_id"), row.get("player_name"),
         row.get("player_id"), row.get("market_type"))
     if (not isinstance(eid, str) or not eid.strip()
-            or not isinstance(name, str) or not name.strip()
-            or type(player) not in (str, int) or not str(player).strip()
-            or type(stat) is not str or not stat.strip()
+            or not isinstance(name, str) or len(name.strip()) < 3
+            or type(player) not in (str, int, type(None))
+            or (type(player) is str and player.strip() == "" and player != "")
             or not isinstance(row.get("home_team"), str)
             or not isinstance(row.get("away_team"), str)
             or not row["home_team"].strip() or not row["away_team"].strip()
             or row["home_team"].strip() == row["away_team"].strip()):
         return None, "missing_exact_event_player_stat_identity"
+    if not isinstance(stat, str) or stat not in PRIMARY_PLAYER_STATS[row["league"]]:
+        return None, "unsupported_or_ambiguous_prop_settlement_market"
+    # A null/empty provider player ID is common in the real SharpAPI archives.
+    # Match an EXACT provider-name spelling for *archived research only*, never
+    # fabricate a player ID or independently assert that the athlete is active.
+    player_id = str(player).strip() if player is not None else ""
+    identity_basis = ("provider_id_plus_name_unverified" if player_id
+                      else "provider_name_only_unverified")
     line = row.get("line")
     if (type(line) not in (int, float) or not math.isfinite(line)
             or line < 0):
@@ -77,13 +109,14 @@ def inspect_player_prop(row):
     # Exact line is a mandatory part of the key: moving a 25.5 line to
     # 26.5 cannot be misrepresented as a same-line money movement.
     key = (
-        row["league"], eid, str(player), name.strip(), stat.strip(),
+        row["league"], eid, player_id, name.strip(), stat,
         float(line), row["home_team"], row["away_team"], start,
         row["sportsbook"],
     )
     return {
         "raw": row, "key": key, "received": received,
         "quote": quoted, "start": start, "implied": price_implied,
+        "identity_match_basis": identity_basis,
     }, None
 
 
@@ -99,6 +132,8 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
     by_league = Counter()
     prop_observations = 0
     accepted = 0
+    name_only_accepted = 0
+    provider_id_accepted = 0
     for row in rows:
         if isinstance(row, dict) and row.get("is_player_prop") is True:
             prop_observations += 1
@@ -110,14 +145,32 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         if item["received"] > clock:
             rejected["archive_observed_in_future"] += 1
             continue
-        accepted += 1
-        by_league[item["raw"]["league"]] += 1
         grouped[item["key"]].append(item)
+
+    # One vendor spelling within one exact event/stat/line must not be
+    # stitched across missing, changing or contradictory provider player IDs.
+    # Preserve valid name-only research when *every* row in that market lacks
+    # an ID, but quarantine the entire conflicting family otherwise.
+    identity_variants = defaultdict(set)
+    for key in grouped:
+        family = key[:2] + key[3:]
+        identity_variants[family].add(key[2])
+    conflicting = {k for k, values in identity_variants.items()
+                   if len(values) > 1}
 
     movements = []
     paired_snapshots = 0
     for key, group in sorted(grouped.items(), key=lambda x: (
             x[0][0], x[0][1], x[0][2], x[0][4], x[0][5])):
+        if key[:2] + key[3:] in conflicting:
+            rejected["ambiguous_or_mixed_provider_player_ids"] += len(group)
+            continue
+        accepted += len(group)
+        by_league[key[0]] += len(group)
+        if key[2]:
+            provider_id_accepted += len(group)
+        else:
+            name_only_accepted += len(group)
         captures = defaultdict(list)
         for item in group:
             captures[item["received"]].append(item)
@@ -155,7 +208,11 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
             movements.append({
                 "record_type": "v8_exact_player_prop_repricing_research_only",
                 "league": key[0], "provider_event_id": key[1],
-                "player_id": key[2], "player_name": key[3],
+                "player_id": key[2] or None, "player_name": key[3],
+                "player_identity_match_basis": (
+                    "provider_id_plus_name_unverified" if key[2]
+                    else "provider_name_only_unverified"),
+                "player_identity_independently_verified": False,
                 "prop_stat": key[4], "line": key[5],
                 "home_team": key[6], "away_team": key[7],
                 "start_utc": key[8].isoformat(),
@@ -200,6 +257,14 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
                   else "no_eligible_archived_player_prop_quotes",
         "raw_prop_quote_observations": prop_observations,
         "valid_exact_player_prop_quote_observations": accepted,
+        "valid_provider_name_only_quote_observations_research_only":
+            name_only_accepted,
+        "valid_provider_id_plus_name_quote_observations_research_only":
+            provider_id_accepted,
+        "source_player_ids_missing_from_valid_research_quotes":
+            name_only_accepted,
+        "source_player_identity_independently_verified": False,
+        "conflicting_provider_identity_market_groups_excluded": len(conflicting),
         "valid_prop_quotes_by_league": dict(sorted(by_league.items())),
         "two_sided_same_line_snapshots": paired_snapshots,
         "exact_player_stat_line_repricings_historical": len(movements),
@@ -221,9 +286,10 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         "archive_run_ids": list(archive_run_ids),
         "decision": "HOLD_RESEARCH_ONLY" if upcoming else "PASS_NO_VALIDATED_PROP_EDGE",
         "warning": (
-            "Exact over/under price repricing is a historical market observation, "
-            "not professional-bettor flow, player active status, player statistical "
-            "projection, calibrated probability, or executable DraftKings quote."
+            "Missing SharpAPI player IDs allow only exact provider-name research "
+            "matching, not authenticated athlete identities. Exact over/under "
+            "price repricing is not sharp flow, verified active status, a native "
+            "player projection, calibrated EV, or executable DraftKings quote."
         ),
     }
     return report, movements
