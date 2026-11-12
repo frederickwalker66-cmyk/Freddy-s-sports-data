@@ -1,5 +1,8 @@
 # Freddy's Picks AI — Requested NBA/NFL Sharp Edge rerun
 
+- **One-click rerun requested:** November 12, 2026 at 11:35 AM America/New_York for **ALL four NBA games and today's NFL game**, including full-game moneyline/spreads/totals and primary over/under player props.
+- Rank only independently qualified positive-EV opportunities using authentic Champion-001 point-in-time model probabilities and verified sportsbook checkout; otherwise PASS/HOLD. Check live lineup/injury context, price-implied versus model probabilities, exact handicap line movement and matched entry-to-closing CLV evidence. Re-use only saved SharpAPI archives, make no paid provider calls, and place no wagers.
+
 - Requested research date (America/New_York): **2026-11-12**
 - Requested spread-specific scan time: **November 12, 2026, approximately 11:30 AM ET**, after fresh sportsbook and injury recheck
 - Priority: **all four NBA full-game spreads and Washington Commanders at New York Giants NFL full-game spread**; preserve exact book, quoted line, side, timestamp, source and game start; compare with 9 AM published BetMGM and DraftKings-labeled external observations, never manufacture a line movement from incompatible dates/books
