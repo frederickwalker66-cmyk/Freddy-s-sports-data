@@ -19,6 +19,9 @@ WATCH = {
     "SharpAPI multi-sport": "collect-sharpapi.yml",
     "SportsDataIO intake": "sportsdataio-research-intake.yml",
     "Prospective game capture": "challenger-prospective-pregame.yml",
+    "V8 all-sports model readiness": "v8-elite-validation.yml",
+    "NBA/NFL Sharp Edge and props": "v8-nfl-player-props-edge.yml",
+    "Native training safety audit": "challenger-multisport-training.yml",
     "Outcome adjudication": "challenger-prospective-outcome-validation.yml",
     "Calibration research": "challenger-isotonic-calibration.yml",
     "Historical training": "challenger-multisport-training.yml",
@@ -27,6 +30,18 @@ WATCH = {
 COMMANDS = {
     "status": (),
     "all_free_diagnostics": ("validate-data.yml", "challenger-eight-sport-source-preflight.yml", "challenger-prospective-outcome-validation.yml"),
+    # Research tasks are dispatched independently, NOT an atomic refresh.
+    # Outcome completion triggers another calibration attempt; do not promote.
+    "full_refresh_recalibrate": (
+        "validate-data.yml",
+        "challenger-eight-sport-source-preflight.yml",
+        "challenger-prospective-pregame.yml",
+        "challenger-prospective-outcome-validation.yml",
+        "challenger-isotonic-calibration.yml",
+        "challenger-multisport-training.yml",
+        "v8-elite-validation.yml",
+        "v8-nfl-player-props-edge.yml",
+    ),
     "public_eight_sport_scan": ("challenger-eight-sport-source-preflight.yml",),
     "code_tests": ("validate-data.yml",),
     "outcome_review": ("challenger-prospective-outcome-validation.yml",),
@@ -95,6 +110,8 @@ def compose(payloads, branch_protected, accepted, now):
         "branch_protected": branch_protected,
         "latest_runs": workflows,
         "requested_workflow_dispatches": accepted,
+        "refresh_completion_confirmed": False,
+        "independent_model_recalibration_certified": False,
         "model_release_status": "BLOCKED_NOT_CERTIFIED",
         "champion_001_modified": False,
         "champion_001_original_authenticated": False,
@@ -126,6 +143,13 @@ def markdown(report):
             lines.append(f"- {item['workflow']}: {'REQUEST ACCEPTED, job not yet verified' if item['accepted'] else 'DISPATCH FAILED'}")
     else:
         lines.append("Status-only view; no new data collection and no paid API usage.")
+    if report["requested_workflow_dispatches"]:
+        lines.extend([
+            "",
+            "**Dispatch acceptance is not refresh completion or successful calibration.**",
+            "Review completed downstream outcomes and the later outcome-triggered recalibration separately.",
+            "Original Champion-001 remains frozen. No paid bookmaker source collection or wagers requested.",
+        ])
     lines.extend([
         "", "## Open from laptop or phone browser",
         f"- [Phone command center]({HOME}/actions/workflows/freddys-command-center.yml)",
