@@ -4,6 +4,14 @@
 It is NOT a certified prediction engine; historical results do not prove point-in-time
 pregame feature availability or profitable bets.
 
+## Calibration added to NBA + NFL Sharp Edge (separate from market percentages)
+
+The same **NBA + NFL Games & Player Props Sharp Edge** one-click workflow now downloads the most recent durable `data/v8_forward/CALIBRATION.json` from the separate Git branch `research/forward-ledger` and **validates its original pregame forecast/outcome provenance** via the existing strict `read_calibration` reader. It makes no paid odds calls and does not modify or retrain Champion-001.
+
+The new downloadable `NBA_NFL_SHARP_EDGE_CALIBRATION.json` and the smartphone GitHub Actions Summary display: source validation status, original NBA home-win forward forecasts archived/graded/pending; genuine forward-research **Brier score** and **log loss** only after at least **50 graded pregame games**; and fixed-bin observed rates, intervals and exploratory **expected calibration error (ECE)** only after sufficient outcome coverage (at least 100 games and sufficiently populated bins). Missing or invalid source evidence shows `NOT_YET_PERSISTED` or `REJECTED_INCONSISTENT_OR_UNTRUSTED_CALIBRATION_EVIDENCE`, with all performance numbers withheld.
+
+**Market scope isolation:** The existing stored calibration covers only NBA original home-win research predictions; it cannot calibrate NBA spreads/totals, NFL moneylines/spreads/totals, or NBA/NFL player props. These seven other market types each require their own timestamped independent original pregame native model forecasts, authenticated outcomes, player IDs, and exact betting settlement rules before calibration metrics are valid. They explicitly show **unknown/unavailable**, rather than invented 0 graded observations. Even exploratory NBA scores do not make a specific pregame selection independently calibrated or profitable; no calculated correction is applied to market-price probability columns. **Native model p / certified EV: unavailable; Champion-001 frozen; $0 research wager.**
+
 ## Probability percentages in Sharp Edge (games + player props)
 
 The **NBA + NFL Games & Player Props Sharp Edge** one-click workflow now shows numerical **price probabilities on both sides of every fully paired primary market**: moneyline Home/Away, game-spread Home/Away, full-game total Over/Under, and NBA/NFL player prop Over/Under at the exact named player/stat/line.
