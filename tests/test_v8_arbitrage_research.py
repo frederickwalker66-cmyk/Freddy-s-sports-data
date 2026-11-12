@@ -196,6 +196,7 @@ class V8CrossBookArbitrageTests(unittest.TestCase):
         workflow=Path(".github/workflows/v8-one-command.yml").read_text()
         self.assertIn("          - run_arbitrage\n",workflow)
         self.assertIn("inputs.command == 'run_arbitrage'",workflow)
+        self.assertIn("(github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]'))",workflow)
         self.assertIn("ARBITRAGE_RESEARCH.json",workflow)
         self.assertNotIn("python collector.py",workflow)
 
