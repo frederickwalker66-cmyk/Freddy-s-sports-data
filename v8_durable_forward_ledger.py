@@ -355,7 +355,19 @@ def sync(incoming_root, output_dir, *, now=None, collector=None):
         to_grade,deferred,days=_forecasts_pending_grading(db,clock)
         if len(to_grade)>2000:
             raise ValueError("too_many_pending_forecasts_for_one_grading_batch")
-        grade_summary,ledger=grade_forward(to_grade,as_of=clock,collector=collector)
+        # In a LIVE pipeline, the source receipt is stamped after the ESPN
+        # HTTP response. Passing the scan-start clock as a historical as_of
+        # causes the genuine post-fetch timestamp to be rejected as future
+        # data. Retrospective/test calls with an explicit now must keep their
+        # strict historical cutoff; only real-clock calls use live mode.
+        grading_as_of = clock if now is not None else None
+        grade_summary,ledger=grade_forward(
+            to_grade,as_of=grading_as_of,collector=collector)
+        if now is None:
+            completed_at = datetime.now(timezone.utc)
+            if completed_at < clock:
+                raise ValueError("live_grading_clock_moved_backwards")
+            clock = completed_at
         added_grades=_store_grades(db,ledger,clock)
         sync_counts["original_receipt_files_added"]=copied
         sync_counts["new_ESPN_published_outcomes_recorded"]=added_grades
