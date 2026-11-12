@@ -1,0 +1,176 @@
+name: Challenger independent evidence and sportsbook quote gates (research only)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 13 * * *'
+  pull_request:
+    paths:
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'challenger_multisport_native_training.py'
+      - 'challenger_nba_probability.py'
+      - 'challenger_nba_independent_source_admission.py'
+      - 'nba_actual_original_source_inventory.py'
+      - 'tests/test_challenger_nba_probability.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/independent-evidence-gates.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'challenger_multisport_native_training.py'
+      - 'challenger_nba_probability.py'
+      - 'challenger_nba_independent_source_admission.py'
+      - 'nba_actual_original_source_inventory.py'
+      - 'tests/test_challenger_nba_probability.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/independent-evidence-gates.yml'
+
+permissions:
+  contents: read
+
+jobs:
+
+  real-nba-original-research-inventory:
+    # Audit already-collected originals; do not generate historical scores or
+    # promote an ESPN research snapshot into an authenticated training game.
+    needs: strict-offline-evidence-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check original NBA archive tampering and source timing with synthetic fixtures
+        run: python -m unittest discover -s evidence_gate_tests -p 'test_nba_actual_original_source_inventory.py' -v
+      - name: Download actual durable first-observed original research bytes READ ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded_original_evidence
+          git fetch --depth=1 origin refs/heads/research/forward-ledger
+          git archive FETCH_HEAD data/v8_forward/original_run_receipts | tar -xf - -C downloaded_original_evidence
+          test -d downloaded_original_evidence/data/v8_forward/original_run_receipts
+      - name: Crosscheck actual run IDs with GitHub Action server metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p live_original_run_metadata
+          count=0
+          for f in downloaded_original_evidence/data/v8_forward/original_run_receipts/*/github_run.json; do
+            test -f "$f" || continue
+            rid="$(basename "$(dirname "$f")")"
+            [[ "$rid" =~ ^[0-9]+$ ]] || exit 1
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid" > "live_original_run_metadata/$rid.json"
+            count=$((count+1))
+          done
+          echo "Actual original-run metadata corroborated: $count"
+          test "$count" -gt 0
+      - name: Inventory ACTUAL original NBA source bytes and first pregame capture
+        run: |
+          python nba_actual_original_source_inventory.py \
+            --archive-root downloaded_original_evidence/data/v8_forward/original_run_receipts \
+            --live-run-metadata-dir live_original_run_metadata \
+            --outdir nba_real_source_inventory
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path("nba_real_source_inventory/nba_actual_original_source_inventory.json")
+          r=json.loads(p.read_text())
+          assert r["archived_run_directories_seen"] >= 1
+          assert r["unique_nba_first_original_research_forecasts_reviewable"] >= 1
+          assert all(x.get("live_run_metadata_checked") is True
+                     for x in r["original_run_statuses"] if x.get("source_identity_checked_rows",0)>0)
+          assert r["qualified_chronological_training_games"]==0
+          assert r["qualified_untouched_holdout_games"]==0
+          assert r["independently_verified_draftkings_checkout_prices"]==0
+          assert r["certified_positive_ev_selections"]==0
+          assert r["automated_bets_placed"]==0
+          assert r["bet_ready"] is False
+          summary=("### Real archived NBA pregame research evidence inventory\n"
+                   f"- Actual original NBA research forecasts with original bytes/time crosschecks: "
+                   f"**{r['unique_nba_first_original_research_forecasts_reviewable']}**\n"
+                   f"- Original GitHub run directories checked: {r['archived_run_directories_seen']}\n"
+                   "- **Independently qualified NBA training and untouched holdout games: 0 / 0**\n"
+                   "- This is source *review*, not independent original ESPN publication proof\n"
+                   "- Direct sportsbook verification: 0; certified EV: 0; Champion unchanged\n")
+          print(summary)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write(summary)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nba-original-source-review-inventory-${{ github.run_id }}
+          path: nba_real_source_inventory/
+          retention-days: 90
+          if-no-files-found: warn
+
+  strict-offline-evidence-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deterministic validation dependencies
+        run: python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
+      - name: Test independently signed source bytes, time boundaries, and exact quote joins
+        run: |
+          python -m unittest discover -s evidence_gate_tests -p 'test_*.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_probability.py' -v
+      - name: Report actual evidence gap without making up 250 training games
+        run: |
+          python challenger_authenticated_chronological_dataset.py --outdir evidence_gate_reports
+          python challenger_nba_independent_source_admission.py --outdir evidence_gate_reports/nba
+          python v8_external_price_receipt_audit.py --out evidence_gate_reports/price_receipt_report.json
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          root=Path("evidence_gate_reports")
+          a=json.loads((root/"admission_report.json").read_text())
+          p=json.loads((root/"price_receipt_report.json").read_text())
+          nba=json.loads((root/"nba"/"nba_admission_report.json").read_text())
+          assert nba["status"]=="HOLD_MISSING_EXTERNAL_NBA_TRUST_ANCHORS"
+          assert nba["nba_original_games_witness_admitted"]==0
+          assert nba["untouched_holdout_games"]==0
+          assert nba["certified_nba_predictions"]==0
+          assert a["admitted_games"]==0
+          assert not a.get("externally_witnessed_leagues_meeting_200_50")
+          assert a["champion_001_modified"] is False
+          assert p["independently_verified_live_sportsbook_checkout_quotes"]==0
+          assert p["certified_positive_ev_picks"]==0
+          assert p["automated_bets_placed"]==0
+          assert p["bet_ready"] is False
+          summary=("### Independent evidence admission and sportsbook audit\n"
+                   "- **Source authentication:** HOLD (no independent trust anchors or original signed records supplied)\n"
+                   "- **200 earlier training + 50 untouched later holdout:** NOT YET VERIFIED\n"
+                   "- **NBA independent original-source 200/50:** HOLD (no external witnesses)\n"
+                   "- **Original first forecasts:** preserved by existing V8 durable ledgers (not imported or re-written here)\n"
+                   "- **Direct executable DraftKings checkout:** NOT VERIFIED\n"
+                   "- **Certified positive EV / bets:** 0\n"
+                   "- **Champion-001:** unchanged\n")
+          print(summary)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+                  f.write(summary)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-source-and-price-gate-${{ github.run_id }}
+          path: |
+            evidence_gate_reports/*.json
+            evidence_gate_reports/nba/*.json
+          retention-days: 90
+          if-no-files-found: warn

@@ -1,0 +1,151 @@
+name: Freddy's Picks AI - All-in-one model and odds research audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    # A single no-billable-API-credit research refresh each day.
+    - cron: '11 15 * * *'
+  pull_request:
+    paths:
+      - 'freddys_all_in_one_release_gate.py'
+      - 'nba_actual_original_source_inventory.py'
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'challenger_nba_independent_source_admission.py'
+      - 'challenger_nba_probability.py'
+      - 'challenger_multisport_native_training.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'v8_durable_forward_ledger.py'
+      - 'v8_nfl_nhl_durable_ledger.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/freddys-all-in-one-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'freddys_all_in_one_release_gate.py'
+      - 'nba_actual_original_source_inventory.py'
+      - 'challenger_authenticated_chronological_dataset.py'
+      - 'challenger_nba_independent_source_admission.py'
+      - 'challenger_nba_probability.py'
+      - 'challenger_multisport_native_training.py'
+      - 'v8_external_price_receipt_audit.py'
+      - 'evidence_gate_tests/**'
+      - '.github/workflows/freddys-all-in-one-audit.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: freddys-all-in-one-research-release-audit
+  cancel-in-progress: false
+
+jobs:
+  no-leakage-safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install research-only local validation dependencies
+        run: python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
+      - name: Run all signed-original, no-bet, holdout and all-in-one tests
+        run: |
+          python -m unittest discover -s evidence_gate_tests -p 'test_*.py' -v
+          python -m unittest discover -s tests -v
+
+  original-source-and-live-forward-audit:
+    needs: no-leakage-safety-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install only open-source research validator dependencies
+        run: python -m pip install -r requirements-calibration.txt "cryptography>=42,<49"
+      - name: Fetch long-lived NBA, NFL and NHL archives READ ONLY, with no paid API calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p original_research/nba original_research/other
+          git fetch --depth=1 origin refs/heads/research/forward-ledger
+          git archive FETCH_HEAD data/v8_forward | tar -xf - -C original_research/nba
+          git fetch --depth=1 origin refs/heads/research/nfl-nhl-forward-ledger
+          git archive FETCH_HEAD data/v8_forward | tar -xf - -C original_research/other
+          test -s original_research/nba/data/v8_forward/NBA_FORWARD_RESEARCH.sqlite
+          test -d original_research/nba/data/v8_forward/original_run_receipts
+          test -s original_research/other/data/v8_forward/nfl/FIRST_FORECASTS.sqlite
+          test -s original_research/other/data/v8_forward/nhl/FIRST_FORECASTS.sqlite
+      - name: Corroborate original saved NBA completed run IDs against authenticated GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p live_original_run_metadata
+          n=0
+          for f in original_research/nba/data/v8_forward/original_run_receipts/*/github_run.json; do
+            test -f "$f" || continue
+            rid="$(basename "$(dirname "$f")")"
+            [[ "$rid" =~ ^[0-9]+$ ]] || exit 1
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid" > "live_original_run_metadata/$rid.json"
+            n=$((n+1))
+          done
+          test "$n" -gt 0
+          echo "Archived original run identities independently retrieved from GitHub: $n"
+      - name: Execute ALL evidence, historical model, forward results and price gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python freddys_all_in_one_release_gate.py \
+            --nba-research original_research/nba/data/v8_forward \
+            --other-research original_research/other/data/v8_forward \
+            --live-run-metadata live_original_run_metadata \
+            --output-dir all_in_one_release_audit \
+            --refresh-forward
+      - name: Reject accidental promotion, report independent-source shortfalls
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          report=json.loads(Path("all_in_one_release_audit/ALL_IN_ONE_RELEASE_READINESS.json").read_text())
+          c=report["counts"]
+          assert "HOLD" in report["status"]
+          assert report["champion_001_modified"] is False
+          assert report["bet_ready"] is False
+          assert report["automated_bets_placed"] == report["certified_positive_ev_bets"] == 0
+          assert c["nba_original_research_games_reviewed"] >= 1
+          assert c["nba_chronological_training_games_externally_witnessed"] == 0
+          assert c["nba_untouched_later_holdout_games_externally_witnessed"] == 0
+          assert c["direct_executable_DraftKings_quotes_certified"] == 0
+          assert c["automated_wagers_placed"] == c["certified_positive_EV_bets"] == 0
+          summary=Path("all_in_one_release_audit/ALL_IN_ONE_STATUS.md").read_text()
+          print(summary)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as h:
+              h.write(summary)
+          PY
+      - name: Upload report, source inventory and updated provisional research-only scorecards
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freddys-all-in-one-original-research-gate-${{ github.run_id }}
+          path: |
+            all_in_one_release_audit/ALL_IN_ONE_RELEASE_READINESS.json
+            all_in_one_release_audit/ALL_IN_ONE_STATUS.md
+            all_in_one_release_audit/original_nba_source_inventory.json
+            all_in_one_release_audit/original_nba_review_rows.jsonl
+            all_in_one_release_audit/nba_first_research_model_market_sides.json
+            all_in_one_release_audit/exact_market_price_witness_research_audit.json
+            all_in_one_release_audit/historical/**/trainer_research_report.json
+            all_in_one_release_audit/historical/**/nba_admission_report.json
+            all_in_one_release_audit/historical/**/admission_report.json
+            all_in_one_release_audit/forward/nba/LEADERBOARD.json
+            all_in_one_release_audit/forward/nba/CALIBRATION.json
+            all_in_one_release_audit/forward/nfl/FORWARD_RESEARCH_LEADERBOARD.json
+            all_in_one_release_audit/forward/nhl/FORWARD_RESEARCH_LEADERBOARD.json
+          retention-days: 90
+          if-no-files-found: warn

@@ -105,6 +105,29 @@ class MultisportNativeTrainingTests(unittest.TestCase):
         self.assertEqual(report["by_league"]["ncaaf"]["status"], "blocked_feature_schema_drift")
         self.assertNotIn("ncaaf", models)
 
+    def test_holdout_outcomes_never_enter_fitted_model_or_source_digest(self):
+        from challenger_multisport_native_training import make_fit, digest
+        from challenger_prospective_outcome_validation import instant
+
+        games = records("nfl", 300)
+        report, models = train(games, now=NOW)
+        self.assertIn("nfl", models)
+        cut_day = instant(games[int(0.8 * len(games))]["start_utc"]).date()
+        prior = [r for r in games if instant(r["start_utc"]).date() < cut_day]
+        holdout = [r for r in games if instant(r["start_utc"]).date() >= cut_day]
+        earliest_holdout = min(instant(r["snapshot_utc"]) for r in holdout)
+        eligible = [r for r in prior if instant(r["outcome_verified_at_utc"]) <= earliest_holdout]
+        trained_only = make_fit(eligible, sorted(eligible[0]["features"]), "nfl")
+        model = models["nfl"]
+        self.assertEqual(model["historical_source_evidence_sha256"], digest(eligible))
+        self.assertEqual(model["binary_logistic_coefficients"],
+                         trained_only["binary_logistic_coefficients"])
+        self.assertEqual(model["feature_means"], trained_only["feature_means"])
+        self.assertEqual(model["chronological_training_rows"], len(eligible))
+        self.assertEqual(model["later_holdout_rows"], len(holdout))
+        self.assertEqual(report["by_league"]["nfl"]["status"],
+                         "fitted_research_only_not_certified")
+
     def test_missing_cli_creates_report_not_model(self):
         with TemporaryDirectory() as temp:
             p = Path(temp)
