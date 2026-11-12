@@ -28,6 +28,7 @@ from v8_nfl_nhl_board_view import read_boards as read_sport_research_boards
 from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
+from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
@@ -90,6 +91,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_archive": None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
+        "sharp_edge_calibration": None,
         "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
         "certification_review": None,
@@ -118,6 +120,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         report["sharp_player_props"] = prop_report
         report["sharp_full_game_markets"] = game_report
+        calibration = sharp_calibration_dashboard(calibration_file)
+        report["sharp_edge_calibration"] = calibration
         report["nfl_and_player_props_edge_research"] = {
             "nfl_primary_moneyline_archive_observations":
                 sharp_report["eligible_quotes_by_league"].get("nfl", 0),
@@ -142,6 +146,11 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 game_report["today_recent_upcoming_full_games"],
             "today_paired_prop_price_probability_markets":
                 prop_report["today_recent_two_sided_prop_markets"],
+            "calibration_status":
+                calibration["persisted_nba_original_forward_calibration_status"],
+            "nba_original_forward_games_graded_for_calibration":
+                calibration["nba_original_graded_outcomes"],
+            "independently_certified_exact_market_calibration": False,
             "price_implied_and_no_vig_probabilities_available": True,
             "independent_sharp_bettor_probability_available": False,
             "certified_model_probability_available": False,
@@ -182,6 +191,9 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         }
         (out / "NBA_NFL_SHARP_EDGE_PROBABILITIES.json").write_text(
             json.dumps(probability_board, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        (out / "NBA_NFL_SHARP_EDGE_CALIBRATION.json").write_text(
+            json.dumps(calibration, indent=2, sort_keys=True) + "\n",
             encoding="utf-8")
         (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
             json.dumps(report["nfl_and_player_props_edge_research"],
