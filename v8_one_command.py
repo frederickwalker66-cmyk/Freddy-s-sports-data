@@ -165,6 +165,24 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         (out / "NBA_NFL_FULL_GAME_MARKETS_RESEARCH.json").write_text(
             json.dumps(game_report, indent=2, sort_keys=True) + "\n",
             encoding="utf-8")
+        probability_board = {
+            "report_type": "NBA_NFL_SHARP_EDGE_PRICE_PROBABILITIES_RESEARCH_ONLY",
+            "source": "draftkings_labeled_sharpapi_archives_not_checkout",
+            "full_games": game_report["today_game_market_board"],
+            "nba_player_props":
+                prop_report["today_player_prop_market_probability_board"]["nba"],
+            "nfl_player_props":
+                prop_report["today_player_prop_market_probability_board"]["nfl"],
+            "native_model_probability": None,
+            "verified_sharp_flow_probability": None,
+            "certified_positive_ev_bets": 0,
+            "champion_001_modified": False,
+            "automated_wagers": 0,
+            "decision": "HOLD_MARKET_PRICES_NOT_MODEL_PROBABILITIES",
+        }
+        (out / "NBA_NFL_SHARP_EDGE_PROBABILITIES.json").write_text(
+            json.dumps(probability_board, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
         (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
             json.dumps(report["nfl_and_player_props_edge_research"],
                        indent=2, sort_keys=True) + "\n", encoding="utf-8")
