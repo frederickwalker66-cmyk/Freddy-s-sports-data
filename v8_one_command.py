@@ -30,10 +30,11 @@ from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 from v8_arbitrage_research import scan_arbitrage
+from v8_betting_readiness import audit_betting_readiness, save_readiness
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
@@ -99,6 +100,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "arbitrage_research": None,
         "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
+        "betting_readiness": None,
         "certification_review": None,
         "comprehensive_audit": None,
         "nba_training_intake": None,
@@ -239,6 +241,15 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
             json.dumps(report["nfl_and_player_props_edge_research"],
                        indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    elif command == "run_readiness":
+        # An explicit PC/phone command that requires real saved sources.
+        # It does not create any calibrated probabilities or auto-certify
+        # even if a historical/aggregator research market looks favorable.
+        result = audit_betting_readiness(
+            calibration_file=calibration_file, sharp_rows=sharp_rows,
+            sharp_run_ids=sharp_run_ids, now=now)
+        report["betting_readiness"] = result
+        save_readiness(result, out / "BETTING_READINESS.json")
     elif command == "run_sport_board":
         report["nfl_nhl_forward_board"] = read_sport_research_boards(nfl_nhl_board_files)
     elif command == "run_calibration":
@@ -427,7 +438,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command in ("run_sharp", "run_nfl_props_edge", "run_arbitrage") and args.sharp_archive_dir:
+    if args.command in ("run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
