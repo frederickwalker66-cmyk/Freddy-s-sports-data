@@ -4,6 +4,12 @@
 It is NOT a certified prediction engine; historical results do not prove point-in-time
 pregame feature availability or profitable bets.
 
+## One-click NFL + Player Props Sharp Edge (no command dropdown)
+
+Open [NFL + NBA Player Props — One Click](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-nfl-player-props-edge.yml), select **Run workflow**, then confirm **Run workflow**. This dedicated action always executes `run_nfl_props_edge` and reads at most the latest five successful saved SharpAPI captures; it **does not call SharpAPI, place bets, or use API credits**. It also replays automatically after successful SharpAPI collector runs, and runs once when its new workflow is deployed on `main`.
+
+The original V8 One Command action now **defaults to `run_nfl_props_edge` instead of `model_status`** so tapping through with the default cannot silently produce another model-status-only audit. Other manual commands remain available via the dropdown. Results are `PASS/HOLD` unless entirely separate independent model, player active-status, and DraftKings executable checkout evidence is authenticated. Research-only reports: `NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json` and `sharp_prop_line_movements.jsonl`.
+
 ## Phone (Android/iPhone) or Windows browser
 1. Sign in to the GitHub account that can run this repository's Actions.
 2. Open [V8 One Command](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml).
