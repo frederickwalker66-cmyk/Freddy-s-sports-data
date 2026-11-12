@@ -10,7 +10,16 @@ import math
 from v8_elite_research_gate import breakeven_probability, expected_roi
 
 SPORTS = frozenset(("nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls", "uefa_champions_league"))
-MARKETS = frozenset(("moneyline", "three_way_90_minute"))
+MARKETS = frozenset(("moneyline", "three_way_90_minute", "player_prop"))
+# Exact stat/settlement targets; different markets and player identities must
+# never share a probability simply because the same game is involved.
+PLAYER_PROP_STATS = {
+    "nba": frozenset(("points", "rebounds", "assists", "three_pointers_made",
+                      "steals", "blocks", "turnovers", "points_rebounds_assists")),
+    "nfl": frozenset(("passing_yards", "passing_touchdowns", "rushing_yards",
+                      "rushing_touchdowns", "receiving_yards", "receptions",
+                      "receiving_touchdowns")),
+}
 
 
 def instant(value):
@@ -33,6 +42,14 @@ def research_edge(row):
         raise ValueError("unsupported_market")
     if (league in ("mls", "uefa_champions_league")) != (market == "three_way_90_minute"):
         raise ValueError("league_market_scope_mismatch")
+    if market == "player_prop" and league not in PLAYER_PROP_STATS:
+        raise ValueError("unsupported_player_prop_league")
+    if league == "nfl" and market == "moneyline":
+        # V8's NFL Elo forecasts are conditional on NOT a tie; using them
+        # directly as full-moneyline win probabilities is a category error.
+        if (row.get("model_target") != "NFL_fullgame_moneyline_ties_refunds_reviewed"
+                or row.get("independent_market_settlement_review") is not True):
+            raise ValueError("nfl_conditional_elo_is_not_a_market_moneyline")
     if not isinstance(row.get("event_id"), str) or not row["event_id"].strip():
         raise ValueError("event_id_missing")
     if row.get("champion_001_modified") is not False:
@@ -47,8 +64,31 @@ def research_edge(row):
     if not isinstance(bookmaker, str) or not bookmaker.strip():
         raise ValueError("bookmaker_missing")
     side = row.get("selection")
-    if side not in (("home", "away", "draw") if market == "three_way_90_minute" else ("home", "away")):
+    allowed = (("over", "under") if market == "player_prop" else
+               ("home", "away", "draw") if market == "three_way_90_minute"
+               else ("home", "away"))
+    if side not in allowed:
         raise ValueError("invalid_selection")
+    prop_fields = {}
+    if market == "player_prop":
+        player_id, player_name, stat, line = (
+            row.get("player_id"), row.get("player_name"),
+            row.get("prop_stat"), row.get("line"))
+        if (type(player_id) not in (str, int) or not str(player_id).strip()
+                or not isinstance(player_name, str) or not player_name.strip()
+                or stat not in PLAYER_PROP_STATS[league]
+                or type(line) not in (int, float) or not math.isfinite(line)
+                or line < 0 or row.get("is_alternate_line") is not False):
+            raise ValueError("exact_non_alt_player_stat_line_required")
+        if (row.get("independent_player_active_review") is not True
+                or row.get("independent_prop_stat_settlement_review") is not True
+                or row.get("independent_prop_model_review") is not True):
+            raise ValueError("player_availability_stat_and_model_review_required")
+        prop_fields = {
+            "player_id": str(player_id), "player_name": player_name.strip(),
+            "prop_stat": stat, "line": float(line),
+            "independent_player_active_claim_not_authenticated_here": True,
+        }
     start, captured, quote = (instant(row.get(k)) for k in (
         "start_utc", "model_forecast_recorded_utc", "price_recorded_utc"))
     if not captured < start or not quote < start:
@@ -75,6 +115,7 @@ def research_edge(row):
         "verified_executable_checkout_price": False,
         "independent_receipt_authentication_performed": False,
         "certified_prediction": False, "bet_ready": False, "stake_usd": 0,
+        **prop_fields,
     }
 
 
@@ -85,7 +126,8 @@ def rank_research_edges(rows):
     for row in rows:
         item = research_edge(row)
         key = (item["league"], item["event_id"], item["market"],
-               item["selection"], item["bookmaker"], item["price_recorded_utc"])
+               item["selection"], item["bookmaker"], item["price_recorded_utc"],
+               item.get("player_id"), item.get("prop_stat"), item.get("line"))
         if key in seen:
             raise ValueError("duplicate_market_quote")
         seen.add(key)

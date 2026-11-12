@@ -15,6 +15,7 @@ from challenger_historical_backfill import run as backfill, plan as backfill_pla
 from v8_dual_milestone_runner import run as train_both
 from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
+from v8_sharp_player_props import summarize_player_props
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -29,13 +30,14 @@ from v8_forward_calibration_view import read_calibration
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_health", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
+    "run_nfl_props_edge": ("nba", "nfl"),
 }
 
 
@@ -85,6 +87,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "by_league": {},
         "research_edge_candidates": [],
         "sharp_archive": None,
+        "sharp_player_props": None,
+        "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
         "certification_review": None,
         "comprehensive_audit": None,
@@ -99,11 +103,40 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
     }
     if command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
-    elif command == "run_sharp":
-        sharp_report, movements = summarize_sharp_archive(sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+    elif command in ("run_sharp", "run_nfl_props_edge"):
+        # Read only already downloaded SharpAPI archives. Sportsbook-labeled
+        # moneylines and exact-line player prop repricing are market research,
+        # not native probabilities, sharp handle data, or certified EV.
+        sharp_report, movements = summarize_sharp_archive(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        prop_report, prop_movements = summarize_player_props(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         report["sharp_archive"] = sharp_report
+        report["sharp_player_props"] = prop_report
+        report["nfl_and_player_props_edge_research"] = {
+            "nfl_primary_moneyline_archive_observations":
+                sharp_report["eligible_quotes_by_league"].get("nfl", 0),
+            "nfl_exact_prop_archive_observations":
+                prop_report["valid_prop_quotes_by_league"].get("nfl", 0),
+            "nba_exact_prop_archive_observations":
+                prop_report["valid_prop_quotes_by_league"].get("nba", 0),
+            "upcoming_research_prop_repricings":
+                prop_report["upcoming_repricing_research_observations"],
+            "verified_professional_sharp_flow": False,
+            "verified_native_model_probabilities": 0,
+            "verified_draftkings_checkout_quotes": 0,
+            "certified_positive_ev_bets": 0,
+            "bet_ready_selections": 0,
+            "champion_001_modified": False,
+            "decision": "PASS_NO_INDEPENDENTLY_VERIFIED_EDGE",
+        }
         (out / "sharp_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
+        (out / "sharp_prop_line_movements.jsonl").write_text(
+            "".join(json.dumps(x, sort_keys=True) + "\n" for x in prop_movements), encoding="utf-8")
+        (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
+            json.dumps(report["nfl_and_player_props_edge_research"],
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
     elif command == "run_sport_board":
         report["nfl_nhl_forward_board"] = read_sport_research_boards(nfl_nhl_board_files)
     elif command == "run_calibration":
@@ -291,7 +324,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command == "run_sharp" and args.sharp_archive_dir:
+    if args.command in ("run_sharp", "run_nfl_props_edge") and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
