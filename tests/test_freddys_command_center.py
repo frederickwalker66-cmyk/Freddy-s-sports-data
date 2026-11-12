@@ -25,6 +25,24 @@ class MobileControlTests(unittest.TestCase):
         self.assertNotIn("nba-live-connection.yml", checks)
         self.assertNotIn("sportsdataio-research-intake.yml", checks)
         self.assertNotIn("collect-sharpapi.yml", checks)
+    def test_full_refresh_is_broad_but_free_and_never_automatically_promoted(self):
+        refresh=approve("full_refresh_recalibrate",False)
+        self.assertEqual(len(refresh),8)
+        self.assertEqual(len(set(refresh)),len(refresh))
+        self.assertTrue(set(refresh).issubset(set(WATCH.values())))
+        for disallowed in ("nba-live-connection.yml",
+                           "sportsdataio-research-intake.yml",
+                           "collect-sharpapi.yml"):
+            self.assertNotIn(disallowed,refresh)
+        self.assertIn("challenger-isotonic-calibration.yml",refresh)
+        self.assertIn("v8-nfl-player-props-edge.yml",refresh)
+        self.assertIn("v8-elite-validation.yml",refresh)
+        state=compose({},None,[{"workflow":w,"accepted":True} for w in refresh],NOW)
+        self.assertFalse(state["refresh_completion_confirmed"])
+        self.assertFalse(state["independent_model_recalibration_certified"])
+        self.assertFalse(state["champion_001_modified"])
+        self.assertEqual(state["certified_positive_ev_bets"],0)
+        self.assertIn("not refresh completion",markdown(state))
     def test_pr_and_non_main_are_not_current_production(self):
         a=run(11)
         b=run(12,event="pull_request")
