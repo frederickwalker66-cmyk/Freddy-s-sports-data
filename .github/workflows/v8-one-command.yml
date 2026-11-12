@@ -314,7 +314,7 @@ jobs:
           done
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward' || inputs.command == 'run_nfl_forward' || inputs.command == 'run_nhl_forward') && '35' || inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -688,7 +688,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
