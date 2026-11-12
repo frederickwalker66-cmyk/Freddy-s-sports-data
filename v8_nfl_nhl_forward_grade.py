@@ -185,7 +185,8 @@ def load_archives(root, league):
     }
 
 
-def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
+def grade(league, forecasts, *, now=None, collector=None, source_receipt=None,
+          receipt_clock=None):
     if league not in SPEC or not isinstance(forecasts,list):
         raise ValueError("league_and_original_forecasts_required")
     current=now if now is not None else datetime.now(timezone.utc)
@@ -203,12 +204,24 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
     })
     if len(mature_dates)>MAX_GRADING_DAYS:
         raise ValueError("graded_source_dates_exceed_bounded_window")
-    by_id={}; coverage={}
+    by_id={}; coverage={}; invalid_ids=set(); source_exclusions=Counter()
     for day in mature_dates:
         rows,meta=collector((league,),1,day)
+        # The evaluation cutoff predates the HTTP request. Authentic completed
+        # ESPN responses are stamped AFTER their bytes arrive, so comparing
+        # retrieved_at_utc only with 'current' wrongly rejects every live fetch.
+        # Use a post-fetch observation clock without extending the 48h cutoff.
+        observed_after_fetch = (receipt_clock() if receipt_clock is not None
+                                else datetime.now(timezone.utc))
+        if (not isinstance(observed_after_fetch,datetime)
+                or observed_after_fetch.tzinfo is None):
+            raise ValueError("timezone_aware_source_receipt_clock_required")
+        observed_after_fetch = observed_after_fetch.astimezone(timezone.utc)
+        receipt_limit=max(current,observed_after_fetch)
         stat=meta.get("by_league",{}).get(league,{}) if isinstance(meta,dict) else {}
         success=(
-            isinstance(rows,list) and meta.get("leagues")==[league]
+            isinstance(rows,list) and isinstance(meta,dict)
+            and meta.get("leagues")==[league]
             and meta.get("champion_001_modified") is False
             and meta.get("total_completed_results")==len(rows)
             and stat.get("days_attempted")==1 and stat.get("days_ok")==1
@@ -217,14 +230,36 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
         coverage[day]=success
         if not success:continue
         for result in rows:
-            lg,started,eid,home,away,y=validate_game(result)
-            if (lg!=league or result.get("season_type")!=2
-                    or result.get("source_url")!=scoreboard_url(league,day)
-                    or started.astimezone(NY).date()!=day
-                    or parse_time(result.get("retrieved_at_utc"))>current):
-                raise ValueError("published_score_is_not_verified_source_shape")
+            # Some published score rows are outside the requested season or
+            # have incomplete metadata. Reject only those rows, retaining the
+            # explicit evidence gap instead of crashing the entire league.
+            hinted_id=(str(result.get("espn_event_id"))
+                       if isinstance(result,dict) else "")
+            try:
+                lg,started,eid,home,away,y=validate_game(result)
+                valid=(lg==league and type(result.get("season_type")) is int
+                       and result["season_type"]==2
+                       and result.get("source_url")==scoreboard_url(league,day)
+                       and started.astimezone(NY).date()==day
+                       and parse_time(result.get("retrieved_at_utc"))<=receipt_limit)
+            except (ValueError,KeyError,TypeError,OverflowError,AttributeError):
+                valid=False
+            if not valid:
+                source_exclusions["invalid_published_score_source_shape"]+=1
+                if hinted_id.isdecimal():
+                    invalid_ids.add(hinted_id)
+                    by_id.pop(hinted_id,None)
+                continue
+            if eid in invalid_ids:
+                source_exclusions["previously_quarantined_source_event"]+=1
+                continue
             if eid in by_id:
-                raise ValueError("duplicated_ESPN_final_event")
+                # Contradictory duplicate published IDs must never become
+                # resolved grades simply because one occurrence looked valid.
+                invalid_ids.add(eid)
+                by_id.pop(eid,None)
+                source_exclusions["duplicate_published_event_id"]+=1
+                continue
             by_id[eid]=(result,started,home,away,y)
     rows=[]; graded=[]; states=Counter()
     for f in sorted(forecasts,key=lambda x:(x["start_utc"],x["espn_event_id"])):
@@ -236,6 +271,8 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
         if scheduled+timedelta(hours=MIN_RESULT_DELAY_HOURS)<=current:
             if not coverage.get(day):
                 status="HOLD_ESPN_SOURCE_DAY_UNAVAILABLE"
+            elif event in invalid_ids:
+                status="HOLD_INVALID_OR_DUPLICATE_PUBLISHED_SOURCE"
             elif event not in by_id:
                 status="HOLD_NO_PUBLISHED_COMPLETED_EVENT"
             else:
@@ -285,6 +322,7 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
         "actual_ESPN_published_grades":count,
         "still_pending_or_on_hold":len(forecasts)-count,
         "state_counts":dict(sorted(states.items())),
+        "published_score_source_exclusions_research_only":dict(sorted(source_exclusions.items())),
         "NFL_ties_excluded_from_conditional_binary_target":states[NFL_TIE],
         "research_Brier":round(mean((p-y)**2 for p,y in graded),8) if count>=50 else None,
         "research_log_loss":round(mean(
