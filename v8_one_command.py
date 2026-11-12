@@ -16,6 +16,7 @@ from v8_dual_milestone_runner import run as train_both
 from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_sharp_player_props import summarize_player_props
+from v8_sharp_game_markets import summarize_full_game_markets
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -88,6 +89,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "research_edge_candidates": [],
         "sharp_archive": None,
         "sharp_player_props": None,
+        "sharp_full_game_markets": None,
         "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
         "certification_review": None,
@@ -111,8 +113,11 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         prop_report, prop_movements = summarize_player_props(
             sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        game_report, game_movements = summarize_full_game_markets(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         report["sharp_archive"] = sharp_report
         report["sharp_player_props"] = prop_report
+        report["sharp_full_game_markets"] = game_report
         report["nfl_and_player_props_edge_research"] = {
             "nfl_primary_moneyline_archive_observations":
                 sharp_report["eligible_quotes_by_league"].get("nfl", 0),
@@ -129,6 +134,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             "prop_identity_conflict_market_groups_quarantined":
                 prop_report["conflicting_provider_identity_market_groups_excluded"],
             "independently_verified_athlete_identities": 0,
+            "today_nba_nfl_full_game_board_count":
+                game_report["today_recent_upcoming_full_games"],
+            "today_full_game_market_movement_research_observations":
+                game_report["today_recent_upcoming_market_movement_observations"],
+            "validated_full_game_quote_rows_by_market":
+                game_report["validated_source_quote_observations_by_league_and_market"],
             "verified_professional_sharp_flow": False,
             "verified_native_model_probabilities": 0,
             "verified_draftkings_checkout_quotes": 0,
@@ -141,6 +152,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in movements), encoding="utf-8")
         (out / "sharp_prop_line_movements.jsonl").write_text(
             "".join(json.dumps(x, sort_keys=True) + "\n" for x in prop_movements), encoding="utf-8")
+        (out / "sharp_game_market_movements.jsonl").write_text(
+            "".join(json.dumps(x, sort_keys=True) + "\n" for x in game_movements),
+            encoding="utf-8")
+        (out / "NBA_NFL_FULL_GAME_MARKETS_RESEARCH.json").write_text(
+            json.dumps(game_report, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
         (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
             json.dumps(report["nfl_and_player_props_edge_research"],
                        indent=2, sort_keys=True) + "\n", encoding="utf-8")
