@@ -36,5 +36,29 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("--nba-grade-archives-dir saved_nba_forward_archives",self.text)
 
 
+    def test_manual_default_is_nfl_props_edge_not_model_status(self):
+        self.assertRegex(
+            self.text,
+            r"(?s)workflow_dispatch:\\n    inputs:\\n      command:.*?default: run_nfl_props_edge")
+        self.assertIn("          - run_nfl_props_edge\\n", self.text)
+        self.assertIn("inputs.command || 'run_sports'", self.text)
+        self.assertNotIn("default: model_status", self.text)
+
+    def test_nfl_props_one_click_workflow_runs_exact_command(self):
+        dedicated=Path(".github/workflows/v8-nfl-player-props-edge.yml").read_text()
+        self.assertIn("  workflow_dispatch:\\n", dedicated)
+        self.assertIn("--command run_nfl_props_edge", dedicated)
+        self.assertIn("--sharp-archive-dir saved_sharp_archives", dedicated)
+        self.assertIn("--workflow collect-sharpapi.yml", dedicated)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", dedicated)
+        self.assertIn("    branches: [main]", dedicated)
+        self.assertIn("actions: read", dedicated)
+        self.assertIn("cancel-in-progress: false", dedicated)
+        self.assertNotIn("SHARPAPI_KEY", dedicated)
+        self.assertNotIn("python collector.py", dedicated)
+        self.assertNotIn("default: model_status", dedicated)
+        self.assertNotIn("run_edge --edge-input", dedicated)
+
+
 if __name__ == "__main__":
     unittest.main()
