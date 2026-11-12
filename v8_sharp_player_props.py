@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import math
 
 from challenger_moneyline_market_baseline import (
@@ -17,6 +18,7 @@ from challenger_moneyline_market_baseline import (
 )
 from historical_outcomes import parse_time
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
+from v8_sharp_probability_display import price_pair_probabilities
 
 PROP_SPORTS = frozenset(("nba", "nfl"))
 # This gate admits only individually identified, two-sided player statistics.
@@ -44,6 +46,7 @@ PRIMARY_PLAYER_STATS = {
     )),
 }
 MAX_PROP_MOVEMENTS = 20000
+NY = ZoneInfo("America/New_York")
 
 
 def inspect_player_prop(row):
@@ -160,6 +163,7 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
 
     movements = []
     paired_snapshots = 0
+    current_prop_markets = []
     for key, group in sorted(grouped.items(), key=lambda x: (
             x[0][0], x[0][1], x[0][2], x[0][4], x[0][5])):
         if key[:2] + key[3:] in conflicting:
@@ -192,6 +196,37 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
                 continue
             snapshots.append((received, o, u))
             paired_snapshots += 1
+        if snapshots:
+            # Keep the latest exact player/stat/line two-sided pregame source
+            # price. No movement is required to display market-price %
+            # (important for NBA props when no two-capture repricing exists).
+            last_time, over, under = snapshots[-1]
+            start = key[8]
+            age = (clock - last_time).total_seconds() / 60
+            if (start > clock and start.astimezone(NY).date() ==
+                    clock.astimezone(NY).date()
+                    and 0 <= age <= MAX_RESEARCH_WATCHLIST_AGE_MINUTES):
+                probabilities = price_pair_probabilities(
+                    over["implied"], under["implied"])
+                current_prop_markets.append({
+                    "league": key[0], "provider_event_id": key[1],
+                    "player_id": key[2] or None, "player_name": key[3],
+                    "player_identity_match_basis": (
+                        "provider_id_plus_name_unverified" if key[2]
+                        else "provider_name_only_unverified"),
+                    "player_identity_independently_verified": False,
+                    "prop_stat": key[4], "line": key[5],
+                    "home_team": key[6], "away_team": key[7],
+                    "start_utc": start.isoformat(),
+                    "last_capture_utc": last_time.isoformat(),
+                    "source_age_minutes": round(age, 1),
+                    "over_american_odds": over["raw"]["odds_american"],
+                    "under_american_odds": under["raw"]["odds_american"],
+                    **probabilities,
+                    "active_player_independently_verified": False,
+                    "bet_ready": False,
+                    "decision": "HOLD_NO_VERIFIED_MODEL_PLAYER_OR_CHECKOUT",
+                })
         for before, after in zip(snapshots, snapshots[1:]):
             t0, o0, u0 = before
             t1, o1, u1 = after
@@ -222,6 +257,8 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
                 "over_odds_after": o1["raw"]["odds_american"],
                 "under_odds_before": u0["raw"]["odds_american"],
                 "under_odds_after": u1["raw"]["odds_american"],
+                # These derive from the TWO price sides, not a model.
+                **price_pair_probabilities(o1["implied"], u1["implied"]),
                 "over_no_vig_market_change_pp": change,
                 "absolute_repricing_pp": round(abs(change), 5),
                 "direction": ("toward_over" if change > 0 else
@@ -252,6 +289,15 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
     upcoming.sort(key=lambda x: (-x["absolute_repricing_pp"], x["start_utc"],
                                   x["league"], x["player_name"],
                                   x["player_id"] or "", x["prop_stat"]))
+    # Show each sport even if no historical movement could be established.
+    # Price-derived percentages are never used as model inputs.
+    current_prop_markets.sort(key=lambda x: (
+        -parse_time(x["last_capture_utc"]).timestamp(),
+        x["start_utc"], x["league"], x["player_name"], x["prop_stat"], x["line"]))
+    probability_board = {
+        sport: [item for item in current_prop_markets if item["league"] == sport][:8]
+        for sport in ("nba", "nfl")
+    }
     report = {
         "report_type": "v8_nba_nfl_exact_player_props_archived_repricing_research_only",
         "status": "historical_prop_quotes_analyzed" if accepted
@@ -273,6 +319,11 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         "stale_upcoming_repricing_excluded": stale,
         "excluded_prop_rows_or_snapshots": dict(sorted(rejected.items())),
         "ranked_prop_repricing_watchlist": upcoming[:10],
+        "today_recent_two_sided_prop_markets": len(current_prop_markets),
+        "today_player_prop_market_probability_board": probability_board,
+        "probability_source": "normalized_two_sided_source_book_price_not_native_model",
+        "model_probability_display": "UNAVAILABLE_NOT_MODEL_GENERATED",
+        "sharp_bettor_probability_display": "UNAVAILABLE_NO_SHARP_HANDLE_OR_TICKETS",
         "research_watchlist_max_age_minutes": MAX_RESEARCH_WATCHLIST_AGE_MINUTES,
         "sharp_flow_verified": False,
         "player_active_verified": False,
