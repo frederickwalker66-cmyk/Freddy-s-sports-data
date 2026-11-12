@@ -21,7 +21,6 @@ WATCH = {
     "Prospective game capture": "challenger-prospective-pregame.yml",
     "V8 all-sports model readiness": "v8-elite-validation.yml",
     "NBA/NFL Sharp Edge and props": "v8-nfl-player-props-edge.yml",
-    "Native training safety audit": "challenger-multisport-training.yml",
     "Outcome adjudication": "challenger-prospective-outcome-validation.yml",
     "Calibration research": "challenger-isotonic-calibration.yml",
     "Historical training": "challenger-multisport-training.yml",
