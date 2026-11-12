@@ -10,6 +10,8 @@ on:
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
       - 'v8_sharp_probability_display.py'
+      - 'v8_sharp_calibration_dashboard.py'
+      - 'tests/test_v8_sharp_calibration_dashboard.py'
       - 'tests/test_v8_sharp_probability_display.py'
       - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_one_command.py'
@@ -41,6 +43,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_v8_sharp_player_props.py' -v
           python -m unittest discover -s tests -p 'test_v8_sharp_game_markets.py' -v
           python -m unittest discover -s tests -p 'test_v8_sharp_probability_display.py' -v
+          python -m unittest discover -s tests -p 'test_v8_sharp_calibration_dashboard.py' -v
       - name: Read saved SharpAPI archives only; no paid API requests
         shell: bash
         env:
@@ -60,10 +63,24 @@ jobs:
             fi
           done
           echo "Saved research archives retrieved: $count"
+      - name: Read durable NBA original-forward research calibration (no paid calls)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p saved_forward_calibration
+          if gh api "repos/$GITHUB_REPOSITORY/contents/data/v8_forward/CALIBRATION.json?ref=research%2Fforward-ledger" --jq '.content' | base64 --decode > saved_forward_calibration/CALIBRATION.json; then
+            echo "Durable original NBA forward calibration file retrieved; strict local validation required."
+          else
+            rm -f saved_forward_calibration/CALIBRATION.json
+            echo "Calibration evidence unavailable: show unknown, never invented win rates."
+          fi
       - name: Scan NBA NFL full-game moneylines spreads totals and player props
         run: |
           python v8_one_command.py --command run_nfl_props_edge \
             --sharp-archive-dir saved_sharp_archives \
+            --calibration-file saved_forward_calibration/CALIBRATION.json \
             --output-dir v8_results/nfl_props_edge
       - name: Show research results and mandatory HOLD decision
         if: always()
@@ -80,11 +97,16 @@ jobs:
               sharp=data.get("sharp_archive") or {}
               props=data.get("sharp_player_props") or {}
               games=data.get("sharp_full_game_markets") or {}
+              calib=data.get("sharp_edge_calibration") or {}
               edge=data.get("nfl_and_player_props_edge_research") or {}
               if (data.get("command") != "run_nfl_props_edge"
                       or data.get("certified_positive_ev_bets") != 0
                       or edge.get("certified_positive_ev_bets") != 0
-                      or edge.get("champion_001_modified") is not False):
+                      or edge.get("champion_001_modified") is not False
+                      or calib.get("champion_001_modified") is not False
+                      or calib.get("certified_positive_ev_bets") != 0
+                      or calib.get("calibration_certified") is not False
+                      or calib.get("native_calibration_applied_to_current_sharp_edge_quotes") is not False):
                   raise ValueError("research_run_cannot_be_promoted_to_certified")
               lines=[
                   "# NFL + NBA Player Props Sharp Edge — Research Only",
@@ -161,6 +183,25 @@ jobs:
               lines.extend([
                   "",
                   "**No verified independent sharp-bettor probability, calibrated model probability, or positive-EV edge is available.**",
+                  "",
+                  "## Sharp Edge Calibration — Independent Original Forecasts + Mature Outcomes Only",
+                  f"**Persisted NBA home-win research status:** {calib.get('persisted_nba_original_forward_calibration_status', 'UNAVAILABLE')}",
+                  f"**NBA original forward forecasts archived / graded / pending:** {calib.get('nba_original_archived_forecasts')} / {calib.get('nba_original_graded_outcomes')} / {calib.get('nba_original_pending_grading')}",
+                  f"**Minimum mature graded games:** Brier {calib.get('minimum_exploratory_brier_graded_games', 50)}; exploratory ECE {calib.get('minimum_exploratory_ece_graded_games', 100)} with populated fixed bins.",
+                  "**SharpAPI prices and their no-vig percentages are NOT native model predictions and cannot establish model calibration.**",
+                  "| Exact market | Eligible graded original outcomes | Research Brier | Research ECE | Applied to picks? |",
+                  "|---|---:|---:|---:|---|",
+              ])
+              for market, m in (calib.get("market_calibration") or {}).items():
+                  n=m.get("eligible_original_model_forecasts_graded")
+                  n_display=str(n) if type(n) is int else "Unknown (no verified pair source)"
+                  b=m.get("research_brier_score")
+                  e=m.get("research_expected_calibration_error")
+                  btxt=f"{b:.4f}" if b is not None else "Withheld"
+                  etxt=f"{e:.4f}" if e is not None else "Withheld"
+                  lines.append(f"| {market} | {n_display} | {btxt} | {etxt} | NO / HOLD |")
+              lines.extend([
+                  "**No calibration is automatically applied to today's NBA/NFL game or prop prices; no Champion-001 model updates.**",
                   "**Decision: PASS / HOLD — no independently certified +EV or executable DraftKings quote.**",
                   "**Champion-001 frozen; automated wagers: 0; research stake: $0.**",
               ])

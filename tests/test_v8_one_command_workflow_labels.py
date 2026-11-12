@@ -8,6 +8,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 from v8_sharp_probability_display import price_pair_probabilities
+from v8_sharp_calibration_dashboard import dashboard as calibration_dashboard
 
 
 class PhoneWorkflowLabelsTests(unittest.TestCase):
@@ -114,6 +115,7 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         payload={
             "command":"run_nfl_props_edge","certified_positive_ev_bets":0,
             "sharp_archive":{"archive_run_ids":[123]},
+            "sharp_edge_calibration":calibration_dashboard(None),
             "sharp_player_props":{
                 "valid_provider_name_only_quote_observations_research_only":2,
                 "today_player_prop_market_probability_board":{
@@ -143,6 +145,8 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
             self.assertIn("50.00% / 50.00%",result.stdout)
             self.assertIn("Sample Athlete",result.stdout)
             self.assertIn("Model p / EV",result.stdout)
+            self.assertIn("Sharp Edge Calibration",result.stdout)
+            self.assertIn("Unknown (no verified pair source)",result.stdout)
             self.assertIn("N/A / HOLD",result.stdout)
             self.assertIn("HOLD",result.stdout)
             payload["certified_positive_ev_bets"]=1
@@ -169,6 +173,8 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("NBA/NFL Sharp Edge",code)
         self.assertIn("O/U no-vig",code)
         self.assertIn("Native calibrated model probability: UNAVAILABLE",code)
+        self.assertIn("Sharp Edge Calibration Status",code)
+        self.assertIn("minimum",code.lower())
 
 
 if __name__ == "__main__":

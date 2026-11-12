@@ -63,6 +63,7 @@ on:
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
       - 'v8_sharp_probability_display.py'
+      - 'v8_sharp_calibration_dashboard.py'
       - 'v8_source_cadence_watchdog.py'
       - 'v8_certification_audit.py'
       - 'v8_nba_training_intake.py'
@@ -83,6 +84,7 @@ on:
       - 'tests/test_v8_sharp_player_props.py'
       - 'tests/test_v8_sharp_game_markets.py'
       - 'tests/test_v8_sharp_probability_display.py'
+      - 'tests/test_v8_sharp_calibration_dashboard.py'
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
       - 'v8_sharp_archive.py'
@@ -262,7 +264,7 @@ jobs:
           done
           echo "Original completed forward-run artifacts downloaded: $downloaded"
       - name: Download persisted research leaderboard from dedicated long-lived Git branch
-        if: ${{ inputs.command == 'run_leaderboard' || inputs.command == 'run_calibration' }}
+        if: ${{ inputs.command == 'run_leaderboard' || inputs.command == 'run_calibration' || inputs.command == 'run_sharp' || inputs.command == 'run_nfl_props_edge' || github.event_name == 'workflow_run' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -359,7 +361,8 @@ jobs:
             params+=(--source-runs-json v8_results/source_runs.json)
           fi
           if [[ "$SELECTED_COMMAND" == "run_sharp" || "$SELECTED_COMMAND" == "run_nfl_props_edge" ]]; then
-            params+=(--sharp-archive-dir saved_sharp_archives)
+            params+=(--sharp-archive-dir saved_sharp_archives
+                     --calibration-file v8_results/leaderboard_download/CALIBRATION.json)
           fi
           python v8_one_command.py "${params[@]}"
       - name: Present report directly in phone run summary
@@ -638,6 +641,21 @@ jobs:
                   if not count:
                       lines.append("| No current two-sided prop markets | — | — | — | — | — | — | HOLD |")
                   lines.append("**Verified independent sharp-bettor probability: UNAVAILABLE. Native calibrated model probability: UNAVAILABLE. Certified +EV: zero.**")
+                  cal=r.get("sharp_edge_calibration") or {}
+                  lines.extend(["", "## NBA + NFL Sharp Edge Calibration Status",
+                      f"**Persisted original NBA research calibration:** {cal.get('persisted_nba_original_forward_calibration_status','UNKNOWN')}",
+                      f"**NBA forward forecasts archived/graded/pending:** {cal.get('nba_original_archived_forecasts')} / {cal.get('nba_original_graded_outcomes')} / {cal.get('nba_original_pending_grading')}",
+                      "**Exploratory original-forward Brier requires 50 grades; exploratory ECE requires 100 and adequately populated fixed bins.**",
+                      "| Exact market | Mature graded original outcomes | Brier | ECE | Model calibration used? |",
+                      "|---|---:|---:|---:|---|"])
+                  for market,item in (cal.get("market_calibration") or {}).items():
+                      n=item.get("eligible_original_model_forecasts_graded")
+                      nstr=str(n) if type(n) is int else "Unknown"
+                      b=item.get("research_brier_score")
+                      e=item.get("research_expected_calibration_error")
+                      lines.append(
+                          f"| {market} | {nstr} | {f'{b:.4f}' if b is not None else 'Withheld'} | {f'{e:.4f}' if e is not None else 'Withheld'} | NO / HOLD |")
+                  lines.append("**No validated NFL or prop-native probability/outcome calibration; no model recalibration, wagers, or independently verified positive EV.**")
               if r['command'] == 'run_edge':
                   lines.append(f"Indicative research edges: {len(r['research_edge_candidates'])} (no independently verified executable quotes).")
               if r['command'] == 'model_status':
