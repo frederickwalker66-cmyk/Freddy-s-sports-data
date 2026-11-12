@@ -1,6 +1,9 @@
 # Freddy's Picks AI — Requested NBA/NFL Sharp Edge rerun
 
 - Requested research date (America/New_York): **2026-11-12**
+- Requested spread-specific scan time: **November 12, 2026, approximately 11:30 AM ET**, after fresh sportsbook and injury recheck
+- Priority: **all four NBA full-game spreads and Washington Commanders at New York Giants NFL full-game spread**; preserve exact book, quoted line, side, timestamp, source and game start; compare with 9 AM published BetMGM and DraftKings-labeled external observations, never manufacture a line movement from incompatible dates/books
+- Include: cover probability only from authenticated, calibrated native spread-specific model; exact outcome settlement; expected-value and true CLV readiness, with HOLD if incomplete
 - Request: NBA and NFL games, spreads, totals, NBA/NFL player props, Sharp Edge, native probabilities, calibration, certified model expected value, and CLV evidence
 - Input policy: only already captured SharpAPI DraftKings-labeled archives; **zero additional paid API requests**
 - Command executed by triggered workflow: `run_nfl_props_edge`
