@@ -14,6 +14,7 @@ from challenger_moneyline_market_baseline import (
     implied, MAX_OVERROUND, MAX_PROVIDER_QUOTE_AGE_SECONDS,
 )
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
+from v8_sharp_probability_display import price_pair_probabilities
 
 ALLOWED = frozenset(("moneyline", "point_spread", "total_points"))
 SIDES = {"moneyline": ("home", "away"),
@@ -103,6 +104,9 @@ def _snapshot(key, at, group):
         "home_or_over_odds": first["raw"]["odds_american"],
         "away_or_under_odds": second["raw"]["odds_american"],
         "home_or_over_no_vig_market_share": round(first["implied"] / total, 7),
+        # The word "probability" here describes PRICE mathematics only:
+        # normalized two-sided market quotes, never model forecasts or EV.
+        **price_pair_probabilities(first["implied"], second["implied"]),
         "provider_game_id_independently_verified": False,
         "bookmaker_checkout_price_verified": False,
         "native_model_probability_verified": False,
@@ -230,6 +234,10 @@ def summarize_full_game_markets(rows, *, now=None, archive_run_ids=()):
         "excluded_or_unpaired_reasons": dict(sorted(excluded.items())),
         "archive_run_ids": list(archive_run_ids),
         "independently_verified_model_probabilities": 0,
+        "research_market_probabilities_available": len(snapshots),
+        "research_price_probabilities_method": "american_odds_implied_and_pair_normalized_no_vig",
+        "model_probability_display": "UNAVAILABLE_NOT_MODEL_GENERATED",
+        "sharp_bettor_probability_display": "UNAVAILABLE_NO_SHARP_HANDLE_OR_TICKETS",
         "independently_verified_sportsbook_checkout_prices": 0,
         "certified_positive_ev_bets": 0,
         "automated_wagers": 0, "stake_usd": 0,
