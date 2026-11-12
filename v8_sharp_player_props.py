@@ -250,7 +250,8 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         upcoming.append(dict(movement, signal_age_minutes=round(minutes,1),
                              decision="HOLD_UNVERIFIED_PROP_MODEL_PLAYER_AND_CHECKOUT"))
     upcoming.sort(key=lambda x: (-x["absolute_repricing_pp"], x["start_utc"],
-                                  x["league"], x["player_id"], x["prop_stat"]))
+                                  x["league"], x["player_name"],
+                                  x["player_id"] or "", x["prop_stat"]))
     report = {
         "report_type": "v8_nba_nfl_exact_player_props_archived_repricing_research_only",
         "status": "historical_prop_quotes_analyzed" if accepted
