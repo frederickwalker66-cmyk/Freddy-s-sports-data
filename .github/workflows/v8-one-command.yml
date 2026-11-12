@@ -137,7 +137,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements-calibration.txt
       - name: Retrieve recent completed SharpAPI research archives (no API charges)
-        if: ${{ inputs.command == 'run_sharp' || inputs.command == 'run_nfl_props_edge' || inputs.command == 'run_arbitrage' || github.event_name == 'workflow_run' }}
+        if: ${{ inputs.command == 'run_sharp' || inputs.command == 'run_nfl_props_edge' || inputs.command == 'run_arbitrage' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]')) || github.event_name == 'workflow_run' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
