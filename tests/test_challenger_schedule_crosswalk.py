@@ -213,5 +213,48 @@ class CrosswalkTests(unittest.TestCase):
         self.assertEqual(collect_snapshot_days([
             quote(event_start_time="2026-11-15T00:00:00Z")], NOW), [])
 
+
+    def test_late_night_stale_odds_are_counted_not_misrepresented_as_missing_games(self):
+        late = NOW + timedelta(hours=8)
+        stale = quote(event_start_time="2026-10-30T00:00:00Z")
+        m = build_manifest([stale], [], late)
+        self.assertEqual(m["provider_event_ids_seen"],0)
+        self.assertEqual(m["schedule_source_gap"],"no_source_queries_recorded")
+        self.assertEqual(
+            m["quote_observation_timing_research_only"],
+            {"game_started_before_audit":1})
+        self.assertEqual(m["source_fixture_dates_queried_et"],[])
+        self.assertEqual(m["certified_model_predictions"],0)
+        self.assertEqual(m["bet_ready_selections"],0)
+
+    def test_future_valid_quote_can_match_but_remains_uncertified(self):
+        m = build_manifest([quote()], [snapshot(date_et="2026-10-29")], NOW)
+        self.assertEqual(
+            m["quote_observation_timing_research_only"],
+            {"eligible_future_quote_rows_not_yet_matched":1})
+        self.assertEqual(m["source_fixture_dates_queried_et"],["2026-10-29"])
+        self.assertEqual(m["provider_event_ids_matched"],1)
+        self.assertFalse(m["independent_sportsbook_price_verified"])
+        self.assertFalse(m["champion_001_modified"])
+
+    def test_future_receipt_and_far_away_quote_fail_closed(self):
+        rows=[
+            quote(recorded_at="2026-10-29T20:02:00Z"),
+            quote(event_start_time="2026-11-10T00:00:00Z"),
+            quote(event_start_time="invalid"),
+            quote(sportsbook="different_book"),
+        ]
+        m=build_manifest(rows,[],NOW)
+        self.assertEqual(m["provider_event_ids_seen"],0)
+        self.assertEqual(m["quote_observation_timing_research_only"],{
+            "invalid_or_missing_time":1,
+            "invalid_untrusted_quote_identity":1,
+            "observation_timestamp_in_future":1,
+            "outside_bounded_pregame_horizon":1,
+        })
+        self.assertEqual(m["provider_event_ids_matched"],0)
+        self.assertEqual(m["certified_model_predictions"],0)
+        self.assertEqual(m["bet_ready_selections"],0)
+
 if __name__ == "__main__":
     unittest.main()
