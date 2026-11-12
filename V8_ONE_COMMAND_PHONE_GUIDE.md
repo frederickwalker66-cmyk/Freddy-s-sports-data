@@ -4,6 +4,16 @@
 It is NOT a certified prediction engine; historical results do not prove point-in-time
 pregame feature availability or profitable bets.
 
+## Probability percentages in Sharp Edge (games + player props)
+
+The **NBA + NFL Games & Player Props Sharp Edge** one-click workflow now shows numerical **price probabilities on both sides of every fully paired primary market**: moneyline Home/Away, game-spread Home/Away, full-game total Over/Under, and NBA/NFL player prop Over/Under at the exact named player/stat/line.
+
+- **Break-even % (vig included):** implied by the quoted American odds, e.g., −110 needs 52.38% for a zero-ROI win/loss wager before settlement nuances.
+- **No-vig market % (price-normalized):** the first side's break-even probability divided by the sum of both break-even probabilities; both sides then add to about 100%. This is a *market price reference*, **NOT a measured outcome rate, model confidence, true win probability, or verified sharp-bettor probability**.
+- **Model probability / Sharp-bettor probability / model edge / certified EV:** explicitly **N/A** where no independently verified original model forecast, identifiable real sharp-bettor flow, athlete roster, settled prop target, or executable DraftKings checkout quote exists. Never fill a missing model probability by copying the market price or by converting no-vig odds to a native prediction.
+- **Settlement caution:** two-sided normalization does not verify push, void, overtime, tie or sport-specific settlement rules. Changed handicap lines must not be treated as comparable probabilities for one fixed outcome.
+- **Research-only download:** `NBA_NFL_SHARP_EDGE_PROBABILITIES.json` carries game prices plus top paired NBA and NFL player prop markets, with `native_model_probability: null` and `certified_positive_ev_bets: 0`. The original `ONE_COMMAND_REPORT.json` contains the same market fields. All selections remain **HOLD**, wager stake **$0**, frozen Champion-001 unchanged.
+
 ## NBA + NFL Games AND Player Props — same one-click scan
 
 The existing [one-click Sharp Edge workflow](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-nfl-player-props-edge.yml) now archives a **same-day full-game board** alongside NBA/NFL player props. The board explicitly displays the latest fully paired **moneyline home/away**, **main spread home/away**, and **full-game total over/under**, with original provider price receipts and source event identifiers. The new research file `NBA_NFL_FULL_GAME_MARKETS_RESEARCH.json` contains the complete paired game-level board, rejected/uncertain market records and unverified same-market movement records; `sharp_game_market_movements.jsonl` preserves observations across archives.

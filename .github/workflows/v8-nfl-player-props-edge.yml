@@ -9,6 +9,8 @@ on:
       - '.github/workflows/v8-nfl-player-props-edge.yml'
       - 'v8_sharp_player_props.py'
       - 'v8_sharp_game_markets.py'
+      - 'v8_sharp_probability_display.py'
+      - 'tests/test_v8_sharp_probability_display.py'
       - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_one_command.py'
       - 'tests/test_v8_sharp_player_props.py'
@@ -38,6 +40,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_v8_sharp_player_props.py' -v
           python -m unittest discover -s tests -p 'test_v8_sharp_game_markets.py' -v
+          python -m unittest discover -s tests -p 'test_v8_sharp_probability_display.py' -v
       - name: Read saved SharpAPI archives only; no paid API requests
         shell: bash
         env:
@@ -122,6 +125,42 @@ jobs:
                   lines.append("| No current fully paired markets available | — | — | — | HOLD |")
               lines.extend([
                   "",
+                  "## Sharp Edge Probability View — Bookmaker Price Math, NOT Model Odds",
+                  "**Break-even %** = probability required at the quoted price; **no-vig market %** = each side's implied probability divided by the two-sided sum. Neither measures actual sharp-bettor activity, native model confidence, or certified EV.",
+                  "| Matchup | Moneyline no-vig Home/Away | Spread no-vig Home/Away | Total no-vig Over/Under | Model / EV |",
+                  "|---|---|---|---|---|",
+              ])
+              def pct(market):
+                  if not market:
+                      return "N/A"
+                  return f"{market['first_side_no_vig_market_percent']:.2f}% / {market['second_side_no_vig_market_percent']:.2f}%"
+              for g in board[:10]:
+                  gm=g["paired_primary_markets"]
+                  lines.append(f"| {g['away_team']} @ {g['home_team']} | {pct(gm.get('moneyline'))} | {pct(gm.get('point_spread'))} | {pct(gm.get('total_points'))} | Unavailable / HOLD |")
+              if not board:
+                  lines.append("| No paired same-day market prices | — | — | — | HOLD |")
+              lines.extend([
+                  "",
+                  "## NBA & NFL Player Prop Price Probabilities",
+                  "**Over/Under percentages are derived from matching source prices only; player identity and availability remain unverified.**",
+                  "| League | Player | Prop | Exact line | Over/Under price | Over/Under no-vig market % | Over/Under break-even % | Model p / EV |",
+                  "|---|---|---|---:|---|---|---|---|",
+              ])
+              allprops=props.get('today_player_prop_market_probability_board') or {}
+              shown=0
+              for sport in ('nba','nfl'):
+                  for q in (allprops.get(sport) or [])[:6]:
+                      shown+=1
+                      lines.append(
+                          f"| {sport.upper()} | {q['player_name']} | {q['prop_stat']} | {q['line']:g} | "
+                          f"{q['over_american_odds']:+g}/{q['under_american_odds']:+g} | "
+                          f"{q['first_side_no_vig_market_percent']:.2f}%/{q['second_side_no_vig_market_percent']:.2f}% | "
+                          f"{q['first_side_break_even_percent']:.2f}%/{q['second_side_break_even_percent']:.2f}% | N/A / HOLD |")
+              if shown==0:
+                  lines.append("| No paired upcoming current prop quotes | — | — | — | — | — | — | HOLD |")
+              lines.extend([
+                  "",
+                  "**No verified independent sharp-bettor probability, calibrated model probability, or positive-EV edge is available.**",
                   "**Decision: PASS / HOLD — no independently certified +EV or executable DraftKings quote.**",
                   "**Champion-001 frozen; automated wagers: 0; research stake: $0.**",
               ])
