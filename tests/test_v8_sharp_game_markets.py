@@ -1,5 +1,6 @@
 """Full-game ML, spread and total research only; no external or paid data calls."""
 import unittest
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
