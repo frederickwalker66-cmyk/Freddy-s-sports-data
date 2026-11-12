@@ -210,10 +210,19 @@ def grade(records, as_of=None, collector=None, receipt=None):
         coverage[day] = bool(success)
         if not success:
             continue
+        # The initial evaluation clock precedes the actual HTTP fetch. The
+        # legitimate source receipt is created *after* the response bytes
+        # arrive, so comparing it to the pre-fetch clock rejected real ESPN
+        # results and crashed the entire live grade job. With an explicitly
+        # supplied historical as_of keep that strict deadline to prevent future
+        # results leaking into a retrospective evaluation. For live grading
+        # accept only receipts no later than the actual completed fetch.
+        source_receipt_deadline = (now if as_of is not None
+                                   else datetime.now(timezone.utc))
         for row in downloaded:
             lg, started, eid, home, away, actual = validate_game(row)
             if (lg != "nba" or actual not in (0, 1)
-                    or parse_time(row.get("retrieved_at_utc")) > now
+                    or parse_time(row.get("retrieved_at_utc")) > source_receipt_deadline
                     or row.get("source_url") != scoreboard_url("nba", day)
                     or started.astimezone(NY).date() != day):
                 raise ValueError("unsupported_published_outcome_source")

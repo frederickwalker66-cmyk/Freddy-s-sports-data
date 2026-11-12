@@ -132,6 +132,63 @@ class ForwardGradingTests(unittest.TestCase):
             save(result,ledger,dest)
             self.assertTrue((dest/"NBA_FORWARD_GRADING_REPORT.json").is_file())
 
+    def test_live_fetch_allows_authenticated_receipt_after_scan_start(self):
+        # Regression: the fetch receipt occurs after the grading scan begins.
+        # Do not confuse legitimate collection latency with future leakage.
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            write_run(temp)
+            forecasts, _ = load_archived_forecasts(temp)
+
+            def just_fetched(*args):
+                records, summary = results_collector(*args)
+                records[0]["retrieved_at_utc"] = (
+                    AFTER + timedelta(seconds=1)).isoformat()
+                return records, summary
+
+            with patch("v8_nba_forward_grade.datetime") as clock:
+                clock.now.side_effect = [
+                    AFTER, AFTER + timedelta(seconds=2)]
+                summary, ledger = grade(forecasts, collector=just_fetched)
+            self.assertEqual(summary["real_forward_research_forecasts_graded"], 1)
+            self.assertEqual(ledger[0]["evaluation_status"],
+                             "GRADED_ESPN_PUBLISHED_FINAL_RESEARCH_ONLY")
+            self.assertEqual(summary["certified_positive_ev_bets"], 0)
+
+    def test_live_fetch_rejects_unobserved_future_result_receipt(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            write_run(temp)
+            forecasts, _ = load_archived_forecasts(temp)
+
+            def future_receipt(*args):
+                records, summary = results_collector(*args)
+                records[0]["retrieved_at_utc"] = (
+                    AFTER + timedelta(seconds=3)).isoformat()
+                return records, summary
+
+            with patch("v8_nba_forward_grade.datetime") as clock:
+                clock.now.side_effect = [
+                    AFTER, AFTER + timedelta(seconds=2)]
+                with self.assertRaisesRegex(
+                        ValueError, "unsupported_published_outcome_source"):
+                    grade(forecasts, collector=future_receipt)
+
+    def test_historical_as_of_prohibits_later_source_receipt(self):
+        with tempfile.TemporaryDirectory() as temp:
+            write_run(temp)
+            forecasts, _ = load_archived_forecasts(temp)
+
+            def later_receipt(*args):
+                records, summary = results_collector(*args)
+                records[0]["retrieved_at_utc"] = (
+                    AFTER + timedelta(seconds=1)).isoformat()
+                return records, summary
+
+            with self.assertRaisesRegex(
+                    ValueError, "unsupported_published_outcome_source"):
+                grade(forecasts, as_of=AFTER, collector=later_receipt)
+
     def test_before_48h_no_final_requested_or_invented(self):
         with tempfile.TemporaryDirectory() as temp:
             write_run(temp)
