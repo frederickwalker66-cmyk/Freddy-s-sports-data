@@ -116,6 +116,13 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
             "command":"run_nfl_props_edge","certified_positive_ev_bets":0,
             "sharp_archive":{"archive_run_ids":[123]},
             "sharp_edge_calibration":calibration_dashboard(None),
+            "sharp_edge_clv":{
+                "status":"HOLD_NO_TRACKED_ENTRY_AND_AUTHENTIC_CLOSING_QUOTE",
+                "realized_clv_percent":None,
+                "market_repricing_is_verified_clv":False,
+                "exact_market_entry_close_pairs":0,
+                "archived_provider_market_repricing_observations":0,
+                "champion_001_modified":False},
             "sharp_player_props":{
                 "valid_provider_name_only_quote_observations_research_only":2,
                 "today_player_prop_market_probability_board":{
@@ -145,6 +152,8 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
             self.assertIn("50.00% / 50.00%",result.stdout)
             self.assertIn("Sample Athlete",result.stdout)
             self.assertIn("Model p / EV",result.stdout)
+            self.assertIn("Closing Line Value (CLV)",result.stdout)
+            self.assertIn("Realized CLV: UNAVAILABLE / HOLD",result.stdout)
             self.assertIn("Sharp Edge Calibration",result.stdout)
             self.assertIn("Unknown (no verified pair source)",result.stdout)
             self.assertIn("N/A / HOLD",result.stdout)
