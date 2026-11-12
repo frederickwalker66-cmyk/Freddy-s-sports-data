@@ -155,18 +155,20 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
 
 
     def test_v8_one_command_probability_inline_summary_compiles(self):
-        """Guard the full phone report's actual Python, not just a copy."""
+        """Guard the actual phone report Python without brittle newline escaping."""
         workflow=Path(".github/workflows/v8-one-command.yml").read_text()
         part=workflow.split(
-            "      - name: Present report directly in phone run summary\\n",1)[1]
-        source=part.split("          python - <<'PY'\\n",1)[1].split(
-            "\\n          PY",1)[0]
-        code=textwrap.dedent(source)
+            "- name: Present report directly in phone run summary",1)[1]
+        lines=part.splitlines()
+        start=next(i for i,line in enumerate(lines)
+                   if line.strip()=="python - <<'PY'")
+        finish=next(i for i,line in enumerate(lines[start+1:],start+1)
+                    if line.strip()=="PY")
+        code=textwrap.dedent("\n".join(lines[start+1:finish]))
         compile(code,"v8-one-command-inline-summary.py","exec")
         self.assertIn("NBA/NFL Sharp Edge",code)
         self.assertIn("O/U no-vig",code)
         self.assertIn("Native calibrated model probability: UNAVAILABLE",code)
-
 
 
 if __name__ == "__main__":
