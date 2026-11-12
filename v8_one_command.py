@@ -92,6 +92,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
         "sharp_edge_calibration": None,
+        "sharp_edge_clv": None,
         "nfl_and_player_props_edge_research": None,
         "source_collection_health": None,
         "certification_review": None,
@@ -122,6 +123,29 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_full_game_markets"] = game_report
         calibration = sharp_calibration_dashboard(calibration_file)
         report["sharp_edge_calibration"] = calibration
+        # A pre-close market reprice is never closing-line value. No actual
+        # entry/closing-pair evidence is supplied to this archive-only scan.
+        # Null CLV is required: it is unknown, NOT a zero-return bet.
+        clv = {
+            "report_type": "NBA_NFL_SHARP_EDGE_CLV_EVIDENCE_READINESS",
+            "status": "HOLD_NO_TRACKED_ENTRY_AND_AUTHENTIC_CLOSING_QUOTE",
+            "tracked_verified_entry_receipts_in_this_run": 0,
+            "tracked_matching_verified_closing_quote_receipts_in_this_run": 0,
+            "exact_market_entry_close_pairs": 0,
+            "realized_clv_percent": None,
+            "measured_positive_clv_bets": None,
+            "archived_provider_market_repricing_observations": (
+                len(game_movements) + len(prop_movements)),
+            "market_repricing_is_verified_clv": False,
+            "current_prestart_quotes_are_closing_prices": False,
+            "requires": ("timestamped original selection, line and actual entry price; "
+                         "independently verified same-market closing quote "
+                         "at or just before the event starts"),
+            "certified_positive_ev_bets": 0,
+            "champion_001_modified": False,
+            "automated_wagers": 0,
+        }
+        report["sharp_edge_clv"] = clv
         report["nfl_and_player_props_edge_research"] = {
             "nfl_primary_moneyline_archive_observations":
                 sharp_report["eligible_quotes_by_league"].get("nfl", 0),
@@ -148,6 +172,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 prop_report["today_recent_two_sided_prop_markets"],
             "calibration_status":
                 calibration["persisted_nba_original_forward_calibration_status"],
+            "clv_status": clv["status"],
             "nba_original_forward_games_graded_for_calibration":
                 calibration["nba_original_graded_outcomes"],
             "independently_certified_exact_market_calibration": False,
@@ -194,6 +219,9 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             encoding="utf-8")
         (out / "NBA_NFL_SHARP_EDGE_CALIBRATION.json").write_text(
             json.dumps(calibration, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        (out / "NBA_NFL_SHARP_EDGE_CLV.json").write_text(
+            json.dumps(clv, indent=2, sort_keys=True) + "\n",
             encoding="utf-8")
         (out / "NFL_PLAYER_PROP_SHARP_EDGE_RESEARCH.json").write_text(
             json.dumps(report["nfl_and_player_props_edge_research"],
