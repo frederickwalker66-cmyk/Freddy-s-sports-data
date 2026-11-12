@@ -1,6 +1,11 @@
 """One-command workflow safety: matching labels and no duplicate forward runs on push."""
 import re
 import unittest
+import json
+import subprocess
+import sys
+import tempfile
+import textwrap
 from pathlib import Path
 
 
@@ -61,6 +66,71 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("      - 'v8_sharp_player_props.py'", dedicated)
         self.assertIn("      - 'tests/test_v8_sharp_player_props.py'", dedicated)
         self.assertIn("**Name-only provider quotes (IDs missing; unverified athletes):**", dedicated)
+
+
+    def _full_game_inline_summary(self):
+        """Extract actual GitHub Actions heredoc, not a copied test substitute."""
+        dedicated=Path(".github/workflows/v8-nfl-player-props-edge.yml").read_text()
+        before, marker, after=dedicated.partition("          python - <<'PY'\n")
+        self.assertTrue(marker, "missing Python summary block")
+        source, marker, _=after.partition("\n          PY")
+        self.assertTrue(marker, "missing Python summary block terminator")
+        return textwrap.dedent(source)
+
+    def test_full_game_phone_summary_python_compiles(self):
+        code=self._full_game_inline_summary()
+        compile(code,"v8-nfl-props-inline-summary.py","exec")
+        self.assertIn("today_game_market_board",code)
+        self.assertIn("**Decision: PASS / HOLD",code)
+
+    def test_full_game_phone_summary_displays_all_markets_and_never_certifies(self):
+        code=self._full_game_inline_summary()
+        game={
+            "away_team":"Away Club","home_team":"Home Club",
+            "paired_primary_markets":{
+                "moneyline":{
+                    "home_or_over_odds":-140,"away_or_under_odds":120,
+                    "home_or_over_line":None,"away_or_under_line":None},
+                "point_spread":{
+                    "home_or_over_odds":-110,"away_or_under_odds":-110,
+                    "home_or_over_line":-2.5,"away_or_under_line":2.5},
+                "total_points":{
+                    "home_or_over_odds":-115,"away_or_under_odds":-105,
+                    "home_or_over_line":220.5,"away_or_under_line":220.5},
+            },
+        }
+        payload={
+            "command":"run_nfl_props_edge","certified_positive_ev_bets":0,
+            "sharp_archive":{"archive_run_ids":[123]},
+            "sharp_player_props":{"valid_provider_name_only_quote_observations_research_only":0},
+            "sharp_full_game_markets":{
+                "today_recent_upcoming_full_games":1,
+                "today_recent_upcoming_market_movement_observations":0,
+                "validated_source_quote_observations_by_league_and_market":{
+                    "nba_moneyline":2,"nba_point_spread":2,"nba_total_points":2},
+                "today_game_market_board":[game]},
+            "nfl_and_player_props_edge_research":{
+                "certified_positive_ev_bets":0,"champion_001_modified":False},
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            report=Path(folder)/"v8_results/nfl_props_edge/ONE_COMMAND_REPORT.json"
+            report.parent.mkdir(parents=True)
+            report.write_text(json.dumps(payload))
+            result=subprocess.run([sys.executable,"-c",code],cwd=folder,
+                                  capture_output=True,text=True,timeout=10)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertIn("Away Club @ Home Club",result.stdout)
+            self.assertIn("-140 / +120",result.stdout)
+            self.assertIn("-2.5 / +2.5",result.stdout)
+            self.assertIn("+220.5 / +220.5",result.stdout)
+            self.assertIn("HOLD",result.stdout)
+            payload["certified_positive_ev_bets"]=1
+            report.write_text(json.dumps(payload))
+            blocked=subprocess.run([sys.executable,"-c",code],cwd=folder,
+                                   capture_output=True,text=True,timeout=10)
+            self.assertNotEqual(blocked.returncode,0)
+            self.assertIn("research_run_cannot_be_promoted_to_certified",blocked.stderr)
+
 
 
 if __name__ == "__main__":
