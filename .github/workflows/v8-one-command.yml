@@ -6,8 +6,9 @@ on:
         description: 'Research command to run (no paid API and no bets)'
         required: true
         type: choice
-        default: model_status
+        default: run_nfl_props_edge
         options:
+          - run_nfl_props_edge
           - model_status
           - run_nba
           - run_sports
@@ -20,7 +21,6 @@ on:
           - run_uefa
           - run_edge
           - run_sharp
-          - run_nfl_props_edge
           - run_health
           - run_certify
           - run_audit
