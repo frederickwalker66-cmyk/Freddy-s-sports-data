@@ -38,6 +38,7 @@ from v8_nba_slate_best_bets import run as run_nba_slate_best_bets
 from v8_nba_five_leg_preflight import audit_five_leg_preflight
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
 from v8_season_artifact_view import review as review_season_artifacts
+from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_sharp_edge
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
@@ -106,6 +107,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_archive": None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
+        "nba_always_sharp_edge": None,
         "mixed_market_research": None,
         "sportsgameodds_archive_research": None,
         "sharp_edge_calibration": None,
@@ -186,6 +188,17 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp
         report["sharp_player_props"] = props
         report["sharp_full_game_markets"] = full
+        always_edge = build_nba_sharp_edge(
+            sharp, props, full, calibration, report["season_to_date_all_leagues"])
+        report["nba_always_sharp_edge"] = always_edge
+        save_nba_sharp_edge(always_edge, out)
+        report["sharp_edge_clv"] = {
+            "report_type": "NBA_ENTRY_TO_REAL_CLOSE_CLV_EVIDENCE_GATE",
+            "status": "HOLD_NO_TRACKED_ENTRY_AND_AUTHENTIC_CLOSING_QUOTE",
+            "verified_clv_percent": None, "matching_verified_entry_close_pairs": 0,
+            "archived_same_market_repricings_are_not_CLV": True,
+            "certified_positive_ev_bets": 0, "champion_001_modified": False,
+        }
         report["sportsgameodds_archive_research"] = audit_source_archive(
             sgo_archive_dir, now=now)
     elif command == "run_season_form":
@@ -544,6 +557,12 @@ def main(argv=None):
     p.add_argument("--certification-sharp-run-id", type=int, help="Sharp workflow ID for research price reference")
     p.add_argument("--output-dir", default="v8_results/one_command")
     args = p.parse_args(argv)
+    # Phone command "run NBA" always invokes the full research board,
+    # including both sharp game/prop repricing, calibrated-model gate and CLV.
+    # Direct execute("run_nba", end_date=...) stays a legacy HISTORICAL
+    # source-only API for existing pinned research fixtures.
+    if args.command == "run_nba":
+        args.command = "run_nba_best_bets"
     rows = None
     if args.edge_input:
         path = Path(args.edge_input)
