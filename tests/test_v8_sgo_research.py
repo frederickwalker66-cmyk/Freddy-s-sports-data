@@ -32,6 +32,26 @@ def quote(timestamp="2026-11-13T15:59:10Z", *, source="sportsgameodds_v2",
 
 
 class SourceResearchTests(unittest.TestCase):
+    def test_existing_legacy_sgo_repository_secret_aliases_are_recognized(self):
+        # Prior October collection workflows accepted these names; a newer
+        # workflow must not quietly lose authorization from an existing secret.
+        workflow = Path(".github/workflows/sportsgameodds-research.yml").read_text()
+        legacy_names = (
+            "SPORTSGAMEODDS_API_KEY", "SPORTSGAMEODDS_KEY",
+            "SPORTS_GAME_ODDS_API_KEY", "SPORTSGAMEODDS",
+            "SPORTS_GAME_ODDS", "SPORTSGAMESODD",
+            "SPORTSGAMESODDS", "SPORTS_GAMES_ODD",
+            "SPORTS_GAMES_ODDS", "SPORTSGAMEODD", "SPORTS_GAME_ODD",
+        )
+        for name in legacy_names:
+            with self.subTest(name=name):
+                self.assertIn("secrets." + name, workflow)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", workflow)
+        self.assertNotIn("  schedule:", workflow)
+        self.assertIn("no network if absent", workflow)
+        self.assertIn("--max-pages 1", workflow)
+        self.assertIn("cancel-in-progress: false", workflow)
+
     def test_empty_archive_reports_unavailable_not_false_picks(self):
         with tempfile.TemporaryDirectory() as folder:
             r = audit_source_archive(folder, now=NOW)

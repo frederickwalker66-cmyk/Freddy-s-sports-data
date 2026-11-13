@@ -10,7 +10,7 @@ Open GitHub Actions → **SportsGameOdds NBA NFL MLB research — manual capped 
 
 This integration deliberately has **no scheduled or push-triggered paid collection**. Pull requests run **offline tests only**, and even a successful test job makes zero API requests. Manual collection will fail before any network access if the repository secret is absent.
 
-In GitHub Settings → Secrets and variables → Actions → Repository secrets, configure one of the following supported names (preferred is first): `SPORTSGAMEODDS_API_KEY`, `SPORTSGAMEODDS_KEY`, `SPORTS_GAME_ODDS_API_KEY`, `SPORTSGAMEODDS`, or `SPORTS_GAME_ODDS`. Never paste the token into a GitHub issue or chat log.
+The collector accepts the original October 2026 GitHub Actions secret aliases: `SPORTSGAMEODDS_API_KEY`, `SPORTSGAMEODDS_KEY`, `SPORTS_GAME_ODDS_API_KEY`, `SPORTSGAMEODDS`, `SPORTS_GAME_ODDS`, `SPORTSGAMESODD`, `SPORTSGAMESODDS`, `SPORTS_GAMES_ODD`, `SPORTS_GAMES_ODDS`, `SPORTSGAMEODD`, and `SPORTS_GAME_ODD`. **If the secret already exists, do not create a duplicate or change the key.** The earlier collector accepted all these names. A manual run with an empty secret across all aliases still indicates a scope/name/accessibility problem, not necessarily that no credential was ever saved. If a manual run moves past the secret check but fails with HTTP 401, the provider rejected the stored credential. Never paste the token into a GitHub issue or chat.
 
 The source reports appear in artifact `sgo-draftkings-research-<run_id>`:
 - `snapshots/sportsgameodds_dk_*.jsonl`: provider-labeled observations and timestamps
