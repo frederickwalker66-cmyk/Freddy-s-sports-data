@@ -98,7 +98,18 @@ def _football(cat,cells,out):
 
 
 def _baseball(cat,cells,out):
-    if cat=="batting":
+    # ESPN category names vary ("batting", "Batters", "Batting Stats").
+    # When the label vector itself establishes batting/pitching, use it
+    # rather than treating a valid player stat array as unavailable.
+    c=cat.strip().lower()
+    if "pitch" in c or any(k in cells for k in ("IP","WHIP","ERA")):
+        scope="pitching"
+    elif ("bat" in c or "hitt" in c or
+          any(k in cells for k in ("AB","RBI","AVG","BA"))):
+        scope="batting"
+    else:
+        scope="unidentified"
+    if scope=="batting":
         for key,aliases in (
                 ("hits",("H",)),("runs",("R",)),("rbis",("RBI",)),
                 ("home_runs",("HR",)),("total_bases",("TB",)),
@@ -109,7 +120,7 @@ def _baseball(cat,cells,out):
                 if v is not None:
                     out[key]=v
                     break
-    elif cat=="pitching":
+    elif scope=="pitching":
         for key,aliases in (
                 ("pitching_strikeouts",("SO","K")),
                 ("hits_allowed",("H",)),("earned_runs",("ER",)),
