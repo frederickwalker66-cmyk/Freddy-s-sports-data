@@ -591,3 +591,4 @@ if __name__ == "__main__":
 # User-triggered NBA research execution on 2026-11-13; analytics unchanged.
 # Nov 13 2026 user-requested NBA sharp edge, player-prop, CLV, calibration and 5-leg parlay research rerun.
 # Archived sources only; no wagers; never promote unverified props or missing model probabilities.
+# User-requested NBA refresh, 2026-11-13: research-only game market, player last-five/ten form, sharp edge, CLV and parlay preflight; no wager.
