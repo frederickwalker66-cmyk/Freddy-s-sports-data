@@ -73,6 +73,19 @@ class NBAPlayerFeatureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate_ESPN_player_game_box"):
             build_player_form([row(9), row(9)], [target()], ASOF.isoformat())
 
+    def test_full_nba_slate_can_stage_more_than_100_unverified_candidates(self):
+        many = [{"player_id": str(i + 1000), "espn_event_id": "9000",
+                 "start_utc": TIP.isoformat()} for i in range(180)]
+        x = build_player_form([], many, ASOF.isoformat())
+        self.assertEqual(x["target_count"], 180)
+        self.assertEqual(x["certified_positive_ev_bets"], 0)
+        self.assertTrue(all(not player["player_last5"]["full_window"]
+                            for player in x["players"].values()))
+        over_cap = [{"player_id": str(i + 1000), "espn_event_id": "9000",
+                     "start_utc": TIP.isoformat()} for i in range(401)]
+        with self.assertRaisesRegex(ValueError, "input_budget_exceeded"):
+            build_player_form([], over_cap, ASOF.isoformat())
+
     def test_missing_game_date_explicitly_excluded_and_duplicate_target_blocked(self):
         x = row(9)
         x["event_start_utc"] = None
