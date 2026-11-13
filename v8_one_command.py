@@ -657,3 +657,4 @@ if __name__ == "__main__":
 # User-requested immediate model refresh after eight-league season L5/L10 source collection, research-only, no stakes.
 # 2026-11-13 explicit Run NBA = always NBA sharp edge; full-slate source only, Champion-001 unchanged.
 # On-demand Run NBA scan 2026-11-13 18:02 Eastern: full-slate Sharp Edge, player props, L5/L10, calibration and CLV; zero auto-wagers.
+# 2026-11-13 18:33 ET on-demand Run NBA: unified V8 NBA Sharp Edge, all games, player props, L5/L10, probabilities, CLV/calibration/readiness; research-only, zero wagers.
