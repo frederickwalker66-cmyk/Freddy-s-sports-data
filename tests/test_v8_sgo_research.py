@@ -52,6 +52,27 @@ class SourceResearchTests(unittest.TestCase):
         self.assertIn("--max-pages 1", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
 
+    def test_completed_manual_sgo_capture_auto_replays_no_cost_mixed_board(self):
+        # Only after a successful manual paid intake, reuse artifacts;
+        # never cause another provider request or certify a model.
+        workflow = Path(".github/workflows/v8-one-command.yml").read_text()
+        self.assertIn(
+            "workflows: ['Collect SharpAPI DraftKings pregame odds', "
+            "'SportsGameOdds NBA NFL MLB research — manual capped intake']",
+            workflow,
+        )
+        self.assertEqual(
+            workflow.count(
+                "github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market'"
+            ), 2,
+        )
+        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
+        self.assertIn("--sgo-archive-dir saved_sgo_archives", workflow)
+        self.assertIn("no paid api requests", workflow.lower())
+        source_workflow = Path(".github/workflows/sportsgameodds-research.yml").read_text()
+        self.assertNotIn("  schedule:", source_workflow)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", source_workflow)
+
     def test_empty_archive_reports_unavailable_not_false_picks(self):
         with tempfile.TemporaryDirectory() as folder:
             r = audit_source_archive(folder, now=NOW)
