@@ -347,6 +347,13 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
     games = []
     for g in slate:
         forecast = research.get(g["espn_event_id"])
+        context = (forecast.get("nba_rest_and_recent_form_features")
+                   if isinstance(forecast, dict) else None)
+        if context is not None and (
+                not isinstance(context, dict)
+                or context.get("champion_001_modified") is not False
+                or context.get("applied_as_probability_weight") is not False):
+            raise ValueError("untrusted_NBA_rest_form_probability_promotion")
         game_pairs = grouped[g["espn_event_id"]]
         def coverage_key(quote):
             if quote["market"].startswith("player_"):
@@ -365,6 +372,8 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
                 if forecast else None),
             "forecast_recorded_utc": forecast.get("forecast_recorded_utc") if forecast else None,
             "forecast_model": forecast.get("model_version") if forecast else None,
+            "nba_rest_back_to_back_last5_last10": context,
+            "nba_recent_form_used_as_probability_weight": False,
             "forecast_independently_calibrated": False,
             "available_paired_archive_markets": dict(sorted(counts.items())),
             "paired_archived_market_count": len(game_pairs),
@@ -379,6 +388,9 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
         "as_of_utc": now.isoformat(), "date_et": now.astimezone(NY).date().isoformat(),
         "slate_game_count_from_original_source": len(slate),
         "games": games,
+        "games_with_rest_b2b_last5_last10_context": sum(
+            g["nba_rest_back_to_back_last5_last10"] is not None for g in games),
+        "rest_form_features_calibrated_or_weighted": False,
         "market_categories": ["moneyline", "point_spread", "total_points", "player_prop"],
         "all_archive_observations_deduplicated": len(odds_rows),
         "all_paired_archived_markets": pairs,
@@ -422,6 +434,7 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
             "SportsGameOdds rows are stored source labels, NOT live DraftKings checkouts.",
             "All alt/primary-line status is unverified; all available paired lines are reference-only.",
             "Moneyline research Elo forecasts are not independently calibrated or Champion-001.",
+            "Back-to-back, rest, last-five and last-ten are research model inputs only, never unvalidated probability adjustments.",
             "There is NO separate exact-line spread, total or player-prop prediction model.",
             "Team totals cannot be represented as full-game totals; market scope is retained.",
             "Unverified player/team assignments are quarantined from display and betting.",
@@ -467,6 +480,33 @@ def render_slate(report):
                      f"| {_c(g['model_away_win_research_percent'])} | {coverage} |")
     if not report["games"]:
         lines.append("| N/A | No games returned by the available NBA schedule source | N/A | N/A | N/A | N/A |")
+    lines.extend([
+        "",
+        "## Rest, back-to-back, and last 5/10 games — point-in-time model features",
+        "**Rest:** calendar dates between games minus one. B2B = the second night on consecutive Eastern dates.",
+        "**Last-5/10 win rates:** only ESPN published final scores matured under the 48h research embargo.",
+        "**Feature values are NOT yet fitted or weighted into the Elo probabilities. N/A means insufficient history.**",
+        "| Matchup | Home rest days | Away rest days | Home B2B | Away B2B | Home last 5 / 10 win % | Away last 5 / 10 win % |",
+        "|---|---:|---:|---|---|---|---|",
+    ])
+    def form_cell(side):
+        if not isinstance(side, dict):
+            return "N/A"
+        return " / ".join(
+            f"{round(100 * side[w]['win_rate'], 1)}% (n={side[w]['available_matured_games']})"
+            if isinstance(side.get(w), dict) and side[w].get('win_rate') is not None
+            else "N/A" for w in ('last5', 'last10'))
+    for g in report["games"]:
+        ctx = g.get("nba_rest_back_to_back_last5_last10")
+        h = ctx.get("home") if isinstance(ctx, dict) else None
+        a = ctx.get("away") if isinstance(ctx, dict) else None
+        def val(side, key):
+            return _c(side.get(key)) if isinstance(side, dict) else "N/A"
+        lines.append(
+            f"| {_c(g['away_team'])} @ {_c(g['home_team'])} "
+            f"| {val(h, 'rest_days')} | {val(a, 'rest_days')} "
+            f"| {val(h, 'back_to_back_second_night')} | {val(a, 'back_to_back_second_night')} "
+            f"| {form_cell(h)} | {form_cell(a)} |")
     lines.extend([
         "", "## NBA markets — all recorded two-sided lines (research, not checkout)",
         "| Matchup | Market | Line | First odds / no-vig % | Other odds / no-vig % | Research Elo home % | Decision |",
