@@ -21,6 +21,7 @@ from independent_schedule_review import download_json_original
 from v8_nba_forward_research import BASE, capture as capture_nba_forward
 from v8_sgo_research import aware as aware_time
 from v8_nba_player_prop_dashboard import create_player_props_board, render_player_props
+from v8_nba_player_form_pipeline import run_player_form_research
 
 NY = ZoneInfo("America/New_York")
 MAX_FILES = 8
@@ -527,6 +528,18 @@ def render_slate(report):
     # holds. The full 441+ per-side references remain separate audit files.
     lines.extend(["", render_player_props(report["nba_player_props"], preview=True)])
     lines.extend([
+        "", "## Player last five / last ten — new research snapshot",
+        f"**Player research status:** {_c((report.get('nba_player_last5_last10_research') or {}).get('status'))}",
+        f"**Historical player summary games requested / valid:** "
+        f"{_c((report.get('nba_player_last5_last10_research') or {}).get('historical_summaries_attempted'))} / "
+        f"{_c((report.get('nba_player_last5_last10_research') or {}).get('historical_summaries_validated'))}",
+        f"**Historically linked candidates (not current-roster verified):** "
+        f"{_c((report.get('nba_player_last5_last10_research') or {}).get('future_player_targets_staged_unverified_roster'))}",
+        f"**Full last-5 / last-10 player windows:** "
+        f"{_c((report.get('nba_player_last5_last10_research') or {}).get('players_with_complete_last5'))} / "
+        f"{_c((report.get('nba_player_last5_last10_research') or {}).get('players_with_complete_last10'))}",
+        "**Player statistics are separate from Elo probability, sportsbook identity and player-prop value.**",
+        "See nba_player_form/NBA_PLAYER_LAST5_LAST10.md and .json for individual evidence.",
         "", "## Sharp Edge / Calibration / Best Bets",
         f"**Independently calibrated model available:** NO",
         f"**Persisted original NBA forward forecasts / graded / pending:** "
@@ -544,7 +557,7 @@ def render_slate(report):
 
 
 def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None,
-        forward_runner=None, schedule_fetcher=None):
+        forward_runner=None, schedule_fetcher=None, player_form_fetcher=None):
     """Save complete current-day schedule and evidence; fail closed on missing feeds."""
     at = _clock(now)
     today = at.astimezone(NY).date()
@@ -584,6 +597,27 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
     report = assemble(slate, forecasts, odds, counts, now=at, calibration=calibration)
     report["schedule_capture_status"] = state
     report["nba_forward_research_status"] = forward_status
+    # New, later-observed player snapshot. Never overwrite the earlier Elo
+    # forecast, infer current-roster truth or join provider prop identities.
+    try:
+        player_kwargs = {}
+        if player_form_fetcher is not None:
+            player_kwargs["fetcher"] = player_form_fetcher
+        if now is not None:
+            player_kwargs["clock"] = lambda: at
+        player_report = run_player_form_research(
+            output / "nba_forward" / "NBA_HISTORICAL_PUBLISHED_RESULTS_RESEARCH.jsonl",
+            slate, output / "nba_player_form", coverage=forward_status,
+            max_summaries=24, **player_kwargs)
+    except (ValueError, TypeError, KeyError, OSError, TimeoutError) as exc:
+        player_report = {
+            "report_type": "V8_NBA_PREGAME_LAST5_LAST10_PLAYER_FORM",
+            "status": "HOLD_PLAYER_SOURCE_VALIDATION_ERROR",
+            "source_failure_class": type(exc).__name__,
+            "certified_positive_ev_bets": 0, "wagers_placed": 0,
+            "champion_001_modified": False,
+        }
+    report["nba_player_last5_last10_research"] = player_report
     report["source_coverage_complete_for_all_nba_games"] = state in (
         "original_future_capture", "fresh_independent_schedule_request")
     report["all_market_quote_rows"] = odds
