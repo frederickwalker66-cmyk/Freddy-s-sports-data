@@ -36,6 +36,7 @@ from v8_arbitrage_research import scan_arbitrage
 from v8_betting_readiness import audit_betting_readiness, save_readiness
 from v8_nba_slate_best_bets import run as run_nba_slate_best_bets
 from v8_nba_five_leg_preflight import audit_five_leg_preflight
+from v8_clv_reconciliation import reconcile as reconcile_local_clv
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_nfl", "run_nhl", "run_mlb",
@@ -118,6 +119,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_forward_research": None,
         "nba_slate_best_bets": None,
         "nba_five_leg_preflight": None,
+        "nba_local_clv_receipt_status": None,
         "nba_forward_grading": None,
         "forward_leaderboard": None,
         "forward_calibration": None,
@@ -145,6 +147,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["nba_five_leg_preflight"] = five_leg
         (out / "NBA_FIVE_LEG_PREFLIGHT.json").write_text(
             json.dumps(five_leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        # Cloud runs intentionally receive NO private user betting receipts.
+        # This documents the exact-market entry/close CLV evidence gap.
+        clv_status = reconcile_local_clv([], [])
+        report["nba_local_clv_receipt_status"] = clv_status
+        (out / "NBA_CLV_RECEIPT_READINESS.json").write_text(
+            json.dumps(clv_status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         tonight_ids = {g["espn_event_id"] for g in slate["games"]}
         report["research_forward_probability_rows"] = [
             row for row in forecasts if row.get("espn_event_id") in tonight_ids]
