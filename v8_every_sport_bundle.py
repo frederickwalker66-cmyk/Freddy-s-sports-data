@@ -47,9 +47,11 @@ PRIMARY = {
 PRICE_SPORTS = frozenset(("nba","nfl"))
 
 
-def _check_report(data):
+def _check_report(data, *, requires_explicit_champion_flag=False):
     if (not isinstance(data,dict)
-            or data.get("champion_001_modified") is not False
+            or (requires_explicit_champion_flag and
+                data.get("champion_001_modified") is not False)
+            or data.get("champion_001_modified", False) is not False
             or data.get("certified_positive_ev_bets") != 0
             or data.get("money_wagered_usd", 0) != 0):
         raise ValueError("full_stack_component_report_unsafe")
@@ -274,7 +276,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                     leaderboard_file=leaderboard_file,
                     calibration_file=calibration_file,
                 )
-            reports[league]=_check_report(report)
+            reports[league]=_check_report(report,requires_explicit_champion_flag=True)
         except (ValueError,OSError,TimeoutError,RuntimeError,ConnectionError,
                 KeyError,TypeError) as exc:
             failures[league]={"status":"HOLD_SOURCE_OR_VALIDATION_FAILED",
