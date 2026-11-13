@@ -614,3 +614,4 @@ if __name__ == "__main__":
 # Nov 13 2026 user-requested NBA sharp edge, player-prop, CLV, calibration and 5-leg parlay research rerun.
 # Archived sources only; no wagers; never promote unverified props or missing model probabilities.
 # User-requested NBA refresh, 2026-11-13: research-only game market, player last-five/ten form, sharp edge, CLV and parlay preflight; no wager.
+# Post-season-data-refresh: reload 8-league complete-scoreboard and player L5/L10 GH research artifacts on NBA command.
