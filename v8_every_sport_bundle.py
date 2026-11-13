@@ -37,7 +37,7 @@ COMMAND_TO_SPORT = {
     "run_ncaaf": ("ncaaf",), "run_ncaab": ("ncaab",),
     "run_mls": ("mls",), "run_uefa": ("uefa_champions_league",),
     "run_nba_nfl": ("nba","nfl"),
-    "run_sports": ALL, "run_all": ALL,
+    "run": ALL, "run_sports": ALL, "run_all": ALL,
 }
 PRIMARY = {
     "nba":"run_nba_best_bets", "nfl":"run_nfl_forward",
@@ -440,6 +440,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         }
     bundle={
         "report_type":"FREDDYS_PICKS_V8_ONE_COMMAND_ALL_IN_ONE_V1",
+        "one_word_all_sports_command_enabled": command in ("run","run_all","run_sports"),
         "checked_at_utc":clock.isoformat(),
         "user_command":command,"requested_leagues":list(scope),
         "executed_core_research_lanes":{lg:PRIMARY[lg] for lg in scope},
