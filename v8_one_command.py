@@ -17,6 +17,7 @@ from v8_edge_value import rank_research_edges
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_sharp_player_props import summarize_player_props
 from v8_sharp_game_markets import summarize_full_game_markets
+from v8_mixed_market_board import mixed_market_board
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -34,7 +35,7 @@ from v8_betting_readiness import audit_betting_readiness, save_readiness
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
-            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
+            "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
@@ -42,6 +43,7 @@ COMMAND_LEAGUES = {
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
     "run_uefa": ("uefa_champions_league",),
     "run_nfl_props_edge": ("nba", "nfl"),
+    "run_mixed_market": ("nba", "nfl"),
     "run_arbitrage": SPORTS,
 }
 
@@ -95,6 +97,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_archive": None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
+        "mixed_market_research": None,
         "sharp_edge_calibration": None,
         "sharp_edge_clv": None,
         "arbitrage_research": None,
@@ -123,7 +126,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["arbitrage_research"] = arb
         (out / "ARBITRAGE_RESEARCH.json").write_text(
             json.dumps(arb, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    elif command in ("run_sharp", "run_nfl_props_edge"):
+    elif command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market"):
         # Read only already downloaded SharpAPI archives. Sportsbook-labeled
         # moneylines and exact-line player prop repricing are market research,
         # not native probabilities, sharp handle data, or certified EV.
@@ -136,6 +139,13 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_archive"] = sharp_report
         report["sharp_player_props"] = prop_report
         report["sharp_full_game_markets"] = game_report
+        if command == "run_mixed_market":
+            # All four quote categories share one HOLD-only reference board.
+            # No market can be ranked by profit without native exact-line p.
+            mixed = mixed_market_board(game_report, prop_report)
+            report["mixed_market_research"] = mixed
+            (out / "MIXED_MARKET_GAME_PROP_RESEARCH.json").write_text(
+                json.dumps(mixed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         calibration = sharp_calibration_dashboard(calibration_file)
         report["sharp_edge_calibration"] = calibration
         # A pre-close market reprice is never closing-line value. No actual
@@ -438,7 +448,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command in ("run_sharp", "run_nfl_props_edge", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
+    if args.command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
