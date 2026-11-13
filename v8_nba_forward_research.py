@@ -328,6 +328,12 @@ def capture(output_dir, *, history_days=DEFAULT_HISTORY_DAYS,
     report["history_collection_started_at_utc"] = first.isoformat()
     report["github_action_run_id_self_reported"] = __import__("os").environ.get("GITHUB_RUN_ID")
     report["github_action_sha_self_reported"] = __import__("os").environ.get("GITHUB_SHA")
+    # Preserve the same source-labelled, captured-at results used for Elo,
+    # enabling bounded pregame player-form research without a second scoreboard
+    # scrape. These are published-source rows, NOT league-official outcomes.
+    (root / "NBA_HISTORICAL_PUBLISHED_RESULTS_RESEARCH.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in history),
+        encoding="utf-8")
     (root / "NBA_FORWARD_FORECASTS.jsonl").write_text(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in records),
         encoding="utf-8")
