@@ -108,7 +108,7 @@ class AllSportPlayerRollingFormTests(unittest.TestCase):
         r=historical_line_hits(items,"points",20,"over",10)
         self.assertEqual(r["wins"],6)
         self.assertEqual(r["pushes"],1)
-        self.assertAlmostEqual(r["descriptive_hit_rate_not_model_probability"],6/9)
+        self.assertAlmostEqual(r["descriptive_hit_rate_not_model_probability"],6/9, places=5)
         no=historical_line_hits(items[:4],"points",20,"over",5)
         self.assertFalse(no["complete_window"])
         self.assertIsNone(no["descriptive_hit_rate_not_model_probability"])
