@@ -108,7 +108,10 @@ def build_dashboard(report):
             ("home", "model_probability_home_win_research_only"),
             ("away", "model_probability_away_win_research_only"),
         ):
-            p = _pct(forecast.get(prob_key), fraction=True)
+            p_value = forecast.get(prob_key)
+            if selection == "away" and p_value is None and league == "nba":
+                p_value = forecast.get("estimated_away_win_probability_research_only")
+            p = _pct(p_value, fraction=True)
             if p is None:
                 continue
             row = _base(league, matchup, "research_win_forecast", selection,
