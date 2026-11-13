@@ -90,8 +90,6 @@ def research_edge(row):
             raise ValueError("exact_line_spread_total_model_and_settlement_review_required")
         game_fields = {"line": float(line), "model_target": target,
                        "game_handicap_and_settlement_reviewed": True}
-    elif market == "moneyline" and row.get("line") is not None:
-        raise ValueError("moneyline_must_not_have_handicap_line")
     prop_fields = {}
     if market == "player_prop":
         player_id, player_name, stat, line = (
