@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
+from v8_one_command import main
 
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT, ALL
 from v8_one_command import selected, COMMANDS
@@ -65,6 +67,21 @@ class BundleIntegrationTests(unittest.TestCase):
                 if "mlb" in scope:
                     self.assertIn("not_supported",
                         result["by_league"]["mlb"]["archived_sportsbook_market_support"])
+
+    def test_single_word_run_is_the_default_all_eight_sport_cli(self):
+        self.assertEqual(tuple(COMMAND_TO_SPORT["run"]), ALL)
+        self.assertEqual(selected("run"), ALL)
+        with tempfile.TemporaryDirectory() as folder:
+            with patch("v8_one_command.run_full_stack") as unified:
+                unified.return_value={
+                    "requested_leagues":list(ALL),
+                    "best_bets_and_edge_leaderboard":{
+                        "certified_positive_ev_bets":0},
+                }
+                main(["--output-dir", folder])  # no sport argument required
+                self.assertEqual(unified.call_count,1)
+                self.assertEqual(unified.call_args.kwargs["command"],"run")
+                self.assertEqual(unified.call_args.kwargs["days"],7)
 
     def test_alias_commands_and_supported_leagues_are_consistent(self):
         self.assertEqual(tuple(COMMAND_TO_SPORT["run_sports"]),ALL)
