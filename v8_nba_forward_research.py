@@ -22,6 +22,7 @@ from challenger_elo_walkforward import K, HOME_ADV, pregame_probability, validat
 from historical_outcomes import collect as collect_scores, parse_time, scoreboard_url
 from challenger_research_features import validated as validate_source_record
 from independent_schedule_review import download_json_original
+from v8_nba_rest_form_features import build_features, FEATURE_VERSION
 
 NY = ZoneInfo("America/New_York")
 VERSION = "v8-nba-elo-forward-research-v0-fixed-k20-ha60"
@@ -188,6 +189,8 @@ def project(history, schedule, coverage, asof):
         rating, qualified_history = _ratings(history, when)
         if rating is None:
             reasons["insufficient_prior_matured_NBA_games"] += 1
+    # Incomplete source-day coverage must not fabricate B2B or team form.
+    contexts = build_features(history, schedule, when) if not failed else {}
     records, seen = [], set()
     for event in schedule:
         if not isinstance(event, dict) or event.get("league") != "nba":
@@ -223,6 +226,9 @@ def project(history, schedule, coverage, asof):
             "model_probability_home_win_research_only": round(p, 9),
             "estimated_away_win_probability_research_only": round(1-p, 9),
             "historical_matured_games_available_at_forecast": qualified_history,
+            "nba_rest_and_recent_form_features": contexts.get(event_id),
+            "nba_rest_and_recent_form_feature_version": FEATURE_VERSION,
+            "nba_rest_and_recent_form_weighted_into_elo_probability": False,
             "assumed_result_maturity_hours": SETTLEMENT_ASSUMPTION_HOURS,
             "official_result_verified": False,
             "model_probability_independently_calibrated": False,
@@ -247,6 +253,10 @@ def project(history, schedule, coverage, asof):
         "future_schedule_events_seen": len(schedule),
         "forward_research_probabilities_recorded_before_tipoff": len(records),
         "research_lane": VERSION,
+        "nba_rest_and_form_feature_version": FEATURE_VERSION,
+        "forward_games_with_rest_and_form_context": sum(
+            r["nba_rest_and_recent_form_features"] is not None for r in records),
+        "recent_form_features_are_model_inputs_not_fitted_coefficients": True,
         "original_github_actions_receipt_external_verification": False,
         "original_champion_001_predictions_certified": 0,
         "v8_research_forward_predictions": len(records),
@@ -260,7 +270,9 @@ def project(history, schedule, coverage, asof):
                     "captured now, and assumes 48h game-result maturity. A local "
                     "digest and GitHub timestamp are not publisher-signed independent "
                     "model/source authentication. No independent calibration, "
-                    "injuries or executable sportsbook prices. Champion-001 shadows=0.")
+                    "injuries or executable sportsbook prices. B2B and last-5/10 "
+                     "form features are saved but not weighted into Elo. "
+                     "Champion-001 shadows=0.")
     }
     return records, report
 
