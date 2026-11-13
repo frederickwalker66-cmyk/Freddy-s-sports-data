@@ -88,6 +88,13 @@ class ForwardResearchTests(unittest.TestCase):
         self.assertEqual(x["forecast_recorded_utc"],NOW.isoformat())
         self.assertLess(x["forecast_recorded_utc"],x["start_utc"])
         self.assertEqual(x["model_version"],VERSION)
+        context = x["nba_rest_and_recent_form_features"]
+        self.assertIsInstance(context, dict)
+        self.assertIs(context["home"]["back_to_back_second_night"], False)
+        self.assertEqual(context["home"]["last5"]["available_matured_games"], 5)
+        self.assertEqual(context["home"]["last10"]["available_matured_games"], 10)
+        self.assertFalse(x["nba_rest_and_recent_form_weighted_into_elo_probability"])
+        self.assertEqual(r["forward_games_with_rest_and_form_context"], 1)
         self.assertTrue(0 < x["model_probability_home_win_research_only"] < 1)
         self.assertIsNone(x["outcome"])
         self.assertFalse(x["forecast_reconstructed_after_game"])
