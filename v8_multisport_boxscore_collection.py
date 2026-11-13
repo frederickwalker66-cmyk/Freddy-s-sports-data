@@ -15,7 +15,7 @@ from pathlib import Path
 
 from historical_outcomes import parse_time
 from challenger_research_features import validated
-from v8_all_sports_season_form import season_anchor,NY
+from v8_all_sports_season_form import season_anchor,source_league_season_scope,NY
 from v8_all_sports_player_form import STATS, _window, ESPN_SUMMARY_ROOT,SPORT_PATH
 from v8_multisport_boxscore_intake import fetch_boxscore,parse_box_score
 
@@ -55,10 +55,16 @@ def _validate_player_rows(league,rows,score_lookup,asof):
 
 
 def _board(league,player_rows,score_lookup,score_manifest,asof):
-    regular_ids={eid for eid,g in score_lookup.items() if g["season_type"]==2}
+    regular_ids={eid for eid,g in score_lookup.items()
+                 if source_league_season_scope(league,g["season_type"])}
+    # Today's / yesterday's results are deliberately in the 48h embargo.
+    # They MUST NOT falsely block coverage of all *eligible* matured games.
+    matured_ids={eid for eid in regular_ids
+                 if parse_time(score_lookup[eid]["event_start_utc"])+
+                    timedelta(hours=48)<=asof}
     observed_ids={p["espn_event_id"] for p in player_rows}
     source_complete=(score_manifest.get("source_coverage_complete") is True
-                     and not regular_ids-observed_ids)
+                     and not matured_ids-observed_ids)
     by_player=defaultdict(list)
     for row in player_rows:
         if row["did_not_play"] is not False:
@@ -91,6 +97,10 @@ def _board(league,player_rows,score_lookup,score_manifest,asof):
         "league":league,"as_of_utc":asof.isoformat(),
         "original_score_event_count_regular_season":len(regular_ids),
         "regular_season_events_with_parsed_player_rows":len(regular_ids&observed_ids),
+        "matured_events_eligible_for_source_player_boxes":len(matured_ids),
+        "matured_events_with_source_player_boxes":len(matured_ids&observed_ids),
+        "matured_events_still_missing_boxscore":len(matured_ids-observed_ids),
+        "soccer_market_competition_stage_unverified":league in ("mls","uefa_champions_league"),
         "source_scoreboard_coverage_complete":score_manifest.get("source_coverage_complete"),
         "player_boxscore_event_coverage_complete":source_complete,
         "player_ids_observed":len(results),
@@ -155,7 +165,7 @@ def collect_player_boxes(league,history_dir,output_dir,*,previous_dir=None,
     existing=_validate_player_rows(league,cache,lookup,start)
     complete_ids={eid for eid,pid in existing}
     eligible=[
-        g for g in scores if g.get("season_type")==2
+        g for g in scores if source_league_season_scope(league,g.get("season_type"))
         and parse_time(g["event_start_utc"])+timedelta(hours=48)<=start
         and g["espn_event_id"] not in complete_ids
     ]
@@ -198,6 +208,10 @@ def collect_player_boxes(league,history_dir,output_dir,*,previous_dir=None,
         "original_scoreboard_regular_season_events":board["original_score_event_count_regular_season"],
         "regular_season_boxscore_events_with_player_rows":
             board["regular_season_events_with_parsed_player_rows"],
+        "matured_events_eligible_for_player_boxscore":
+            board["matured_events_eligible_for_source_player_boxes"],
+        "matured_events_missing_player_boxscore":
+            board["matured_events_still_missing_boxscore"],
         "player_boxscore_event_coverage_complete":
             board["player_boxscore_event_coverage_complete"],
         "source_scoreboard_coverage_complete":
