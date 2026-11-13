@@ -19,7 +19,8 @@ from zoneinfo import ZoneInfo
 from challenger_research_features import validated
 from historical_outcomes import LEAGUES, collect, parse_time, scoreboard_url
 from v8_all_sports_season_form import (_team, _coverage, build_season_game_form,
-                                       season_anchor, MATURITY_HOURS, NY)
+                                       season_anchor, source_league_season_scope,
+                                       MATURITY_HOURS, NY)
 
 MAX_DAYS_PER_REQUEST = 35
 MAX_SEASON_DAYS = 366
@@ -102,7 +103,7 @@ def _team_board(rows, league, asof, manifest):
     _, _, complete, _ = _coverage(league, manifest, asof)
     teams = defaultdict(list)
     for r in rows:
-        if r["season_type"] != 2:
+        if not source_league_season_scope(league,r["season_type"]):
             continue
         start = parse_time(r["event_start_utc"])
         observed = parse_time(r["retrieved_at_utc"])
@@ -131,7 +132,8 @@ def _team_board(rows, league, asof, manifest):
         "report_type": "SEASON_TO_DATE_TEAM_AND_GAME_LAST5_LAST10_RESEARCH",
         "league": league, "as_of_utc": asof.isoformat(),
         "teams_in_published_history": len(output),
-        "regular_season_games": sum(r["season_type"] == 2 for r in rows),
+        "regular_season_games": sum(source_league_season_scope(league,r["season_type"]) for r in rows),
+        "soccer_competition_phase_and_regulation_not_independently_verified": league in ("mls","uefa_champions_league"),
         "complete_scoreboard_day_coverage": complete,
         "teams": output,
         "props_requiring_historical_line_and_settlement_not_computed": True,
