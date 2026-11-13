@@ -10,7 +10,7 @@ import math
 from v8_elite_research_gate import breakeven_probability, expected_roi
 
 SPORTS = frozenset(("nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab", "mls", "uefa_champions_league"))
-MARKETS = frozenset(("moneyline", "three_way_90_minute", "player_prop"))
+MARKETS = frozenset(("moneyline", "point_spread", "total_points", "three_way_90_minute", "player_prop"))
 # Exact stat/settlement targets; different markets and player identities must
 # never share a probability simply because the same game is involved.
 PLAYER_PROP_STATS = {
@@ -44,6 +44,8 @@ def research_edge(row):
         raise ValueError("league_market_scope_mismatch")
     if market == "player_prop" and league not in PLAYER_PROP_STATS:
         raise ValueError("unsupported_player_prop_league")
+    if market in ("point_spread", "total_points") and league not in ("nba", "nfl"):
+        raise ValueError("exact_game_spread_total_model_supported_for_nba_nfl_only")
     if league == "nfl" and market == "moneyline":
         # V8's NFL Elo forecasts are conditional on NOT a tie; using them
         # directly as full-moneyline win probabilities is a category error.
@@ -64,11 +66,32 @@ def research_edge(row):
     if not isinstance(bookmaker, str) or not bookmaker.strip():
         raise ValueError("bookmaker_missing")
     side = row.get("selection")
-    allowed = (("over", "under") if market == "player_prop" else
+    allowed = (("over", "under") if market in ("player_prop", "total_points") else
                ("home", "away", "draw") if market == "three_way_90_minute"
                else ("home", "away"))
     if side not in allowed:
         raise ValueError("invalid_selection")
+    # Exact full-game market probabilities must target the selected handicap
+    # and the exact settlement event; inferred moneyline p is NOT a cover p.
+    # Require half-point lines to avoid push handling from non-binary outcomes.
+    game_fields = {}
+    if market in ("point_spread", "total_points"):
+        line = row.get("line")
+        target = f"{league}_fullgame_{'point_spread_cover' if market == 'point_spread' else 'total_points_overunder'}"
+        if (type(line) not in (int, float) or not math.isfinite(line)
+                or (market == "total_points" and line <= 0)
+                or abs(line * 2 - round(line * 2)) > 1e-7
+                or int(round(abs(line) * 2)) % 2 != 1
+                or row.get("is_alternate_line") is not False):
+            raise ValueError("exact_non_alt_half_point_game_market_required")
+        if (row.get("model_target") != target
+                or row.get("independent_market_settlement_review") is not True
+                or row.get("independent_exact_line_model_review") is not True):
+            raise ValueError("exact_line_spread_total_model_and_settlement_review_required")
+        game_fields = {"line": float(line), "model_target": target,
+                       "game_handicap_and_settlement_reviewed": True}
+    elif market == "moneyline" and row.get("line") is not None:
+        raise ValueError("moneyline_must_not_have_handicap_line")
     prop_fields = {}
     if market == "player_prop":
         player_id, player_name, stat, line = (
@@ -115,7 +138,7 @@ def research_edge(row):
         "verified_executable_checkout_price": False,
         "independent_receipt_authentication_performed": False,
         "certified_prediction": False, "bet_ready": False, "stake_usd": 0,
-        **prop_fields,
+        **game_fields, **prop_fields,
     }
 
 
