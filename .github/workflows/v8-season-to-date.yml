@@ -1,0 +1,151 @@
+name: Freddy's Picks V8 — eight-league season-to-date last-5/last-10 research
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 13 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'v8_all_sports_season_form.py'
+      - 'v8_season_to_date_collector.py'
+      - 'v8_all_sports_player_form.py'
+      - 'v8_multisport_boxscore_intake.py'
+      - 'v8_multisport_boxscore_collection.py'
+      - 'tests/test_v8_all_sports_season_form.py'
+      - 'tests/test_v8_season_to_date_collector.py'
+      - 'tests/test_v8_all_sports_player_form.py'
+      - 'tests/test_v8_multisport_boxscore_intake.py'
+      - 'tests/test_v8_multisport_boxscore_collection.py'
+      - '.github/workflows/v8-season-to-date.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v8-eight-league-season-to-date
+  cancel-in-progress: false
+jobs:
+  eight-league-season:
+    if: github.event_name != 'push' || contains(github.event.head_commit.message, '[run-season-history]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        league: [nba, nfl, mlb, nhl, ncaaf, ncaab, mls, uefa_champions_league]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve last completed season-to-date result and player-box cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LEAGUE: ${{ matrix.league }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p previous_season
+          # A SUCCESSFUL run carries a separate tagged artifact per league.
+          # No cache is inferred from failed or partial previous workflow runs.
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY"             --workflow v8-season-to-date.yml --branch main --status success             --limit 5 --json databaseId --jq '.[].databaseId' || true)
+          for rid in "${ids[@]}"; do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY"               --name "season-to-date-$LEAGUE-$rid" --dir previous_season; then
+              echo "Reusing original source-dated $LEAGUE season archive run $rid"
+              break
+            fi
+            rm -rf previous_season && mkdir -p previous_season
+          done
+          echo "No cached file is considered official or independently authenticated."
+      - name: Collect only missing season scoreboard calendar dates in capped 35-day batches
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.league }}
+        run: |
+          set -euo pipefail
+          args=(--league "$LEAGUE" --output-dir "season/$LEAGUE")
+          if [[ -f previous_season/SEASON_COVERAGE.json &&
+                -f previous_season/SEASON_RESULTS.jsonl ]]; then
+            args+=(--previous-dir previous_season)
+          fi
+          python v8_season_to_date_collector.py "${args[@]}"
+      - name: Incrementally collect season historical player boxscores, L5 and L10
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.league }}
+        run: |
+          set -euo pipefail
+          max_new=120
+          case "$LEAGUE" in
+            nba) max_new=250 ;;
+            nfl|nhl|ncaab) max_new=180 ;;
+            mlb|ncaaf|mls|uefa_champions_league) max_new=120 ;;
+          esac
+          args=(--league "$LEAGUE" --season-dir "season/$LEAGUE"                 --output-dir "season/$LEAGUE/player_boxes"                 --max-new-summaries "$max_new")
+          if [[ -f previous_season/player_boxes/PLAYER_BOX_COVERAGE.json &&
+                -f previous_season/player_boxes/PLAYER_BOX_HISTORY.jsonl ]]; then
+            args+=(--previous-dir previous_season/player_boxes)
+          fi
+          python v8_multisport_boxscore_collection.py "${args[@]}"
+      - name: Enforce research-only season coverage and prop integrity
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.league }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          lg=os.environ["LEAGUE"]
+          root=Path("season")/lg
+          c=json.loads((root/"SEASON_COVERAGE.json").read_text())
+          p=json.loads((root/"player_boxes"/"PLAYER_BOX_COVERAGE.json").read_text())
+          t=json.loads((root/"TEAM_LAST5_LAST10.json").read_text())
+          b=json.loads((root/"player_boxes"/"PLAYER_LAST5_LAST10.json").read_text())
+          assert c["league"]==p["league"]==t["league"]==b["league"]==lg
+          assert c["champion_001_modified"] is p["champion_001_modified"] is False
+          assert t["champion_001_modified"] is b["champion_001_modified"] is False
+          assert c["certified_positive_ev_bets"]==p["certified_positive_ev_bets"]==0
+          assert t["certified_positive_ev_bets"]==b["certified_positive_ev_bets"]==0
+          assert c["source_days_confirmed_total"]<=c["source_days_expected"]<=366
+          assert p["boxscore_events_attempted_now"]<=250
+          assert not b["bookmaker_prop_price_and_player_crosswalk_verified"]
+          print(json.dumps({
+            "league":lg,"score_source_days":c["source_days_confirmed_total"],
+            "required_source_days":c["source_days_expected"],
+            "score_games":c["retained_published_final_results"],
+            "boxscore_games":p["regular_season_boxscore_events_with_player_rows"],
+            "team_last5_available":sum(x["last5"]["complete_window"]
+                                       for x in t["teams"].values()),
+            "team_last10_available":sum(x["last10"]["complete_window"]
+                                        for x in t["teams"].values()),
+            "player_last5_available":b["players_with_complete_last5"],
+            "player_last10_available":b["players_with_complete_last10"],
+            "certified_positive_ev_bets":0,
+          },sort_keys=True))
+          PY
+      - name: Summarize each real season and precise coverage gaps
+        if: always()
+        shell: bash
+        env:
+          LEAGUE: ${{ matrix.league }}
+        run: |
+          echo "## $LEAGUE season-to-date team and player form" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f "season/$LEAGUE/TEAM_LAST5_LAST10.md" ]]; then
+            head -n 55 "season/$LEAGUE/TEAM_LAST5_LAST10.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Score history unavailable — no invented rows" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f "season/$LEAGUE/player_boxes/PLAYER_LAST5_LAST10.md" ]]; then
+            head -n 25 "season/$LEAGUE/player_boxes/PLAYER_LAST5_LAST10.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Player history unavailable — no fabricated props" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Save real score/player data for incremental next run (not independently signed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: season-to-date-${{ matrix.league }}-${{ github.run_id }}
+          path: season/${{ matrix.league }}/
+          retention-days: 90
+          if-no-files-found: warn
