@@ -97,8 +97,8 @@ class BundleIntegrationTests(unittest.TestCase):
             self.assertIsNone(r["by_league"]["uefa_champions_league"]
                               ["qualified_exact_market_model_p"])
             md=(Path(folder)/"FULL_STACK_ALL_IN_ONE_REPORT.md").read_text()
-            self.assertIn("NOT verified",md) if False else self.assertIn("HOLD",md)
-            self.assertIn("not supported",md.lower()) if False else self.assertIn("not_supported",md)
+            self.assertIn("HOLD",md)
+            self.assertIn("not_supported",md)
 
     def test_original_unreviewed_elo_is_not_champion_and_not_ev(self):
         with tempfile.TemporaryDirectory() as folder:
