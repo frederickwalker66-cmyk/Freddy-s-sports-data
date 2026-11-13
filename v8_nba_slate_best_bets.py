@@ -574,3 +574,5 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
     return report, forecasts
 
 # User-requested Nov 13, 2026 NBA Sharp Edge best-bets archive-only rerun; no betting/model logic changed.
+
+# User requested next NBA Sharp Edge best-bets scan for Nov 13, 2026. Research-only, archived-price inputs; full-game plus player props; no paid requests, no wagers, no Champion-001 changes.
