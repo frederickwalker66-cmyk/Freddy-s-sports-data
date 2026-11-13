@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from challenger_historical_backfill import run as backfill, plan as backfill_plan, WINDOW_END
 from v8_dual_milestone_runner import run as train_both
 from v8_edge_value import rank_research_edges
+from v8_probability_edge_dashboard import build_dashboard, render_dashboard
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_sharp_player_props import summarize_player_props
 from v8_sharp_game_markets import summarize_full_game_markets
@@ -95,6 +96,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "historical_data_only_not_trainable": True,
         "by_league": {},
         "research_edge_candidates": [],
+        "research_forward_probability_rows": [],
+        "probability_sharp_edge_dashboard": None,
         "sharp_archive": None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
@@ -302,6 +305,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["historical_data_only_not_trainable"] = False
         report["model_training_data_independently_qualified"] = False
         report["next_sport_forward_research"] = status
+        report["research_forward_probability_rows"] = original[:25]
         report["by_league"][league] = {
             "status": "clocktime_forward_probability_research_only",
             "completed_published_games": status["published_history_retrieved"],
@@ -318,6 +322,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["historical_data_only_not_trainable"] = False
         report["model_training_data_independently_qualified"] = False
         report["nba_forward_research"] = forward_report
+        report["research_forward_probability_rows"] = forward[:25]
         report["by_league"]["nba"] = {
             "status": "genuine_pregame_forecast_research_only",
             "completed_published_games": forward_report["history_games_retrieved"],
@@ -410,6 +415,14 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                     "error": type(exc).__name__,
                     "data_verified_for_model_training": False,
                 }
+    # A consistent independent-vs-market percentage report for EVERY successful command.
+    # This never certifies a price, forecast, sharp-money flow or wager.
+    dashboard = build_dashboard(report)
+    report["probability_sharp_edge_dashboard"] = dashboard
+    (out / "PROBABILITY_SHARP_EDGE_DASHBOARD.json").write_text(
+        json.dumps(dashboard, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (out / "PROBABILITY_SHARP_EDGE_DASHBOARD.md").write_text(
+        render_dashboard(dashboard), encoding="utf-8")
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if command == "run_audit":

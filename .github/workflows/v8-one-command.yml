@@ -62,6 +62,8 @@ on:
       - '.github/workflows/v8-one-command.yml'
       - 'v8_one_command.py'
       - 'v8_edge_value.py'
+      - 'v8_probability_edge_dashboard.py'
+      - 'tests/test_v8_probability_edge_dashboard.py'
       - 'v8_mixed_market_board.py'
       - 'v8_sgo_research.py'
       - 'tests/test_v8_sgo_research.py'
@@ -89,6 +91,8 @@ on:
     paths:
       - 'v8_one_command.py'
       - 'v8_edge_value.py'
+      - 'v8_probability_edge_dashboard.py'
+      - 'tests/test_v8_probability_edge_dashboard.py'
       - 'tests/test_v8_one_command.py'
       - 'v8_mixed_market_board.py'
       - 'v8_sgo_research.py'
@@ -754,6 +758,22 @@ jobs:
               summary=os.getenv("GITHUB_STEP_SUMMARY")
               if summary: Path(summary).open("a").write(text)
           PY
+      - name: Always show percentages and Sharp Edge on every run
+        if: always()
+        shell: bash
+        run: |
+          report="v8_results/one_command/PROBABILITY_SHARP_EDGE_DASHBOARD.md"
+          if test -f "$report"; then
+            cat "$report"
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "Probability and Sharp Edge: N/A — no completed validated model report (HOLD)."
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              echo "## Probabilities and Sharp Edge — N/A (run incomplete, HOLD)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
       - name: Downloadable historical data + status
         if: always()
         uses: actions/upload-artifact@v4
