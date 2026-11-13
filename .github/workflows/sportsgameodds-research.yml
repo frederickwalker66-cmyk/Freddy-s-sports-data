@@ -41,6 +41,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install Python research-test dependencies only (no API calls)
+        run: python -m pip install -r requirements-calibration.txt
       - name: Validate existing SportsGameOdds normalization and quarantines offline
         run: |
           python -m unittest discover -s tests -p 'test_sportsgameodds_collector.py' -v
