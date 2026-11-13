@@ -55,9 +55,16 @@ def forecast():
 
 
 def odds(market, side, price, line=None, player=None, player_id=None,
-         quote=None):
+         quote=None, selection=None):
     received = NOW - timedelta(minutes=1)
     raw_quote = quote or NOW - timedelta(minutes=3)
+    if selection is None:
+        if market in ("moneyline", "point_spread"):
+            selection = "Indiana Pacers" if side == "home" else "New York Knicks"
+        elif market == "total_points":
+            selection = side.title()
+        else:
+            selection = (player or "Unknown") + " " + side.title()
     return {
         "source": "sportsgameodds_v2",
         "record_type": "pregame_odds_observation",
@@ -68,6 +75,7 @@ def odds(market, side, price, line=None, player=None, player_id=None,
         "home_team": "Indiana Pacers", "away_team": "New York Knicks",
         "event_id": "sgo:2026-11-13-NYIND",
         "market_type": market, "selection_type": side,
+        "selection": selection,
         "player_id": player_id, "player_name": player,
         "line": line, "odds_american": price,
         "event_start_time": START.isoformat(),
@@ -95,18 +103,23 @@ class FullNBACommandTests(unittest.TestCase):
             odds("player_points", "over", -105, 24.5, "Star Guard", "p101"),
             odds("player_points", "under", -115, 24.5, "Star Guard", "p101"),
             odds("total_points", "over", -110, 220.5),
+            # A team total must NEVER be labeled as a full-game total.
+            odds("total_points", "over", -110, 108.5, selection="Home Over"),
+            odds("total_points", "under", -110, 108.5, selection="Home Under"),
             odds("player_rebounds", "over", -105, 8.5, "Other", "p102"),
         ]
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "sportsgameodds_dk_original.jsonl"
             p.write_text("\n".join(json.dumps(x) for x in rows))
             indexed, counters = load_sgo_slate_rows(tmp, schedule(), now=NOW)
-            self.assertEqual(counters["matched_rows"], 10)
-            self.assertEqual(len(indexed), 10)
+            self.assertEqual(counters["matched_rows"], 12)
+            self.assertEqual(len(indexed), 12)
             self.assertTrue(all(not r["actual_sportsbook_checkout_verified"] for r in indexed))
             self.assertTrue(all(not r["primary_or_alt_line_independently_verified"] for r in indexed))
             pairs = pair_sgo_prices(indexed, [forecast()])
-        self.assertEqual(len(pairs), 4)
+        self.assertEqual(len(pairs), 5)
+        self.assertEqual(sum(x["market_scope"] == "home_team" for x in pairs), 1)
+        self.assertEqual(sum(x["market_scope"] == "full_game" and x["market"] == "total_points" for x in pairs), 1)
         self.assertEqual({x["market"] for x in pairs},
                          {"moneyline", "point_spread", "total_points", "player_points"})
         ml = next(x for x in pairs if x["market"] == "moneyline")
@@ -115,6 +128,8 @@ class FullNBACommandTests(unittest.TestCase):
         self.assertGreater(ml["sides"][0]["no_vig_market_percent"], 40)
         self.assertIsNone(ml["certified_sharp_edge_pp"])
         self.assertIsNone(ml["certified_expected_roi_percent"])
+        player_pair = next(x for x in pairs if x["market"] == "player_points")
+        self.assertIs(player_pair["player_team_assignment_verified"], False)
         self.assertFalse(ml["source_pair_quote_fresh"])
 
     def test_never_join_different_providers_players_or_unpaired_legs(self):
@@ -195,6 +210,9 @@ class FullNBACommandTests(unittest.TestCase):
             self.assertEqual(len(forecasts), 1)
             self.assertEqual(report["slate_game_count_from_original_source"], 1)
             self.assertEqual(report["paired_archive_market_count"], 2)
+            self.assertEqual(report["quarantined_unverified_player_prop_pairs"], 1)
+            self.assertEqual(report["player_props_with_independently_verified_team_roster_assignment"], 0)
+            self.assertNotIn("| Star |", (output/"NBA_TONIGHTS_FULL_SLATE.md").read_text())
             self.assertEqual(report["games"][0]["model_home_win_research_percent"], 48)
             self.assertEqual(report["best_bets_ranked_by_certified_ev"], [])
             self.assertTrue((output/"NBA_TONIGHTS_FULL_SLATE.md").exists())
