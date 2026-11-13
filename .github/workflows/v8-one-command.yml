@@ -901,6 +901,11 @@ jobs:
             if test -n "${GITHUB_STEP_SUMMARY:-}"; then
               cat "$report" >> "$GITHUB_STEP_SUMMARY"
             fi
+          elif test -f "v8_results/one_command/FULL_STACK_ALL_IN_ONE_REPORT.md"; then
+            echo "Probability and Sharp Edge: see FULL_STACK_MARKET_PROBABILITIES.json and FULL_STACK_ALL_IN_ONE_REPORT.md (HOLD; not model-certified)."
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              echo "## Probabilities & Sharp Edge — included in full-stack model report above (HOLD / research-only)" >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "Probability and Sharp Edge: N/A — no completed validated model report (HOLD)."
             if test -n "${GITHUB_STEP_SUMMARY:-}"; then
