@@ -22,6 +22,7 @@ from v8_nba_forward_research import BASE, capture as capture_nba_forward
 from v8_sgo_research import aware as aware_time
 from v8_nba_player_prop_dashboard import create_player_props_board, render_player_props
 from v8_nba_player_form_pipeline import run_player_form_research
+from v8_nba_season_archive_link import link_saved_nba_season
 
 NY = ZoneInfo("America/New_York")
 MAX_FILES = 8
@@ -528,6 +529,15 @@ def render_slate(report):
     # holds. The full 441+ per-side references remain separate audit files.
     lines.extend(["", render_player_props(report["nba_player_props"], preview=True)])
     lines.extend([
+        "", "## Season-to-date player and game last five / last ten",
+        f"**Whole-season score/player source:** {_c((report.get('nba_season_to_date_last5_last10') or {}).get('status'))}",
+        f"**Full-season team L5 / L10 complete:** "
+        f"{_c((report.get('nba_season_to_date_last5_last10') or {}).get('complete_team_last5'))} / "
+        f"{_c((report.get('nba_season_to_date_last5_last10') or {}).get('complete_team_last10'))}",
+        f"**Full-season player L5 / L10 complete:** "
+        f"{_c((report.get('nba_season_to_date_last5_last10') or {}).get('complete_player_last5'))} / "
+        f"{_c((report.get('nba_season_to_date_last5_last10') or {}).get('complete_player_last10'))}",
+        "**Season history never proves current rosters, sportsbook odds, independent calibrated prop forecasts or model +EV.**",
         "", "## Player last five / last ten — new research snapshot",
         f"**Player research status:** {_c((report.get('nba_player_last5_last10_research') or {}).get('status'))}",
         f"**Historical player summary games requested / valid:** "
@@ -557,7 +567,8 @@ def render_slate(report):
 
 
 def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None,
-        forward_runner=None, schedule_fetcher=None, player_form_fetcher=None):
+        forward_runner=None, schedule_fetcher=None, player_form_fetcher=None,
+        season_history_dir=None):
     """Save complete current-day schedule and evidence; fail closed on missing feeds."""
     at = _clock(now)
     today = at.astimezone(NY).date()
@@ -625,6 +636,9 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
             "champion_001_modified": False,
         }
     report["nba_player_last5_last10_research"] = player_report
+    season_context = link_saved_nba_season(
+        slate, at, season_history_dir, output/"nba_season_history")
+    report["nba_season_to_date_last5_last10"] = season_context
     report["source_coverage_complete_for_all_nba_games"] = state in (
         "original_future_capture", "fresh_independent_schedule_request")
     report["all_market_quote_rows"] = odds
