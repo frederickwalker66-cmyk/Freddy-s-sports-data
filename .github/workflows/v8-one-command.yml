@@ -53,7 +53,7 @@ on:
   # Automatically replay archived Sharp prices after a successful paid collector
   # run. The replay reads artifacts only; it never calls SharpAPI itself.
   workflow_run:
-    workflows: ['Collect SharpAPI DraftKings pregame odds']
+    workflows: ['Collect SharpAPI DraftKings pregame odds', 'SportsGameOdds NBA NFL MLB research — manual capped intake']
     types: [completed]
     branches: [main]
   push:
@@ -170,7 +170,7 @@ jobs:
           done
           echo "Archived SharpAPI runs downloaded: $count"
       - name: Retrieve last completed SportsGameOdds source artifact — no paid API requests
-        if: ${{ inputs.command == 'run_mixed_market' }}
+        if: ${{ inputs.command == 'run_mixed_market' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && github.event.workflow_run.conclusion == 'success') }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -342,7 +342,7 @@ jobs:
           done
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market' || github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}
           HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || inputs.command == 'run_nba_forward' || inputs.command == 'run_nfl_forward' || inputs.command == 'run_nhl_forward') && '35' || inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -758,7 +758,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market' || github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run_sports' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
