@@ -108,10 +108,12 @@ def build_features(history, schedule, captured_at):
             raise ValueError("NBA_future_schedule_required")
         game_id = game.get("espn_event_id")
         home, away = game.get("home_team_espn_id"), game.get("away_team_espn_id")
+        if game_id in output:
+            raise ValueError("duplicate_future_NBA_identity")
         if (not isinstance(game_id, str) or not game_id
                 or not isinstance(home, str) or not isinstance(away, str)
-                or home == away or game_id in output):
-            raise ValueError("invalid_or_duplicate_NBA_future_identity")
+                or home == away):
+            raise ValueError("invalid_NBA_future_identity")
         start = parse_time(game["start_utc"])
         if start <= asof:
             continue
