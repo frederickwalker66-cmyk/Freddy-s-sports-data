@@ -43,11 +43,12 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("--nba-grade-archives-dir saved_nba_forward_archives",self.text)
 
 
-    def test_manual_default_is_nfl_props_edge_not_model_status(self):
+    def test_manual_default_is_mixed_market_not_model_status(self):
         self.assertRegex(
             self.text,
-            r"(?s)workflow_dispatch:\n    inputs:\n      command:.*?default: run_nfl_props_edge")
+            r"(?s)workflow_dispatch:\n    inputs:\n      command:.*?default: run_mixed_market")
         self.assertIn("          - run_nfl_props_edge\n", self.text)
+        self.assertIn("          - run_mixed_market\n", self.text)
         self.assertIn("inputs.command || 'run_sports'", self.text)
         self.assertNotIn("default: model_status", self.text)
 
