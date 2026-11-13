@@ -635,3 +635,4 @@ if __name__ == "__main__":
 # User-requested NBA refresh, 2026-11-13: research-only game market, player last-five/ten form, sharp edge, CLV and parlay preflight; no wager.
 # Post-season-data-refresh: reload 8-league complete-scoreboard and player L5/L10 GH research artifacts on NBA command.
 # User-requested immediate model refresh after eight-league season L5/L10 source collection, research-only, no stakes.
+# 2026-11-13 explicit Run NBA = always NBA sharp edge; full-slate source only, Champion-001 unchanged.
