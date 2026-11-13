@@ -26,6 +26,19 @@ CROSS_YEAR = frozenset(("nba", "nfl", "nhl", "ncaaf", "ncaab", "uefa_champions_l
 SOCCER = frozenset(("mls", "uefa_champions_league"))
 MATURITY_HOURS = 48
 VERSION = "v8-eight-league-same-season-last5-last10-v1"
+
+def source_league_season_scope(league, season_type):
+    """ESPN soccer season.type is a league/tournament ID, not ordinal 2.
+
+    Accept positive competition identifiers for descriptive SCORES only;
+    cup/playoff/regulation market stage remains unverified. For the six
+    U.S. sports the ESPN '2' regular-season code remains mandatory.
+    """
+    if league in SOCCER:
+        return (type(season_type) is int and
+                (season_type == 2 or season_type > 3))
+    return type(season_type) is int and season_type == 2
+
 MAX_HISTORY = 10000
 MAX_TARGETS = 500
 
@@ -155,8 +168,8 @@ def build_season_game_form(history, schedule, as_of_utc, coverage_by_league=None
         if not anchor <= start.astimezone(NY).date() <= asof.astimezone(NY).date():
             skipped["outside_current_season_search_anchor"] += 1
             continue
-        if row.get("season_type") != 2:
-            skipped["non_regular_season_event"] += 1
+        if not source_league_season_scope(league,row.get("season_type")):
+            skipped["unsupported_ESPN_season_scope"] += 1
             continue
         home, away = row["home_team_espn_id"], row["away_team_espn_id"]
         hs, a_s = row["home_score"], row["away_score"]
@@ -221,6 +234,7 @@ def build_season_game_form(history, schedule, as_of_utc, coverage_by_league=None
             "same_season_head_to_head_last5": _window(hh, 5, coverage_complete),
             "same_season_head_to_head_last10": _window(hh, 10, coverage_complete),
             "soccer_three_way_and_90_minute_settlement_not_verified": league in SOCCER,
+            "soccer_cup_vs_regular_competition_stage_unverified": league in SOCCER,
             "NHL_OT_shootout_and_regulation_market_settlement_not_verified": league == "nhl",
             "spread_and_total_betting_lines_not_part_of_published_score": True,
             "no_market_line_hit_rate_without_actual_line": True,
