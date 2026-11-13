@@ -32,6 +32,26 @@ def _number(value):
     return None
 
 
+def _three_made(value):
+    # ESPN box scores expose made-attempted pairs such as "3-8".
+    if not isinstance(value, str) or not re.fullmatch(r"\\d{1,2}-\\d{1,2}", value):
+        return None
+    made, attempts = (int(v) for v in value.split("-"))
+    return made if 0 <= made <= attempts <= 40 else None
+
+
+def _event_start(comp):
+    # A date without timezone is not acceptable as a chronological input.
+    candidate = comp.get("date")
+    if not isinstance(candidate, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+        return dt.astimezone(timezone.utc).isoformat() if dt.tzinfo is not None else None
+    except ValueError:
+        return None
+
+
 def parse_summary(data, event_id, fetched_at):
     """Fail closed unless exact final event and complete player array."""
     if not isinstance(data, dict):
@@ -60,6 +80,7 @@ def parse_summary(data, event_id, fetched_at):
     groups=(data.get("boxscore") or {}).get("players")
     if not isinstance(groups, list) or len(groups)!=2:
         raise ValueError("missing both teams' player boxscore")
+    event_start_utc = _event_start(comp)
     rows=[]
     for group in groups:
         tid = str((group.get("team") or {}).get("id"))
@@ -98,6 +119,8 @@ def parse_summary(data, event_id, fetched_at):
                     "starter":a.get("starter") is True,
                     "did_not_play":dnp,
                     "minutes":mins,
+                    "threes_made":_three_made(cells.get("3PT")),
+                    "event_start_utc":event_start_utc,
                     "points":_number(cells.get("PTS")),
                     "rebounds":_number(cells.get("REB")),
                     "assists":_number(cells.get("AST")),
