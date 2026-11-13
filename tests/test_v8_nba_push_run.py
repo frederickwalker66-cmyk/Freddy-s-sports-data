@@ -16,12 +16,14 @@ class NBAOnDemandWorkflowTests(unittest.TestCase):
         selector = match.group(1)
         self.assertEqual(selector, artifact.group(1))
         self.assertIn(
-            "github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba'",
+            "github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets'",
             selector)
         self.assertLess(selector.index("'[run-nba]'"), selector.index("&& 'run_nba_grade'"))
         self.assertIn("github.event_name == 'push' && 'run_nba_grade'", selector)
         self.assertIn("- run_nba\n", text)
         self.assertIn("PROBABILITY_SHARP_EDGE_DASHBOARD.md", text)
+        self.assertIn("NBA_SHARP_EDGE_ALWAYS.md", text)
+        self.assertIn("SELECTED_COMMAND=run_nba_best_bets", text)
 
     def test_nba_tag_does_not_auto_run_forward_model_or_place_wagers(self):
         text = Path(".github/workflows/v8-one-command.yml").read_text()
