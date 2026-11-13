@@ -81,7 +81,8 @@ def audit_source_archive(directory, *, now=None):
                     raise ValueError("not_original_valid_pregame_capture")
                 counts[f"{league}_{family}"] += 1
                 seconds = (clock-receipt).total_seconds()
-                if 0 <= seconds <= MAX_WATCH_AGE_SECONDS and start > clock:
+                quote_seconds = (clock-when).total_seconds()
+                if 0 <= seconds <= MAX_WATCH_AGE_SECONDS and 0 <= quote_seconds <= MAX_WATCH_AGE_SECONDS and start > clock:
                     recent.append({
                         "league": league, "market": r.get("market_type"),
                         "matchup": f"{r.get('away_team', 'unknown')} @ {r.get('home_team', 'unknown')}",
