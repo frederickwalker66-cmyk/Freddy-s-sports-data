@@ -449,6 +449,10 @@ jobs:
           if [[ -f "$slate" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             cat "$slate" >> "$GITHUB_STEP_SUMMARY"
           fi
+          player_form="v8_results/one_command/nba_best_bets/nba_player_form/NBA_PLAYER_LAST5_LAST10.md"
+          if [[ -f "$player_form" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            cat "$player_form" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Present report directly in phone run summary
         if: always()
         shell: bash
