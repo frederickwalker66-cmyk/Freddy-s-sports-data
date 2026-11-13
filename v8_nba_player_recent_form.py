@@ -94,14 +94,16 @@ def build_player_form(box_rows, targets, as_of_utc):
     for games in by_player.values():
         games.sort(key=lambda q: (q["started"], q["event_id"]))
     result = {}
+    seen_targets = set()
     for target in targets:
         if not isinstance(target, dict):
             raise ValueError("invalid_NBA_player_target")
         player, eid = target.get("player_id"), target.get("espn_event_id")
         if (not isinstance(player, str) or not player.isdecimal()
                 or not isinstance(eid, str) or not eid.isdecimal()
-                or eid in result):
+                or (eid, player) in seen_targets):
             raise ValueError("invalid_or_duplicate_NBA_target_identity")
+        seen_targets.add((eid, player))
         tip = parse_time(target.get("start_utc"))
         if tip <= asof:
             raise ValueError("NBA_player_target_already_started")
