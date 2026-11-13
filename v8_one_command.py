@@ -573,3 +573,5 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+# User-triggered NBA research execution on 2026-11-13; analytics unchanged.
