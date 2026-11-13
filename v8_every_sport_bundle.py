@@ -269,7 +269,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             else:
                 report=execute_fn(
                     core,days=days,end_date=(end_date if league not in
-                         ("nba","nfl","nhl") else None),now=clock,
+                         ("nba","nfl","nhl") else None),now=now,
                     output_dir=str(out/"components"/league),
                     sharp_rows=sharp_rows or [], sharp_run_ids=sharp_run_ids,
                     sgo_archive_dir=sgo_archive_dir,
@@ -284,6 +284,12 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                               "exception_class":type(exc).__name__,
                               "native_model_probability":None,
                               "certified_positive_ev_bets":0}
+    # Real collectors timestamp source responses AFTER they arrive. Never
+    # freeze an earlier orchestration clock inside a live forward collector:
+    # that would falsely pre-date the original ESPN result receipt and make
+    # genuine NBA forward forecasts fail their chronological provenance gate.
+    if now is None:
+        clock=datetime.now(timezone.utc)
     sharp, _=summarize_sharp_archive(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
     props, _=summarize_player_props(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
     games, _=summarize_full_game_markets(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
