@@ -35,6 +35,7 @@ from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashbo
 from v8_arbitrage_research import scan_arbitrage
 from v8_betting_readiness import audit_betting_readiness, save_readiness
 from v8_nba_slate_best_bets import run as run_nba_slate_best_bets
+from v8_nba_five_leg_preflight import audit_five_leg_preflight
 
 SPORTS = tuple(WINDOW_END)
 COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_nfl", "run_nhl", "run_mlb",
@@ -116,6 +117,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_oos_research": None,
         "nba_forward_research": None,
         "nba_slate_best_bets": None,
+        "nba_five_leg_preflight": None,
         "nba_forward_grading": None,
         "forward_leaderboard": None,
         "forward_calibration": None,
@@ -139,6 +141,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 or slate.get("independently_certified_positive_ev_bets") != 0):
             raise ValueError("unsafe_NBA_slate_betting_certification")
         report["nba_slate_best_bets"] = slate
+        five_leg = audit_five_leg_preflight(slate, calibration)
+        report["nba_five_leg_preflight"] = five_leg
+        (out / "NBA_FIVE_LEG_PREFLIGHT.json").write_text(
+            json.dumps(five_leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         tonight_ids = {g["espn_event_id"] for g in slate["games"]}
         report["research_forward_probability_rows"] = [
             row for row in forecasts if row.get("espn_event_id") in tonight_ids]
