@@ -34,6 +34,10 @@
 - Weekly public eight-sport research collection is scheduled best-effort; artifacts expire after 90 days and must be archived for durable historical coverage.
 - **No independently validated sports predictions or verified executable sportsbook edge are currently available.** Champion-001 is unchanged and no wagers are placed.
 
+## SportsGameOdds live-source research (controlled manual capture)
+
+SportsGameOdds v2 can supplement archived SharpAPI research with provider-timestamped DraftKings-labeled odds. The source collector is now accessible through a **manual-only, single-league GitHub Actions workflow** with a capped event limit; it does not start paid data collection automatically. The `run_mixed_market` command can read the most recent saved SGO artifact **as a separate quarantined research feed** without making paid API calls. **[SportsGameOdds setup and safety guide](SPORTSGAMEODDS_INTEGRATION.md)**. Champion-001 remains frozen; source prices are not native model probabilities or certified +EV.
+
 ## All-Markets NBA + NFL Sharp Edge (Moneyline, Spread, Total, Player Props)
 
 New phone command: **`run_mixed_market`**. This presents full-game moneylines, spreads, Over/Under totals and player prop Over/Under quotes in a single *research-only* report, without inventing win probabilities, EV, or live sportsbook prices. The existing `run_edge` supports exact, independently reviewed NBA/NFL spread and total research estimates in addition to moneyline and player props. **[See the all-markets guide](V8_MIXED_MARKET_GUIDE.md)**. Champion-001 remains frozen; no automatic wagers.

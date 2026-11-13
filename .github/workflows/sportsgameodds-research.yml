@@ -1,0 +1,136 @@
+name: SportsGameOdds NBA NFL MLB research — manual capped intake
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: 'One league per run (bounded object-credit usage)'
+        required: true
+        type: choice
+        default: NBA
+        options:
+          - NBA
+          - NFL
+          - MLB
+      events_limit:
+        description: 'Maximum event objects (one page; provider minimums may apply)'
+        required: true
+        type: choice
+        default: '5'
+        options:
+          - '2'
+          - '5'
+          - '8'
+  pull_request:
+    paths:
+      - 'sportsgameodds_collector.py'
+      - 'v8_sgo_research.py'
+      - 'tests/test_v8_sgo_research.py'
+      - 'tests/test_sportsgameodds_collector.py'
+      - '.github/workflows/sportsgameodds-research.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sgo-manual-research-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  read-only-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python research-test dependencies only (no API calls)
+        run: python -m pip install -r requirements-calibration.txt
+      - name: Validate existing SportsGameOdds normalization and quarantines offline
+        run: |
+          python -m unittest discover -s tests -p 'test_sportsgameodds_collector.py' -v
+          python -m unittest discover -s tests -p 'test_v8_sgo_research.py' -v
+  collection:
+    if: github.event_name == 'workflow_dispatch'
+    needs: read-only-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY || secrets.SPORTSGAMEODDS_KEY || secrets.SPORTS_GAME_ODDS_API_KEY || secrets.SPORTSGAMEODDS || secrets.SPORTS_GAME_ODDS }}
+      SGO_LEAGUE: ${{ inputs.league }}
+      SGO_EVENT_LIMIT: ${{ inputs.events_limit }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify secret without exposing it (no network if absent)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPORTSGAMEODDS_API_KEY:-}" ]]; then
+            echo "::error::No supported SportsGameOdds GitHub Actions repository secret is configured."
+            exit 1
+          fi
+      - name: Single capped provider research call, one league and one page
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sportsgameodds_collector.py --leagues "$SGO_LEAGUE" \
+            --limit "$SGO_EVENT_LIMIT" --max-pages 1 --output-dir snapshots
+      - name: Quality-screen archive, never promote research prices
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p validation_sgo
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from v8_sgo_research import audit_source_archive
+          r=audit_source_archive("snapshots")
+          assert r["champion_001_modified"] is False
+          assert r["certified_positive_ev_bets"] == 0
+          assert r["independently_validated_native_model_probabilities"] == 0
+          assert r["source_primary_market_status_authenticated"] is False
+          assert r["bet_ready"] is False
+          assert r["archive_files_found"] == 1
+          Path("validation_sgo/report.json").write_text(
+              json.dumps(r, sort_keys=True, indent=2)+"\n", encoding="utf-8")
+          print(json.dumps({"status":r["status"],
+              "quote_reference_rows":r["rows_examined"],
+              "recent_quote_references":r["recent_upcoming_quote_reference_count"],
+              "certified_positive_ev_bets":0,"bet_ready":False},sort_keys=True))
+          PY
+      - name: Publish read-only source quality summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import json
+          from pathlib import Path
+          p=Path("validation_sgo/report.json")
+          if p.is_file():
+              r=json.loads(p.read_text())
+              lines=["### SportsGameOdds: provider data research only",
+                     f"- Source quote references inspected: {r['rows_examined']}",
+                     f"- Recent source-labeled quotes (NOT checkout): {r['recent_upcoming_quote_reference_count']}",
+                     f"- Quote groups: {r['source_labeled_quotes_by_market']}",
+                     "- Model probability: UNAVAILABLE; certified EV bets: 0.",
+                     "- Champion-001 unchanged. No wagers. No SharpAPI automatic join."]
+          else:
+              lines=["### SportsGameOdds provider collection incomplete",
+                     "- A missing key, API response error or validation issue blocked this attempt.",
+                     "- No sportsbook price, model edge or bet is certified."]
+          summary=os.getenv("GITHUB_STEP_SUMMARY")
+          if summary:
+              Path(summary).open("a").write("\n".join(lines)+"\n")
+          print("\n".join(lines))
+          PY
+      - name: Archive the isolated provider research evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgo-draftkings-research-${{ github.run_id }}
+          path: |
+            snapshots/
+            validation_sgo/
+          retention-days: 30
+          if-no-files-found: ignore

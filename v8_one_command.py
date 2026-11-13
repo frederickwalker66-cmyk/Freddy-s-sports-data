@@ -18,6 +18,7 @@ from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_sharp_player_props import summarize_player_props
 from v8_sharp_game_markets import summarize_full_game_markets
 from v8_mixed_market_board import mixed_market_board
+from v8_sgo_research import audit_source_archive
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -64,7 +65,7 @@ def default_end_date(now=None):
 
 def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             now=None, output_dir="v8_results/one_command", sharp_rows=None,
-            arbitrage_rows=None,
+            arbitrage_rows=None, sgo_archive_dir=None,
             sharp_run_ids=(), source_run_metadata=None,
             certification_source_dir=None, certification_sharp_dir=None,
             certification_source_run_id=None, certification_sharp_run_id=None,
@@ -98,6 +99,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "sharp_player_props": None,
         "sharp_full_game_markets": None,
         "mixed_market_research": None,
+        "sportsgameodds_archive_research": None,
         "sharp_edge_calibration": None,
         "sharp_edge_clv": None,
         "arbitrage_research": None,
@@ -144,6 +146,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             # No market can be ranked by profit without native exact-line p.
             mixed = mixed_market_board(game_report, prop_report)
             report["mixed_market_research"] = mixed
+            sgo = audit_source_archive(sgo_archive_dir, now=now)
+            report["sportsgameodds_archive_research"] = sgo
+            # Keep provider feeds separated: SGO has unverified event/player
+            # identities and main-market status, and cannot become SharpAPI EV.
+            (out / "SGO_SEPARATE_SOURCE_RESEARCH.json").write_text(
+                json.dumps(sgo, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             (out / "MIXED_MARKET_GAME_PROP_RESEARCH.json").write_text(
                 json.dumps(mixed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         calibration = sharp_calibration_dashboard(calibration_file)
@@ -422,6 +430,7 @@ def main(argv=None):
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
+    p.add_argument("--sgo-archive-dir", help="Downloaded existing SportsGameOdds run artifacts; no API calls")
     p.add_argument("--arbitrage-input", help="Optional local canonical crossbook research-quote JSONL; never a live betting feed")
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
@@ -481,7 +490,7 @@ def main(argv=None):
     stop = date.fromisoformat(args.end_date) if args.end_date else None
     report = execute(args.command, args.days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
-                     arbitrage_rows=arbitrage_rows,
+                     arbitrage_rows=arbitrage_rows, sgo_archive_dir=args.sgo_archive_dir,
                      source_run_metadata=source_metadata,
                      certification_source_dir=args.certification_source_dir,
                      certification_sharp_dir=args.certification_sharp_dir,
