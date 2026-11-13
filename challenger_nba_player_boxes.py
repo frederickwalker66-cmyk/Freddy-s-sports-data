@@ -34,7 +34,7 @@ def _number(value):
 
 def _three_made(value):
     # ESPN box scores expose made-attempted pairs such as "3-8".
-    if not isinstance(value, str) or not re.fullmatch(r"\\d{1,2}-\\d{1,2}", value):
+    if not isinstance(value, str) or not re.fullmatch(r"\d{1,2}-\d{1,2}", value):
         return None
     made, attempts = (int(v) for v in value.split("-"))
     return made if 0 <= made <= attempts <= 40 else None
