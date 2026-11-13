@@ -17,7 +17,7 @@ from statistics import mean
 from zoneinfo import ZoneInfo
 
 from historical_outcomes import LEAGUES, parse_time
-from v8_all_sports_season_form import season_anchor, MATURITY_HOURS
+from v8_all_sports_season_form import season_anchor, MATURITY_HOURS, source_league_season_scope
 
 ESPN_SUMMARY_ROOT = "https://site.api.espn.com/apis/site/v2/sports/"
 SPORT_PATH = {
@@ -123,8 +123,8 @@ def build_all_player_form(rows, upcoming, as_of_utc, coverage_by_league=None):
         if started.astimezone(ZoneInfo("America/New_York")).date()<anchor:
             rejected["other_season"]+=1
             continue
-        if row.get("season_type") != 2:
-            rejected["not_regular_season"]+=1
+        if not source_league_season_scope(league,row.get("season_type")):
+            rejected["unsupported_ESPN_season_competition_scope"]+=1
             continue
         if row.get("did_not_play") is True:
             rejected["DNP_not_an_appearance"]+=1
