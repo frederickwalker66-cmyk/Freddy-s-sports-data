@@ -130,6 +130,10 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
         self.assertIn("cat \"$report\" >> \"$GITHUB_STEP_SUMMARY\"", src)
         self.assertIn("v8_probability_edge_dashboard.py", src)
         self.assertIn("test_v8_probability_edge_dashboard.py", src)
+        one_click = Path(".github/workflows/v8-nfl-player-props-edge.yml").read_text()
+        self.assertIn("Show probability and Sharp Edge percentages on every one-click run", one_click)
+        self.assertIn("v8_results/nfl_props_edge/PROBABILITY_SHARP_EDGE_DASHBOARD.md", one_click)
+        self.assertIn('cat "$report" >> "$GITHUB_STEP_SUMMARY"', one_click)
 
 
 if __name__ == "__main__":
