@@ -121,6 +121,52 @@ def build_dashboard(report):
             row["decision"] = "RESEARCH_ONLY_HOLD"
             rows.append(row)
 
+    # Include NBA player-prop Over/Under prices directly in the universal
+    # Sharp Edge dashboard, even when there are no fresh SharpAPI props. This
+    # remains a labeled SGO archive display, NOT a player/model forecast.
+    nba_slate = report.get("nba_slate_best_bets") or {}
+    nba_prop_board = nba_slate.get("nba_player_props") or {}
+    preview = nba_prop_board.get("preview_unranked_research_only") or []
+    if not isinstance(preview, list):
+        raise ValueError("invalid_NBA_prop_preview")
+    # One sample per stat family maximizes coverage alongside 9 game
+    # probabilities in the 40-row mobile preview; full props have own files.
+    selected_families = set()
+    for reference in preview:
+        if not isinstance(reference, dict):
+            raise ValueError("untrusted_NBA_prop_preview")
+        family = reference.get("stat_family")
+        if family in selected_families or len(selected_families) >= 10:
+            continue
+        if (reference.get("provider_player_team_assignment_verified") is not False
+                or reference.get("player_active_today_verified") is not False
+                or reference.get("bookmaker_checkout_verified") is not False
+                or reference.get("independently_generated_prop_over_probability_percent") is not None
+                or reference.get("independently_generated_prop_under_probability_percent") is not None
+                or reference.get("independently_certified_prop_edge_pp") is not None
+                or reference.get("independently_certified_prop_roi_percent") is not None):
+            raise ValueError("untrusted_NBA_player_prop_promotion")
+        selected_families.add(family)
+        for side in ("over", "under"):
+            row = _base(
+                "nba",
+                reference.get("source_labeled_matchup_unverified") + " (provider event label; player/team unverified)",
+                "player_prop",
+                side,
+                reference.get("line"),
+                reference.get(f"{side}_odds_american"),
+                "archived_sgo_player_prop_provider_only_not_checkout",
+                reference.get(f"{side}_source_quote_utc"),
+            )
+            row["player_name"] = reference.get("source_player_name_unverified")
+            row["stat_family"] = family
+            row["no_vig_market_probability_percent"] = _pct(
+                reference.get(f"{side}_no_vig_market_percent"))
+            row["break_even_probability_percent"] = _pct(
+                reference.get(f"{side}_break_even_percent"))
+            row["decision"] = "HOLD_UNVERIFIED_PLAYER_TEAM_AND_MODEL"
+            rows.append(row)
+
     game = report.get("sharp_full_game_markets") or {}
     for match in (game.get("today_game_market_board") or [])[:15]:
         if not isinstance(match, dict):
@@ -196,6 +242,10 @@ def build_dashboard(report):
         "market_movement_watchlist": moves[:15],
         "last_sharpapi_archived_quote_utc":
             archive.get("latest_eligible_capture_utc"),
+        "nba_player_prop_archived_paired_markets":
+            nba_prop_board.get("paired_source_prop_market_count", 0),
+        "nba_player_prop_preview_stat_families": sorted(selected_families),
+        "nba_player_prop_identity_verified": False,
         "native_model_probability_is_not_no_vig_market_probability": True,
         "sharp_bettor_handle_percentage_verified": False,
         "sharp_bettor_handle_percentage": None,
@@ -251,6 +301,10 @@ def render_dashboard(board):
         lines.append("| N/A | No age-qualified movement | N/A | N/A |")
     lines.extend([
         "",
+        f"**Archived NBA two-sided player-prop market pairs:** "
+        f"{_cell(board.get('nba_player_prop_archived_paired_markets'))}"
+        " (player/team identities and prices UNVERIFIED).",
+        "Full available player props: NBA_PLAYER_PROPS_ALL_MARKETS.md / .json in the run artifact.",
         f"**Last archived SharpAPI quote:** {_cell(board.get('last_sharpapi_archived_quote_utc'))} (not a live sportsbook checkout).",
         "**Professional sharp-bettor handle % / ticket %:** N/A / N/A (not supplied or independently verified).",
         "**Model edge / expected ROI:** N/A when no independently authored matching market forecast is available; never substitute market implied probability.",
