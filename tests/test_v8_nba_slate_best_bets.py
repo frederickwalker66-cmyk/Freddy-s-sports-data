@@ -57,7 +57,7 @@ def forecast():
 def odds(market, side, price, line=None, player=None, player_id=None,
          quote=None):
     received = NOW - timedelta(minutes=1)
-    raw_quote = quote or NOW - timedelta(minutes=2)
+    raw_quote = quote or NOW - timedelta(minutes=3)
     return {
         "source": "sportsgameodds_v2",
         "record_type": "pregame_odds_observation",
