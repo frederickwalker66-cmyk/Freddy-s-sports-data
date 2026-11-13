@@ -87,6 +87,21 @@ class BundleIntegrationTests(unittest.TestCase):
             self.assertEqual(report["certified_positive_ev_bets"],0)
             self.assertEqual(len(report["research_only_pregame_predictions"]),1)
 
+    def test_wall_clock_is_not_frozen_before_real_source_capture(self):
+        # Actual ESPN scoreboard responses are received AFTER execution starts.
+        # Passing a frozen earlier 'now' into the capture would invalidate
+        # legitimate NBA forward forecast timestamp provenance.
+        calls=[]
+        with tempfile.TemporaryDirectory() as folder:
+            report=run_full_stack(
+                command="run_nba",
+                execute_fn=self._execute(calls),
+                output_dir=folder)  # no injected test clock
+            self.assertEqual(len(calls),1)
+            self.assertIsNone(calls[0][1]["now"])
+            self.assertEqual(report["by_league"]["nba"]["execution_status"],
+                             "SUCCESS_RESEARCH_ONLY")
+
     def test_untrained_sport_has_no_invented_elo_probability(self):
         with tempfile.TemporaryDirectory() as folder:
             r=run_full_stack(command="run_uefa",execute_fn=self._execute([]),
