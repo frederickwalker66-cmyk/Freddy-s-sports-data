@@ -30,7 +30,7 @@ from v8_season_artifact_view import review as review_season_artifacts
 from v8_sgo_research import audit_source_archive
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
 
-ALL = ("nba","nfl","mlb","nhl","ncaaf","ncaab","mls","uefa_champions_league")
+ALL = ("nba","nhl","mlb","nfl","ncaaf","ncaab","mls","uefa_champions_league")
 COMMAND_TO_SPORT = {
     "run_nba": ("nba",), "run_nba_best_bets": ("nba",),
     "run_nfl": ("nfl",), "run_nhl": ("nhl",), "run_mlb": ("mlb",),
