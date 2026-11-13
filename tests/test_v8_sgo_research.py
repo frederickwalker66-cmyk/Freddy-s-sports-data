@@ -68,7 +68,7 @@ class SourceResearchTests(unittest.TestCase):
         )
         self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
         self.assertIn("--sgo-archive-dir saved_sgo_archives", workflow)
-        self.assertIn("no paid API requests", workflow.lower())
+        self.assertIn("no paid api requests", workflow.lower())
         source_workflow = Path(".github/workflows/sportsgameodds-research.yml").read_text()
         self.assertNotIn("  schedule:", source_workflow)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", source_workflow)
