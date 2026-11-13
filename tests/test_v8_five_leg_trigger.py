@@ -24,7 +24,7 @@ class FiveLegResearchTriggerTests(unittest.TestCase):
             idx=self.workflow.index("- name: "+step)
             condition=self.workflow[idx:self.workflow.index("run: |",idx)]
             self.assertIn("'[run-five-leg]'",condition)
-        self.assertIn("if [[ \"$SELECTED_COMMAND\" == \"run_mixed_market\" ]]; then",self.workflow)
+        self.assertIn("if [[ \"$SELECTED_COMMAND\" == \"run_mixed_market\" || \"$SELECTED_COMMAND\" == \"run_nba_best_bets\" ]]; then",self.workflow)
         self.assertIn("--sgo-archive-dir saved_sgo_archives",self.workflow)
         self.assertNotIn("github.event_name == 'push' && 'run_mixed_market'",self.workflow)
 
