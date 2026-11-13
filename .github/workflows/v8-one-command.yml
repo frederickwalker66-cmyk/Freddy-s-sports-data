@@ -64,6 +64,7 @@ on:
       - '.github/workflows/v8-one-command.yml'
       - 'v8_one_command.py'
       - 'v8_nba_slate_best_bets.py'
+      - 'v8_nba_player_prop_dashboard.py'
       - 'tests/test_v8_nba_slate_best_bets.py'
       - 'v8_edge_value.py'
       - 'v8_probability_edge_dashboard.py'
@@ -95,6 +96,7 @@ on:
     paths:
       - 'v8_one_command.py'
       - 'v8_nba_slate_best_bets.py'
+      - 'v8_nba_player_prop_dashboard.py'
       - 'tests/test_v8_nba_slate_best_bets.py'
       - 'v8_edge_value.py'
       - 'v8_probability_edge_dashboard.py'

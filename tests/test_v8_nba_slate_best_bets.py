@@ -9,6 +9,8 @@ from zoneinfo import ZoneInfo
 from v8_nba_slate_best_bets import (assemble, load_sgo_slate_rows,
                                      pair_sgo_prices, read_today_schedule, run)
 from v8_one_command import execute, selected
+from v8_nba_player_prop_dashboard import create_player_props_board, render_player_props
+from v8_probability_edge_dashboard import build_dashboard
 
 
 NOW = datetime(2026, 11, 13, 18, 0, tzinfo=timezone.utc)
@@ -212,11 +214,113 @@ class FullNBACommandTests(unittest.TestCase):
             self.assertEqual(report["paired_archive_market_count"], 2)
             self.assertEqual(report["quarantined_unverified_player_prop_pairs"], 1)
             self.assertEqual(report["player_props_with_independently_verified_team_roster_assignment"], 0)
-            self.assertNotIn("| Star |", (output/"NBA_TONIGHTS_FULL_SLATE.md").read_text())
+            preview_text = (output/"NBA_TONIGHTS_FULL_SLATE.md").read_text()
+            self.assertIn("| Star | points |", preview_text)
+            self.assertIn("UNVERIFIED RESEARCH", preview_text)
+            self.assertIn("HOLD — player/team + price unverified", preview_text)
+            self.assertIn("NBA_PLAYER_PROPS_ALL_MARKETS.md", preview_text)
+            self.assertIn("Star", (output/"NBA_PLAYER_PROPS_ALL_MARKETS.md").read_text())
+            prop_data = json.loads((output/"NBA_PLAYER_PROPS_ALL_MARKETS.json").read_text())
+            self.assertEqual(prop_data["paired_source_prop_market_count"], 1)
+            self.assertEqual(prop_data["paired_prop_counts_by_stat"], {"points": 1})
+            self.assertIsNone(prop_data["source_provider_player_prop_pairs"][0][
+                "independently_generated_prop_over_probability_percent"])
+            self.assertFalse(prop_data["source_provider_player_prop_pairs"][0][
+                "bookmaker_checkout_verified"])
             self.assertEqual(report["games"][0]["model_home_win_research_percent"], 48)
             self.assertEqual(report["best_bets_ranked_by_certified_ev"], [])
             self.assertTrue((output/"NBA_TONIGHTS_FULL_SLATE.md").exists())
             self.assertEqual(len((output/"NBA_ALL_MARKET_QUOTES.jsonl").read_text().splitlines()), 4)
+
+
+    def test_nba_player_props_appear_for_every_available_stat_without_fabricated_edge(self):
+        families = [
+            ("player_points", "points", 24.5),
+            ("player_rebounds", "rebounds", 8.5),
+            ("player_assists", "assists", 6.5),
+            ("player_threePointersMade", "threes", 3.5),
+            ("player_points+rebounds+assists", "PRA", 35.5),
+            ("player_points+rebounds", "points+rebounds", 30.5),
+            ("player_points+assists", "points+assists", 28.5),
+            ("player_rebounds+assists", "rebounds+assists", 13.5),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            original = []
+            for i, (market, _, line) in enumerate(families):
+                original += [odds(market, "over", -110, line, f"Player{i}", f"id{i}"),
+                             odds(market, "under", -120, line, f"Player{i}", f"id{i}")]
+            (Path(tmp)/"sportsgameodds_dk_props.jsonl").write_text(
+                "\n".join(json.dumps(x) for x in original))
+            rows, meta = load_sgo_slate_rows(tmp, schedule(), now=NOW)
+        self.assertEqual(meta["matched_rows"], 16)
+        pairs = pair_sgo_prices(rows, [forecast()])
+        self.assertEqual(len(pairs), 8)
+        board = create_player_props_board(schedule(), pairs)
+        self.assertEqual(board["paired_source_prop_market_count"], 8)
+        self.assertEqual(board["paired_prop_counts_by_stat"],
+                         {label: 1 for _, label, _ in families})
+        self.assertEqual(len(board["preview_unranked_research_only"]), 8)
+        full_md = render_player_props(board)
+        short_md = render_player_props(board, preview=True)
+        for _, label, _ in families:
+            self.assertIn(f"| {label} |", full_md)
+            self.assertIn(f"| {label} |", short_md)
+        self.assertIn("NOT live executable", full_md)
+        self.assertIn("N/A / N/A / N/A", full_md)
+        self.assertIn("HOLD", full_md)
+        self.assertNotIn("BET VERIFIED", full_md)
+        self.assertTrue(all(row["independently_certified_prop_edge_pp"] is None
+                            for row in board["source_provider_player_prop_pairs"]))
+        self.assertTrue(all(row["player_active_today_verified"] is False
+                            for row in board["source_provider_player_prop_pairs"]))
+
+    def test_universal_dashboard_includes_archived_over_under_not_model_forecast(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp)/"sportsgameodds_dk_props.jsonl").write_text(
+                "\n".join(json.dumps(q) for q in [
+                    odds("player_points", "over", -110, 24.5, "Guard", "p1"),
+                    odds("player_points", "under", -115, 24.5, "Guard", "p1"),
+                    odds("player_rebounds", "over", +105, 8.5, "Center", "p2"),
+                    odds("player_rebounds", "under", -130, 8.5, "Center", "p2"),
+                ]))
+            quotes, _ = load_sgo_slate_rows(tmp, schedule(), now=NOW)
+        pairs = pair_sgo_prices(quotes, [forecast()])
+        slate = assemble(schedule(), [forecast()], quotes, {},
+                         now=NOW, calibration={})
+        report = {
+            "command": "run_nba_best_bets",
+            "champion_001_modified": False,
+            "certified_positive_ev_bets": 0,
+            "nba_slate_best_bets": slate,
+        }
+        dashboard = build_dashboard(report)
+        rows = [q for q in dashboard["market_side_rows"]
+                if q["market"] == "player_prop"]
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(dashboard["nba_player_prop_archived_paired_markets"], 2)
+        self.assertEqual({r["selection"] for r in rows}, {"over", "under"})
+        self.assertTrue(all(r["model_probability_percent"] is None for r in rows))
+        self.assertTrue(all(r["expected_roi_percent"] is None for r in rows))
+        self.assertTrue(all(r["no_vig_market_probability_percent"] is not None for r in rows))
+        self.assertTrue(all(r["source_class"].endswith("not_checkout") for r in rows))
+
+    def test_source_prop_identity_promotion_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp)/"sportsgameodds_dk_props.jsonl").write_text(
+                "\n".join(json.dumps(q) for q in [
+                    odds("player_points", "over", -110, 24.5, "Guard", "p1"),
+                    odds("player_points", "under", -110, 24.5, "Guard", "p1"),
+                ]))
+            quotes, _ = load_sgo_slate_rows(tmp, schedule(), now=NOW)
+        pairs = pair_sgo_prices(quotes, [])
+        fake = [dict(pairs[0])]
+        fake[0]["certified_sharp_edge_pp"] = 10
+        with self.assertRaisesRegex(ValueError, "untrusted_player_prop_certification_attempt"):
+            create_player_props_board(schedule(), fake)
+        fake = [dict(pairs[0])]
+        fake[0]["player_team_assignment_verified"] = True
+        with self.assertRaisesRegex(ValueError, "untrusted_player_prop_certification_attempt"):
+            create_player_props_board(schedule(), fake)
 
 
 if __name__ == "__main__":

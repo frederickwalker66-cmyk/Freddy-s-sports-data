@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 from independent_schedule_review import download_json_original
 from v8_nba_forward_research import BASE, capture as capture_nba_forward
 from v8_sgo_research import aware as aware_time
+from v8_nba_player_prop_dashboard import create_player_props_board, render_player_props
 
 NY = ZoneInfo("America/New_York")
 MAX_FILES = 8
@@ -370,6 +371,9 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
             "market_data_not_sportsbook_checkout": True,
             "decision": "PASS_HOLD_NO_VERIFIED_EDGE",
         })
+    prop_board = create_player_props_board(games, pairs)
+    prop_summary = {k: v for k, v in prop_board.items()
+                    if k != "source_provider_player_prop_pairs"}
     return {
         "report_type": "FREDDYS_NBA_ALL_GAMES_SINGLE_COMMAND_RESEARCH_ONLY",
         "as_of_utc": now.isoformat(), "date_et": now.astimezone(NY).date().isoformat(),
@@ -378,6 +382,7 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
         "market_categories": ["moneyline", "point_spread", "total_points", "player_prop"],
         "all_archive_observations_deduplicated": len(odds_rows),
         "all_paired_archived_markets": pairs,
+        "nba_player_props": prop_summary,
         "paired_archive_market_count": len(pairs),
         "quarantined_unverified_player_prop_pairs": sum(
             1 for q in pairs if q["market"].startswith("player_")),
@@ -478,16 +483,9 @@ def render_slate(report):
                      f"| {_c(first['american_odds'])} / {_c(first['no_vig_market_percent'])}% "
                      f"| {_c(second['american_odds'])} / {_c(second['no_vig_market_percent'])}% "
                      f"| {_c(market['model_home_win_probability_research_percent'])} | HOLD |")
-    # Source has suspect player/game assignments. Preserve EVERY prop source
-    # quote for audit, but do not render named players as validated candidates.
-    lines.extend([
-        "", "## NBA player props — PROVIDER DATA QUARANTINED",
-        f"**Archived paired prop observations:** {report['quarantined_unverified_player_prop_pairs']}.",
-        "**Confirmed roster/player-to-team assignment:** 0 (not independently sourced).",
-        "All named source prop quotes are retained in NBA_ALL_MARKET_QUOTES.jsonl",
-        "and NBA_ALL_MARKET_PAIRS.json for evidence review ONLY, with source IDs,",
-        "timestamps and lines; they are NOT game-ready bets or validated players.",
-    ])
+    # Display paired archived props explicitly with prominent identity/price
+    # holds. The full 441+ per-side references remain separate audit files.
+    lines.extend(["", render_player_props(report["nba_player_props"], preview=True)])
     lines.extend([
         "", "## Sharp Edge / Calibration / Best Bets",
         f"**Independently calibrated model available:** NO",
@@ -552,6 +550,15 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
     report["archived_provider_prices_not_verified_checkout"] = True
     (output / "NBA_TONIGHTS_FULL_SLATE.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # One-command outputs include BOTH the full player-prop table and an
+    # exhaustive machine-readable provider-reference board.
+    full_player_board = create_player_props_board(
+        report["games"], report["all_paired_archived_markets"])
+    (output / "NBA_PLAYER_PROPS_ALL_MARKETS.json").write_text(
+        json.dumps(full_player_board, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    (output / "NBA_PLAYER_PROPS_ALL_MARKETS.md").write_text(
+        render_player_props(full_player_board), encoding="utf-8")
     (output / "NBA_ALL_MARKET_PAIRS.json").write_text(
         json.dumps(report["all_paired_archived_markets"], indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
