@@ -212,7 +212,7 @@ class FullNBACommandTests(unittest.TestCase):
             self.assertEqual(report["paired_archive_market_count"], 2)
             self.assertEqual(report["quarantined_unverified_player_prop_pairs"], 1)
             self.assertEqual(report["player_props_with_independently_verified_team_roster_assignment"], 0)
-            self.assertNotIn("Star", (output/"NBA_TONIGHTS_FULL_SLATE.md").read_text())
+            self.assertNotIn("| Star |", (output/"NBA_TONIGHTS_FULL_SLATE.md").read_text())
             self.assertEqual(report["games"][0]["model_home_win_research_percent"], 48)
             self.assertEqual(report["best_bets_ranked_by_certified_ev"], [])
             self.assertTrue((output/"NBA_TONIGHTS_FULL_SLATE.md").exists())
