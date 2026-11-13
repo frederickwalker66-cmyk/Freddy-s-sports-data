@@ -572,3 +572,5 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
                    indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (output / "NBA_TONIGHTS_FULL_SLATE.md").write_text(render_slate(report), encoding="utf-8")
     return report, forecasts
+
+# User-requested Nov 13, 2026 NBA Sharp Edge best-bets archive-only rerun; no betting/model logic changed.
