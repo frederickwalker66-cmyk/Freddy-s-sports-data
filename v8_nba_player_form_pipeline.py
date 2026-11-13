@@ -151,10 +151,10 @@ def run_player_form_research(history_path, scheduled_games, output_dir, *,
             # Missing summary date can use the contemporaneously captured
             # scoreboard event-start field, not a guessed or later game date.
             for row in parsed:
-                if row.get("event_start_utc") is None:
+                was_missing_start = row.get("event_start_utc") is None
+                if was_missing_start:
                     row["event_start_utc"] = start.isoformat()
-                row["event_start_from_published_scoreboard_when_missing"] = (
-                    row["event_start_utc"] == start.isoformat())
+                row["event_start_from_published_scoreboard_when_missing"] = was_missing_start
                 row["source_payload_sha256_canonical_not_original_wire"] = hashlib.sha256(
                     json.dumps(response, sort_keys=True, separators=(",", ":"),
                                allow_nan=False).encode()).hexdigest()
