@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 from historical_outcomes import parse_time
 from challenger_research_features import validated
 from v8_all_sports_player_form import ESPN_SUMMARY_ROOT, SPORT_PATH, STATS
+from v8_all_sports_season_form import source_league_season_scope
 
 MAX_SUMMARY_BYTES=4_000_000
 MAX_ATHLETES_PER_SUMMARY=260
@@ -184,7 +185,7 @@ def parse_box_score(league, data, historical_event, observed_utc):
         raise ValueError("unknown_eight_sport_league")
     validated(historical_event)
     eid=historical_event["espn_event_id"]
-    if historical_event["league"]!=league or historical_event.get("season_type")!=2:
+    if (historical_event["league"]!=league or not source_league_season_scope(league,historical_event.get("season_type"))):
         raise ValueError("summary_and_regular_season_game_mismatch")
     observed=parse_time(observed_utc.isoformat() if isinstance(observed_utc,datetime)
                         else observed_utc)
@@ -288,7 +289,7 @@ def parse_box_score(league, data, historical_event, observed_utc):
             "retrieved_at_utc":observed.isoformat(),
             "source_url":ESPN_SUMMARY_ROOT+SPORT_PATH[league]+"/summary?event="+eid,
             "event_start_from_original_scoreboard":cdate is None,
-            "season_type":2,"did_not_play":item["dnp"],
+            "season_type":historical_event["season_type"],"did_not_play":item["dnp"],
             "stats":{k:v for k,v in item["stats"].items() if k in STATS[league]},
             "published_boxscore_research_only":True,
             "independently_verified_player_stats":False,
