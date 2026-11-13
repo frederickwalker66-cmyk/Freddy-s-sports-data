@@ -34,6 +34,10 @@
 - Weekly public eight-sport research collection is scheduled best-effort; artifacts expire after 90 days and must be archived for durable historical coverage.
 - **No independently validated sports predictions or verified executable sportsbook edge are currently available.** Champion-001 is unchanged and no wagers are placed.
 
+## NEW: Private placed-parlay integrity audit (review pending)
+
+**[Placed vs. research wager, correlation and CLV safety guide](V8_PARLAY_INTEGRITY_GUIDE.md)** — a local, read-only ticket auditor. Checks actual combined-price payout math, distinguishes a reported accepted wager from a research pick, warns about same-game and same-player legs, and always withholds unverified settlement, model EV, and CLV. Do not commit private bet slips to this public repo. Champion-001 remains frozen; no betting actions.
+
 ## Control the project from your phone or Windows laptop
 
 **[Open Freddy's Picks AI Phone Command Center](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml)** — choose **Run workflow** on **main**, then select one of the safe actions:
