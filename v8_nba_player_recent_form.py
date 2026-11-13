@@ -15,6 +15,7 @@ from historical_outcomes import parse_time
 
 FIELDS = ("minutes", "points", "rebounds", "assists", "threes_made", "steals", "blocks")
 LAG_HOURS = 48
+MAX_UPCOMING_PLAYER_TARGETS = 400  # 9+ NBA games x full historical rosters
 SOURCE_PREFIX = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event="
 
 
@@ -40,7 +41,7 @@ def build_player_form(box_rows, targets, as_of_utc):
     asof = parse_time(as_of_utc)
     if not isinstance(box_rows, list) or not isinstance(targets, list):
         raise ValueError("NBA_player_box_and_target_lists_required")
-    if len(box_rows) > 100_000 or len(targets) > 100:
+    if len(box_rows) > 100_000 or len(targets) > MAX_UPCOMING_PLAYER_TARGETS:
         raise ValueError("NBA_player_feature_input_budget_exceeded")
     by_player = defaultdict(list)
     seen = set()
