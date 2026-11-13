@@ -194,6 +194,23 @@ def load_sgo_slate_rows(directory, schedule, *, now):
                 if kind != "moneyline" and (type(market_line) not in (int, float)
                         or not math.isfinite(market_line)):
                     raise ValueError("missing_or_bad_line")
+                # SGO's total_points includes full-game AND individual-team totals.
+                # Use its exact selection label to prevent settlement scope leakage.
+                selection_label = row.get("selection")
+                scope = "full_game"
+                if kind == "total_points":
+                    scopes = {side.title(): "full_game",
+                              "Home " + side.title(): "home_team",
+                              "Away " + side.title(): "away_team"}
+                    scope = scopes.get(selection_label)
+                    if scope is None:
+                        raise ValueError("unverified_total_settlement_scope")
+                elif kind in ("moneyline", "point_spread"):
+                    expected = game["home_team"] if side == "home" else game["away_team"]
+                    if _canonical(selection_label) != _canonical(expected):
+                        raise ValueError("unverified_team_market_selection")
+                elif kind.startswith("player_"):
+                    scope = "player_prop_unverified"
                 player_id = row.get("player_id")
                 player_name = row.get("player_name")
                 if kind.startswith("player_") and (not isinstance(player_id, str)
@@ -213,7 +230,8 @@ def load_sgo_slate_rows(directory, schedule, *, now):
                     "sgo_event_id_unverified": row.get("event_id"),
                     "player_id_unverified": player_id,
                     "player_name_unverified": player_name if kind.startswith("player_") else None,
-                    "market": kind,
+                    "market": kind, "market_scope": scope,
+                    "player_team_assignment_verified": False if kind.startswith("player_") else None,
                     "selection_side": side,
                     "line": market_line if kind != "moneyline" else None,
                     "american_odds": odds,
@@ -227,7 +245,7 @@ def load_sgo_slate_rows(directory, schedule, *, now):
                     "actual_sportsbook_checkout_verified": False,
                 }
                 key = (game["espn_event_id"], row.get("event_id"),
-                       kind, player_id, market_line if kind != "moneyline" else None, side)
+                       kind, scope, player_id, market_line if kind != "moneyline" else None, side)
                 prev = latest.get(key)
                 if prev is None or timestamp >= aware_time(prev["quoted_utc"]):
                     latest[key] = normalized
@@ -250,7 +268,7 @@ def _pair_key(row):
     else:
         threshold = round(line, 3)
     return (row["espn_event_id_research_name_time_match"],
-            row["sgo_event_id_unverified"], market,
+            row["sgo_event_id_unverified"], market, row["market_scope"],
             row["player_id_unverified"], threshold)
 
 
@@ -269,7 +287,7 @@ def pair_sgo_prices(quotes, forecasts):
                        and isinstance(x.get("espn_event_id"), str)}
     markets = []
     for key, sides in sorted(by_key.items(), key=lambda t: str(t[0])):
-        event_id, provider_id, kind, player_id, level = key
+        event_id, provider_id, kind, scope, player_id, level = key
         names = ("home", "away") if kind in ("moneyline", "point_spread") else ("over", "under")
         left, right = (sides.get(x) for x in names)
         if left is None or right is None:
@@ -290,7 +308,9 @@ def pair_sgo_prices(quotes, forecasts):
         paired = {
             "espn_event_id_research_match": event_id,
             "sgo_event_id_unverified": provider_id,
-            "market": kind, "player_id_unverified": player_id,
+            "market": kind, "market_scope": scope,
+            "player_team_assignment_verified": False if kind.startswith("player_") else None,
+            "player_id_unverified": player_id,
             "player_name_unverified": left.get("player_name_unverified"),
             "line_or_absolute_spread": level,
             "sides": [{**s, "break_even_percent": round(p * 100, 2),
@@ -327,7 +347,13 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
     for g in slate:
         forecast = research.get(g["espn_event_id"])
         game_pairs = grouped[g["espn_event_id"]]
-        counts = Counter("player_prop" if q["market"].startswith("player_") else q["market"] for q in game_pairs)
+        def coverage_key(quote):
+            if quote["market"].startswith("player_"):
+                return "player_prop_QUARANTINED_UNVERIFIED"
+            if quote["market"] == "total_points" and quote["market_scope"] != "full_game":
+                return "team_total_points_research"
+            return quote["market"]
+        counts = Counter(coverage_key(q) for q in game_pairs)
         games.append({
             **g,
             "model_home_win_research_percent": (round(
@@ -353,6 +379,19 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
         "all_archive_observations_deduplicated": len(odds_rows),
         "all_paired_archived_markets": pairs,
         "paired_archive_market_count": len(pairs),
+        "quarantined_unverified_player_prop_pairs": sum(
+            1 for q in pairs if q["market"].startswith("player_")),
+        "player_props_with_independently_verified_team_roster_assignment": 0,
+        "full_game_total_points_pairs": sum(
+            1 for q in pairs if q["market"] == "total_points"
+            and q["market_scope"] == "full_game"),
+        "team_total_points_pairs": sum(
+            1 for q in pairs if q["market"] == "total_points"
+            and q["market_scope"] in ("home_team", "away_team")),
+        "fresh_provider_reference_quote_rows_not_checkout": sum(
+            1 for q in odds_rows if q["fresh_provider_quote_not_checkout"]),
+        "latest_archived_quote_utc": max(
+            (r["quoted_utc"] for r in odds_rows), default=None),
         "sgo_source_validation_counts": source_counts,
         "calibration": calibration,
         "independently_certified_positive_ev_bets": 0,
@@ -379,6 +418,8 @@ def assemble(slate, forecasts, odds_rows, source_counts, *, now, calibration):
             "All alt/primary-line status is unverified; all available paired lines are reference-only.",
             "Moneyline research Elo forecasts are not independently calibrated or Champion-001.",
             "There is NO separate exact-line spread, total or player-prop prediction model.",
+            "Team totals cannot be represented as full-game totals; market scope is retained.",
+            "Unverified player/team assignments are quarantined from display and betting.",
             "Do not infer professional sharp money from price movement or bet-count splits.",
             "A five-leg probability cannot be certified without marginal probabilities and dependence estimates.",
         ],
@@ -398,17 +439,24 @@ def render_slate(report):
         f"**Published NBA games:** {report['slate_game_count_from_original_source']} · "
         f"**Paired archived market references:** {report['paired_archive_market_count']}",
         "**Betting decision: PASS/HOLD — independently certified +EV selections: 0; wagers $0.**",
+        f"**Latest stored price quote UTC:** {_c(report.get('latest_archived_quote_utc'))}"
+        " (NOT an authenticated current sportsbook line).",
+        f"**Fresh provider reference rows (not checkout):** "
+        f"{report.get('fresh_provider_reference_quote_rows_not_checkout', 0)}.",
+        f"**Unverified player-prop pairs QUARANTINED:** "
+        f"{report.get('quarantined_unverified_player_prop_pairs', 0)}"
+        " — roster/team assignment unverified; never a recommended prop.",
         "Full paired archive prices, including every retained line, appear in NBA_ALL_MARKET_PAIRS.json.",
         "Prices are provider-labeled historical observations, not sportsbook checkout receipts.",
         "",
         "## Complete published NBA slate",
-        "| Start ET | Matchup | State | V8 Elo home % | V8 Elo away % | Archived ML / spreads / totals / props |",
+        "| Start ET | Matchup | State | V8 Elo home % | V8 Elo away % | Archived ML / spreads / game totals / team totals / quarantined props |",
         "|---|---|---|---:|---:|---|",
     ]
     for g in report["games"]:
         counts = g["available_paired_archive_markets"]
         coverage = " / ".join(str(counts.get(k, 0)) for k in
-                              ("moneyline", "point_spread", "total_points", "player_prop"))
+                              ("moneyline", "point_spread", "total_points", "team_total_points_research", "player_prop_QUARANTINED_UNVERIFIED"))
         lines.append(f"| {_c(g['start_et'])} | {_c(g['away_team'])} @ {_c(g['home_team'])} "
                      f"| {_c(g['source_event_state'])} | {_c(g['model_home_win_research_percent'])} "
                      f"| {_c(g['model_away_win_research_percent'])} | {coverage} |")
@@ -425,36 +473,29 @@ def render_slate(report):
         if market["market"].startswith("player_"):
             continue
         first, second = market["sides"]
-        lines.append(f"| {_c(game['away_team'])} @ {_c(game['home_team'])} | {_c(market['market'])} "
+        lines.append(f"| {_c(game['away_team'])} @ {_c(game['home_team'])} | {_c(market['market'])} ({_c(market['market_scope'])}) "
                      f"| {_c(market['line_or_absolute_spread'])} "
                      f"| {_c(first['american_odds'])} / {_c(first['no_vig_market_percent'])}% "
                      f"| {_c(second['american_odds'])} / {_c(second['no_vig_market_percent'])}% "
                      f"| {_c(market['model_home_win_probability_research_percent'])} | HOLD |")
+    # Source has suspect player/game assignments. Preserve EVERY prop source
+    # quote for audit, but do not render named players as validated candidates.
     lines.extend([
-        "", "## NBA player props — per-game sample (ALL archived pairs in JSON)",
-        "| Matchup | Player (provider label) | Prop | Line | Over odds / no-vig % | Under odds / no-vig % |",
-        "|---|---|---|---:|---|---|",
+        "", "## NBA player props — PROVIDER DATA QUARANTINED",
+        f"**Archived paired prop observations:** {report['quarantined_unverified_player_prop_pairs']}.",
+        "**Confirmed roster/player-to-team assignment:** 0 (not independently sourced).",
+        "All named source prop quotes are retained in NBA_ALL_MARKET_QUOTES.jsonl",
+        "and NBA_ALL_MARKET_PAIRS.json for evidence review ONLY, with source IDs,",
+        "timestamps and lines; they are NOT game-ready bets or validated players.",
     ])
-    included = Counter()
-    for market in report["all_paired_archived_markets"]:
-        if not market["market"].startswith("player_"):
-            continue
-        key = market["espn_event_id_research_match"]
-        if included[key] >= 12:
-            continue
-        included[key] += 1
-        g = lookup[key]
-        over, under = market["sides"]
-        lines.append(f"| {_c(g['away_team'])} @ {_c(g['home_team'])} "
-                     f"| {_c(market['player_name_unverified'])} | {_c(market['market'])} "
-                     f"| {_c(market['line_or_absolute_spread'])} "
-                     f"| {_c(over['american_odds'])} / {_c(over['no_vig_market_percent'])}% "
-                     f"| {_c(under['american_odds'])} / {_c(under['no_vig_market_percent'])}% |")
-    if not report["paired_archive_market_count"]:
-        lines.append("| No qualified paired source markets | N/A | N/A | N/A | N/A | N/A |")
     lines.extend([
         "", "## Sharp Edge / Calibration / Best Bets",
         f"**Independently calibrated model available:** NO",
+        f"**Persisted original NBA forward forecasts / graded / pending:** "
+        f"{_c((report.get('calibration') or {}).get('nba_original_archived_forecasts'))} / "
+        f"{_c((report.get('calibration') or {}).get('nba_original_graded_outcomes'))} / "
+        f"{_c((report.get('calibration') or {}).get('nba_original_pending_grading'))}.",
+        "**Brier / ECE:** N/A until mature original outcome samples meet thresholds.",
         "**Sharp-money handle/ticket verification:** N/A",
         "**Certified exact-market edge pp / expected ROI%:** N/A / N/A",
         "**Ranked verified positive-EV bets:** none. PASS.",
