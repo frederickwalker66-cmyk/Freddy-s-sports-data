@@ -80,7 +80,7 @@ class NBAAlwaysSharpEdgeTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as folder:
                 main(["--command","run_nba","--output-dir",folder])
             self.assertEqual(fake.call_args.args[0],"run_nba_best_bets")
-            self.assertEqual(fake.call_args.args[1],35)
+            self.assertEqual(fake.call_args.kwargs["days"],35)
         # Legacy research tests can still invoke execute("run_nba",
         # end_date=...) explicitly for pinned historical archives.
 
