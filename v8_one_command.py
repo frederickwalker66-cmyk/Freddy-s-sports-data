@@ -42,10 +42,10 @@ from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_shar
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
-COMMANDS = ("run_nba", "run_nba_best_bets", "run_nba_nfl", "run_all", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
+COMMANDS = ("run", "run_nba", "run_nba_best_bets", "run_nba_nfl", "run_all", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
             "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_nfl": ("nba", "nfl"), "run_all": SPORTS, "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
+    "run": SPORTS, "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_nfl": ("nba", "nfl"), "run_all": SPORTS, "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
@@ -532,7 +532,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--command", choices=COMMANDS, default="model_status")
+    p.add_argument("--command", choices=COMMANDS, default="run")
     p.add_argument("--days", type=int, default=None)
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
