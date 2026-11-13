@@ -37,12 +37,13 @@ from v8_betting_readiness import audit_betting_readiness, save_readiness
 from v8_nba_slate_best_bets import run as run_nba_slate_best_bets
 from v8_nba_five_leg_preflight import audit_five_leg_preflight
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
+from v8_season_artifact_view import review as review_season_artifacts
 
 SPORTS = tuple(WINDOW_END)
-COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_nfl", "run_nhl", "run_mlb",
+COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
             "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
+    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
@@ -79,7 +80,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             calibration_file=None, new_sport_forward_runner=None,
             nfl_nhl_board_files=None, audit_outcome_dir=None,
             audit_calibration_dir=None, audit_outcome_run_id=None,
-            audit_calibration_run_id=None, nba_best_bets_runner=None):
+            audit_calibration_run_id=None, nba_best_bets_runner=None,
+            season_archive_dir=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -118,6 +120,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_oos_research": None,
         "nba_forward_research": None,
         "nba_slate_best_bets": None,
+        "season_to_date_all_leagues": None,
         "nba_five_leg_preflight": None,
         "nba_local_clv_receipt_status": None,
         "nba_forward_grading": None,
@@ -136,9 +139,14 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         calibration = sharp_calibration_dashboard(calibration_file)
         report["sharp_edge_calibration"] = calibration
         runner = nba_best_bets_runner or run_nba_slate_best_bets
+        extras = ({"season_history_dir": Path(season_archive_dir) / "nba"}
+                  if season_archive_dir is not None and
+                  nba_best_bets_runner is None else {})
         slate, forecasts = runner(out / "nba_best_bets", days=days, now=now,
                                    sgo_archive_dir=sgo_archive_dir,
-                                   calibration=calibration)
+                                   calibration=calibration, **extras)
+        report["season_to_date_all_leagues"] = review_season_artifacts(
+            season_archive_dir or out / "missing_season_archive")
         if (slate.get("champion_001_modified") is not False
                 or slate.get("independently_certified_positive_ev_bets") != 0):
             raise ValueError("unsafe_NBA_slate_betting_certification")
@@ -180,6 +188,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_full_game_markets"] = full
         report["sportsgameodds_archive_research"] = audit_source_archive(
             sgo_archive_dir, now=now)
+    elif command == "run_season_form":
+        report["season_to_date_all_leagues"] = review_season_artifacts(
+            season_archive_dir or out / "missing_season_archive")
+        (out / "ALL_EIGHT_LEAGUES_SEASON_LAST5_LAST10.json").write_text(
+            json.dumps(report["season_to_date_all_leagues"],
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
     elif command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
     elif command == "run_arbitrage":
@@ -475,6 +489,12 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                     "error": type(exc).__name__,
                     "data_verified_for_model_training": False,
                 }
+    if command == "run_sports":
+        report["season_to_date_all_leagues"] = review_season_artifacts(
+            season_archive_dir or out / "missing_season_archive")
+        (out / "ALL_EIGHT_LEAGUES_SEASON_LAST5_LAST10.json").write_text(
+            json.dumps(report["season_to_date_all_leagues"],
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
     # A consistent independent-vs-market percentage report for EVERY successful command.
     # This never certifies a price, forecast, sharp-money flow or wager.
     dashboard = build_dashboard(report)
@@ -504,6 +524,7 @@ def main(argv=None):
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--sgo-archive-dir", help="Downloaded existing SportsGameOdds run artifacts; no API calls")
+    p.add_argument("--season-archive-dir", help="Saved season scoreboard and player boxscore artifacts; no source redating")
     p.add_argument("--arbitrage-input", help="Optional local canonical crossbook research-quote JSONL; never a live betting feed")
     p.add_argument("--source-runs-json", help="Actual GitHub source workflow metadata for read-only health view")
     p.add_argument("--certification-source-dir", help="Downloaded matching source pipeline artifact directory")
@@ -578,7 +599,8 @@ def main(argv=None):
                      nba_grading_archive_dir=args.nba_grade_archives_dir,
                      leaderboard_file=args.leaderboard_file,
                      calibration_file=args.calibration_file,
-                     nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file})
+                     nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file},
+                     season_archive_dir=args.season_archive_dir)
     print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
                       "research_edges": len(report["research_edge_candidates"]),
                       "certified_bets": 0, "output": args.output_dir},
