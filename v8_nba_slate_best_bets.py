@@ -610,10 +610,17 @@ def run(output_dir, *, days=35, now=None, sgo_archive_dir=None, calibration=None
             slate, output / "nba_player_form", coverage=forward_status,
             max_summaries=24, **player_kwargs)
     except (ValueError, TypeError, KeyError, OSError, TimeoutError) as exc:
+        import re
+        code = str(exc)
+        # Only parser-owned static codes may be shown publicly. No upstream
+        # URL, headers, credentials or free-form payload details are logged.
+        safe_code = (code if isinstance(exc, ValueError)
+                     and re.fullmatch(r"[A-Za-z0-9_]{3,96}", code) else None)
         player_report = {
             "report_type": "V8_NBA_PREGAME_LAST5_LAST10_PLAYER_FORM",
             "status": "HOLD_PLAYER_SOURCE_VALIDATION_ERROR",
             "source_failure_class": type(exc).__name__,
+            "source_failure_static_code": safe_code,
             "certified_positive_ev_bets": 0, "wagers_placed": 0,
             "champion_001_modified": False,
         }
