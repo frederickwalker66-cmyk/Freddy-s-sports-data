@@ -6,7 +6,7 @@ on:
         description: 'Research command to run (no paid API and no bets)'
         required: true
         type: choice
-        default: run_nfl_props_edge
+        default: run_mixed_market
         options:
           - run_nfl_props_edge
           - run_mixed_market
