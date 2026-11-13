@@ -12,7 +12,7 @@ class FiveLegResearchTriggerTests(unittest.TestCase):
         token="github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]') && 'run_mixed_market'"
         self.assertEqual(self.workflow.count(token), 2)
         self.assertIn("github.event_name == 'push' && 'run_nba_grade'", self.workflow)
-        self.assertIn("github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba'", self.workflow)
+        self.assertIn("github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets'", self.workflow)
         self.assertIn("PROBABILITY_SHARP_EDGE_DASHBOARD.md", self.workflow)
 
     def test_five_leg_tag_loads_existing_sharp_sgo_and_calibration_artifacts(self):
