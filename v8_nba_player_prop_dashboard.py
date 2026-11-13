@@ -227,7 +227,7 @@ def render_player_props(board, *, preview=False):
               "and matchup labeling are NOT independently verified."),
     ]
     lines.extend(_table(rows))
-    if preview and len(rows) < board["paired_source_prop_market_count"]:
+    if preview:
         lines.extend([
             "",
             "**View every paired player prop:** NBA_PLAYER_PROPS_ALL_MARKETS.md",
