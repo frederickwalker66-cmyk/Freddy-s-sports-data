@@ -134,6 +134,7 @@ def _watchlist(predictions):
             candidate_side="home" if p>=.5 else "away"
         output.append({
             "league":x["league"], "espn_event_id":x["espn_event_id"],
+            "away_team":x["away_team"], "home_team":x["home_team"],
             "start_utc":x["start_utc"],"research_direction_only":candidate_side,
             "elo_rule_max_binary_p_not_calibrated":round(max(p,1-p),8),
             "value_or_betting_edge":None,
@@ -141,6 +142,64 @@ def _watchlist(predictions):
             "qualified_bet":False, "decision":"HOLD_NO_EXACT_MARKET_EV",
         })
     return sorted(output,key=lambda y:-y["elo_rule_max_binary_p_not_calibrated"])[:15]
+
+
+def _season_stat_samples(source_root, leagues, *, max_teams=35,
+                         max_players=80):
+    """Surface actual source-stamped last5/last10 stats from saved artifacts.
+
+    Exact published ESPN identifiers and incomplete windows stay distinct
+    from CURRENT active rosters or independently settled betting props.
+    Never invent per-stat zeros and never allow unbounded source content.
+    """
+    result={}
+    root=Path(source_root) if source_root is not None else None
+    for lg in leagues:
+        if root is None:
+            result[lg]={"status":"NOT_YET_COLLECTED",
+                        "team_last5_last10_examples":[],
+                        "historical_player_last5_last10_examples":[]}
+            continue
+        try:
+            team_path=root/lg/"TEAM_LAST5_LAST10.json"
+            player_path=root/lg/"player_boxes"/"PLAYER_LAST5_LAST10.json"
+            if any(not p.is_file() or p.is_symlink() or p.stat().st_size>25_000_000
+                   for p in (team_path,player_path)):
+                raise ValueError("source_artifact_missing_or_oversized")
+            teams=json.loads(team_path.read_text(encoding="utf-8"))
+            players=json.loads(player_path.read_text(encoding="utf-8"))
+            if (teams.get("league")!=lg or players.get("league")!=lg
+                    or any(v.get("champion_001_modified") is not False
+                           or v.get("certified_positive_ev_bets")!=0
+                           for v in (teams,players))
+                    or not isinstance(teams.get("teams"),dict)
+                    or not isinstance(players.get("players"),dict)):
+                raise ValueError("untrusted_historical_season_stat_artifact")
+            trows=list(teams["teams"].values())
+            prows=list(players["players"].values())
+            if len(trows)>500 or len(prows)>20000:
+                raise ValueError("unbounded_historical_season_stat_roster")
+            trows.sort(key=lambda q: str(q.get("team_espn_id","")))
+            prows.sort(key=lambda q:(
+                -int(q.get("historical_appearances_in_cached_season",0)),
+                str(q.get("historical_espn_player_id",""))))
+            result[lg]={
+                "status":"ESPN_PUBLISHED_SEASON_RESEARCH_ONLY",
+                "team_last5_last10_examples":trows[:max_teams],
+                "historical_player_last5_last10_examples":prows[:max_players],
+                "complete_team_history_in_separate_original_source_artifact":True,
+                "complete_player_history_in_separate_original_source_artifact":True,
+                "all_exposed_player_team_associations_are_historical_NOT_current_roster":True,
+                "statistics_have_not_been_calibrated_to_independent_model_prop_p":True,
+                "certified_positive_ev_bets":0,
+            }
+        except (OSError,ValueError,KeyError,TypeError,AttributeError,
+                json.JSONDecodeError):
+            result[lg]={"status":"HOLD_MISSING_OR_UNTRUSTED_L5_L10_SOURCE_ARTIFACT",
+                        "team_last5_last10_examples":[],
+                        "historical_player_last5_last10_examples":[],
+                        "certified_positive_ev_bets":0}
+    return result
 
 
 def _save(root, bundle):
@@ -213,16 +272,47 @@ def render(r):
         "**No automatic fitting, wagering, or parlay creation.**",
         "",
         "## Research-only prediction directions (NOT bets)",
-        "| League | ESPN game | Direction | Uncalibrated binary rule p | Decision |",
+        "| League | Matchup (ESPN game) | Direction | Uncalibrated binary rule p | Decision |",
         "|---|---|---|---:|---|",
     ])
     for x in r["best_bets_and_edge_leaderboard"]["research_direction_watchlist_unranked_by_ev"][:15]:
         lines.append(
-            f"| {x['league'].upper()} | {x['espn_event_id']} | "
+            f"| {x['league'].upper()} | "
+            f"{str(x.get('away_team') or '?').replace('|','/')} @ "
+            f"{str(x.get('home_team') or '?').replace('|','/')} "
+            f"({x['espn_event_id']}) | "
             f"{x['research_direction_only']} | "
             f"{100*x['elo_rule_max_binary_p_not_calibrated']:.1f}% | HOLD |")
     if not r["research_only_pregame_predictions"]:
         lines.append("| All | N/A (no qualified future research receipt) | N/A | N/A | HOLD |")
+    lines.extend(["", "## Historical player and team last-5/last-10 source examples",
+                  "Historical player IDs/teams, NOT verified today's active roster.",
+                  "Full source histories are in the per-league season artifacts."])
+    samples=r["season_to_date_game_and_player_form"][
+        "source_stamped_stat_examples_by_league"]
+    for lg in r["requested_leagues"]:
+        details=samples.get(lg,{})
+        examples=details.get("historical_player_last5_last10_examples",[])
+        lines.append(f"### {lg.upper()} — {details.get('status','UNAVAILABLE')}")
+        if not examples:
+            lines.append("Player last-five/last-ten statistical detail unavailable (N/A).")
+            continue
+        lines.extend([
+            "| Historical ESPN player ID | Past appearances | L5 sport stats (complete windows only) | L10 sport stats (complete windows only) |",
+            "|---|---:|---|---|",
+        ])
+        for p in examples[:6]:
+            def stats(which):
+                window=p.get(which,{})
+                if not window.get("complete_window_for_sport_stats"):
+                    return "N/A (source window incomplete)"
+                vals=window.get("season_to_date_stats_last_window_average") or {}
+                cells=[f"{k}:{v}" for k,v in vals.items() if v is not None]
+                return ", ".join(cells[:5]).replace("|","/") or "N/A"
+            lines.append(
+                f"| {str(p.get('historical_espn_player_id','N/A')).replace('|','/')} "
+                f"| {p.get('historical_appearances_in_cached_season','N/A')} "
+                f"| {stats('last5')} | {stats('last10')} |")
     lines.extend([
         "",
         "### Source and verification limitations",
@@ -299,6 +389,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
     player_quotes=_watched_props(props,scope)
     season=review_season_artifacts(season_archive_dir or out/"no_saved_season")
     _check_report(season)
+    season_stat_details=_season_stat_samples(season_archive_dir,scope)
     clv=reconcile_local_clv([],[])
     if clv["verified_realized_clv_percent"] is not None:
         raise ValueError("unexpected_unverified_CLV")
@@ -392,7 +483,13 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "calibrated_sport_specific_market_p":None,
             "certified_positive_ev_bets":0,
         },
-        "season_to_date_game_and_player_form":season,
+        "season_to_date_game_and_player_form":{
+            "source_coverage_summary":season,
+            "source_stamped_stat_examples_by_league":season_stat_details,
+            "historical_player_examples_not_current_roster_confirmation":True,
+            "stat_source_not_independent_model_prop_probability":True,
+            "certified_positive_ev_bets":0,
+        },
         "recalibration_and_oos_readiness":{
             "nba_research_calibration_status":
                 calibration.get("persisted_nba_original_forward_calibration_status"),
