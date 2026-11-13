@@ -50,9 +50,10 @@ PRICE_SPORTS = frozenset(("nba","nfl"))
 def _check_report(data, *, requires_explicit_champion_flag=False):
     if (not isinstance(data,dict)
             or (requires_explicit_champion_flag and
-                data.get("champion_001_modified") is not False)
+                (data.get("champion_001_modified") is not False or
+                 data.get("certified_positive_ev_bets") != 0))
             or data.get("champion_001_modified", False) is not False
-            or data.get("certified_positive_ev_bets") != 0
+            or data.get("certified_positive_ev_bets", 0) != 0
             or data.get("money_wagered_usd", 0) != 0):
         raise ValueError("full_stack_component_report_unsafe")
     return data
