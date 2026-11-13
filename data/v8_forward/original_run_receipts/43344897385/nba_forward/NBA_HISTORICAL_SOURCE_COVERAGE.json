@@ -1,0 +1,29 @@
+{
+  "automated_bets_placed": 0,
+  "bet_ready_selections": 0,
+  "by_league": {
+    "nba": {
+      "completed_games": 174,
+      "days_attempted": 35,
+      "days_failed": 0,
+      "days_ok": 35,
+      "draws": 0,
+      "error_types": {}
+    }
+  },
+  "certified_challenger_001_predictions": 0,
+  "certified_champion_001_predictions": 0,
+  "champion_001_modified": false,
+  "daily_requests_maximum": 35,
+  "days": 35,
+  "end_date_et": "2026-11-12",
+  "generated_at_utc": "2026-11-13T17:12:30.686242+00:00",
+  "independently_officially_adjudicated_results": 0,
+  "leagues": [
+    "nba"
+  ],
+  "source": "ESPN public scoreboard (not official league result certification)",
+  "sportsgameodds_api_requests": 0,
+  "total_completed_results": 174,
+  "warning": "These are ESPN-published score records, not complete league history, independent adjudication, historical pregame features, or bookmaker settlement. Soccer draw and extra-time definitions remain unverified. Failed/missing days are explicitly incomplete."
+}
