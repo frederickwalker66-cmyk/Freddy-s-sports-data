@@ -103,11 +103,17 @@ def run_player_form_research(history_path, scheduled_games, output_dir, *,
         start = parse_time(g["start_utc"])
         if start <= first_seen:
             continue
-        home, away = g.get("home_team_espn_id"), g.get("away_team_espn_id")
-        if not isinstance(home, str) or not isinstance(away, str) or home == away:
+        home = g.get("home_team_id", g.get("home_team_espn_id"))
+        away = g.get("away_team_id", g.get("away_team_espn_id"))
+        if (not isinstance(home, str) or not isinstance(away, str)
+                or not home.isdecimal() or not away.isdecimal() or home == away
+                or (g.get("home_team_espn_id") is not None
+                    and g["home_team_espn_id"] != home)
+                or (g.get("away_team_espn_id") is not None
+                    and g["away_team_espn_id"] != away)):
             raise ValueError("invalid_upcoming_team_ids")
         active_ids.update((home, away))
-        events.append(g)
+        events.append({**g, "home_team_espn_id": home, "away_team_espn_id": away})
     if not events:
         result = _report("HOLD_NO_FUTURE_NBA_GAMES_BEFORE_TIPOFF")
         _save(output, result, [])
