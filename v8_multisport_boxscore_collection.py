@@ -243,3 +243,30 @@ def collect_player_boxes(league,history_dir,output_dir,*,previous_dir=None,
                      f"| {p['last10']['complete_window_for_sport_stats']} | {sample} |")
     (root/"PLAYER_LAST5_LAST10.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
     return manifest,board
+
+def main(argv=None):
+    import argparse
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--league",required=True,choices=sorted(STATS))
+    p.add_argument("--season-dir",required=True)
+    p.add_argument("--previous-dir")
+    p.add_argument("--output-dir",required=True)
+    p.add_argument("--max-new-summaries",type=int,default=MAX_NEW_SUMMARIES)
+    a=p.parse_args(argv)
+    report,board=collect_player_boxes(
+        a.league,a.season_dir,a.output_dir,previous_dir=a.previous_dir,
+        max_new_summaries=a.max_new_summaries)
+    print(json.dumps({
+        "league":a.league,
+        "player_boxes_fetched":report["boxscore_events_with_usable_stats_now"],
+        "attempted":report["boxscore_events_attempted_now"],
+        "missing_events":report["original_scoreboard_regular_season_events"]-
+                         report["regular_season_boxscore_events_with_player_rows"],
+        "last5_complete":board["players_with_complete_last5"],
+        "last10_complete":board["players_with_complete_last10"],
+        "certified_positive_ev_bets":0,
+    },sort_keys=True))
+
+
+if __name__=="__main__":
+    main()
