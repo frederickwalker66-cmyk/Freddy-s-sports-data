@@ -190,3 +190,11 @@ ESPN-published game scores are not themselves forecasts. Independently
 validate original pregame model outputs, feature availability, outcomes,
 settlement, and chronological separation before creating or supplying the
 calibration input. Champion-001 remains frozen, with no betting deployment.
+
+## November 13, 2026 — user-requested calibration audit
+
+Re-run the existing daily **Challenger-001 research-only isotonic recalibration** using previously saved prospective pregame forecasts and later verified outcomes. The request covers NBA moneylines, exact NBA spreads/totals, and player props **only where each market has its own independently authenticated native Challenger predictions and settled labels**. The availability of public game results, externally predicted prices, market implied probabilities, or a successful GitHub job cannot substitute for qualified calibration inputs.
+
+Maintain the original predetermined chronological holdout guard (200 fitting / 50 later evaluation games per exact market/selection/model segment), with no synthetic or retrospectively produced pregame records. Do not promote any calibrator absent sufficient provenance and holdout performance, do not modify Champion-001, and do not place wagers. A missing dataset must produce a **blocked** report, not a fabricated calibrated model. Inspect archived source-recovery diagnostics and report precise blockers.
+
+This section records a user-requested attempt and safely triggers the existing calibration research workflow on GitHub; it is **not a certification that calibration succeeded**.
