@@ -23,6 +23,8 @@ Each artifact is kept for 30 days. Source data is not a replacement for independ
 
 Open GitHub Actions → **Freddy's Picks AI V8 — One Command (phone + laptop)** → Run workflow, leave the command at `run_mixed_market`. It will download the **latest existing successful** manual SGO archive, if present, with no additional SGO API request.
 
+After every successful **manual** SportsGameOdds collection, GitHub automatically refreshes the existing **no-cost** `run_mixed_market` phone report from saved artifacts. This does not make any additional SportsGameOdds API requests or enable scheduled provider collection. An unsuccessful provider run produces no automatic report.
+
 The regular mixed-market report remains a separate **SharpAPI-only** research board for moneylines, spreads, totals and props. `SGO_SEPARATE_SOURCE_RESEARCH.json` shows SportsGameOdds observations and an age-limited watchlist **separately** with source label, event, quote time and line. The GitHub Actions summary also shows the latest SGO archive coverage. No automatic cross-provider event/player join is performed, and SGO quotes are never used as Champion-001 probabilities or certified sharp edges.
 
 ## Safety and availability restrictions
