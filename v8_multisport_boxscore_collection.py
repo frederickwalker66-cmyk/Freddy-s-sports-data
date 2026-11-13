@@ -284,3 +284,4 @@ def main(argv=None):
 
 if __name__=="__main__":
     main()
+# Reviewed season backfill: ESPN soccer competition IDs, 48h mature player coverage, MLB source labels.
