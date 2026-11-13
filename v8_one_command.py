@@ -39,12 +39,13 @@ from v8_nba_five_leg_preflight import audit_five_leg_preflight
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
 from v8_season_artifact_view import review as review_season_artifacts
 from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_sharp_edge
+from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
-COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
+COMMANDS = ("run_nba", "run_nba_best_bets", "run_nba_nfl", "run_all", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
             "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
+    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_nfl": ("nba", "nfl"), "run_all": SPORTS, "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
@@ -557,10 +558,11 @@ def main(argv=None):
     p.add_argument("--certification-sharp-run-id", type=int, help="Sharp workflow ID for research price reference")
     p.add_argument("--output-dir", default="v8_results/one_command")
     args = p.parse_args(argv)
-    # Phone command "run NBA" always invokes the full research board,
-    # including both sharp game/prop repricing, calibrated-model gate and CLV.
-    # Direct execute("run_nba", end_date=...) stays a legacy HISTORICAL
-    # source-only API for existing pinned research fixtures.
+    # All ordinary Run <SPORT> commands use one full-stack orchestration:
+    # games, player props, L5/L10, research probabilities, Sharp Edge,
+    # read-only calibration/CLV/readiness and transparent HOLD/PASS.
+    # Low-level execute(...) remains compatible with pinned historical tests.
+    requested_user_command = args.command
     if args.command == "run_nba":
         args.command = "run_nba_best_bets"
     rows = None
@@ -570,7 +572,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_nba_best_bets", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
+    if (requested_user_command in FULL_STACK_COMMANDS or args.command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_readiness")) and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
@@ -601,8 +603,24 @@ def main(argv=None):
         # single-book archival observations, but cannot attest real checkout.
         arbitrage_rows += sharp_rows
     stop = date.fromisoformat(args.end_date) if args.end_date else None
-    history_days = args.days if args.days is not None else (35 if args.command == "run_nba_best_bets" else 7)
-    report = execute(args.command, history_days, stop, rows, output_dir=args.output_dir,
+    history_days = args.days if args.days is not None else (
+        35 if args.command == "run_nba_best_bets" else 7)
+    if requested_user_command in FULL_STACK_COMMANDS:
+        if stop is not None and any(lg in ("nba","nfl","nhl")
+                                    for lg in FULL_STACK_COMMANDS[requested_user_command]):
+            raise ValueError("full_stack_forward_scan_cannot_override_historical_end_date")
+        report = run_full_stack(
+            command=requested_user_command, execute_fn=execute,
+            days=history_days, now=None, output_dir=args.output_dir,
+            sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
+            sgo_archive_dir=args.sgo_archive_dir,
+            season_archive_dir=args.season_archive_dir,
+            leaderboard_file=args.leaderboard_file,
+            calibration_file=args.calibration_file,
+            end_date=stop,
+        )
+    else:
+        report = execute(args.command, history_days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
                      arbitrage_rows=arbitrage_rows, sgo_archive_dir=args.sgo_archive_dir,
                      source_run_metadata=source_metadata,
@@ -620,9 +638,11 @@ def main(argv=None):
                      calibration_file=args.calibration_file,
                      nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file},
                      season_archive_dir=args.season_archive_dir)
-    print(json.dumps({"command": args.command, "leagues": report["requested_leagues"],
-                      "research_edges": len(report["research_edge_candidates"]),
-                      "certified_bets": 0, "output": args.output_dir},
+    print(json.dumps({"command": requested_user_command,
+                      "leagues": report["requested_leagues"],
+                      "research_edges": len(report.get("research_edge_candidates", [])),
+                      "certified_bets": 0, "output": args.output_dir,
+                      "full_stack_bundle_created": "best_bets_and_edge_leaderboard" in report},
                      sort_keys=True))
 
 
