@@ -34,6 +34,10 @@
 - Weekly public eight-sport research collection is scheduled best-effort; artifacts expire after 90 days and must be archived for durable historical coverage.
 - **No independently validated sports predictions or verified executable sportsbook edge are currently available.** Champion-001 is unchanged and no wagers are placed.
 
+## All-Markets NBA + NFL Sharp Edge (Moneyline, Spread, Total, Player Props)
+
+New phone command: **`run_mixed_market`**. This presents full-game moneylines, spreads, Over/Under totals and player prop Over/Under quotes in a single *research-only* report, without inventing win probabilities, EV, or live sportsbook prices. The existing `run_edge` supports exact, independently reviewed NBA/NFL spread and total research estimates in addition to moneyline and player props. **[See the all-markets guide](V8_MIXED_MARKET_GUIDE.md)**. Champion-001 remains frozen; no automatic wagers.
+
 ## NEW: Private placed-parlay integrity audit (review pending)
 
 **[Placed vs. research wager, correlation and CLV safety guide](V8_PARLAY_INTEGRITY_GUIDE.md)** — a local, read-only ticket auditor. Checks actual combined-price payout math, distinguishes a reported accepted wager from a research pick, warns about same-game and same-player legs, and always withholds unverified settlement, model EV, and CLV. Do not commit private bet slips to this public repo. Champion-001 remains frozen; no betting actions.
