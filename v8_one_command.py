@@ -34,12 +34,13 @@ from v8_forward_calibration_view import read_calibration
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 from v8_arbitrage_research import scan_arbitrage
 from v8_betting_readiness import audit_betting_readiness, save_readiness
+from v8_nba_slate_best_bets import run as run_nba_slate_best_bets
 
 SPORTS = tuple(WINDOW_END)
-COMMANDS = ("run_nba", "run_sports", "run_nfl", "run_nhl", "run_mlb",
+COMMANDS = ("run_nba", "run_nba_best_bets", "run_sports", "run_nfl", "run_nhl", "run_mlb",
             "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
-    "run_nba": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
+    "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
     "run_nfl_forward": ("nfl",), "run_nhl_forward": ("nhl",), "run_sports": SPORTS, "run_nfl": ("nfl",),
     "run_nhl": ("nhl",), "run_mlb": ("mlb",), "run_ncaaf": ("ncaaf",),
     "run_ncaab": ("ncaab",), "run_mls": ("mls",),
@@ -76,7 +77,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             calibration_file=None, new_sport_forward_runner=None,
             nfl_nhl_board_files=None, audit_outcome_dir=None,
             audit_calibration_dir=None, audit_outcome_run_id=None,
-            audit_calibration_run_id=None):
+            audit_calibration_run_id=None, nba_best_bets_runner=None):
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
@@ -114,13 +115,58 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_training_intake": None,
         "nba_oos_research": None,
         "nba_forward_research": None,
+        "nba_slate_best_bets": None,
         "nba_forward_grading": None,
         "forward_leaderboard": None,
         "forward_calibration": None,
         "next_sport_forward_research": None,
         "nfl_nhl_forward_board": None,
     }
-    if command == "run_edge":
+    if command == "run_nba_best_bets":
+        if end_date is not None:
+            raise ValueError("tonight_NBA_slate_cannot_use_historical_end_date")
+        # One command includes the original current-date ESPN schedule, a fresh
+        # independent Elo research capture, ALL archived NBA SGO lines/player
+        # props, existing SharpAPI movement and persisted calibration evidence.
+        # No paid collection, cross-provider odds promotion, or wagers.
+        calibration = sharp_calibration_dashboard(calibration_file)
+        report["sharp_edge_calibration"] = calibration
+        runner = nba_best_bets_runner or run_nba_slate_best_bets
+        slate, forecasts = runner(out / "nba_best_bets", days=days, now=now,
+                                   sgo_archive_dir=sgo_archive_dir,
+                                   calibration=calibration)
+        if (slate.get("champion_001_modified") is not False
+                or slate.get("independently_certified_positive_ev_bets") != 0):
+            raise ValueError("unsafe_NBA_slate_betting_certification")
+        report["nba_slate_best_bets"] = slate
+        tonight_ids = {g["espn_event_id"] for g in slate["games"]}
+        report["research_forward_probability_rows"] = [
+            row for row in forecasts if row.get("espn_event_id") in tonight_ids]
+        report["nba_forward_research"] = slate.get("nba_forward_research_status")
+        report["historical_data_only_not_trainable"] = False
+        report["by_league"]["nba"] = {
+            "status": ("clocktime_all_NBA_games_research_only" if
+                       slate.get("source_coverage_complete_for_all_nba_games")
+                       else "HOLD_no_complete_NBA_schedule"),
+            "published_slate_games": slate["slate_game_count_from_original_source"],
+            "research_forecast_count_today": len(report["research_forward_probability_rows"]),
+            "paired_archived_reference_markets": slate["paired_archive_market_count"],
+            "verified_current_executable_quotes": 0,
+            "certified_positive_ev_bets": 0,
+            "data_verified_for_model_training": False,
+        }
+        sharp, _ = summarize_sharp_archive(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        props, _ = summarize_player_props(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        full, _ = summarize_full_game_markets(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        report["sharp_archive"] = sharp
+        report["sharp_player_props"] = props
+        report["sharp_full_game_markets"] = full
+        report["sportsgameodds_archive_research"] = audit_source_archive(
+            sgo_archive_dir, now=now)
+    elif command == "run_edge":
         report["research_edge_candidates"] = rank_research_edges(edge_rows or [])
     elif command == "run_arbitrage":
         # Crossbook mathematical screening independent of predictive model EV.
@@ -439,7 +485,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--command", choices=COMMANDS, default="model_status")
-    p.add_argument("--days", type=int, default=7)
+    p.add_argument("--days", type=int, default=None)
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
@@ -470,7 +516,7 @@ def main(argv=None):
             raise FileNotFoundError(path)
         rows = [json.loads(s) for s in path.read_text().splitlines() if s.strip()]
     sharp_rows, sharp_run_ids = [], []
-    if args.command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
+    if args.command in ("run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_nba_best_bets", "run_arbitrage", "run_readiness") and args.sharp_archive_dir:
         sharp_rows, sharp_run_ids, _ = read_archive(args.sharp_archive_dir)
     source_metadata = None
     if args.command == "run_health" and args.source_runs_json:
@@ -501,7 +547,8 @@ def main(argv=None):
         # single-book archival observations, but cannot attest real checkout.
         arbitrage_rows += sharp_rows
     stop = date.fromisoformat(args.end_date) if args.end_date else None
-    report = execute(args.command, args.days, stop, rows, output_dir=args.output_dir,
+    history_days = args.days if args.days is not None else (35 if args.command == "run_nba_best_bets" else 7)
+    report = execute(args.command, history_days, stop, rows, output_dir=args.output_dir,
                      sharp_rows=sharp_rows, sharp_run_ids=sharp_run_ids,
                      arbitrage_rows=arbitrage_rows, sgo_archive_dir=args.sgo_archive_dir,
                      source_run_metadata=source_metadata,
