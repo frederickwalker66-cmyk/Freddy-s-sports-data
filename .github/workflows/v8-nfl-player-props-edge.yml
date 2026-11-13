@@ -15,6 +15,8 @@ on:
       - 'tests/test_v8_sharp_probability_display.py'
       - 'tests/test_v8_sharp_game_markets.py'
       - 'v8_one_command.py'
+      - 'v8_probability_edge_dashboard.py'
+      - 'tests/test_v8_probability_edge_dashboard.py'
       - 'tests/test_v8_sharp_player_props.py'
       - 'SHARP_EDGE_RERUN_REQUEST.md'
   workflow_run:
@@ -221,6 +223,22 @@ jobs:
           if os.getenv("GITHUB_STEP_SUMMARY"):
               Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a").write(content)
           PY
+      - name: Show probability and Sharp Edge percentages on every one-click run
+        if: always()
+        shell: bash
+        run: |
+          report="v8_results/nfl_props_edge/PROBABILITY_SHARP_EDGE_DASHBOARD.md"
+          if test -f "$report"; then
+            cat "$report"
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "Probability / Sharp Edge: N/A — no completed validated report; HOLD."
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              echo "## Probability and Sharp Edge — N/A (run incomplete; HOLD)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
       - name: Save research-only output
         if: always()
         uses: actions/upload-artifact@v4
