@@ -241,16 +241,22 @@ def _save(out, report, players):
         "**Not live roster verification, independent player-model probabilities, "
         "betting +EV, verified CLV, or confirmed prop lines. Never bet from this table.**",
         "| Historical player label (NOT verified active today) | Upcoming ESPN event | "
-        "Last 5 appearances | Last 10 appearances | Last 5 points / rebounds / assists |",
-        "|---|---|---:|---:|---|",
+        "Last 5 / last 10 matured appearances | Last 5 P/R/A/3PM | Last 10 P/R/A/3PM |",
+        "|---|---|---:|---|---|",
     ]
     for p in players[:80]:
-        m = p["player_last5"]["averages_when_every_selected_game_has_stat"]
-        x = f"{m['points']} / {m['rebounds']} / {m['assists']}"
+        def average_stat_line(window):
+            a = window["averages_when_every_selected_game_has_stat"]
+            if not window["full_window"]:
+                return "Incomplete window — N/A"
+            return " / ".join(str(a[k]) if a[k] is not None else "N/A"
+                            for k in ("points", "rebounds", "assists", "threes_made"))
         lines.append(
             f"| {str(p['historical_ESPN_name_not_confirmed_current_roster'] or 'N/A').replace('|','/')[:60]} "
             f"| {p['scheduled_event_id']} "
-            f"| {p['player_last5']['matured_appearances_available']}/5 "
-            f"| {p['player_last10']['matured_appearances_available']}/10 | {x} |")
+            f"| {p['player_last5']['matured_appearances_available']}/5 / "
+            f"{p['player_last10']['matured_appearances_available']}/10 "
+            f"| {average_stat_line(p['player_last5'])} "
+            f"| {average_stat_line(p['player_last10'])} |")
     (out / "NBA_PLAYER_LAST5_LAST10.md").write_text(
         "\n".join(lines) + "\n", encoding="utf-8")
