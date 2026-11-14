@@ -1,7 +1,7 @@
 """V8 read-only betting-readiness evidence gate for PC and phone.
 
 Reads real saved NBA pregame research calibration and existing archived
-SharpAPI NBA/NFL markets. It never upgrades an aggregator quote, an analyst's
+SharpAPI NBA/NFL/NCAAF research markets. It never upgrades an aggregator quote, an analyst's
 assertion or a GitHub green job into independent provenance, a model forecast,
 a wager, or profitable expected value. The gate intentionally has no auto-
 promotion path: independently signed model, quote and settlement evidence
@@ -21,6 +21,8 @@ MARKETS = (
     "nba_moneyline", "nba_point_spread", "nba_total_points",
     "nba_player_props", "nfl_moneyline", "nfl_point_spread",
     "nfl_total_points", "nfl_player_props",
+    "ncaaf_moneyline", "ncaaf_point_spread",
+    "ncaaf_total_points", "ncaaf_player_props",
 )
 MIN_RESEARCH_GAMES = 50
 MIN_EXPLORATORY_CALIBRATION_GAMES = 100
@@ -78,6 +80,14 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
         raise ValueError("invalid_archived_market_board")
     if any(not isinstance(item, dict) for item in game_board):
         raise ValueError("invalid_archived_game_snapshot")
+    observed_source_rows = {
+        league: sum(
+            1 for row in rows if isinstance(row, dict)
+            and row.get("league") == league
+            and row.get("source") == "sharpapi_rest"
+            and row.get("record_type") == "pregame_odds_observation")
+        for league in ("nba", "nfl", "ncaaf")
+    }
     by_market = {}
     for market in MARKETS:
         league, kind = market.split("_", 1)
@@ -101,6 +111,12 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
             "exact_market_outcome_and_settlement_independently_unverified",
             "independent_release_review_not_approved",
         ]
+        if not observed_source_rows[league]:
+            blockers.append("no_saved_provider_quotes_for_league")
+        elif not references:
+            blockers.append("no_recent_exact_two_sided_reference_market")
+        if league == "ncaaf":
+            blockers.append("ncaaf_market_specific_calibrated_forecasts_not_available")
         if kind == "player_props":
             blockers.append("player_identity_active_status_and_prop_stat_settlement_not_authenticated")
         if kind in ("point_spread", "total_points"):
@@ -109,6 +125,12 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
             "status": "HOLD_NO_INDEPENDENTLY_VERIFIED_POSITIVE_EV",
             "research_forward_grades_nba_home_win_only": research_graded,
             "recent_aggregator_two_sided_examples_displayed": references,
+            "archived_provider_quote_rows_seen_unverified": observed_source_rows[league],
+            "market_input_stage": (
+                "NO_SAVED_PROVIDER_QUOTES" if not observed_source_rows[league]
+                else "ARCHIVED_NOT_RECENT_PAIRED" if references == 0
+                else "RECENT_PAIRED_REFERENCE_ONLY_NO_MODEL_OR_CHECKOUT"
+            ),
             "aggregator_examples_are_executable_checkout_prices": False,
             "native_probability_validated_for_exact_market": False,
             "true_entry_to_closing_line_value_pairs_verified": 0,
@@ -149,7 +171,10 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
         "archive_price_context": {
             "saved_sharpapi_runs": list(sorted(set(sharp_run_ids))),
             "archived_quote_rows_read": len(rows),
+            "archived_provider_quote_rows_by_league_unverified": observed_source_rows,
             "recent_upcoming_nba_nfl_full_game_reference_events": game_count,
+            "recent_upcoming_ncaaf_reference_events": sum(
+                x.get("league") == "ncaaf" for x in game_board),
             "recent_upcoming_two_sided_player_prop_reference_markets": prop_count,
             "bookmaker_reference": "SharpAPI_DraftKings_labeled_aggregator_not_checkout",
             "fresh_reference_examples_do_not_prove_execution_or_positive_EV": True,
@@ -158,6 +183,7 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
         "critical_next_steps": [
             "Retrieve independently attested original Champion-001 executable, source, version and reproducible reference predictions.",
             "Keep capturing BEFORE-game native probability forecasts and later independently adjudicated outcomes for each exact market, including spreads and props.",
+            "NCAAF provider collection is opt-in for manual runs only; verify rate limits and actual archived paired odds before attempting model-edge calculations.",
             "Finish 50 mature research grades for descriptive metrics, then 100+ with sufficiently populated calibration bins. These counts alone never certify profit.",
             "Independently verify sportsbook checkout timestamp, event identity, exact line, price, player identity and market settlement rules.",
             "Preserve authenticated original entry and same-outcome closing receipts to measure CLV; recorded repricing is not CLV.",
