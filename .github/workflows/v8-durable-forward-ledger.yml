@@ -82,7 +82,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements-calibration.txt
-      - name: Download up to 35 completed forward research runs and their original GitHub run metadata
+      - name: Retrieve up to 35 original pregame captures from forward and Run NBA phone workflows
         shell: bash
         run: |
           set -euo pipefail
@@ -91,7 +91,7 @@ jobs:
           count=0
           for rid in "${ids[@]}"; do
             [[ "$rid" =~ ^[0-9]+$ ]] || continue
-            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|oos)-${rid}$" | head -n 1 || true)"
+            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|best_bets)-${rid}$" | head -n 1 || true)"
             [[ -n "$artifact_name" ]] || continue
             folder="saved_original_forward_runs/$rid"
             mkdir -p "$folder"
