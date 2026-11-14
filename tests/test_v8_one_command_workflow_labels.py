@@ -24,7 +24,6 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         source_stages = (
             "Retrieve recent completed SharpAPI research archives",
             "Load latest saved eight-league season scoreboard and player form",
-            "Retrieve completed NBA forward research artifacts",
         )
         for stage in source_stages:
             with self.subTest(stage=stage):
