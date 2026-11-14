@@ -74,6 +74,8 @@ on:
       - '.github/workflows/v8-one-command.yml'
       - 'v8_one_command.py'
       - 'v8_every_sport_bundle.py'
+      - 'v8_metrics_health.py'
+      - 'tests/test_v8_metrics_health.py'
       - 'collector.py'
       - 'tests/test_v8_ncaaf_sharp_research.py'
       - 'tests/test_v8_all_sports_markets.py'
@@ -577,6 +579,14 @@ jobs:
                                    f"{item.get('status','UNKNOWN')} |")
                   lines.append("Source-only research; no authenticated odds or certified betting +EV.")
               if r['command'] == 'run_calibration':
+                  health=r.get('metrics_health') or {}
+                  lines.extend(["", "## Evidence Metrics Health (never certified betting skill)",
+                      f"**Archived original NBA research forecasts:** {health.get('nba_archived_original_forward_forecasts')}",
+                      f"**Graded / pending / quarantined:** {health.get('nba_graded_research_games')} / {health.get('nba_pending_ungraded')} / {health.get('nba_quarantined')}",
+                      f"**Grading coverage:** {health.get('nba_grade_coverage_percent')}% (None = unavailable)",
+                      f"**Additional grades to 50 / 100:** {health.get('additional_nba_grades_to_50')} / {health.get('additional_nba_grades_to_100')}",
+                      "**A home-win base rate is not model accuracy. See METRICS_HEALTH.json for probability-bin distribution and uncertainty.**",
+                      "**No model refit, Champion-001 modification, certified EV or wagers.**"])
                   calib=r.get('forward_calibration') or {}
                   lines.extend(["", "## NBA Genuine Forward Research — Calibration Readiness",
                       f"**Status:** {calib.get('status','UNKNOWN')}",
