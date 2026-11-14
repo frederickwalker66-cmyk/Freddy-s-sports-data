@@ -20,6 +20,9 @@ on:
   pull_request:
     paths:
       - '.github/workflows/collect-sharpapi.yml'
+      - 'collector.py'
+      - 'tests/test_collector.py'
+      - 'tests/test_v8_all_sports_markets.py'
   schedule:
     - cron: '0 16,20,23 * * *'  # UTC; times shift with Eastern daylight saving
 # Prevent overlapping live API collection; code pushes are covered by offline CI.
