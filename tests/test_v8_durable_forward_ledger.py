@@ -7,12 +7,31 @@ from datetime import timedelta, datetime, timezone
 from pathlib import Path
 
 from test_v8_nba_forward_grade import (
-    write_run, results_collector, FORECAST, START, AFTER, RUN,
+    write_run, write_nested_phone_nba_run, results_collector, FORECAST, START, AFTER, RUN,
 )
 from v8_durable_forward_ledger import sync, GRADED_STATUS
 
 
 class DurableForwardTests(unittest.TestCase):
+    def test_save_phone_nba_first_original_with_matching_nested_source_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            incoming=Path(folder)/"source"
+            incoming.mkdir()
+            base, forecast=write_nested_phone_nba_run(incoming)
+            durable=Path(folder)/"persistent"
+            board, history=sync(incoming,durable,now=AFTER,collector=results_collector)
+            self.assertEqual(board["nba_unique_original_forecasts_archived"],1)
+            self.assertEqual(board["nba_forward_forecasts_graded_research_only"],1)
+            self.assertEqual(board["new_forecast_sync"]["new_ESPN_published_outcomes_recorded"],1)
+            source=(base/"components/nba/nba_best_bets/nba_forward/"
+                    "NBA_FORWARD_FORECASTS.jsonl")
+            stored=(durable/"original_run_receipts"/str(RUN+22)/
+                    "components/nba/nba_best_bets/nba_forward/NBA_FORWARD_FORECASTS.jsonl")
+            self.assertEqual(stored.read_bytes(),source.read_bytes())
+            self.assertEqual(history[0]["original_model_home_win_probability"], .6)
+            self.assertFalse(history[0]["certified_prediction"])
+            self.assertEqual(board["certified_positive_ev_bets"],0)
+
     def test_first_archive_persists_original_but_pending_and_idempotent(self):
         with tempfile.TemporaryDirectory() as folder:
             archives=Path(folder)/"input"
