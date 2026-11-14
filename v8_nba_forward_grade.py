@@ -51,13 +51,36 @@ def read_jsonl(path):
 def _load_one_run(root, run_id):
     base = root / str(run_id)
     meta = read_json(base / "github_run.json")
-    receipt = read_json(base / "ONE_COMMAND_REPORT.json")
-    forecasts = read_jsonl(base / "nba_forward" / "NBA_FORWARD_FORECASTS.jsonl")
-    status = read_json(base / "nba_forward" / "NBA_FORWARD_RESEARCH_STATUS.json")
+    envelope = read_json(base / "ONE_COMMAND_REPORT.json")
+    # The phone's full NBA command also captures a FIRST genuine pregame
+    # original forecast. Its output is nested under the NBA component.
+    # Never substitute a game-prop price, retrospective OOS simulation,
+    # or reconstructed after-result forecast for this original.
+    complete = base / "components" / "nba" / "nba_best_bets" / "nba_forward"
+    if (complete / "NBA_FORWARD_FORECASTS.jsonl").is_file():
+        if (base / "nba_forward" / "NBA_FORWARD_FORECASTS.jsonl").exists():
+            raise ValueError("ambiguous_forward_receipt_root")
+        receipt = read_json(base / "components" / "nba" / "ONE_COMMAND_REPORT.json")
+        if (envelope.get("user_command") not in ("run_nba", "run_nba_best_bets")
+                or envelope.get("champion_001_modified") is not False
+                or envelope.get("certified_positive_ev_bets") != 0
+                or envelope.get("money_wagered_usd") != 0
+                or receipt.get("command") != "run_nba_best_bets"):
+            raise ValueError("unsafe_unified_NBA_forward_wrapper")
+        research_dir = complete
+        required_command = "run_nba_best_bets"
+    else:
+        if envelope.get("command") != "run_nba_forward":
+            raise ValueError("untrusted_original_forward_command")
+        receipt = envelope
+        research_dir = base / "nba_forward"
+        required_command = "run_nba_forward"
+    forecasts = read_jsonl(research_dir / "NBA_FORWARD_FORECASTS.jsonl")
+    status = read_json(research_dir / "NBA_FORWARD_RESEARCH_STATUS.json")
     if (meta.get("id") != run_id or meta.get("head_branch") != "main"
             or meta.get("status") != "completed" or meta.get("conclusion") != "success"
             or meta.get("event") not in ("push", "workflow_dispatch", "schedule")
-            or receipt.get("command") != "run_nba_forward"
+            or receipt.get("command") != required_command
             or receipt.get("champion_001_modified") is not False
             or receipt.get("certified_positive_ev_bets") != 0
             or status.get("stage") != "v8_elo_genuine_forward_clocktime_research_only"
@@ -107,7 +130,7 @@ def _load_one_run(root, run_id):
                 or not 0 < p < 1 or abs(p + q - 1) > 0.0000011):
             raise ValueError("unsupported_forecast_probability")
         day = scheduled.astimezone(NY).date()
-        rawfile = base / "nba_forward" / ("nba_original_future_schedule_" + day.strftime("%Y%m%d") + ".json")
+        rawfile = research_dir / ("nba_original_future_schedule_" + day.strftime("%Y%m%d") + ".json")
         if day not in original:
             original[day] = read_json(rawfile)
             raw = rawfile.read_bytes()
