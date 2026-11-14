@@ -49,6 +49,9 @@ class BundleIntegrationTests(unittest.TestCase):
                 self.assertEqual(result["certified_positive_ev_bets"],0)
                 self.assertFalse(result["champion_001_modified"])
                 self.assertEqual(result["money_wagered_usd"],0)
+                self.assertEqual(result["metrics_health"]["certified_positive_ev_bets"],0)
+                self.assertFalse(result["metrics_health"]["bet_ready"])
+                self.assertIsNone(result["metrics_health"]["nba_grade_coverage_percent"])
                 self.assertEqual(len(result["by_league"]),len(scope))
                 self.assertFalse(result["best_bets_and_edge_leaderboard"]
                                  ["certified_positive_ev_ranked_bets"])
@@ -56,8 +59,8 @@ class BundleIntegrationTests(unittest.TestCase):
                 self.assertTrue((Path(folder)/"FULL_STACK_ALL_IN_ONE_REPORT.md").is_file())
                 for section in (
                     "PREDICTIONS","SHARP_EDGE","BEST_BETS","MARKET_PROBABILITIES",
-                    "CALIBRATION","CLV","L5_L10","PARLAY_PREFLIGHT",
-                    "BETTING_READINESS"):
+                    "CALIBRATION","METRICS_HEALTH","CLV","L5_L10",
+                    "PARLAY_PREFLIGHT","BETTING_READINESS"):
                     self.assertTrue((Path(folder)/f"FULL_STACK_{section}.json").is_file())
                 self.assertEqual(len(result["research_only_pregame_predictions"]),
                                  sum(x in ("nba","nfl","nhl") for x in scope))
