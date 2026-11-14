@@ -61,6 +61,9 @@ class CollectorTests(unittest.TestCase):
     def test_ncaaf_is_opt_in_and_scheduled_leagues_unchanged(self):
         self.assertEqual(LEAGUES, ("nba", "nfl", "mlb"))
         self.assertIn("ncaaf", SUPPORTED_LEAGUES)
+        self.assertIn("nhl", SUPPORTED_LEAGUES)
+        self.assertIn("mls", SUPPORTED_LEAGUES)
+        self.assertIn("uefa_champions_league", SUPPORTED_LEAGUES)
 
     def test_ncaaf_dry_run_never_reads_key_or_calls_provider(self):
         buf = io.StringIO()
