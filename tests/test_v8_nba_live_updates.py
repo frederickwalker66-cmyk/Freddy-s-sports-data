@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from v8_nba_live_updates import create_report, parse_scoreboard, render, run
+from v8_nba_live_updates import attach_pregame_rule_context, create_report, parse_scoreboard, render, run
 
 NOW = datetime(2026, 11, 14, 23, 15, tzinfo=timezone.utc)
 
@@ -123,6 +123,87 @@ class NBALiveUpdateTests(unittest.TestCase):
         self.assertEqual(states["post"], "FINAL_USE_ACTUAL_SCORE_NOT_PROJECTION")
         self.assertTrue(all(g["live_win_probability"] is None for g in board["games"]))
         self.assertEqual(board["certified_positive_ev_bets"], 0)
+
+
+    def test_always_display_exact_matched_pregame_research_context(self):
+        with TemporaryDirectory() as p:
+            current = create_report(scoreboard_bytes=source(
+                event(1, state="pre", start="2026-11-15T00:00:00Z")), now=NOW)
+            bundle = {
+                "champion_001_modified": False, "certified_positive_ev_bets": 0,
+                "research_only_pregame_predictions": [{
+                    "league": "nba", "espn_event_id": "1",
+                    "home_team": "Home 1", "away_team": "Away 1",
+                    "start_utc": "2026-11-15T00:00:00Z",
+                    "original_forecast_recorded_utc": "2026-11-14T22:00:00Z",
+                    "confidence_is_uncalibrated_rule_output": True,
+                    "native_Champion_001_model_probability": None,
+                    "verified_live_sportsbook_quote": False,
+                    "home_win_research_rule_probability": 0.729,
+                }],
+            }
+            filepath = Path(p) / "full_stack.json"
+            filepath.write_text(json.dumps(bundle))
+            report = attach_pregame_rule_context(current, filepath)
+            game = report["games"][0]
+            self.assertEqual(game["pregame_rule_home_win_percent"], 72.9)
+            self.assertEqual(report["pregame_rule_home_win_pcts_attached"], 1)
+            self.assertIn("EXACT_MATCHED", report["pregame_rule_context_status"])
+            self.assertIn("72.9%", render(report))
+            self.assertIsNone(game["live_win_probability"])
+            self.assertEqual(report["certified_positive_ev_bets"], 0)
+
+    def test_unverified_or_wrong_team_context_is_not_displayed(self):
+        with TemporaryDirectory() as p:
+            report = create_report(scoreboard_bytes=source(
+                event(1, state="pre", start="2026-11-15T00:00:00Z")), now=NOW)
+            bundle = {
+                "champion_001_modified": False, "certified_positive_ev_bets": 0,
+                "research_only_pregame_predictions": [{
+                    "league": "nba", "espn_event_id": "1",
+                    "home_team": "Wrong Home", "away_team": "Away 1",
+                    "start_utc": "2026-11-15T00:00:00Z",
+                    "original_forecast_recorded_utc": "2026-11-14T22:00:00Z",
+                    "confidence_is_uncalibrated_rule_output": True,
+                    "native_Champion_001_model_probability": None,
+                    "verified_live_sportsbook_quote": False,
+                    "home_win_research_rule_probability": 0.729,
+                }],
+            }
+            path = Path(p)/"full.json"
+            path.write_text(json.dumps(bundle))
+            result = attach_pregame_rule_context(report, path)
+            self.assertEqual(result["pregame_rule_home_win_pcts_attached"], 0)
+            self.assertIsNone(result["games"][0]["pregame_rule_home_win_percent"])
+            self.assertIn("N/A", render(result))
+            bundle["champion_001_modified"] = True
+            path.write_text(json.dumps(bundle))
+            flagged = attach_pregame_rule_context(report, path)
+            self.assertEqual(flagged["pregame_rule_context_status"], "REJECTED_UNSAFE_FORECAST_CONTEXT")
+
+    def test_future_or_after_tipoff_probabilities_are_never_promoted(self):
+        with TemporaryDirectory() as p:
+            report = create_report(scoreboard_bytes=source(
+                event(1, state="pre", start="2026-11-15T00:00:00Z")), now=NOW)
+            bundle = {
+                "champion_001_modified": False, "certified_positive_ev_bets": 0,
+                "research_only_pregame_predictions": [{
+                    "league": "nba", "espn_event_id": "1",
+                    "home_team": "Home 1", "away_team": "Away 1",
+                    "start_utc": "2026-11-15T00:00:00Z",
+                    "original_forecast_recorded_utc": "2026-11-15T00:01:00Z",
+                    "confidence_is_uncalibrated_rule_output": True,
+                    "native_Champion_001_model_probability": None,
+                    "verified_live_sportsbook_quote": False,
+                    "home_win_research_rule_probability": 0.9,
+                }],
+            }
+            path=Path(p)/"full.json"
+            path.write_text(json.dumps(bundle))
+            result=attach_pregame_rule_context(report, path)
+            self.assertIsNone(result["games"][0]["pregame_rule_home_win_percent"])
+            self.assertEqual(result["pregame_rule_home_win_pcts_attached"], 0)
+            self.assertIsNone(result["games"][0]["live_win_probability"])
 
     def test_final_is_as_observed_not_upcoming(self):
         game = event(3, state="post", start="2026-11-14T20:30:00Z",
