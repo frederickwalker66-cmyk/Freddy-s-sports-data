@@ -337,7 +337,7 @@ jobs:
             fi
           done
           echo "Prospective review artifacts downloaded for independent intake: $success"
-      - name: Retrieve completed NBA forward research artifacts and original GitHub run metadata
+      - name: Retrieve valid forward and Run NBA original forecast receipts with GitHub metadata
         if: ${{ inputs.command == 'run_nba_grade' || github.event.schedule == '53 13 * * *' || github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -349,7 +349,7 @@ jobs:
           downloaded=0
           for rid in "${ids[@]}"; do
             [[ "$rid" =~ ^[0-9]+$ ]] || continue
-            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|oos)-${rid}$" | head -n 1 || true)"
+            artifact_name="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rid/artifacts" --jq '.artifacts[].name' 2>/dev/null | grep -E "^v8-one-command-run_nba_(forward|best_bets)-${rid}$" | head -n 1 || true)"
             [[ -n "$artifact_name" ]] || continue
             dest="saved_nba_forward_archives/$rid"
             mkdir -p "$dest"
