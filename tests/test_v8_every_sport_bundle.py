@@ -65,7 +65,7 @@ class BundleIntegrationTests(unittest.TestCase):
                     self.assertEqual(result["by_league"][lg]["certified_positive_ev_bets"],0)
                     self.assertIsNone(result["by_league"][lg]["market_specific_expected_roi_percent"])
                 if "mlb" in scope:
-                    self.assertIn("not_supported",
+                    self.assertIn("parser_ready",
                         result["by_league"]["mlb"]["archived_sportsbook_market_support"])
 
     def test_single_word_run_is_the_default_all_eight_sport_cli(self):
@@ -130,7 +130,7 @@ class BundleIntegrationTests(unittest.TestCase):
                               ["qualified_exact_market_model_p"])
             md=(Path(folder)/"FULL_STACK_ALL_IN_ONE_REPORT.md").read_text()
             self.assertIn("HOLD",md)
-            self.assertIn("not_supported",md)
+            self.assertIn("parser_ready",md)
 
     def test_original_unreviewed_elo_is_not_champion_and_not_ev(self):
         with tempfile.TemporaryDirectory() as folder:
