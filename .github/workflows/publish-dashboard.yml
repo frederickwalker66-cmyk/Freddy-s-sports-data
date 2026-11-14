@@ -1,0 +1,150 @@
+name: Freddy's Picks AI — Publish Web Dashboard
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Freddy's Picks AI V8 — One Command (phone + laptop)"
+      - "Freddy's Picks AI V8 — NBA scoreboard live updates (research only)"
+    types: [completed]
+    branches: [main]
+  # Research website data freshness is best-effort, NOT a live sportsbook feed.
+  schedule:
+    - cron: '*/30 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_public_dashboard.py'
+      - 'tests/test_build_public_dashboard.py'
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/styles.css'
+      - '.github/workflows/publish-dashboard.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: freddy-public-dashboard-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify public-snapshot guardrails without contacting provider APIs
+        run: python -m unittest discover -s tests -p 'test_build_public_dashboard.py' -v
+      - name: Retrieve latest completed V8 NBA, all-sports and scoreboard artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dashboard_inputs
+          echo "MODEL_RUN=0" >> "$GITHUB_ENV"
+          echo "LIVE_RUN=0" >> "$GITHUB_ENV"
+          echo "ALL_RUN=0" >> "$GITHUB_ENV"
+          # Read ONLY workflow artifacts already completed successfully.
+          # No SharpAPI, sportsbook or paid provider requests here.
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow v8-one-command.yml --branch main --status success \
+               --limit 50 --json databaseId --jq '.[].databaseId' || true); do
+            if [[ ! "$rid" =~ ^[0-9]+$ ]]; then continue; fi
+            mkdir -p dashboard_inputs/nba
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "v8-one-command-run_nba_best_bets-$rid" \
+                 --dir dashboard_inputs/nba >/dev/null 2>&1 &&
+               [[ -s dashboard_inputs/nba/FULL_STACK_ALL_IN_ONE_REPORT.json ]]; then
+              echo "MODEL_RUN=$rid" >> "$GITHUB_ENV"
+              echo "NBA snapshot from completed run $rid"
+              break
+            fi
+            rm -rf dashboard_inputs/nba
+          done
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow v8-nba-live-updates.yml --branch main --status success \
+               --limit 12 --json databaseId --jq '.[].databaseId' || true); do
+            if [[ ! "$rid" =~ ^[0-9]+$ ]]; then continue; fi
+            mkdir -p dashboard_inputs/live
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "v8-nba-live-updates-$rid" \
+                 --dir dashboard_inputs/live >/dev/null 2>&1 &&
+               [[ -s dashboard_inputs/live/NBA_LIVE_UPDATES.json ]]; then
+              echo "LIVE_RUN=$rid" >> "$GITHUB_ENV"
+              echo "NBA public scoreboard from completed run $rid"
+              break
+            fi
+            rm -rf dashboard_inputs/live
+          done
+          # Old all-sports evidence is explicitly timestamped. It never
+          # becomes a current score or verified, executable betting quote.
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow v8-one-command.yml --branch main --status success \
+               --limit 80 --json databaseId --jq '.[].databaseId' || true); do
+            if [[ ! "$rid" =~ ^[0-9]+$ ]]; then continue; fi
+            for alias in run_all run_sports; do
+              mkdir -p dashboard_inputs/all
+              if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                   --name "v8-one-command-$alias-$rid" \
+                   --dir dashboard_inputs/all >/dev/null 2>&1 &&
+                 [[ -s dashboard_inputs/all/FULL_STACK_ALL_IN_ONE_REPORT.json ]]; then
+                echo "ALL_RUN=$rid" >> "$GITHUB_ENV"
+                echo "Eight-sport research from completed run $rid"
+                break 2
+              fi
+              rm -rf dashboard_inputs/all
+            done
+          done
+      - name: Generate bounded, sanitized public read-only snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build_public_dashboard.py \
+            --live-report dashboard_inputs/live/NBA_LIVE_UPDATES.json \
+            --model-report dashboard_inputs/nba/FULL_STACK_ALL_IN_ONE_REPORT.json \
+            --all-sports-report dashboard_inputs/all/FULL_STACK_ALL_IN_ONE_REPORT.json \
+            --live-run "$LIVE_RUN" --model-run "$MODEL_RUN" --all-run "$ALL_RUN" \
+            --out docs/data/dashboard.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('docs/data/dashboard.json')
+          r=json.loads(p.read_text())
+          assert r['schema']=='freddys-picks-ai-public-v1'
+          assert r['model']['champion_frozen'] is True
+          assert r['market']['certified_positive_ev']==0
+          assert r['market']['verified_checkout_prices']==0
+          assert len(r['games'])<=100
+          print("Dashboard public snapshot verified: "+str(p))
+          PY
+      - name: Commit research-only dashboard data to main for GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/dashboard.json
+          if git diff --cached --quiet; then
+            echo "Public dashboard snapshot unchanged."
+          else
+            git commit -m "dashboard: refresh public V8 research snapshot [skip ci]"
+            git push origin HEAD:main
+            echo "Public dashboard updated on the main/docs branch."
+          fi
+      - name: Show publication status and Pages activation instruction
+        if: always()
+        run: |
+          echo "## Freddy's Picks AI — Public Web Dashboard" >> "$GITHUB_STEP_SUMMARY"
+          echo "Read-only static site files: **docs/index.html**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Data feed: **docs/data/dashboard.json**" >> "$GITHUB_STEP_SUMMARY"
+          echo "To publish the first time: Repository Settings → Pages → Deploy from a branch → main → /docs → Save." >> "$GITHUB_STEP_SUMMARY"
+          echo "Public URL (once GitHub Pages is enabled): https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/" >> "$GITHUB_STEP_SUMMARY"
