@@ -16,6 +16,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # 2026-11-14 user NBA run following all-sports refresh: rerun NBA Sharp Edge with game and player props, price freshness, L5/L10, CLV, calibration. Research-only; Champion frozen; no paid calls or bets.
 # Run Sharp Edge request 2026-11-14: explicit on-demand [run-sharp] mapping, read existing SharpAPI odds and calibration, NBA/NFL game and player-prop markets; no provider purchases or bets.
 # 2026-11-14 NBA five-leg parlay research review: validate five-game slate and player/game market availability, joint-probability and EV evidence; HOLD without exact live quotes. No paid calls; Champion-001 frozen.
+# 2026-11-14 user-initiated refresh after live-update integration: rerun current NBA research slate with timestamped public scoreboard, injuries reference and archived odds freshness; no paid collector or bets.
 on:
   workflow_dispatch:
     inputs:
