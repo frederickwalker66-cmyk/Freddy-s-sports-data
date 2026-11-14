@@ -9,7 +9,7 @@
   "forward_calibration_graded_NBA_games": 24,
   "forward_calibration_report_version": "v8-nba-forward-calibration-v1",
   "forward_calibration_status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
-  "generated_at_utc": "2026-11-14T14:49:49.154236+00:00",
+  "generated_at_utc": "2026-11-14T14:52:04.447332+00:00",
   "grade_runway_report": "data/v8_forward/GRADE_RUNWAY.json",
   "independently_verified_checkout_odds": 0,
   "last_graded_batch": {
@@ -21,7 +21,7 @@
     "champion_001_modified": false,
     "classification_accuracy_provisional": null,
     "classification_decisions_home_vs_away": 0,
-    "evaluated_at_utc": "2026-11-14T14:49:49.154216+00:00",
+    "evaluated_at_utc": "2026-11-14T14:52:04.447308+00:00",
     "forecast_rows_in_scope": 0,
     "forecasts_still_pending_or_unmatched": 0,
     "independent_publisher_or_GitHub_signatures_verified": false,
@@ -51,7 +51,7 @@
   "nba_original_forecasts_quarantined": 0,
   "nba_unique_original_forecasts_archived": 42,
   "new_forecast_sync": {
-    "existing_or_later_forecasts_ignored": 28,
+    "existing_or_later_forecasts_ignored": 20,
     "mature_outcome_source_days_checked": 0,
     "new_ESPN_published_outcomes_recorded": 0,
     "new_forecasts_inserted": 0,
@@ -62,16 +62,16 @@
   "ranking_status": "NO_MODEL_WITH_50_AUTHENTIC_FORWARD_GRADED_GAMES",
   "raw_archive_receipt": {
     "excluded_archive_or_duplicate_reasons": {
-      "later_duplicate_forecast_not_regraded": 15
+      "excluded_untrusted_run_ValueError": 32,
+      "later_duplicate_forecast_not_regraded": 9
     },
-    "raw_forward_rows_seen": 43,
+    "raw_forward_rows_seen": 29,
     "source_github_run_ids": [
-      42934524153,
       43138240791,
       43344897385,
       43537745181
     ],
-    "unique_earliest_forecasts": 28
+    "unique_earliest_forecasts": 20
   },
   "research_model_scorecards_including_small_samples": [
     {

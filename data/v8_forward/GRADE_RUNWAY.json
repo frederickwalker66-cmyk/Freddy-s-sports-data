@@ -19,7 +19,7 @@
   "next_priority": "COLLECT_MORE_UNCHANGED_PRETIPOFF_FORECASTS_AND_WAIT_FOR_MATURITY",
   "no_missing_predictions_backfilled": true,
   "no_sportsbook_prices_inferred": true,
-  "observed_at_utc": "2026-11-14T14:49:49.154236+00:00",
+  "observed_at_utc": "2026-11-14T14:52:04.447332+00:00",
   "oldest_mature_ungraded_hours_after_48h_gate": null,
   "original_champion_001_modified": false,
   "original_pregame_lead_p10_minutes": 231.69,
