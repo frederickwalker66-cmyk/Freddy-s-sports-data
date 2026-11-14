@@ -16,7 +16,7 @@ class BettingReadinessTests(unittest.TestCase):
     def test_missing_evidence_never_claims_a_cleared_gate(self):
         r = audit_betting_readiness(now=NOW)
         self.assertEqual(r["decision"],"PASS_HOLD_NO_CERTIFIED_BETS")
-        self.assertEqual(len(r["by_market"]),12)
+        self.assertEqual(len(r["by_market"]),28)
         self.assertEqual(set(r["by_market"]),set(MARKETS))
         self.assertIsNone(r["research_forward"]["published_outcomes_graded"])
         self.assertIsNone(r["research_forward"]["additional_graded_needed_for_first_metrics"])
