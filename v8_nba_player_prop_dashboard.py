@@ -25,6 +25,10 @@ STATS = {
 }
 ORDER = {v[0]: v[1] for v in STATS.values()}
 PREVIEW_LIMIT = 40
+# Every NBA command audits these ten player-prop families, even when no
+# two-sided archived price exists. Zero paired quotes is missing market
+# evidence, never a zero-probability forecast or certified PASS on a player.
+REQUESTED_PROP_FAMILIES = tuple(STATS[name][0] for name in STATS)
 
 
 def _safe(v):
@@ -154,8 +158,35 @@ def create_player_props_board(games, archive_pairs):
             chosen = groups.get((family, g["espn_event_id"])) or []
             if chosen and len(preview) < PREVIEW_LIMIT:
                 preview.append(chosen[0])
+    # Coverage remains visible even when the archive has zero usable prop
+    # pairs. All game/player identity and checkout requirements stay unverified.
+    game_prop_coverage = [{
+        "espn_event_id": g["espn_event_id"],
+        "source_labeled_matchup": f"{g['away_team']} @ {g['home_team']}",
+        "scheduled_start_utc": g["start_utc"],
+        "archived_two_sided_pairs_by_stat": {
+            family: per_game[g["espn_event_id"]].get(family, 0)
+            for family in REQUESTED_PROP_FAMILIES
+        },
+        "active_player_status_verified": False,
+        "sportsbook_checkout_verified": False,
+        "decision": "HOLD_NO_CERTIFIED_PLAYER_PROP",
+    } for g in games]
+    prop_family_readiness = [{
+        "stat_family": family,
+        "archived_two_sided_pair_count": stats.get(family, 0),
+        "source_status": ("ARCHIVED_PAIRS_RESEARCH_ONLY_NOT_CHECKOUT"
+                          if stats.get(family, 0) else
+                          "NO_MATCHED_TWO_SIDED_ARCHIVED_MARKETS"),
+        "verified_player_probabilities": 0,
+        "certified_positive_ev_bets": 0,
+        "decision": "HOLD",
+    } for family in REQUESTED_PROP_FAMILIES]
     return {
         "report_type": "NBA_PLAYER_PROP_EVERY_AVAILABLE_ARCHIVED_TWO_SIDED_MARKET",
+        "requested_prop_market_families": list(REQUESTED_PROP_FAMILIES),
+        "prop_family_readiness": prop_family_readiness,
+        "prop_market_coverage_by_game": game_prop_coverage,
         "paired_source_prop_market_count": len(records),
         "paired_prop_counts_by_stat": dict(sorted(stats.items())),
         "paired_prop_counts_by_event_id": {
@@ -226,6 +257,22 @@ def render_player_props(board, *, preview=False):
          else "All source-paired player-prop markets; provider identity "
               "and matchup labeling are NOT independently verified."),
     ]
+    lines.extend([
+        "",
+        "### Player-prop coverage by game (archived paired reference counts)",
+        "**0 means no matching archived two-sided price evidence, NOT a 0% "
+        "prop probability or proof the prop is unavailable at a sportsbook.**",
+        "| Matchup | PTS | REB | AST | 3PM | P+R | P+A | R+A | PRA | STL | BLK | Decision |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+    ])
+    for g in board["prop_market_coverage_by_game"]:
+        counts = g["archived_two_sided_pairs_by_stat"]
+        values = " | ".join(str(counts[k]) for k in REQUESTED_PROP_FAMILIES)
+        lines.append(
+            f"| {_safe(g['source_labeled_matchup'])} | {values} | HOLD |")
+    if not board["prop_market_coverage_by_game"]:
+        lines.append("| No NBA slate captured | N/A | N/A | N/A | N/A | "
+                     "N/A | N/A | N/A | N/A | N/A | N/A | HOLD |")
     lines.extend(_table(rows))
     if preview:
         lines.extend([
