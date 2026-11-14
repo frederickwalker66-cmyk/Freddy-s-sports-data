@@ -25,6 +25,7 @@ from v8_sharp_game_markets import summarize_full_game_markets, GAME_PRICE_SPORTS
 from v8_sharp_player_props import PROP_SPORTS
 from v8_soccer_market_research import summarize_soccer_markets, SOCCER_LEAGUES
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
+from v8_metrics_health import build_metrics_health
 from v8_forward_calibration_view import read_calibration
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_betting_readiness import audit_betting_readiness
@@ -214,6 +215,7 @@ def _save(root, bundle):
         "FULL_STACK_BEST_BETS.json":bundle["best_bets_and_edge_leaderboard"],
         "FULL_STACK_MARKET_PROBABILITIES.json":bundle["quoted_market_probability_research"],
         "FULL_STACK_CALIBRATION.json":bundle["recalibration_and_oos_readiness"],
+        "FULL_STACK_METRICS_HEALTH.json":bundle["metrics_health"],
         "FULL_STACK_CLV.json":bundle["closing_line_value"],
         "FULL_STACK_L5_L10.json":bundle["season_to_date_game_and_player_form"],
         "FULL_STACK_PARLAY_PREFLIGHT.json":bundle["parlay_preflight"],
@@ -272,6 +274,17 @@ def render(r):
         "(no independently matched entry and closing receipts).",
         f"**NBA saved calibration:** {r['recalibration_and_oos_readiness']['nba_research_calibration_status']}",
         "**No automatic fitting, wagering, or parlay creation.**",
+        "",
+        "## Metrics quality — actual sample coverage, not betting skill",
+        f"**Original NBA forward forecasts:** {r['metrics_health']['nba_archived_original_forward_forecasts']}; "
+        f"**graded:** {r['metrics_health']['nba_graded_research_games']}; "
+        f"**pending:** {r['metrics_health']['nba_pending_ungraded']}.",
+        f"**Grade coverage:** {r['metrics_health']['nba_grade_coverage_percent']}% "
+        "(N/A when original data are missing).",
+        f"**Additional graded games to research Brier:** {r['metrics_health']['additional_nba_grades_to_50']}; "
+        f"**to exploratory ECE:** {r['metrics_health']['additional_nba_grades_to_100']}.",
+        "**Home-win outcome frequencies, if shown, are sample base rates NOT model hit rates.**",
+        "**Brier/accuracy/skill remain withheld below the 50-game original-forward gate.**",
         "",
         "## Research-only prediction directions (NOT bets)",
         "| League | Matchup (ESPN game) | Direction | Uncalibrated binary rule p | Decision |",
@@ -457,6 +470,9 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         }
         for lg in scope
     }
+    metrics_health = build_metrics_health(
+        persisted=persisted, market_evidence=market_evidence, leagues=scope)
+    _check_report(metrics_health)
     by_league={}
     for league in scope:
         form=season.get("by_league",{}).get(league,{})
@@ -550,6 +566,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "stat_source_not_independent_model_prop_probability":True,
             "certified_positive_ev_bets":0,
         },
+        "metrics_health": metrics_health,
         "recalibration_and_oos_readiness":{
             "nba_research_calibration_status":
                 calibration.get("persisted_nba_original_forward_calibration_status"),
