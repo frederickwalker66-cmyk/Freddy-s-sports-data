@@ -1,6 +1,6 @@
 name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # Research-only workflow; SportsGameOdds auto-trigger, archive retrieval and CLI intake excluded.
-# NBA on-demand run requested: 2026-11-14 05:33 EST; research-only, stake $0.
+# On-demand all-eight-sport games and available NBA/NFL player-prop scan; Champion-001 frozen; research-only, stake $0.
 on:
   workflow_dispatch:
     inputs:
