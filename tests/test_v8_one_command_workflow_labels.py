@@ -57,6 +57,48 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("github.event_name == 'push' && 'run_nba_grade'",self.text)
         self.assertNotIn("github.event_name == 'push' && 'run_nba_forward'",self.text)
 
+    def test_successful_collector_triggers_separate_all_nba_refresh_without_new_paid_calls(self):
+        self.assertIn("workflows: ['Collect SharpAPI DraftKings pregame odds']",self.text)
+        self.assertIn("github.event.workflow_run.conclusion == 'success'",self.text)
+        self.assertIn(
+            "- name: Refresh full NBA after a successful SharpAPI collector capture (read-only)",
+            self.text)
+        step=self.text.split(
+            "- name: Refresh full NBA after a successful SharpAPI collector capture (read-only)",1)[1]
+        step=step.split("      - name: Show tonight's COMPLETE NBA game/market slate",1)[0]
+        self.assertIn("--command run_nba_best_bets",step)
+        self.assertIn("--sharp-archive-dir saved_sharp_archives",step)
+        self.assertIn("--season-archive-dir saved_season_archives",step)
+        self.assertIn("--calibration-file v8_results/leaderboard_download/CALIBRATION.json",step)
+        self.assertIn("--output-dir v8_results/one_command/post_collector_nba",step)
+        self.assertIn("FULL_STACK_SOURCE_FRESHNESS.json",step)
+        self.assertIn("trigger_archive_loaded",step)
+        self.assertIn('research["certified_positive_ev_bets"]==0',step)
+        self.assertIn('research["champion_001_modified"] is False',step)
+        self.assertIn('research["money_wagered_usd"]==0',step)
+        self.assertIn('source["provider_collection_network_calls"]==0',step)
+        self.assertNotIn("SHARPAPI_KEY",step)
+        self.assertNotIn("collector.py",step)
+        self.assertNotIn("api.sharpapi.io",step)
+        self.assertIn("path: v8_results/one_command/",self.text)
+        first,marker,last=step.partition("          python - <<'PY'\n")
+        self.assertTrue(marker)
+        code,marker,_=last.partition("\n          PY")
+        self.assertTrue(marker)
+        compile(textwrap.dedent(code),"nba-after-collector-report.py","exec")
+
+    def test_exact_collector_trigger_receipt_is_prioritized_before_saved_archives(self):
+        step=self.text.split("- name: Retrieve recent completed SharpAPI research archives",1)[1]
+        step=step.split("      - name: Load latest saved eight-league season scoreboard",1)[0]
+        self.assertIn("github.event.workflow_run.id",step)
+        self.assertIn('ids=("$triggered" "${ids[@]}")',step)
+        self.assertIn('declare -A seen_ids=()',step)
+        self.assertIn('saved_sharp_archives/triggering_successful_collector_run_id.txt',step)
+        self.assertIn('gh run download "$rid"',step)
+        self.assertIn('rm -rf "saved_sharp_archives/$rid"',step)
+        self.assertNotIn("python collector.py",step)
+        self.assertNotIn("SHARPAPI_KEY",step)
+
     def test_grade_command_can_be_run_from_phone_and_daily_automatically(self):
         self.assertIn("          - run_nba_grade\n",self.text)
         self.assertIn("- cron: '53 13 * * *'",self.text)
