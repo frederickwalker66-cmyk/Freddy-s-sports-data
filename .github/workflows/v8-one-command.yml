@@ -7,6 +7,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # Rerun after NCAAF parser integration: 2026-11-14; NBA + NCAAF ML, spreads, totals and props; $0 wagers.
 # User-issued all-eight Run command 2026-11-14: rerun consolidated games, props, L5/L10, odds and prospective grading evidence; $0 stake.
 # Requested V8 refresh 2026-11-14: rerun eight-sport archive-backed research; no paid provider calls, Champion-001 frozen, no wagers.
+# User-requested NBA research run 2026-11-14: full NBA pregame scan, L5/L10, player props, Sharp Edge and calibration; archived/free sources only, Champion frozen, no wagers.
 on:
   workflow_dispatch:
     inputs:
