@@ -1,4 +1,4 @@
-"""Research-only NBA/NFL/NCAAF SharpAPI player-prop *price movement* audit.
+"""Research-only six-league SharpAPI exact player-prop price movement audit.
 
 Reads already saved DraftKings-LABELED aggregator quotes; never calls providers,
 confirms active players, infers sharp-money flow, produces a model probability,
@@ -20,7 +20,7 @@ from historical_outcomes import parse_time
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
 from v8_sharp_probability_display import price_pair_probabilities
 
-PROP_SPORTS = frozenset(("nba", "nfl", "ncaaf"))
+PROP_SPORTS = frozenset(("nba", "nfl", "ncaaf", "ncaab", "mlb", "nhl"))
 # This gate admits only individually identified, two-sided player statistics.
 # The provider's *_combo_ / *_either_ / *_each_ / *_h2h_* markets have
 # different settlement semantics and must not be treated as single-player props.
@@ -38,6 +38,19 @@ PRIMARY_PLAYER_STATS = {
         "player_rushing_yards", "player_rushing_attempts",
         "player_receiving_yards", "player_receiving_touchdowns",
         "player_receptions",
+    )),
+    "ncaab": frozenset((
+        "player_points", "player_rebounds", "player_assists",
+        "player_made_threes",
+    )),
+    "mlb": frozenset((
+        "player_hits", "player_total_bases", "player_rbis",
+        "player_home_runs", "player_pitcher_strikeouts",
+        "player_strikeouts", "player_walks",
+    )),
+    "nhl": frozenset((
+        "player_goals", "player_assists", "player_points",
+        "player_shots_on_goal", "player_saves",
     )),
     "nfl": frozenset((
         "player_passing_yards", "player_passing_touchdowns",
@@ -303,10 +316,10 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         x["start_utc"], x["league"], x["player_name"], x["prop_stat"], x["line"]))
     probability_board = {
         sport: [item for item in current_prop_markets if item["league"] == sport][:8]
-        for sport in ("nba", "nfl", "ncaaf")
+        for sport in ("nba", "nfl", "ncaaf", "ncaab", "mlb", "nhl")
     }
     report = {
-        "report_type": "v8_nba_nfl_ncaaf_exact_player_props_archived_repricing_research_only",
+        "report_type": "v8_six_league_exact_player_props_archived_repricing_research_only",
         "status": "historical_prop_quotes_analyzed" if accepted
                   else "no_eligible_archived_player_prop_quotes",
         "raw_prop_quote_observations": prop_observations,
@@ -339,6 +352,9 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         "certified_nba_player_props": 0,
         "certified_nfl_player_props": 0,
         "certified_ncaaf_player_props": 0,
+        "certified_ncaab_player_props": 0,
+        "certified_mlb_player_props": 0,
+        "certified_nhl_player_props": 0,
         "certified_positive_ev_bets": 0,
         "bet_ready_selections": 0,
         "automated_wagers": 0,
