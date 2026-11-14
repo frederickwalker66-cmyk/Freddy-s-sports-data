@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101d">
+  <meta name="description" content="Freddy's Picks AI: an independent eight-sport research command center with published NBA scoreboards, game-market analysis and model verification.">
+  <title>Freddy's Picks AI · Command Center</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="Freddy's Picks AI home">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 44 44" fill="none"><path d="M8 30 18 19l7 6 12-16" stroke="currentColor" stroke-width="3.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M28 9h9v9" stroke="currentColor" stroke-width="3.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="brand-type"><strong>FREDDY'S</strong><small>PICKS AI <em>V8</em></small></span>
+      </a>
+      <p class="sidebar-label">WORKSPACE</p>
+      <nav class="main-nav">
+        <a class="nav-item active" href="#top"><span class="nav-icon">◈</span> Overview</a>
+        <a class="nav-item" href="#nba"><span class="nav-icon">◉</span> NBA Live Board</a>
+        <a class="nav-item" href="#markets"><span class="nav-icon">⌁</span> Sharp Edge</a>
+        <a class="nav-item" href="#sports"><span class="nav-icon">▦</span> All Sports</a>
+        <a class="nav-item" href="#model"><span class="nav-icon">◷</span> Model Health</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="side-card">
+          <span class="side-card-icon">◇</span>
+          <strong>Champion-001</strong>
+          <p>Your production model remains frozen until independently validated.</p>
+          <span class="badge badge-teal">RESEARCH MODE</span>
+        </div>
+        <p class="side-foot">Powered by your GitHub workflows<br>Not a sportsbook or bet execution service.</p>
+      </div>
+    </aside>
+    <main id="top" class="main">
+      <header class="topbar">
+        <div class="crumb">WORKSPACE <span>/</span> <strong>COMMAND CENTER</strong></div>
+        <div class="top-actions">
+          <span id="source-state" class="live-indicator"><i></i> CHECKING SOURCES</span>
+          <button id="refresh-button" class="btn btn-outline" type="button" aria-label="Refresh published data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.1-5.4M20 4v6h-6"/></svg> Refresh data</button>
+        </div>
+      </header>
+
+      <div class="page">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> THE FREDDY'S PICKS RESEARCH TERMINAL</div>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <span class="hero-kicker">V8 SPORTS INTELLIGENCE ENGINE</span>
+            <h1 id="hero-title">Every game.<br><span>One command center.</span></h1>
+            <p>Explore your independent game research, NBA scoreboards, player-market coverage and Sharp Edge verification—from your phone or desktop.</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#nba">View NBA Board <span aria-hidden="true">↗</span></a>
+              <a class="btn btn-secondary" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">Run my model <span aria-hidden="true">↗</span></a>
+            </div>
+            <div class="hero-foot"><span class="mini-dot"></span> Research only <span class="sep">·</span> No automated wagers <span class="sep">·</span> 8 sports</div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
+            <div class="visual-core"><div class="core-label">MODEL STATUS</div><div class="core-title">SHARP<br>EDGE</div><div class="core-hold">HOLD <span>●</span></div></div>
+            <div class="float-chip chip-top">✦ <span>SOURCE VERIFIED</span></div>
+            <div class="float-chip chip-bottom"><span class="signal-bars">▂▄▆</span> REAL DATA FIRST</div>
+          </div>
+        </section>
+
+        <div class="session-strip">
+          <span>LAST PUBLISHED <strong id="published-at">Awaiting first synchronization</strong></span>
+          <span>DATA DATE <strong id="reference-date">—</strong></span>
+          <span>RESEARCH STATUS <strong class="hold-text">HOLD / NOT CERTIFIED</strong></span>
+        </div>
+
+        <section class="metrics-grid" aria-label="Current research metrics">
+          <article class="metric-card"><span class="metric-label">NBA GAMES TRACKED</span><div class="metric-line"><strong id="stat-games">—</strong><span class="metric-glyph">◉</span></div><small>Public scoreboard observations</small></article>
+          <article class="metric-card"><span class="metric-label">PAIRED GAME MARKETS</span><div class="metric-line"><strong id="stat-game-markets">—</strong><span class="metric-glyph cyan">≋</span></div><small>Archived research groups, not checkout odds</small></article>
+          <article class="metric-card"><span class="metric-label">PAIRED PLAYER PROPS</span><div class="metric-line"><strong id="stat-props">—</strong><span class="metric-glyph purple">◎</span></div><small>Model probability not yet certified</small></article>
+          <article class="metric-card metric-card-alert"><span class="metric-label">CERTIFIED +EV PICKS</span><div class="metric-line"><strong id="stat-ev">0</strong><span class="metric-glyph amber">◇</span></div><small>HOLD until independent verification</small></article>
+        </section>
+
+        <section id="nba" class="board-section">
+          <div class="section-heading">
+            <div><span class="section-kicker">GAME CENTER / NBA</span><h2>Tonight’s NBA Board <span class="title-mark">↗</span></h2><p>As-observed scores and pregame research. No fabricated live probabilities.</p></div>
+            <div class="section-tools"><span id="nba-date" class="date-pill">—</span><span class="tag">SOURCE: ESPN</span></div>
+          </div>
+          <div class="board-topline">
+            <span><i class="pulse-dot"></i> <strong id="board-state">CONNECTING</strong></span>
+            <span id="board-observed">Source timestamp unavailable</span>
+          </div>
+          <div id="games" class="games-grid" aria-live="polite"><div class="empty-card"><span class="loading-spinner"></span><strong>Loading published NBA research…</strong><p>Checking the latest completed model and scoreboard reports.</p></div></div>
+          <div class="board-note"><span class="note-icon">ⓘ</span><span>Pregame percentages are uncalibrated research rules, not real-time win probabilities. In-game pace estimates appear only after sufficient regulation time. <strong>N/A means the evidence is unavailable.</strong></span></div>
+        </section>
+
+        <section id="markets" class="market-section">
+          <div class="section-heading"><div><span class="section-kicker">MARKET INTELLIGENCE</span><h2>Sharp Edge Monitor</h2><p>Price provenance, market matching and calibration readiness.</p></div><span class="tag tag-accent">FAIL-CLOSED VERIFICATION</span></div>
+          <div class="market-layout">
+            <article class="edge-card">
+              <div class="card-top"><span class="subhead">CURRENT BETTING GATE</span><span class="status-tag status-hold">● HOLD</span></div>
+              <div class="edge-headline">Evidence before<br><em>every edge.</em></div>
+              <p id="market-explanation">Only source-verified odds, calibrated exact-market probabilities and authentic checkout prices can support certified value.</p>
+              <div class="gate-list">
+                <div><span>Archived odds receipt</span><strong id="odds-receipt">Unverified</strong></div>
+                <div><span>Exact matched market evidence</span><strong id="paired-readiness">Pending</strong></div>
+                <div><span>Live bookmaker checkout</span><strong class="hold-text">NOT VERIFIED</strong></div>
+                <div><span>Closing-line value</span><strong class="hold-text">UNAVAILABLE</strong></div>
+              </div>
+            </article>
+            <article class="market-card">
+              <div class="card-top"><span class="subhead">MARKET COVERAGE</span><span class="small-tag">NBA RESEARCH</span></div>
+              <div class="coverage-item"><div class="coverage-top"><span>Game markets</span><strong id="cover-game-label">—</strong></div><div class="track"><span id="cover-game-bar" style="width:0%"></span></div><small>Moneylines, spreads and totals</small></div>
+              <div class="coverage-item"><div class="coverage-top"><span>Player prop markets</span><strong id="cover-prop-label">—</strong></div><div class="track purple"><span id="cover-prop-bar" style="width:0%"></span></div><small>Points, rebounds, assists and more</small></div>
+              <div class="coverage-footer"><span class="coverage-rect">⛨</span><p><strong>No forced selections.</strong> A high historical hit rate or line movement does not establish positive expected value.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="sports" class="sports-section">
+          <div class="section-heading"><div><span class="section-kicker">EIGHT-LEAGUE ENGINE</span><h2>All Sports Coverage</h2><p>Available research by sport, with missing sources clearly identified.</p></div><a class="text-link" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">Run all sports ↗</a></div>
+          <div id="league-grid" class="league-grid"><div class="empty-card">Loading league research status…</div></div>
+        </section>
+
+        <section id="model" class="health-section">
+          <div class="section-heading"><div><span class="section-kicker">MODEL GOVERNANCE</span><h2>System Health &amp; Integrity</h2><p>A transparent view of what's working—and what isn't verified yet.</p></div></div>
+          <div class="health-grid">
+            <article class="health-card"><span class="health-symbol">❖</span><h3>Champion-001</h3><div class="health-value green">FROZEN</div><p>Your baseline model remains untouched while independent testing continues.</p></article>
+            <article class="health-card"><span class="health-symbol">◷</span><h3>Calibration</h3><div class="health-value" id="model-calibration">UNVERIFIED</div><p id="calibration-description">Independent out-of-sample performance must be established before a probability is bet-certified.</p></article>
+            <article class="health-card"><span class="health-symbol">◇</span><h3>Authentic CLV</h3><div class="health-value amber">NOT AVAILABLE</div><p>Matching entry and actual closing-line receipts are required to validate CLV.</p></article>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div><strong>FREDDY’S PICKS AI <span>V8</span></strong><p>Independent sports research · For informational use only · No bets placed.</p></div>
+          <div class="footer-links"><a href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data" target="_blank" rel="noopener noreferrer">Source repository ↗</a><a id="link-latest-run" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions" target="_blank" rel="noopener noreferrer">Latest research run ↗</a></div>
+        </footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
