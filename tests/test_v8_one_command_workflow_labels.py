@@ -20,6 +20,27 @@ class PhoneWorkflowLabelsTests(unittest.TestCase):
         self.assertIn("- cron: '37 20 * * *'", self.text)
         self.assertIn("          - run_nba_forward\n", self.text)
 
+    def test_push_run_nba_retrieves_saved_sources_and_35_day_form(self):
+        source_stages = (
+            "Retrieve recent completed SharpAPI research archives",
+            "Load latest saved eight-league season scoreboard and player form",
+            "Retrieve completed NBA forward research artifacts",
+        )
+        for stage in source_stages:
+            with self.subTest(stage=stage):
+                block = self.text.split("- name: " + stage, 1)
+                self.assertEqual(len(block), 2)
+                condition = next(
+                    x.strip() for x in block[1].splitlines()
+                    if x.strip().startswith("if: ${{")
+                )
+                self.assertIn("contains(github.event.head_commit.message, '[run-nba]')",
+                              condition)
+        history = next(x for x in self.text.splitlines()
+                       if x.strip().startswith("HISTORY_DAYS: ${{"))
+        self.assertIn("contains(github.event.head_commit.message, '[run-nba]')",
+                      history)
+
     def test_artifact_name_follows_exact_selected_command(self):
         actual=re.search(r"SELECTED_COMMAND: (\$\{\{[^\n]+\}\})",self.text)
         upload=re.search(r"name: v8-one-command-(\$\{\{[^\n]+\}\})-\$\{\{ github.run_id \}\}",self.text)
