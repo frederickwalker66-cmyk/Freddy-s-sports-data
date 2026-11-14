@@ -1,0 +1,24 @@
+{
+  "schema": "freddys-picks-ai-public-v1",
+  "generated_at_utc": null,
+  "reference_date_eastern": null,
+  "live_source_status": "AWAITING_FRESH_PUBLIC_SCOREBOARD",
+  "live_observed_at_utc": null,
+  "live_age_minutes_at_publication": null,
+  "live_scoreboard_not_continuous": true,
+  "games": [],
+  "leagues": {},
+  "market": {},
+  "model": {
+    "champion_frozen": true,
+    "calibration_status": "Not independently certified",
+    "research_only": true
+  },
+  "sources": {
+    "github": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data",
+    "run_nba": null,
+    "run_all": null,
+    "live": null
+  },
+  "disclaimer": "Public research only. No independently certified +EV picks."
+}
