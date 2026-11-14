@@ -64,6 +64,65 @@ class NBALiveUpdateTests(unittest.TestCase):
         self.assertFalse(board["games"][0]["in_play_betting_covered"])
         self.assertEqual(board["certified_positive_ev_bets"], 0)
 
+    def test_in_play_score_pace_extrapolation_is_not_win_probability(self):
+        board = create_report(scoreboard_bytes=source(
+            event(20, state="in", start="2026-11-14T22:00:00Z",
+                  score_home="88", score_away="79")), now=NOW)
+        game = board["games"][0]
+        self.assertEqual(game["projection_status"], "IN_GAME_UNCALIBRATED_PACE_ESTIMATE")
+        self.assertAlmostEqual(game["elapsed_regulation_minutes"], 31.42, places=2)
+        self.assertAlmostEqual(game["pace_extrapolated_final_total_points"], 255.2, places=1)
+        self.assertIsNone(game["live_win_probability"])
+        self.assertFalse(game["qualified_for_in_play_betting"])
+        self.assertFalse(game["in_play_market_odds_verified"])
+        self.assertEqual(board["uncalibrated_pace_estimates_available"], 1)
+        self.assertFalse(board["live_win_probabilities_certified"])
+        self.assertIn("pace projections", render(board))
+        self.assertIn("255.2", render(board))
+
+    def test_first_quarter_pace_prediction_withheld(self):
+        game = event(21, state="in", start="2026-11-14T22:00:00Z",
+                     score_home="20", score_away="23")
+        game["status"]["period"] = 1
+        game["status"]["displayClock"] = "02:00"
+        report = create_report(scoreboard_bytes=source(game), now=NOW)
+        row = report["games"][0]
+        self.assertEqual(row["projection_status"], "FIRST_QUARTER_NOT_COMPLETE")
+        self.assertIsNone(row["pace_extrapolated_final_total_points"])
+        self.assertIsNone(row["live_win_probability"])
+
+    def test_overtime_does_not_claim_regulation_projected_total(self):
+        game = event(22, state="in", start="2026-11-14T22:00:00Z",
+                     score_home="112", score_away="112")
+        game["status"]["period"] = 5
+        game["status"]["displayClock"] = "04:35"
+        report = create_report(scoreboard_bytes=source(game), now=NOW)
+        row = report["games"][0]
+        self.assertEqual(row["projection_status"], "OVERTIME_NOT_MODELED")
+        self.assertIsNone(row["pace_extrapolated_final_total_points"])
+
+    def test_clock_invalid_or_missing_score_blocks_projection(self):
+        bad = event(23, state="in", start="2026-11-14T22:00:00Z",
+                    score_home="88", score_away="79")
+        bad["status"]["displayClock"] = "unknown"
+        missing_score = event(24, state="in", start="2026-11-14T22:00:00Z",
+                              score_home="88", score_away="unavailable")
+        board = create_report(scoreboard_bytes=source(bad, missing_score), now=NOW)
+        states = [g["projection_status"] for g in board["games"]]
+        self.assertIn("IN_GAME_CLOCK_UNPARSABLE", states)
+        self.assertIn("IN_GAME_SCORE_OR_CLOCK_UNAVAILABLE", states)
+        self.assertEqual(board["uncalibrated_pace_estimates_available"], 0)
+
+    def test_final_and_pregame_not_turned_into_live_pace_predictions(self):
+        pre = event(25, state="pre", start="2026-11-15T00:00:00Z")
+        post = event(26, state="post", start="2026-11-14T22:00:00Z",
+                     score_home="102", score_away="96")
+        board = create_report(scoreboard_bytes=source(pre, post), now=NOW)
+        self.assertEqual(board["games"][0]["projection_status"], "PREGAME_NO_LIVE_PROJECTION")
+        self.assertEqual(board["games"][1]["projection_status"], "FINAL_USE_ACTUAL_SCORE_NOT_PROJECTION")
+        self.assertTrue(all(g["live_win_probability"] is None for g in board["games"]))
+        self.assertEqual(board["certified_positive_ev_bets"], 0)
+
     def test_final_is_as_observed_not_upcoming(self):
         game = event(3, state="post", start="2026-11-14T20:30:00Z",
                      score_home="108", score_away="104")
