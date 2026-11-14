@@ -282,6 +282,78 @@ def create_report(*, scoreboard_bytes=None, now=None, injury_metadata=None,
     return result
 
 
+
+def attach_pregame_rule_context(report, full_stack_report):
+    """Display already-recorded pregame rule percentages beside live states.
+
+    Enforce exact ESPN game identity, team names and original forecast clock.
+    These are uncalibrated *pregame* research probabilities, never live
+    predictions, certified Champion-001 output, or positive-EV evidence.
+    """
+    report["pregame_rule_context_status"] = "NOT_AVAILABLE"
+    report["pregame_rule_home_win_pcts_attached"] = 0
+    for game in report.get("games", []):
+        game["pregame_rule_home_win_percent"] = None
+        game["pregame_rule_probability_source_time_utc"] = None
+    if full_stack_report is None or not Path(full_stack_report).is_file():
+        return report
+    try:
+        raw = json.loads(Path(full_stack_report).read_text(encoding="utf-8"))
+        if (not isinstance(raw, dict) or
+                raw.get("champion_001_modified") is not False or
+                raw.get("certified_positive_ev_bets") != 0):
+            report["pregame_rule_context_status"] = "REJECTED_UNSAFE_FORECAST_CONTEXT"
+            return report
+        rows = raw.get("research_only_pregame_predictions")
+        if not isinstance(rows, list) or len(rows) > 2000:
+            report["pregame_rule_context_status"] = "INVALID_OR_MISSING_PREGAME_ROWS"
+            return report
+        valid = {}
+        observed = _stamp(report["observed_at_utc"])
+        for row in rows:
+            if not isinstance(row, dict) or row.get("league") != "nba":
+                continue
+            if (row.get("confidence_is_uncalibrated_rule_output") is not True or
+                    row.get("native_Champion_001_model_probability") is not None or
+                    row.get("verified_live_sportsbook_quote") is not False):
+                continue
+            game_id = row.get("espn_event_id")
+            p = row.get("home_win_research_rule_probability")
+            if not isinstance(game_id, str) or not game_id.isdigit():
+                continue
+            if type(p) not in (float, int) or not 0 < p < 1:
+                continue
+            try:
+                captured = _stamp(row["original_forecast_recorded_utc"])
+                start = _stamp(row["start_utc"])
+            except (ValueError, TypeError, KeyError, OverflowError):
+                continue
+            if captured >= start or captured > observed:
+                continue
+            previous = valid.get(game_id)
+            if previous is None or captured > previous[0]:
+                valid[game_id] = (captured, row)
+        for game in report.get("games", []):
+            hit = valid.get(game["espn_event_id"])
+            if hit is None:
+                continue
+            captured, row = hit
+            if (game["home_team"] != row.get("home_team") or
+                    game["away_team"] != row.get("away_team") or
+                    _stamp(game["scheduled_start_et"]) != _stamp(row["start_utc"])):
+                continue
+            game["pregame_rule_home_win_percent"] = round(
+                row["home_win_research_rule_probability"] * 100.0, 1)
+            game["pregame_rule_probability_source_time_utc"] = captured.isoformat()
+            report["pregame_rule_home_win_pcts_attached"] += 1
+        report["pregame_rule_context_status"] = (
+            "EXACT_MATCHED_UNCALIBRATED_PREGAME_RESEARCH_ONLY"
+            if report["pregame_rule_home_win_pcts_attached"] else "NO_QUALIFIED_EXACT_MATCH")
+    except (OSError, ValueError, TypeError, KeyError, OverflowError):
+        report["pregame_rule_context_status"] = "UNREADABLE_PREGAME_CONTEXT"
+    return report
+
+
 def render(report):
     lines = [
         "# Freddy's Picks AI — NBA live source check",
@@ -308,8 +380,8 @@ def render(report):
         "## In-game pace projections — uncalibrated research only",
         "Arithmetic final-regulation pace extrapolations are **not predictive win probabilities**,",
         "verified sportsbook totals, player-prop forecasts, or evidence of betting value.",
-        "| Game | Elapsed regulation min | Pace extrapolated away-home | Pace extrapolated total | Status | Live win p |",
-        "|---|---:|---|---:|---|---|",
+        "| Game | Pregame home-win rule % | Elapsed min | Pace extrapolated away-home | Pace total | Status | Live win p |",
+        "|---|---:|---:|---|---:|---|---|",
     ])
     for g in report["games"]:
         a, h, t = (g["pace_extrapolated_final_away_points"],
@@ -319,10 +391,14 @@ def render(report):
         total = f"{t:.1f}" if t is not None else "N/A"
         mins = (str(g["elapsed_regulation_minutes"])
                 if g["elapsed_regulation_minutes"] is not None else "N/A")
-        lines.append(f"| {_short(g['matchup'])} | {mins} | {projected_score} | {total} | "
+        pregame = (f"{g['pregame_rule_home_win_percent']:.1f}%" if
+                   g.get("pregame_rule_home_win_percent") is not None else "N/A")
+        lines.append(f"| {_short(g['matchup'])} | {pregame} | {mins} | {projected_score} | {total} | "
                      f"{g['projection_status']} | N/A |")
     if not report["games"]:
-        lines.append("| N/A | N/A | N/A | N/A | SOURCE_UNAVAILABLE | N/A |")
+        lines.append("| N/A | N/A | N/A | N/A | N/A | SOURCE_UNAVAILABLE | N/A |")
+    lines.append("**Pregame rule probability context:** " + report.get("pregame_rule_context_status", "NOT_AVAILABLE"))
+    lines.append("**Always display:** N/A means unavailable, not 0%; pregame rule probability is not a live win probability.")
     lines.append("**Live calibrated win probabilities / live prop models:** UNAVAILABLE — no trained, validated in-play model.")
 
     if not report["games"]:
@@ -351,7 +427,7 @@ def render(report):
 
 
 def run(*, output_dir, scoreboard_file=None, injury_metadata=None,
-        sharp_archive_dir=None, now=None, fetcher=None):
+        sharp_archive_dir=None, full_stack_report=None, now=None, fetcher=None):
     clock = _utc(now)
     error = None
     if scoreboard_file is not None:
@@ -377,6 +453,7 @@ def run(*, output_dir, scoreboard_file=None, injury_metadata=None,
             error = "PUBLIC_SCOREBOARD_NETWORK_OR_HTTP_UNAVAILABLE"
     report = create_report(scoreboard_bytes=source, now=clock, source_error=error,
                            injury_metadata=injury_metadata, sharp_archive_dir=sharp_archive_dir)
+    attach_pregame_rule_context(report, full_stack_report)
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=True)
     (path / "NBA_LIVE_UPDATES.json").write_text(
@@ -390,10 +467,12 @@ def main():
     parser.add_argument("--scoreboard-file")
     parser.add_argument("--injury-metadata")
     parser.add_argument("--sharp-archive-dir")
+    parser.add_argument("--full-stack-report")
     parser.add_argument("--output-dir", required=True)
     args = parser.parse_args()
     result = run(output_dir=args.output_dir, scoreboard_file=args.scoreboard_file,
-                 injury_metadata=args.injury_metadata, sharp_archive_dir=args.sharp_archive_dir)
+                 injury_metadata=args.injury_metadata, sharp_archive_dir=args.sharp_archive_dir,
+                 full_stack_report=args.full_stack_report)
     print(json.dumps({
         "source_status": result["source_status"],
         "games_reported": result["published_game_count"],
