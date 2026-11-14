@@ -118,8 +118,9 @@ class NBALiveUpdateTests(unittest.TestCase):
         post = event(26, state="post", start="2026-11-14T22:00:00Z",
                      score_home="102", score_away="96")
         board = create_report(scoreboard_bytes=source(pre, post), now=NOW)
-        self.assertEqual(board["games"][0]["projection_status"], "PREGAME_NO_LIVE_PROJECTION")
-        self.assertEqual(board["games"][1]["projection_status"], "FINAL_USE_ACTUAL_SCORE_NOT_PROJECTION")
+        states = {g["source_event_state"]: g["projection_status"] for g in board["games"]}
+        self.assertEqual(states["pre"], "PREGAME_NO_LIVE_PROJECTION")
+        self.assertEqual(states["post"], "FINAL_USE_ACTUAL_SCORE_NOT_PROJECTION")
         self.assertTrue(all(g["live_win_probability"] is None for g in board["games"]))
         self.assertEqual(board["certified_positive_ev_bets"], 0)
 
