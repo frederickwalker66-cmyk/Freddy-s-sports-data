@@ -510,6 +510,8 @@ jobs:
           python v8_one_command.py "${params[@]}"
       - name: Refresh full NBA after a successful SharpAPI collector capture (read-only)
         if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+        env:
+          TRIGGERED_SHARP_RUN_ID: ${{ github.event.workflow_run.id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -531,6 +533,10 @@ jobs:
           research=json.loads((p/"FULL_STACK_ALL_IN_ONE_REPORT.json").read_text())
           source=json.loads((p/"FULL_STACK_SOURCE_FRESHNESS.json").read_text())
           selected=source["by_league"]["nba"]
+          event_id=os.getenv("TRIGGERED_SHARP_RUN_ID") or "UNAVAILABLE"
+          trigger_receipt=Path("saved_sharp_archives/triggering_successful_collector_run_id.txt")
+          trigger_archive_loaded=(
+              trigger_receipt.is_file() and trigger_receipt.read_text().strip()==event_id)
           assert research["requested_leagues"]==["nba"]
           assert research["certified_positive_ev_bets"]==0
           assert research["champion_001_modified"] is False
@@ -539,7 +545,9 @@ jobs:
           assert source["does_not_dispatch_paid_collector"] is True
           summary=[
             "## NBA post-collector research refresh — no extra provider calls",
-            f"**Triggering SharpAPI run:** {os.getenv('GITHUB_EVENT_NAME')} (source archive may be missing)",
+            f"**Triggering SharpAPI run ID:** {event_id}",
+            f"**Triggering-run original artifact downloaded:** {trigger_archive_loaded}",
+            "**If false, preceding archived odds must NOT be presented as the fresh collector result.**",
             f"**Archived NBA quote rows:** {selected['archived_source_rows_for_league']}",
             f"**Today's unstarted-event quote rows:** {selected['today_upcoming_quote_rows_in_archive']}",
             f"**Recent raw NBA quotes (<120m):** {selected['today_upcoming_quote_rows_within_120m']}",
