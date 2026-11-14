@@ -245,6 +245,10 @@ def build_dashboard(report):
         "nba_player_prop_archived_paired_markets":
             nba_prop_board.get("paired_source_prop_market_count", 0),
         "nba_player_prop_preview_stat_families": sorted(selected_families),
+        "nba_player_prop_requested_stat_families":
+            nba_prop_board.get("requested_prop_market_families") or [],
+        "nba_player_prop_game_coverage":
+            nba_prop_board.get("prop_market_coverage_by_game") or [],
         "nba_player_prop_identity_verified": False,
         "native_model_probability_is_not_no_vig_market_probability": True,
         "sharp_bettor_handle_percentage_verified": False,
@@ -305,6 +309,30 @@ def render_dashboard(board):
         f"{_cell(board.get('nba_player_prop_archived_paired_markets'))}"
         " (player/team identities and prices UNVERIFIED).",
         "Full available player props: NBA_PLAYER_PROPS_ALL_MARKETS.md / .json in the run artifact.",
+        "**NBA prop families monitored:** " +
+        (", ".join(board.get("nba_player_prop_requested_stat_families") or [])
+         or "No NBA slate prop coverage report."),
+        "",
+        "### NBA player props by game — paired archive counts, NOT bet recommendations",
+        "**Zero counts mean absent usable archived price evidence, not 0% probability.**",
+        "| Matchup | Points | Rebounds | Assists | 3PM | P+R | P+A | R+A | PRA | Steals | Blocks | Action |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+    ])
+    families = board.get("nba_player_prop_requested_stat_families") or []
+    for g in board.get("nba_player_prop_game_coverage") or []:
+        if not isinstance(g, dict):
+            raise ValueError("invalid_NBA_prop_game_coverage")
+        counts = g.get("archived_two_sided_pairs_by_stat") or {}
+        if not isinstance(counts, dict):
+            raise ValueError("invalid_NBA_prop_family_counts")
+        numbers = [str(counts.get(f, 0)) for f in families]
+        # Tables always show ten slots for the standardized NBA prop families.
+        numbers = (numbers + ["N/A"] * 10)[:10]
+        lines.append("| " + _cell(g.get("source_labeled_matchup")) +
+                     " | " + " | ".join(numbers) + " | HOLD |")
+    if not board.get("nba_player_prop_game_coverage"):
+        lines.append("| N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | HOLD |")
+    lines.extend([
         f"**Last archived SharpAPI quote:** {_cell(board.get('last_sharpapi_archived_quote_utc'))} (not a live sportsbook checkout).",
         "**Professional sharp-bettor handle % / ticket %:** N/A / N/A (not supplied or independently verified).",
         "**Model edge / expected ROI:** N/A when no independently authored matching market forecast is available; never substitute market implied probability.",
