@@ -118,6 +118,9 @@ class NCAAFArchivedResearchTests(unittest.TestCase):
             self.assertEqual(
                 empty["sharp_edge_research"]["per_sport_market_evidence"]
                 ["ncaaf"]["archived_provider_quote_rows"], 0)
+            self.assertEqual(
+                empty["sharp_edge_research"]["per_sport_market_evidence"]
+                ["ncaaf"]["primary_source_blocker"], "NO_ARCHIVED_PROVIDER_QUOTES")
             self.assertFalse(
                 empty["quoted_market_probability_research"]["ncaaf_live_provider_feed_proven"])
             report = run_full_stack(
@@ -128,6 +131,8 @@ class NCAAFArchivedResearchTests(unittest.TestCase):
             self.assertEqual(evidence["archived_provider_quote_rows"], 8)
             self.assertEqual(evidence["fresh_paired_game_boards"], 1)
             self.assertEqual(evidence["fresh_paired_player_prop_markets"], 1)
+            self.assertEqual(evidence["primary_source_blocker"],
+                             "UNVERIFIED_MODEL_PROBABILITY_AND_CHECKOUT")
             self.assertEqual(report["certified_positive_ev_bets"], 0)
             self.assertFalse(report["champion_001_modified"])
             self.assertEqual(report["money_wagered_usd"], 0)
