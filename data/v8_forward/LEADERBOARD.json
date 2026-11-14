@@ -9,7 +9,7 @@
   "forward_calibration_graded_NBA_games": 24,
   "forward_calibration_report_version": "v8-nba-forward-calibration-v1",
   "forward_calibration_status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
-  "generated_at_utc": "2026-11-14T14:46:40.014083+00:00",
+  "generated_at_utc": "2026-11-14T14:48:31.420207+00:00",
   "grade_runway_report": "data/v8_forward/GRADE_RUNWAY.json",
   "independently_verified_checkout_odds": 0,
   "last_graded_batch": {
@@ -21,7 +21,7 @@
     "champion_001_modified": false,
     "classification_accuracy_provisional": null,
     "classification_decisions_home_vs_away": 0,
-    "evaluated_at_utc": "2026-11-14T14:46:40.014038+00:00",
+    "evaluated_at_utc": "2026-11-14T14:48:31.420184+00:00",
     "forecast_rows_in_scope": 0,
     "forecasts_still_pending_or_unmatched": 0,
     "independent_publisher_or_GitHub_signatures_verified": false,
