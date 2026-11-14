@@ -287,7 +287,7 @@ def render(r):
         lines.append("| All | N/A (no qualified future research receipt) | N/A | N/A | HOLD |")
     lines.extend([
         "", "## Market input readiness by sport",
-        "| League | Archived provider quotes | Fresh paired games | Fresh paired props | Decision |",
+        "| League | Archived provider quotes | Fresh paired games | Fresh paired props | Primary blocker |",
         "|---|---:|---:|---:|---|",
     ])
     for lg in r["requested_leagues"]:
@@ -295,7 +295,8 @@ def render(r):
         lines.append(
             f"| {lg.upper()} | {evidence['archived_provider_quote_rows']} | "
             f"{evidence['fresh_paired_game_boards']} | "
-            f"{evidence['fresh_paired_player_prop_markets']} | HOLD |")
+            f"{evidence['fresh_paired_player_prop_markets']} | "
+            f"{evidence['primary_source_blocker']} |")
     lines.extend(["", "## Historical player and team last-5/last-10 source examples",
                   "Historical player IDs/teams, NOT verified today's active roster.",
                   "Full source histories are in the per-league season artifacts."])
@@ -434,6 +435,14 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "archived_provider_quote_rows": source_quote_counts[lg],
             "fresh_paired_game_boards": sum(q.get("league") == lg for q in quotes),
             "fresh_paired_player_prop_markets": sum(q.get("league") == lg for q in player_quotes),
+            "primary_source_blocker": (
+                "PARSER_NOT_AVAILABLE" if lg not in PRICE_SPORTS
+                else "NO_ARCHIVED_PROVIDER_QUOTES" if source_quote_counts[lg] == 0
+                else "NO_FRESH_EXACT_PAIRED_MARKETS"
+                if not any(q.get("league") == lg for q in quotes + player_quotes)
+                else "UNVERIFIED_MODEL_PROBABILITY_AND_CHECKOUT"
+            ),
+            "ncaaf_manual_collection_available_without_automatic_opt_in": lg == "ncaaf",
             "original_model_market_probability_authenticated": False,
             "executable_bookmaker_checkout_authenticated": False,
             "certified_positive_ev_bets": 0,
