@@ -16,13 +16,17 @@ class BettingReadinessTests(unittest.TestCase):
     def test_missing_evidence_never_claims_a_cleared_gate(self):
         r = audit_betting_readiness(now=NOW)
         self.assertEqual(r["decision"],"PASS_HOLD_NO_CERTIFIED_BETS")
-        self.assertEqual(len(r["by_market"]),8)
+        self.assertEqual(len(r["by_market"]),12)
         self.assertEqual(set(r["by_market"]),set(MARKETS))
         self.assertIsNone(r["research_forward"]["published_outcomes_graded"])
         self.assertIsNone(r["research_forward"]["additional_graded_needed_for_first_metrics"])
         self.assertEqual(r["archive_price_context"]["archived_quote_rows_read"],0)
         self.assertEqual(r["certified_positive_ev_bets"],0)
         self.assertFalse(r["bet_ready"])
+        self.assertEqual(r["by_market"]["ncaaf_moneyline"]["market_input_stage"],
+                         "NO_SAVED_PROVIDER_QUOTES")
+        self.assertIn("no_saved_provider_quotes_for_league",
+                      r["by_market"]["ncaaf_player_props"]["blockers"])
         for market in r["by_market"].values():
             self.assertEqual(market["market_specific_ev_certified"],0)
             self.assertFalse(market["native_probability_validated_for_exact_market"])
@@ -92,6 +96,21 @@ class BettingReadinessTests(unittest.TestCase):
             self.assertTrue(path.is_file())
             self.assertEqual(json.loads(path.read_text())["decision"],"PASS_HOLD_NO_CERTIFIED_BETS")
             self.assertTrue((Path(folder)/"ONE_COMMAND_REPORT.json").is_file())
+
+    def test_ncaaf_archived_rows_are_not_fresh_paired_or_qualified(self):
+        source = [{"league": "ncaaf", "source": "sharpapi_rest",
+                   "record_type": "pregame_odds_observation",
+                   "market_type": "moneyline"}]
+        r = audit_betting_readiness(now=NOW, sharp_rows=source)
+        self.assertEqual(
+            r["archive_price_context"]
+            ["archived_provider_quote_rows_by_league_unverified"]["ncaaf"], 1)
+        self.assertEqual(
+            r["by_market"]["ncaaf_moneyline"]["market_input_stage"],
+            "ARCHIVED_NOT_RECENT_PAIRED")
+        self.assertEqual(r["by_market"]["ncaaf_player_props"]
+                         ["market_specific_ev_certified"], 0)
+        self.assertFalse(r["bet_ready"])
 
     def test_no_symlink_report_overwrite(self):
         with tempfile.TemporaryDirectory() as folder:
