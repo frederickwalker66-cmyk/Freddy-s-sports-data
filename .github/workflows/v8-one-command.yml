@@ -1,7 +1,7 @@
 name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # Research-only workflow; SportsGameOdds auto-trigger, archive retrieval and CLI intake excluded.
 # NBA + NCAAF moneylines/spreads/totals/player props Sharp Edge review requested 2026-11-14; run_all research, no wagers.
-# On-demand all-eight-sport games and available NBA/NFL player-prop scan; Champion-001 frozen; research-only, stake $0.
+# On-demand all-eight-sport games and NBA/NFL/NCAAF archival market/prop parsing; Champion-001 frozen; research-only, stake $0.
 on:
   workflow_dispatch:
     inputs:
@@ -70,6 +70,7 @@ on:
       - '.github/workflows/v8-one-command.yml'
       - 'v8_one_command.py'
       - 'v8_every_sport_bundle.py'
+      - 'tests/test_v8_ncaaf_sharp_research.py'
       - 'tests/test_v8_every_sport_bundle.py'
       - 'tests/test_v8_one_command_workflow_labels.py'
       - 'v8_nba_slate_best_bets.py'
@@ -132,6 +133,7 @@ on:
       - 'tests/test_v8_sharp_archive.py'
       - 'tests/test_v8_arbitrage_research.py'
       - 'tests/test_v8_sharp_player_props.py'
+      - 'tests/test_v8_ncaaf_sharp_research.py'
       - 'tests/test_v8_sharp_game_markets.py'
       - 'tests/test_v8_sharp_probability_display.py'
       - 'tests/test_v8_sharp_calibration_dashboard.py'
