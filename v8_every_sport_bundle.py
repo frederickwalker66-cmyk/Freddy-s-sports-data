@@ -26,6 +26,7 @@ from v8_sharp_player_props import PROP_SPORTS
 from v8_soccer_market_research import summarize_soccer_markets, SOCCER_LEAGUES
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 from v8_metrics_health import build_metrics_health
+from v8_quote_freshness import quote_freshness
 from v8_forward_calibration_view import read_calibration
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_betting_readiness import audit_betting_readiness
@@ -212,6 +213,7 @@ def _save(root, bundle):
         "FULL_STACK_ALL_IN_ONE_REPORT.json":bundle,
         "FULL_STACK_PREDICTIONS.json":bundle["research_only_pregame_predictions"],
         "FULL_STACK_SHARP_EDGE.json":bundle["sharp_edge_research"],
+        "FULL_STACK_SOURCE_FRESHNESS.json":bundle["source_quote_freshness"],
         "FULL_STACK_BEST_BETS.json":bundle["best_bets_and_edge_leaderboard"],
         "FULL_STACK_MARKET_PROBABILITIES.json":bundle["quoted_market_probability_research"],
         "FULL_STACK_CALIBRATION.json":bundle["recalibration_and_oos_readiness"],
@@ -312,7 +314,23 @@ def render(r):
             f"{evidence['fresh_paired_game_boards']} | "
             f"{evidence['fresh_paired_player_prop_markets']} | "
             f"{evidence['primary_source_blocker']} |")
-    lines.extend(["", "## Historical player and team last-5/last-10 source examples",
+    lines.extend([
+        "", "## Archived odds freshness (not live checkout)",
+        "| League | Last archived receipt | Age minutes | Today's upcoming raw quotes | Within 120m | Paired markets | Diagnostic |",
+        "|---|---|---:|---:|---:|---:|---|",
+    ])
+    for lg in r["requested_leagues"]:
+        x=r["source_quote_freshness"]["by_league"][lg]
+        lines.append(
+            f"| {lg.upper()} | {x['latest_valid_source_received_utc'] or 'N/A'} | "
+            f"{x['latest_valid_archive_receipt_age_minutes']} | "
+            f"{x['today_upcoming_quote_rows_in_archive']} | "
+            f"{x['today_upcoming_quote_rows_within_120m']} | "
+            f"{x['fresh_exact_paired_market_groups']} | "
+            f"{x['source_readiness']} |")
+    lines.extend(["", "Today's raw quote counts do not establish an executable sportsbook price.",
+                  "A scheduled collector may run later; no provider requests are made by this report.",
+                  "", "## Historical player and team last-5/last-10 source examples",
                   "Historical player IDs/teams, NOT verified today's active roster.",
                   "Full source histories are in the per-league season artifacts."])
     samples=r["season_to_date_game_and_player_form"][
@@ -470,6 +488,14 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         }
         for lg in scope
     }
+    freshness = quote_freshness(
+        sharp_rows or [], leagues=scope, now=clock,
+        fresh_paired_by_league={
+            lg:market_evidence[lg]["fresh_paired_game_boards"] +
+                market_evidence[lg]["fresh_paired_player_prop_markets"]
+            for lg in scope},
+        archive_run_ids=sharp_run_ids)
+    _check_report(freshness)
     metrics_health = build_metrics_health(
         persisted=persisted, market_evidence=market_evidence, leagues=scope)
     _check_report(metrics_health)
@@ -566,6 +592,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "stat_source_not_independent_model_prop_probability":True,
             "certified_positive_ev_bets":0,
         },
+        "source_quote_freshness": freshness,
         "metrics_health": metrics_health,
         "recalibration_and_oos_readiness":{
             "nba_research_calibration_status":
