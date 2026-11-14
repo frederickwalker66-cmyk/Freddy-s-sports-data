@@ -18,6 +18,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # 2026-11-14 NBA five-leg parlay research review: validate five-game slate and player/game market availability, joint-probability and EV evidence; HOLD without exact live quotes. No paid calls; Champion-001 frozen.
 # 2026-11-14 user-initiated refresh after live-update integration: rerun current NBA research slate with timestamped public scoreboard, injuries reference and archived odds freshness; no paid collector or bets.
 # 2026-11-14 user refresh and run NBA after in-game projection installation: rerun current NBA Sharp Edge, 10-family props, game status, in-game pace research, L5/L10, calibrated evidence, odds freshness; no bets or paid calls.
+# Always-visible NBA live projections requested 2026-11-14: every V8 command prints pregame rule context (when validated), live-score pace or explicit N/A, source timestamps, sharp/CLV HOLD, even outside evening game windows.
 on:
   workflow_dispatch:
     inputs:
@@ -520,15 +521,8 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
-      - name: Attach as-observed NBA scoreboard, injury cadence and archived odds age to phone report
-        if: >-
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'workflow_run' ||
-          github.event.schedule == '17 21 * * *' ||
-          (github.event_name == 'push' &&
-           (contains(github.event.head_commit.message, '[run-nba]') ||
-            contains(github.event.head_commit.message, '[run-full-stack]') ||
-            contains(github.event.head_commit.message, '[run-sharp]')))
+      - name: Always display NBA pregame baseline and live pace/scoreboard in every command
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -544,6 +538,7 @@ jobs:
           python v8_nba_live_updates.py \
             --injury-metadata v8_results/one_command/nba_live_updates/injury_workflow_metadata.json \
             --sharp-archive-dir saved_sharp_archives \
+            --full-stack-report v8_results/one_command/FULL_STACK_ALL_IN_ONE_REPORT.json \
             --output-dir v8_results/one_command/nba_live_updates
           python - <<'PY'
           import json
@@ -561,7 +556,11 @@ jobs:
                   out.write((root/"nba_live_updates"/"NBA_LIVE_UPDATES.md").read_text())
           print("NBA as-observed live update attached; no change to certified selection count.")
           PY
+          # Every run has a visibly rendered NBA scoreboard/projection section.
+          # Full-stack commands print the appended report in the next step.
+          # Legacy commands always display this standalone panel in the summary.
           if [[ ! -f v8_results/one_command/FULL_STACK_ALL_IN_ONE_REPORT.md ]]; then
+            cat v8_results/one_command/nba_live_updates/NBA_LIVE_UPDATES.md
             cat v8_results/one_command/nba_live_updates/NBA_LIVE_UPDATES.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Refresh full NBA after a successful SharpAPI collector capture (read-only)
