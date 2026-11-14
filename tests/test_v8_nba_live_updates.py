@@ -120,6 +120,7 @@ class NBALiveUpdateTests(unittest.TestCase):
             board = create_report(scoreboard_bytes=source(), now=NOW,
                                   sharp_archive_dir=p)
             self.assertEqual(board["market_quote_status"], "NO_ARCHIVED_PROVIDER_QUOTES")
+            self.assertNotIn("NO_EXACT_PAIRED_MARKETS", board["market_quote_status"])
             self.assertIsNone(board["latest_archived_nba_quote_age_minutes"])
             self.assertFalse(board["live_draftkings_checkout_verified"])
             self.assertFalse(board["live_player_props_verified"])
