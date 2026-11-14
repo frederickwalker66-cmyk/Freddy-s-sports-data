@@ -88,6 +88,27 @@ def write_run(folder, run_id=RUN, *, p=.6, recorded=FORECAST, completed=None):
     return base,event
 
 
+
+def write_nested_phone_nba_run(folder, run_id=RUN+22, *, p=.6,
+                               recorded=FORECAST):
+    """Same authentic forward bytes, under Run NBA's real artifact layout."""
+    base, original_forecast = write_run(folder, run_id, p=p, recorded=recorded)
+    nested = base / "components" / "nba" / "nba_best_bets"
+    nested.mkdir(parents=True)
+    (base / "nba_forward").rename(nested / "nba_forward")
+    component = base / "components" / "nba"
+    component_report = json.loads((base / "ONE_COMMAND_REPORT.json").read_text())
+    component_report["command"] = "run_nba_best_bets"
+    (component / "ONE_COMMAND_REPORT.json").write_text(
+        json.dumps(component_report) + "\n")
+    (base / "ONE_COMMAND_REPORT.json").write_text(json.dumps({
+        "report_type": "FREDDYS_PICKS_V8_ONE_COMMAND_ALL_IN_ONE_V1",
+        "user_command": "run_nba", "champion_001_modified": False,
+        "money_wagered_usd": 0, "certified_positive_ev_bets": 0,
+    }) + "\n")
+    return base, original_forecast
+
+
 def final_game(*, published_at=AFTER, actual_start=START, homeid="161"):
     ev={
         "id":"40123456","date":actual_start.isoformat(),
@@ -111,6 +132,39 @@ def results_collector(leagues, days, end_date):
 
 
 class ForwardGradingTests(unittest.TestCase):
+    def test_phone_run_nba_nested_forward_is_legitimate_original_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base, forecast = write_nested_phone_nba_run(folder)
+            predictions, receipt = load_archived_forecasts(folder)
+            self.assertEqual(len(predictions), 1)
+            self.assertEqual(receipt["source_github_run_ids"], [RUN+22])
+            self.assertEqual(predictions[0]["model_probability_home_win_research_only"], .6)
+            self.assertEqual(predictions[0]["espn_event_id"], forecast["espn_event_id"])
+            result, ledger = grade(predictions, AFTER, collector=results_collector)
+            self.assertEqual(result["real_forward_research_forecasts_graded"], 1)
+            self.assertIsNone(result["probability_research_Brier"])
+            self.assertFalse(ledger[0]["certified_prediction"])
+
+    def test_phone_run_nba_does_not_accept_fake_wrapper_or_unsettled_forecast(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base, forecast = write_nested_phone_nba_run(folder)
+            envelope=base/"ONE_COMMAND_REPORT.json"
+            data=json.loads(envelope.read_text())
+            data["certified_positive_ev_bets"]=1
+            envelope.write_text(json.dumps(data))
+            predictions, receipt=load_archived_forecasts(folder)
+            self.assertEqual(predictions, [])
+            self.assertIn("excluded_untrusted_run_ValueError",
+                          receipt["excluded_archive_or_duplicate_reasons"])
+            data["certified_positive_ev_bets"]=0
+            envelope.write_text(json.dumps(data))
+            path=(base/"components/nba/nba_best_bets/nba_forward/"
+                  "NBA_FORWARD_FORECASTS.jsonl")
+            altered=dict(forecast, outcome=1)
+            path.write_text(json.dumps(altered)+"\n")
+            predictions, receipt=load_archived_forecasts(folder)
+            self.assertEqual(predictions, [])
+
     def test_original_archive_and_github_time_verified_with_untouched_probability(self):
         with tempfile.TemporaryDirectory() as temp:
             base, first=write_run(temp)
