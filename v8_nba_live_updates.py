@@ -53,6 +53,73 @@ def _short(value):
     return re.sub(r"[\n\r|]", " ", str(value or "")).strip()[:90]
 
 
+
+def _regulation_pace_projection(*, state, period, clock, score_home, score_away,
+                                scheduled_start, observed_at):
+    """Mechanical score-rate extrapolation, never a fitted live win/total model.
+
+    Require at least one complete 12-minute NBA period, regulation Q2-Q4,
+    source-published scores, and a parsable current-quarter countdown.
+    Do not extrapolate overtime, a future event or an already-final game.
+    """
+    result = {
+        "projection_type": "UNVALIDATED_SCORE_PACE_EXTRAPOLATION_ONLY",
+        "projection_status": "NOT_ELIGIBLE_NO_IN_GAME_REGULATION_SCORE",
+        "elapsed_regulation_minutes": None,
+        "pace_extrapolated_final_home_points": None,
+        "pace_extrapolated_final_away_points": None,
+        "pace_extrapolated_final_total_points": None,
+        "live_win_probability": None,
+        "independently_validated_live_total_model": False,
+        "in_play_market_odds_verified": False,
+        "qualified_for_in_play_betting": False,
+    }
+    if state != "in":
+        result["projection_status"] = ("FINAL_USE_ACTUAL_SCORE_NOT_PROJECTION"
+                                       if state == "post" else "PREGAME_NO_LIVE_PROJECTION")
+        return result
+    if scheduled_start > observed_at:
+        result["projection_status"] = "SOURCE_IN_PLAY_BEFORE_LISTED_TIPOFF"
+        return result
+    if period is not None and period >= 5:
+        result["projection_status"] = "OVERTIME_NOT_MODELED"
+        return result
+    if (period not in (1, 2, 3, 4) or
+            score_home is None or score_away is None or not isinstance(clock, str)):
+        result["projection_status"] = "IN_GAME_SCORE_OR_CLOCK_UNAVAILABLE"
+        return result
+    countdown = re.fullmatch(r"(\d{1,2}):(\d{2})(?:\.(\d{1,2}))?", clock)
+    if countdown is None:
+        result["projection_status"] = "IN_GAME_CLOCK_UNPARSABLE"
+        return result
+    minutes, seconds = int(countdown.group(1)), int(countdown.group(2))
+    fraction = float("0." + countdown.group(3)) if countdown.group(3) else 0.0
+    remaining = 60 * minutes + seconds + fraction
+    if seconds >= 60 or remaining > 720:
+        result["projection_status"] = "IN_GAME_CLOCK_OUT_OF_RANGE"
+        return result
+    elapsed = (period - 1) * 720 + (720 - remaining)
+    if elapsed < 720:
+        result["projection_status"] = "FIRST_QUARTER_NOT_COMPLETE"
+        return result
+    if elapsed >= 2880:
+        result["projection_status"] = "REGULATION_COMPLETED_USE_FINAL_SCORE"
+        return result
+    scale = 2880.0 / elapsed
+    home, away = score_home * scale, score_away * scale
+    if home > 200 or away > 200 or home + away > 350:
+        result["projection_status"] = "IMPLAUSIBLE_PACE_EXTRAPOLATION_WITHHELD"
+        return result
+    result.update(
+        projection_status="IN_GAME_UNCALIBRATED_PACE_ESTIMATE",
+        elapsed_regulation_minutes=round(elapsed / 60.0, 2),
+        pace_extrapolated_final_home_points=round(home, 1),
+        pace_extrapolated_final_away_points=round(away, 1),
+        pace_extrapolated_final_total_points=round(home + away, 1),
+    )
+    return result
+
+
 def parse_scoreboard(original_bytes, *, now=None):
     """Parse only source-published NBA current-day states from original bytes."""
     clock = _utc(now)
@@ -103,6 +170,10 @@ def parse_scoreboard(original_bytes, *, now=None):
             "in_play_betting_covered": False,
             "verified_sportsbook_price": None,
             "verified_player_active_status": None,
+            **_regulation_pace_projection(
+                state=state, period=period, clock=_short(status.get("displayClock")),
+                score_home=scores["home"], score_away=scores["away"],
+                scheduled_start=start, observed_at=clock),
         })
     return {
         "source_status": "ESPN_SCOREBOARD_OBSERVED",
@@ -112,6 +183,8 @@ def parse_scoreboard(original_bytes, *, now=None):
         "published_game_count": len(games),
         "source_reported_in_progress": sum(g["source_event_state"] == "in" for g in games),
         "source_reported_final": sum(g["source_event_state"] == "post" for g in games),
+        "uncalibrated_pace_estimates_available": sum(
+            g["projection_status"] == "IN_GAME_UNCALIBRATED_PACE_ESTIMATE" for g in games),
     }
 
 
@@ -174,6 +247,9 @@ def create_report(*, scoreboard_bytes=None, now=None, injury_metadata=None,
         "champion_001_modified": False,
         "decision": "HOLD_NO_CERTIFIED_EDGE",
         "not_a_continuous_stream": True,
+        "uncalibrated_pace_estimates_available": 0,
+        "live_win_probabilities_certified": False,
+        "live_player_prop_model_available": False,
     }
     if scoreboard_bytes is not None:
         try:
@@ -227,6 +303,28 @@ def render(report):
         lines.append(f"| {_short(game['matchup'])} | {game['source_event_state']} | "
                      f"{scores} | {period} | "
                      f"{'Yes, by clock only' if game['pregame_research_eligible_by_clock_only'] else 'No'} | HOLD |")
+    lines.extend([
+        "",
+        "## In-game pace projections — uncalibrated research only",
+        "Arithmetic final-regulation pace extrapolations are **not predictive win probabilities**,",
+        "verified sportsbook totals, player-prop forecasts, or evidence of betting value.",
+        "| Game | Elapsed regulation min | Pace extrapolated away-home | Pace extrapolated total | Status | Live win p |",
+        "|---|---:|---|---:|---|---|",
+    ])
+    for g in report["games"]:
+        a, h, t = (g["pace_extrapolated_final_away_points"],
+                   g["pace_extrapolated_final_home_points"],
+                   g["pace_extrapolated_final_total_points"])
+        projected_score = f"{a:.1f}-{h:.1f}" if a is not None and h is not None else "N/A"
+        total = f"{t:.1f}" if t is not None else "N/A"
+        mins = (str(g["elapsed_regulation_minutes"])
+                if g["elapsed_regulation_minutes"] is not None else "N/A")
+        lines.append(f"| {_short(g['matchup'])} | {mins} | {projected_score} | {total} | "
+                     f"{g['projection_status']} | N/A |")
+    if not report["games"]:
+        lines.append("| N/A | N/A | N/A | N/A | SOURCE_UNAVAILABLE | N/A |")
+    lines.append("**Live calibrated win probabilities / live prop models:** UNAVAILABLE — no trained, validated in-play model.")
+
     if not report["games"]:
         lines.append("| N/A — source unavailable or no published regular/postseason games | "
                      "N/A | N/A | N/A | N/A | HOLD |")
