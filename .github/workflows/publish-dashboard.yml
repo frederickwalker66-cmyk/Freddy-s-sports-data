@@ -32,6 +32,8 @@ jobs:
   publish:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages_state.outputs.enabled }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -140,11 +142,56 @@ jobs:
             git push origin HEAD:main
             echo "Public dashboard updated on the main/docs branch."
           fi
+      - name: Verify GitHub Pages is configured for official Actions deployment
+        id: pages_state
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          echo "enabled=false" >> "$GITHUB_OUTPUT"
+          if gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.build_type' > pages_type.txt 2>/dev/null; then
+            if grep -qx workflow pages_type.txt; then
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              echo "GitHub Pages source is GitHub Actions: automatic deployment enabled."
+            else
+              echo "GitHub Pages exists, but publishing source is not GitHub Actions."
+              echo "Set Settings → Pages → Source → GitHub Actions."
+            fi
+          else
+            echo "GitHub Pages has not been enabled. Site files and public data are ready."
+          fi
       - name: Show publication status and Pages activation instruction
         if: always()
         run: |
           echo "## Freddy's Picks AI — Public Web Dashboard" >> "$GITHUB_STEP_SUMMARY"
           echo "Read-only static site files: **docs/index.html**" >> "$GITHUB_STEP_SUMMARY"
           echo "Data feed: **docs/data/dashboard.json**" >> "$GITHUB_STEP_SUMMARY"
-          echo "To publish the first time: Repository Settings → Pages → Deploy from a branch → main → /docs → Save." >> "$GITHUB_STEP_SUMMARY"
+          echo "To publish the first time: Repository Settings → Pages → Build and deployment → Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
           echo "Public URL (once GitHub Pages is enabled): https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy_pages:
+    needs: publish
+    if: needs.publish.result == 'success' && needs.publish.outputs.pages_enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: freddy-pages-deployment
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Package the latest updated docs site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deployment
+        name: Deploy verified static site to GitHub Pages
+        uses: actions/deploy-pages@v4
