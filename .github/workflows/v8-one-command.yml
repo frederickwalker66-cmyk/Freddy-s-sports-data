@@ -221,10 +221,23 @@ jobs:
           set -euo pipefail
           mkdir -p saved_sharp_archives
           mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow collect-sharpapi.yml --branch main --status success --limit 5 --json databaseId --jq '.[].databaseId')
+          # For workflow_run, inspect the exact triggering successful capture
+          # first. A missing/unreadable artifact remains a source gap, never
+          # a reason to relabel an earlier price as current.
+          triggered="${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}"
+          if [[ -n "$triggered" ]]; then
+            ids=("$triggered" "${ids[@]}")
+          fi
+          declare -A seen_ids=()
           count=0
           for rid in "${ids[@]}"; do
+            [[ -n "${seen_ids[$rid]:-}" ]] && continue
+            seen_ids[$rid]=1
             if gh run download "$rid" --repo "$GITHUB_REPOSITORY" --name "sharpapi-pregame-$rid" --dir "saved_sharp_archives/$rid"; then
               count=$((count+1))
+              if [[ -n "$triggered" && "$rid" == "$triggered" ]]; then
+                echo "$rid" > saved_sharp_archives/triggering_successful_collector_run_id.txt
+              fi
             else
               rm -rf "saved_sharp_archives/$rid"
               echo "Archived SharpAPI run $rid unavailable; no observations fabricated."
@@ -232,7 +245,7 @@ jobs:
           done
           echo "Archived SharpAPI runs downloaded: $count"
       - name: Load latest saved eight-league season scoreboard and player form
-        if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_season_form' || inputs.command == 'run_sports' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]')) || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || inputs.command == 'run_sports' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run_mlb' || inputs.command == 'run_ncaaf' || inputs.command == 'run_ncaab' || inputs.command == 'run_mls' || inputs.command == 'run_uefa' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]')) }}
+        if: ${{ github.event_name == 'workflow_run' || inputs.command == 'run_nba' || inputs.command == 'run_season_form' || inputs.command == 'run_sports' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]')) || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || inputs.command == 'run_sports' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run_mlb' || inputs.command == 'run_ncaaf' || inputs.command == 'run_ncaab' || inputs.command == 'run_mls' || inputs.command == 'run_uefa' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]')) }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -495,6 +508,51 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
+      - name: Refresh full NBA after a successful SharpAPI collector capture (read-only)
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The collector already finished upstream. This step ONLY reads
+          # existing snapshot artifacts and free public ESPN research sources.
+          # It does not call SharpAPI, SportsGameOdds, or a betting endpoint.
+          python v8_one_command.py \
+            --command run_nba_best_bets \
+            --days 35 \
+            --output-dir v8_results/one_command/post_collector_nba \
+            --sharp-archive-dir saved_sharp_archives \
+            --season-archive-dir saved_season_archives \
+            --calibration-file v8_results/leaderboard_download/CALIBRATION.json \
+            --leaderboard-file v8_results/leaderboard_download/LEADERBOARD.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path("v8_results/one_command/post_collector_nba")
+          research=json.loads((p/"FULL_STACK_ALL_IN_ONE_REPORT.json").read_text())
+          source=json.loads((p/"FULL_STACK_SOURCE_FRESHNESS.json").read_text())
+          selected=source["by_league"]["nba"]
+          assert research["requested_leagues"]==["nba"]
+          assert research["certified_positive_ev_bets"]==0
+          assert research["champion_001_modified"] is False
+          assert research["money_wagered_usd"]==0
+          assert source["provider_collection_network_calls"]==0
+          assert source["does_not_dispatch_paid_collector"] is True
+          summary=[
+            "## NBA post-collector research refresh — no extra provider calls",
+            f"**Triggering SharpAPI run:** {os.getenv('GITHUB_EVENT_NAME')} (source archive may be missing)",
+            f"**Archived NBA quote rows:** {selected['archived_source_rows_for_league']}",
+            f"**Today's unstarted-event quote rows:** {selected['today_upcoming_quote_rows_in_archive']}",
+            f"**Recent raw NBA quotes (<120m):** {selected['today_upcoming_quote_rows_within_120m']}",
+            f"**Exact fresh market pairs:** {selected['fresh_exact_paired_market_groups']}",
+            f"**Primary freshness blocker:** {selected['source_readiness']}",
+            "**Model-derived calibrated EV and verified checkout: unavailable. Champion unchanged; HOLD.**",
+            "**See post_collector_nba/FULL_STACK_ALL_IN_ONE_REPORT.md and FULL_STACK_SOURCE_FRESHNESS.json.**",
+          ]
+          output="\n".join(summary)+"\n"
+          print(output)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a").write(output)
+          PY
       - name: Show tonight's COMPLETE NBA game/market slate in Actions summary
         if: always()
         shell: bash
