@@ -6,7 +6,7 @@
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
   "data_is_independently_publisher_authenticated": false,
-  "graded_research_NBA_games": 14,
+  "graded_research_NBA_games": 24,
   "independently_certified_models": 0,
   "independently_verified_sportsbook_checkout_quotes": 0,
   "minimum_forward_graded_games_for_exploratory_calibration": 100,
@@ -28,18 +28,18 @@
         },
         {
           "home_wins": 0,
-          "mean_original_forecast_probability": null,
-          "observations": 0,
+          "mean_original_forecast_probability": 0.3951367,
+          "observations": 1,
           "observed_home_win_frequency": null,
           "probability_max_exclusive": 0.4,
           "probability_min_inclusive": 0.2,
           "wilson_95pct_descriptive_interval": null,
-          "withheld_small_bin": false
+          "withheld_small_bin": true
         },
         {
-          "home_wins": 2,
-          "mean_original_forecast_probability": 0.5467209,
-          "observations": 8,
+          "home_wins": 5,
+          "mean_original_forecast_probability": 0.5431201,
+          "observations": 15,
           "observed_home_win_frequency": null,
           "probability_max_exclusive": 0.6,
           "probability_min_inclusive": 0.4,
@@ -48,8 +48,8 @@
         },
         {
           "home_wins": 6,
-          "mean_original_forecast_probability": 0.6409669,
-          "observations": 6,
+          "mean_original_forecast_probability": 0.6338039,
+          "observations": 8,
           "observed_home_win_frequency": null,
           "probability_max_exclusive": 0.8,
           "probability_min_inclusive": 0.6,
@@ -74,18 +74,25 @@
       "model_betting_ready": false,
       "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
       "neutral_50_50_Brier_NOT_sportsbook": null,
-      "original_forward_pregame_games_graded": 14,
+      "neutral_50_50_log_loss_NOT_sportsbook": null,
+      "original_forward_pregame_games_graded": 24,
       "research_Brier": null,
+      "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": null,
+      "research_directional_accuracy": null,
+      "research_directional_accuracy_wilson_95pct": null,
+      "research_directional_correct": 14,
+      "research_directional_decisions": 24,
       "research_log_loss": null,
+      "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": null,
       "retained_uncertainty_not_certification": true
     }
   ],
   "original_Champion_001_certified_shadows": 0,
   "original_Champion_001_executable_authenticated": false,
-  "pending_ungraded": 28,
+  "pending_ungraded": 18,
   "quarantined": 0,
   "stage": "genuinely_forward_recorded_NBA_research_calibration_only",
   "status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
   "version": "v8-nba-forward-calibration-v1",
-  "warning": "Forecasts are original research probabilities archived before tipoff; later ESPN results are provisional. Brier/log-loss are withheld for fewer than 50 graded forward games and bin frequencies for fewer than 20 observations; ECE is withheld until >=100 games AND >=10 observations in every occupied bin. No statistics here validate future profits, original Champion-001, or book prices."
+  "warning": "Forecasts are original research probabilities archived before tipoff; later ESPN results are provisional. Brier/log-loss are withheld for fewer than 50 graded forward games and bin frequencies for fewer than 20 observations; ECE is withheld until >=100 games AND >=10 observations in every occupied bin. Research directional accuracy and skill versus a fixed 50/50 reference also require 50 grades; neither is a sportsbook comparison. No statistics here validate future profits, original Champion-001, or book prices."
 }
