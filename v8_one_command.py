@@ -31,6 +31,7 @@ from v8_nfl_nhl_board_view import read_boards as read_sport_research_boards
 from v8_nba_forward_grade import load_archived_forecasts, grade as grade_nba_forward, save as save_nba_forward_grading
 from v8_forward_leaderboard_view import read_leaderboard
 from v8_forward_calibration_view import read_calibration
+from v8_metrics_health import build_metrics_health
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 from v8_arbitrage_research import scan_arbitrage
 from v8_betting_readiness import audit_betting_readiness, save_readiness
@@ -129,6 +130,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_forward_grading": None,
         "forward_leaderboard": None,
         "forward_calibration": None,
+        "metrics_health": None,
         "next_sport_forward_research": None,
         "nfl_nhl_forward_board": None,
     }
@@ -363,6 +365,11 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["nfl_nhl_forward_board"] = read_sport_research_boards(nfl_nhl_board_files)
     elif command == "run_calibration":
         report["forward_calibration"] = read_calibration(calibration_file)
+        health = build_metrics_health(persisted=report["forward_calibration"])
+        report["metrics_health"] = health
+        (out / "METRICS_HEALTH.json").write_text(
+            json.dumps(health, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
     elif command == "run_leaderboard":
         report["forward_leaderboard"] = read_leaderboard(leaderboard_file)
     elif command == "run_nba_grade":
