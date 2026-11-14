@@ -1,4 +1,4 @@
-"""NBA/NFL archived full-game ML, point-spread, and totals research board.
+"""NBA/NFL/NCAAF archived full-game ML, point-spread, and totals research board.
 
 Source prices and lines are aggregator observations only: no checkout receipts,
 native model projections, proof of professional flow, real bets or edge claims.
@@ -16,6 +16,7 @@ from challenger_moneyline_market_baseline import (
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
 from v8_sharp_probability_display import price_pair_probabilities
 
+GAME_PRICE_SPORTS = frozenset(("nba", "nfl", "ncaaf"))
 ALLOWED = frozenset(("moneyline", "point_spread", "total_points"))
 SIDES = {"moneyline": ("home", "away"),
          "point_spread": ("home", "away"),
@@ -26,8 +27,8 @@ NY = ZoneInfo("America/New_York")
 def inspect_full_game_quote(row):
     if not isinstance(row, dict):
         return None, "invalid_row"
-    if row.get("league") not in ("nba", "nfl"):
-        return None, "outside_nba_nfl_scope"
+    if row.get("league") not in GAME_PRICE_SPORTS:
+        return None, "outside_supported_game_price_scope"
     market = row.get("market_type")
     if market not in ALLOWED:
         return None, "outside_full_game_market_scope"
@@ -128,7 +129,7 @@ def summarize_full_game_markets(rows, *, now=None, archive_run_ids=()):
         info, reason = inspect_full_game_quote(row)
         if reason:
             # Other player-prop markets are not a full-game quote error.
-            if (isinstance(row, dict) and row.get("league") in ("nba", "nfl")
+            if (isinstance(row, dict) and row.get("league") in GAME_PRICE_SPORTS
                     and row.get("market_type") in ALLOWED):
                 excluded[reason] += 1
             continue
@@ -220,7 +221,7 @@ def summarize_full_game_markets(rows, *, now=None, archive_run_ids=()):
         -abs(m["same_line_no_vig_market_price_change_pp"] or 0),
         m["start_utc"], m["provider_event_id"], m["market"]))
     report = {
-        "report_type": "v8_nba_nfl_full_game_ml_spread_total_archived_research_only",
+        "report_type": "v8_nba_nfl_ncaaf_full_game_ml_spread_total_archived_research_only",
         "research_date_eastern": today.isoformat(),
         "validated_source_quote_observations_by_league_and_market": {
             f"{k[0]}_{k[1]}": n for k, n in sorted(valid.items())
