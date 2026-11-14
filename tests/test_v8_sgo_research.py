@@ -52,23 +52,21 @@ class SourceResearchTests(unittest.TestCase):
         self.assertIn("--max-pages 1", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
 
-    def test_completed_manual_sgo_capture_auto_replays_no_cost_mixed_board(self):
-        # Only after a successful manual paid intake, reuse artifacts;
-        # never cause another provider request or certify a model.
+    def test_excluded_sgo_source_cannot_auto_replay_in_one_command(self):
+        # Legacy source tests remain retrospective only: live one-command
+        # workflow must never load archived SGO or trigger on its collector.
         workflow = Path(".github/workflows/v8-one-command.yml").read_text()
         self.assertIn(
+            "workflows: ['Collect SharpAPI DraftKings pregame odds']", workflow
+        )
+        self.assertNotIn(
             "workflows: ['Collect SharpAPI DraftKings pregame odds', "
-            "'SportsGameOdds NBA NFL MLB research — manual capped intake']",
-            workflow,
+            "'SportsGameOdds NBA NFL MLB research — manual capped intake']", workflow
         )
-        self.assertEqual(
-            workflow.count(
-                "github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market'"
-            ), 2,
+        self.assertNotIn(
+            "Retrieve last completed SportsGameOdds source artifact", workflow
         )
-        self.assertIn("github.event.workflow_run.conclusion == 'success'", workflow)
-        self.assertIn("--sgo-archive-dir saved_sgo_archives", workflow)
-        self.assertIn("no paid api requests", workflow.lower())
+        self.assertNotIn("--sgo-archive-dir saved_sgo_archives", workflow)
         source_workflow = Path(".github/workflows/sportsgameodds-research.yml").read_text()
         self.assertNotIn("  schedule:", source_workflow)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", source_workflow)
