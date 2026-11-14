@@ -187,8 +187,14 @@ def create_report(*, scoreboard_bytes=None, now=None, injury_metadata=None,
             rows, run_ids, _ = read_archive(sharp_archive_dir)
             freshness = quote_freshness(rows, leagues=("nba",), now=clock, archive_run_ids=run_ids)
             nba = freshness["by_league"]["nba"]
+            # This scoreboard-only check evaluates receipt age, not exact-line
+            # pairing. The full Sharp Edge bundle owns game/prop pair matching.
+            # Missing paired counts must not be reported as observed zero pairs.
+            source_status = nba["source_readiness"]
+            if source_status == "RECENT_RAW_QUOTES_BUT_NO_EXACT_PAIRED_MARKETS":
+                source_status = "RECENT_RAW_QUOTES_PAIR_MATCHING_NOT_RUN_IN_SCOREBOARD_LAYER"
             result.update(
-                market_quote_status=nba["source_readiness"],
+                market_quote_status=source_status,
                 latest_archived_nba_quote_utc=nba["latest_valid_source_received_utc"],
                 latest_archived_nba_quote_age_minutes=nba["latest_valid_archive_receipt_age_minutes"],
                 today_unstarted_nba_price_rows_within_120m=nba[
