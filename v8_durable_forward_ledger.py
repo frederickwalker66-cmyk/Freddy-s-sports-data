@@ -98,15 +98,28 @@ def _keep_original_receipts(root, durable_root, run_ids, db):
     for run_id in sorted(run_ids):
         src = Path(root) / str(run_id)
         dest = Path(durable_root) / "original_run_receipts" / str(run_id)
-        selected = list(RAW_FILES)
-        selected.extend("nba_forward/" + item.name
-                        for item in sorted((src / "nba_forward").glob(
+        # A successful Run NBA all-in-one command preserves the genuine
+        # forward original under its nested NBA component. Keep the
+        # original full-stack envelope plus the component's own report.
+        nested = "components/nba/nba_best_bets/nba_forward"
+        prefix = (nested if (src / nested / "NBA_FORWARD_FORECASTS.jsonl").is_file()
+                  else "nba_forward")
+        selected = ([
+            "github_run.json", "ONE_COMMAND_REPORT.json",
+            "components/nba/ONE_COMMAND_REPORT.json",
+            f"{prefix}/NBA_FORWARD_FORECASTS.jsonl",
+            f"{prefix}/NBA_FORWARD_RESEARCH_STATUS.json",
+            f"{prefix}/NBA_HISTORICAL_SOURCE_COVERAGE.json",
+        ] if prefix == nested else list(RAW_FILES))
+        selected.extend(prefix + "/" + item.name
+                        for item in sorted((src / prefix).glob(
                             "nba_original_future_schedule_*.json")))
         digests = {}
         for rel in selected:
             target = src / rel
             if not target.is_file():
-                if rel in RAW_FILES and rel != "nba_forward/NBA_HISTORICAL_SOURCE_COVERAGE.json":
+                if (rel in selected[:6] and not rel.endswith(
+                        "/NBA_HISTORICAL_SOURCE_COVERAGE.json")):
                     raise ValueError("previously_validated_archive_missing_required_original_receipt")
                 continue
             if target.is_symlink() or target.stat().st_size > MAX_RAW_FILE_BYTES:
