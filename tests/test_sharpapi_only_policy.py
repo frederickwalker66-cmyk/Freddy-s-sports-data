@@ -25,6 +25,12 @@ class WorkflowProviderPolicyTests(unittest.TestCase):
         self.assertIn("group: sharpapi-odds-api", workflow)
         self.assertIn("cancel-in-progress: false", workflow)
         self.assertIn("challenger_ticket_preflight.py --staged validation_output/research_only.jsonl", workflow)
+        self.assertIn("default: 'nba,nfl,mlb'", workflow)
+        self.assertIn("          - 'ncaaf'", workflow)
+        self.assertIn("          - 'nba,nfl,mlb,ncaaf'", workflow)
+        self.assertIn("github.event_name == 'workflow_dispatch' && inputs.leagues || 'nba,nfl,mlb'", workflow)
+        self.assertIn('collector.py --dry-run --leagues "$SHARPAPI_LEAGUES"', workflow)
+        self.assertIn('collector.py --output-dir snapshots --max-pages 4 --leagues "$SHARPAPI_LEAGUES"', workflow)
 
     def test_429_retry_after_then_success(self):
         error = HTTPError("https://example.test", 429, "throttled", {"Retry-After": "70"}, None)
