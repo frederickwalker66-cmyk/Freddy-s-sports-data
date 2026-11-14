@@ -1,7 +1,12 @@
 """Fictional validation fixtures; no external odds or model outputs."""
 from datetime import datetime, timezone, timedelta
 import unittest
-from collector import normalize_quote, parse_time
+import io
+import json
+from contextlib import redirect_stdout
+from unittest.mock import patch
+from collector import (normalize_quote, parse_time, LEAGUES, SUPPORTED_LEAGUES,
+                       collect, main)
 
 NOW = datetime(2026, 10, 28, 20, 0, tzinfo=timezone.utc)
 
@@ -52,6 +57,45 @@ class CollectorTests(unittest.TestCase):
 
     def test_missing_selection_rejected(self):
         self.assertIsNone(normalize_quote(example(selection=None), NOW))
+
+    def test_ncaaf_is_opt_in_and_scheduled_leagues_unchanged(self):
+        self.assertEqual(LEAGUES, ("nba", "nfl", "mlb"))
+        self.assertIn("ncaaf", SUPPORTED_LEAGUES)
+
+    def test_ncaaf_dry_run_never_reads_key_or_calls_provider(self):
+        buf = io.StringIO()
+        with (patch("sys.argv", ["collector.py", "--dry-run", "--leagues",
+                                "ncaaf", "--max-pages", "2"]),
+              patch.dict("os.environ", {}, clear=True),
+              patch("collector.urlopen", side_effect=AssertionError("network called")),
+              redirect_stdout(buf)):
+            self.assertEqual(main(), 0)
+        result = json.loads(buf.getvalue())
+        self.assertEqual(result["leagues"], ["ncaaf"])
+        self.assertEqual(result["max_possible_provider_requests"], 4)
+        self.assertEqual(result["network_calls"], 0)
+        self.assertTrue(result["ncaaf_opted_in"])
+        self.assertEqual(result["certified_bets"], 0)
+
+    def test_synthetic_ncaaf_collection_keeps_provenance_unverified(self):
+        row = example(league="ncaaf", sport="football",
+                      event_start_time="2026-10-28T21:00:00Z",
+                      timestamp="2026-10-28T19:59:00Z")
+        page = {"data": [row], "pagination": {"has_more": False}}
+        with (patch("collector.get_page", return_value=page) as endpoint,
+              patch("collector.now_utc", return_value=NOW),
+              patch("collector.time.sleep") as sleeper):
+            rows, summary, requests = collect(
+                "test-secret", leagues=("ncaaf",), max_pages=1)
+        self.assertEqual(requests, 2)
+        self.assertEqual(endpoint.call_count, 2)
+        sleeper.assert_called_once()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["league"], "ncaaf")
+        self.assertEqual(rows[0]["source"], "sharpapi_rest")
+        self.assertIsNone(rows[0]["model_probability"])
+        self.assertFalse(rows[0]["certified_prediction"])
+        self.assertEqual(summary[0]["league"], "ncaaf")
 
 
 if __name__ == "__main__":
