@@ -91,6 +91,45 @@ def read_calibration(path):
                                        or not math.isfinite(value)
                                        or not 0<=value<=1):
                 raise ValueError("invalid_calibration_statistic")
+        # Optional additive diagnostic fields allow old, authentic saved
+        # reports to remain readable. New fields must never bypass release gates.
+        decisions=model.get("research_directional_decisions")
+        correct=model.get("research_directional_correct")
+        if (decisions is None) != (correct is None):
+            raise ValueError("incomplete_research_directional_counts")
+        if decisions is not None and (type(decisions) is not int
+                or type(correct) is not int or not 0 <= correct <= decisions <= n):
+            raise ValueError("invalid_research_directional_counts")
+        gated = ("research_directional_accuracy",
+                 "research_directional_accuracy_wilson_95pct",
+                 "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook",
+                 "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook",
+                 "neutral_50_50_log_loss_NOT_sportsbook")
+        if n < MIN_PUBLIC_SCORE_BRIER_GAMES and any(
+                model.get(k) is not None for k in gated):
+            raise ValueError("premature_small_sample_skill_claim")
+        accuracy=model.get("research_directional_accuracy")
+        if accuracy is not None:
+            if (type(accuracy) not in (int,float) or not math.isfinite(accuracy)
+                    or not 0 <= accuracy <= 1 or not decisions
+                    or abs(accuracy-correct/decisions)>0.000001):
+                raise ValueError("invalid_research_accuracy")
+        interval=model.get("research_directional_accuracy_wilson_95pct")
+        if interval is not None:
+            if (not isinstance(interval,list) or len(interval)!=2
+                    or any(type(v) not in (int,float) or not math.isfinite(v)
+                           for v in interval)
+                    or not 0<=interval[0]<=interval[1]<=1
+                    or accuracy is None or not interval[0] <= accuracy <= interval[1]):
+                raise ValueError("invalid_research_directional_uncertainty")
+        for key in gated[2:]:
+            value=model.get(key)
+            if value is not None and (type(value) not in (int,float)
+                    or not math.isfinite(value)
+                    or (key == "neutral_50_50_log_loss_NOT_sportsbook"
+                        and abs(value-math.log(2)) > .000001)
+                    or (key != "neutral_50_50_log_loss_NOT_sportsbook" and value > 1)):
+                raise ValueError("invalid_fixed_reference_skill")
     if total != counts[1]:
         raise ValueError("model_grade_total_does_not_equal_saved_grades")
     return {
