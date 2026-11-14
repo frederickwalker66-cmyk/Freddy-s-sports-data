@@ -44,7 +44,7 @@ PRIMARY = {
     "nhl":"run_nhl_forward", "mlb":"run_mlb", "ncaaf":"run_ncaaf",
     "ncaab":"run_ncaab", "mls":"run_mls", "uefa_champions_league":"run_uefa",
 }
-PRICE_SPORTS = frozenset(("nba","nfl"))
+PRICE_SPORTS = frozenset(("nba","nfl","ncaaf"))
 
 
 def _check_report(data, *, requires_explicit_champion_flag=False):
@@ -250,7 +250,7 @@ def render(r):
     lines.extend([
         "",
         "## Sharp Edge / game and player prop markets",
-        f"**NBA/NFL research quote rows:** {r['sharp_edge_research']['archived_quote_rows_read']}",
+        f"**NBA/NFL/NCAAF-capable archived research quote rows:** {r['sharp_edge_research']['archived_quote_rows_read']}",
         f"**Recent two-sided full-game boards:** "
         f"{r['sharp_edge_research']['today_full_game_markets_in_selected_leagues']}",
         f"**Recent two-sided player-prop examples:** "
@@ -285,6 +285,17 @@ def render(r):
             f"{100*x['elo_rule_max_binary_p_not_calibrated']:.1f}% | HOLD |")
     if not r["research_only_pregame_predictions"]:
         lines.append("| All | N/A (no qualified future research receipt) | N/A | N/A | HOLD |")
+    lines.extend([
+        "", "## Market input readiness by sport",
+        "| League | Archived provider quotes | Fresh paired games | Fresh paired props | Decision |",
+        "|---|---:|---:|---:|---|",
+    ])
+    for lg in r["requested_leagues"]:
+        evidence = r["sharp_edge_research"]["per_sport_market_evidence"][lg]
+        lines.append(
+            f"| {lg.upper()} | {evidence['archived_provider_quote_rows']} | "
+            f"{evidence['fresh_paired_game_boards']} | "
+            f"{evidence['fresh_paired_player_prop_markets']} | HOLD |")
     lines.extend(["", "## Historical player and team last-5/last-10 source examples",
                   "Historical player IDs/teams, NOT verified today's active roster.",
                   "Full source histories are in the per-league season artifacts."])
@@ -316,7 +327,7 @@ def render(r):
     lines.extend([
         "",
         "### Source and verification limitations",
-        "- SharpAPI current archived market parser supports NBA and NFL, not all eight leagues.",
+        "- The research parser now supports archived NBA, NFL and NCAAF game and selected prop markets; this does NOT establish any new NCAAF paid source capture, independently verified bettor flow or sportsbook checkout.",
         "- Historical season ESPN statistics are not independently authenticated live odds, player identities, or official market settlements.",
         "- Readiness checks require independently captured exact prices, model forecasts, "
         "market-specific holdout calibration, source custody and matched CLV receipts.",
@@ -411,12 +422,33 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         _check_report(sgo)
     rows=_project_research(reports,scope)
     research_watch=_watchlist(rows)
+    source_quote_counts = {
+        lg: sum(1 for q in (sharp_rows or [])
+                if isinstance(q, dict) and q.get("league") == lg
+                and q.get("source") == "sharpapi_rest"
+                and q.get("record_type") == "pregame_odds_observation")
+        for lg in scope
+    }
+    market_evidence = {
+        lg: {
+            "archived_provider_quote_rows": source_quote_counts[lg],
+            "fresh_paired_game_boards": sum(q.get("league") == lg for q in quotes),
+            "fresh_paired_player_prop_markets": sum(q.get("league") == lg for q in player_quotes),
+            "original_model_market_probability_authenticated": False,
+            "executable_bookmaker_checkout_authenticated": False,
+            "certified_positive_ev_bets": 0,
+            "decision": "HOLD_MISSING_NATIVE_MODEL_AND_EXECUTABLE_PRICE",
+        }
+        for lg in scope
+    }
     by_league={}
     for league in scope:
         form=season.get("by_league",{}).get(league,{})
-        support=("archived_research_only_not_live_checkout"
+        support=("ncaaf_parser_ready_no_archived_provider_quotes"
+                 if league == "ncaaf" and not source_quote_counts[league] else
+                 "archived_research_only_not_live_checkout"
                  if league in PRICE_SPORTS else
-                 "not_supported_by_existing_SharpAPI_NBA_NFL_parser")
+                 "not_supported_by_existing_SharpAPI_parser")
         core=reports.get(league)
         by_league[league]={
             "source_command":PRIMARY[league],
@@ -456,8 +488,9 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "decision":"HOLD_NO_CERTIFIED_EDGE",
         },
         "sharp_edge_research":{
-            "status":"NBA_NFL_ARCHIVED_MARKET_RESEARCH_ONLY",
+            "status":"NBA_NFL_NCAAF_ARCHIVED_MARKET_RESEARCH_ONLY",
             "archived_quote_rows_read":len(sharp_rows or []),
+            "per_sport_market_evidence":market_evidence,
             "source_run_ids":list(sharp_run_ids),
             "supported_archive_leagues":sorted(PRICE_SPORTS),
             "today_full_game_markets_in_selected_leagues":len(quotes),
@@ -477,7 +510,9 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         "quoted_market_probability_research":{
             "method":"source_american_odds_implied_and_two_sided_no_vig",
             "source_name":"SharpAPI DraftKings-labeled aggregator, NOT sportsbook checkout",
-            "nba_nfl_only_price_parser":True,
+            "nba_nfl_only_price_parser":False,
+            "ncaaf_research_parser_enabled":True,
+            "ncaaf_live_provider_feed_proven":False,
             "archived_full_game_snapshots":quotes,
             "archived_two_sided_player_prop_snapshots":player_quotes,
             "independent_same_market_model_p":None,
