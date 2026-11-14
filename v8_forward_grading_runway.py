@@ -35,7 +35,7 @@ def _quantile(vals, q):
     return round(x[lo] + (x[hi] - x[lo]) * (i - lo), 2)
 
 
-def grade_runway(history, *, now=None, days_deferred=0, source_days_checked=0):
+def grade_runway(history, *, now=None, forecasts_deferred=0, source_days_checked=0):
     """Statistically honest coverage and ageing from original saved forecasts.
 
     No "missed forecasts" inferred from total NBA schedule. A missing record
@@ -47,7 +47,7 @@ def grade_runway(history, *, now=None, days_deferred=0, source_days_checked=0):
     clock = clock.astimezone(timezone.utc)
     if not isinstance(history, list):
         raise ValueError("durable_forward_history_list_required")
-    if any(type(v) is not int or v < 0 for v in (days_deferred, source_days_checked)):
+    if any(type(v) is not int or v < 0 for v in (forecasts_deferred, source_days_checked)):
         raise ValueError("source_day_counters_must_be_nonnegative")
     status = Counter()
     seen = set()
@@ -84,7 +84,12 @@ def grade_runway(history, *, now=None, days_deferred=0, source_days_checked=0):
             raise ValueError("unknown_forward_grading_state")
         elapsed = (clock - start).total_seconds() / 3600
         y = row.get("home_won_published_final_research_only")
-        if state == GRADE:
+        if state == QUARANTINED:
+            # A later conflicting original may quarantine a *previously
+            # graded* event. Preserve its historical outcome but never
+            # include it in skill/grade-completeness denominators.
+            pass
+        elif state == GRADE:
             if type(y) is not int or y not in (0, 1) or elapsed < 48:
                 raise ValueError("grade_missing_final_or_not_mature")
             published = parse_time(row["published_final_observed_utc"])
@@ -121,7 +126,7 @@ def grade_runway(history, *, now=None, days_deferred=0, source_days_checked=0):
         "grade_coverage_of_all_archived_pct": _pct(graded,n),
         "forecast_captures_last_7_days": last_week_captures,
         "source_scoreboard_days_checked_last_batch": source_days_checked,
-        "source_days_deferred_due_to_budget": days_deferred,
+        "forecasts_deferred_due_to_source_day_budget": forecasts_deferred,
         "mature_ungraded_age_over_7_days": sum(v>7*24 for v in due_age_hours),
         "oldest_mature_ungraded_hours_after_48h_gate":
             round(max(due_age_hours),2) if due_age_hours else None,
