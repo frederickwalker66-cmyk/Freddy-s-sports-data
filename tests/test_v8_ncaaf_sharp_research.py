@@ -114,7 +114,7 @@ class NCAAFArchivedResearchTests(unittest.TestCase):
                 now=NOW, output_dir=Path(temp) / "empty")
             self.assertEqual(
                 empty["by_league"]["ncaaf"]["archived_sportsbook_market_support"],
-                "ncaaf_parser_ready_no_archived_provider_quotes")
+                "parser_ready_no_archived_provider_quotes")
             self.assertEqual(
                 empty["sharp_edge_research"]["per_sport_market_evidence"]
                 ["ncaaf"]["archived_provider_quote_rows"], 0)
