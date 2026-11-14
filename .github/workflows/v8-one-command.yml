@@ -3,6 +3,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # All-eight research parser verification 2026-11-14: 6 two-way leagues, MLS/UCL 1X2/draw, 28 markets; Champion frozen, no paid source fetch.
 # NBA on-demand scan 2026-11-14 after 8-sport upgrade; ML, spreads, totals, player props, no wagers.
 # NBA one-best-bet research rerun 2026-11-14; check source odds, injury status and risk limit $20; no bets.
+# User-issued Run NBA command 2026-11-14; unified slate, props, sharp-edge and form, no betting.
 # Rerun after NCAAF parser integration: 2026-11-14; NBA + NCAAF ML, spreads, totals and props; $0 wagers.
 # On-demand all-eight-sport games and NBA/NFL/NCAAF archival market/prop parsing; Champion-001 frozen; research-only, stake $0.
 on:
