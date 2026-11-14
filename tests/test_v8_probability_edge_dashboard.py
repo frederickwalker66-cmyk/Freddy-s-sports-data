@@ -6,6 +6,7 @@ from pathlib import Path
 
 from v8_one_command import execute
 from v8_probability_edge_dashboard import build_dashboard, render_dashboard
+from v8_nba_player_prop_dashboard import create_player_props_board
 
 
 def empty_report(**extras):
@@ -134,6 +135,29 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
         self.assertIn("Show probability and Sharp Edge percentages on every one-click run", one_click)
         self.assertIn("v8_results/nfl_props_edge/PROBABILITY_SHARP_EDGE_DASHBOARD.md", one_click)
         self.assertIn('cat "$report" >> "$GITHUB_STEP_SUMMARY"', one_click)
+
+
+    def test_universal_sharp_edge_displays_prop_categories_when_quotes_missing(self):
+        games = [
+            {"espn_event_id": "e1", "away_team": "Away", "home_team": "Home",
+             "start_utc": "2026-11-14T20:00:00+00:00",
+             "source_event_state": "pre"}
+        ]
+        prop_board = create_player_props_board(games, [])
+        view = build_dashboard(empty_report(
+            command="run_nba_best_bets",
+            nba_slate_best_bets={"nba_player_props": prop_board}))
+        self.assertEqual(len(view["nba_player_prop_requested_stat_families"]), 10)
+        self.assertEqual(len(view["nba_player_prop_game_coverage"]), 1)
+        self.assertEqual(view["nba_player_prop_archived_paired_markets"], 0)
+        self.assertEqual(view["certified_positive_ev_bets"], 0)
+        self.assertEqual(view["market_side_rows_total"], 0)
+        displayed = render_dashboard(view)
+        self.assertIn("NBA player props by game", displayed)
+        self.assertIn("Away @ Home", displayed)
+        self.assertIn("Points | Rebounds | Assists | 3PM", displayed)
+        self.assertIn("HOLD", displayed)
+        self.assertIn("not 0%", displayed.lower())
 
 
 if __name__ == "__main__":
