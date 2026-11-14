@@ -1,4 +1,4 @@
-"""NBA/NFL/NCAAF archived full-game ML, point-spread, and totals research board.
+"""Six-league two-outcome full-game moneyline, spread, and totals research board.
 
 Source prices and lines are aggregator observations only: no checkout receipts,
 native model projections, proof of professional flow, real bets or edge claims.
@@ -16,8 +16,21 @@ from challenger_moneyline_market_baseline import (
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
 from v8_sharp_probability_display import price_pair_probabilities
 
-GAME_PRICE_SPORTS = frozenset(("nba", "nfl", "ncaaf"))
+GAME_PRICE_SPORTS = frozenset(("nba", "nfl", "ncaaf", "ncaab", "mlb", "nhl"))
 ALLOWED = frozenset(("moneyline", "point_spread", "total_points"))
+# Aliases apply ONLY in their named sport. Never treat soccer's draw-capable
+# winner market as a two-way moneyline. Regulation/OT rules remain unverified.
+LEAGUE_MARKET_ALIASES = {
+    "mlb": {"run_line": "point_spread", "total_runs": "total_points"},
+    "nhl": {"puck_line": "point_spread", "total_goals": "total_points"},
+}
+
+def canonical_market(league, market):
+    if market in ALLOWED:
+        return market
+    return LEAGUE_MARKET_ALIASES.get(league, {}).get(market)
+
+
 SIDES = {"moneyline": ("home", "away"),
          "point_spread": ("home", "away"),
          "total_points": ("over", "under")}
@@ -29,7 +42,7 @@ def inspect_full_game_quote(row):
         return None, "invalid_row"
     if row.get("league") not in GAME_PRICE_SPORTS:
         return None, "outside_supported_game_price_scope"
-    market = row.get("market_type")
+    market = canonical_market(row["league"], row.get("market_type"))
     if market not in ALLOWED:
         return None, "outside_full_game_market_scope"
     if (row.get("source") != "sharpapi_rest"
@@ -108,6 +121,8 @@ def _snapshot(key, at, group):
         # The word "probability" here describes PRICE mathematics only:
         # normalized two-sided market quotes, never model forecasts or EV.
         **price_pair_probabilities(first["implied"], second["implied"]),
+        "market_settlement_scope_independently_verified": False,
+        "source_market_type": first["raw"]["market_type"],
         "provider_game_id_independently_verified": False,
         "bookmaker_checkout_price_verified": False,
         "native_model_probability_verified": False,
@@ -130,7 +145,7 @@ def summarize_full_game_markets(rows, *, now=None, archive_run_ids=()):
         if reason:
             # Other player-prop markets are not a full-game quote error.
             if (isinstance(row, dict) and row.get("league") in GAME_PRICE_SPORTS
-                    and row.get("market_type") in ALLOWED):
+                    and canonical_market(row.get("league"), row.get("market_type")) in ALLOWED):
                 excluded[reason] += 1
             continue
         if info["received"] > clock:
@@ -221,7 +236,7 @@ def summarize_full_game_markets(rows, *, now=None, archive_run_ids=()):
         -abs(m["same_line_no_vig_market_price_change_pp"] or 0),
         m["start_utc"], m["provider_event_id"], m["market"]))
     report = {
-        "report_type": "v8_nba_nfl_ncaaf_full_game_ml_spread_total_archived_research_only",
+        "report_type": "v8_six_league_two_outcome_game_markets_archived_research_only",
         "research_date_eastern": today.isoformat(),
         "validated_source_quote_observations_by_league_and_market": {
             f"{k[0]}_{k[1]}": n for k, n in sorted(valid.items())
