@@ -1,7 +1,7 @@
 """V8 read-only betting-readiness evidence gate for PC and phone.
 
 Reads real saved NBA pregame research calibration and existing archived
-SharpAPI NBA/NFL/NCAAF research markets. It never upgrades an aggregator quote, an analyst's
+SharpAPI all-eight-sport research markets (soccer 90-minute draw separately). It never upgrades an aggregator quote, an analyst's
 assertion or a GitHub green job into independent provenance, a model forecast,
 a wager, or profitable expected value. The gate intentionally has no auto-
 promotion path: independently signed model, quote and settlement evidence
@@ -16,6 +16,7 @@ import json
 from v8_forward_calibration_view import read_calibration
 from v8_sharp_game_markets import summarize_full_game_markets
 from v8_sharp_player_props import summarize_player_props
+from v8_soccer_market_research import summarize_soccer_markets, SOCCER_LEAGUES
 
 MARKETS = (
     "nba_moneyline", "nba_point_spread", "nba_total_points",
@@ -23,6 +24,15 @@ MARKETS = (
     "nfl_total_points", "nfl_player_props",
     "ncaaf_moneyline", "ncaaf_point_spread",
     "ncaaf_total_points", "ncaaf_player_props",
+    "ncaab_moneyline", "ncaab_point_spread",
+    "ncaab_total_points", "ncaab_player_props",
+    "mlb_moneyline", "mlb_point_spread",
+    "mlb_total_points", "mlb_player_props",
+    "nhl_moneyline", "nhl_point_spread",
+    "nhl_total_points", "nhl_player_props",
+    "mls_three_way_90_minute", "mls_total_goals_90_minute",
+    "uefa_champions_league_three_way_90_minute",
+    "uefa_champions_league_total_goals_90_minute",
 )
 MIN_RESEARCH_GAMES = 50
 MIN_EXPLORATORY_CALIBRATION_GAMES = 100
@@ -53,7 +63,11 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
         rows, now=clock, archive_run_ids=sharp_run_ids)
     props, _ = summarize_player_props(
         rows, now=clock, archive_run_ids=sharp_run_ids)
-    if (game["champion_001_modified"] is not False
+    soccer = summarize_soccer_markets(
+        rows, now=clock, archive_run_ids=sharp_run_ids)
+    if (soccer["champion_001_modified"] is not False
+            or soccer["certified_positive_ev_bets"] != 0
+            or game["champion_001_modified"] is not False
             or props["champion_001_modified"] is not False
             or calibration["bet_ready"] is not False
             or calibration["certified_positive_ev_bets"] != 0
@@ -80,18 +94,29 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
         raise ValueError("invalid_archived_market_board")
     if any(not isinstance(item, dict) for item in game_board):
         raise ValueError("invalid_archived_game_snapshot")
+    leagues = ("nba", "nfl", "ncaaf", "ncaab", "mlb", "nhl",
+               "mls", "uefa_champions_league")
     observed_source_rows = {
         league: sum(
             1 for row in rows if isinstance(row, dict)
             and row.get("league") == league
             and row.get("source") == "sharpapi_rest"
             and row.get("record_type") == "pregame_odds_observation")
-        for league in ("nba", "nfl", "ncaaf")
+        for league in leagues
     }
     by_market = {}
+    soccer_board = soccer["today_soccer_game_market_board"]
+    if not isinstance(soccer_board, list):
+        raise ValueError("invalid_soccer_market_board")
     for market in MARKETS:
-        league, kind = market.split("_", 1)
-        if kind == "player_props":
+        league = next((lg for lg in leagues if market.startswith(lg + "_")), None)
+        if league is None:
+            raise ValueError("unexpected_market_league")
+        kind = market[len(league) + 1:]
+        if league in SOCCER_LEAGUES:
+            references = sum(x.get("league") == league and x.get("market") == kind
+                             for x in soccer_board)
+        elif kind == "player_props":
             references = len(prop_board.get(league) or [])
         else:
             kind_lookup = {"moneyline": "moneyline", "point_spread": "point_spread",
@@ -115,11 +140,17 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
             blockers.append("no_saved_provider_quotes_for_league")
         elif not references:
             blockers.append("no_recent_exact_two_sided_reference_market")
-        if league == "ncaaf":
-            blockers.append("ncaaf_market_specific_calibrated_forecasts_not_available")
+        if league not in ("nba", "nfl"):
+            blockers.append("sport_specific_calibrated_forecasts_not_available")
+        if league in SOCCER_LEAGUES:
+            blockers.append("soccer_90_minute_draw_or_goals_settlement_not_independently_authenticated")
+        if league == "nhl":
+            blockers.append("nhl_overtime_shootout_vs_regulation_scope_unverified")
+        if league == "mlb":
+            blockers.append("mlb_extra_innings_and_pitcher_starting_rules_unverified")
         if kind == "player_props":
             blockers.append("player_identity_active_status_and_prop_stat_settlement_not_authenticated")
-        if kind in ("point_spread", "total_points"):
+        if kind in ("point_spread", "total_points", "total_goals_90_minute"):
             blockers.append("exact_handicap_or_total_line_and_push_semantics_not_model_verified")
         by_market[market] = {
             "status": "HOLD_NO_INDEPENDENTLY_VERIFIED_POSITIVE_EV",
@@ -175,6 +206,8 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
             "recent_upcoming_nba_nfl_full_game_reference_events": game_count,
             "recent_upcoming_ncaaf_reference_events": sum(
                 x.get("league") == "ncaaf" for x in game_board),
+            "recent_upcoming_soccer_90_minute_reference_markets": len(soccer_board),
+            "soccer_three_way_home_draw_away_mandatory": True,
             "recent_upcoming_two_sided_player_prop_reference_markets": prop_count,
             "bookmaker_reference": "SharpAPI_DraftKings_labeled_aggregator_not_checkout",
             "fresh_reference_examples_do_not_prove_execution_or_positive_EV": True,
