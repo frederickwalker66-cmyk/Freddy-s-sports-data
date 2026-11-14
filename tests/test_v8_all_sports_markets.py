@@ -178,6 +178,33 @@ class AllSportsMarketTests(unittest.TestCase):
                          ["uefa_champions_league"], "uefa_-_champions_league")
         self.assertEqual(LEAGUES, ("nba", "nfl", "mlb"))
 
+    def test_one_command_eight_sports_research_never_invents_bets(self):
+        rows = []
+        for league in ("nba", "nfl", "mlb", "nhl", "ncaaf", "ncaab"):
+            rows.extend([q(league, "moneyline", "home", odds=-120),
+                         q(league, "moneyline", "away", odds=+100)])
+        for league in ("mls", "uefa_champions_league"):
+            rows.extend([q(league, "moneyline", "home", odds=+100),
+                         q(league, "moneyline", "draw", odds=+240),
+                         q(league, "moneyline", "away", odds=+220)])
+        with tempfile.TemporaryDirectory() as temp:
+            report = run_full_stack(
+                command="run_all", execute_fn=no_bets,
+                sharp_rows=rows, now=NOW, output_dir=temp)
+            evidence = report["sharp_edge_research"]["per_sport_market_evidence"]
+            self.assertEqual(len(evidence), 8)
+            self.assertEqual(len(report["betting_readiness"]["by_market"]), 28)
+            for league in evidence:
+                self.assertGreater(evidence[league]["archived_provider_quote_rows"], 0)
+                self.assertEqual(evidence[league]["fresh_paired_game_boards"], 1)
+                self.assertEqual(evidence[league]["primary_source_blocker"],
+                                 "UNVERIFIED_MODEL_PROBABILITY_AND_CHECKOUT")
+            self.assertEqual(
+                report["sharp_edge_research"]["today_full_game_markets_in_selected_leagues"], 8)
+            self.assertFalse(report["champion_001_modified"])
+            self.assertEqual(report["certified_positive_ev_bets"], 0)
+            self.assertEqual(report["money_wagered_usd"], 0)
+
     def test_soccer_integration_exposes_market_without_ev(self):
         rows = [
             q("mls", "moneyline", "home", odds=+100),
