@@ -1,6 +1,16 @@
 name: Collect SharpAPI DraftKings pregame odds
 on:
   workflow_dispatch:
+    inputs:
+      leagues:
+        description: 'Manual only: select league set (may increase provider usage)'
+        required: true
+        type: choice
+        default: 'nba,nfl,mlb'
+        options:
+          - 'nba,nfl,mlb'
+          - 'ncaaf'
+          - 'nba,nfl,mlb,ncaaf'
   # PR validation executes only a fixture-test job, NEVER billable SharpAPI calls.
   pull_request:
     paths:
@@ -34,6 +44,8 @@ jobs:
     timeout-minutes: 22
     env:
       SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY || secrets.SHARPAPIKEY }}
+      # Scheduled baseline unchanged. Only an explicit manual selection adds NCAAF.
+      SHARPAPI_LEAGUES: ${{ github.event_name == 'workflow_dispatch' && inputs.leagues || 'nba,nfl,mlb' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,8 +62,10 @@ jobs:
             echo 'SharpAPI secret unavailable: check SHARPAPI_KEY or SHARPAPIKEY in repository Actions secrets.' >&2
             exit 1
           fi
+      - name: Confirm requested league budget without provider calls
+        run: python collector.py --dry-run --leagues "$SHARPAPI_LEAGUES" --max-pages 4
       - name: Collect research odds
-        run: python collector.py --output-dir snapshots --max-pages 4
+        run: python collector.py --output-dir snapshots --max-pages 4 --leagues "$SHARPAPI_LEAGUES"
       - name: Archive immediate prospective capture before downstream audits
         shell: bash
         run: |
