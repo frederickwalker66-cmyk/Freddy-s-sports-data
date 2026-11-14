@@ -518,6 +518,50 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
+      - name: Attach as-observed NBA scoreboard, injury cadence and archived odds age to phone report
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'workflow_run' ||
+          github.event.schedule == '17 21 * * *' ||
+          (github.event_name == 'push' &&
+           (contains(github.event.head_commit.message, '[run-nba]') ||
+            contains(github.event.head_commit.message, '[run-full-stack]') ||
+            contains(github.event.head_commit.message, '[run-sharp]')))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v8_results/one_command/nba_live_updates
+          if ! gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow challenger-nba-injury-source.yml --branch main \
+               --status success --limit 1 --json databaseId,updatedAt \
+               > v8_results/one_command/nba_live_updates/injury_workflow_metadata.json; then
+            echo '[]' > v8_results/one_command/nba_live_updates/injury_workflow_metadata.json
+          fi
+          python v8_nba_live_updates.py \
+            --injury-metadata v8_results/one_command/nba_live_updates/injury_workflow_metadata.json \
+            --sharp-archive-dir saved_sharp_archives \
+            --output-dir v8_results/one_command/nba_live_updates
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("v8_results/one_command")
+          report=json.loads((root/"nba_live_updates"/"NBA_LIVE_UPDATES.json").read_text())
+          assert report["certified_positive_ev_bets"] == report["wagers_placed"] == 0
+          assert report["champion_001_modified"] is False
+          assert report["live_draftkings_checkout_verified"] is False
+          assert report["official_final_active_lineups_verified"] is False
+          output=root/"FULL_STACK_ALL_IN_ONE_REPORT.md"
+          if output.is_file():
+              with output.open("a",encoding="utf-8") as out:
+                  out.write("\n---\n\n")
+                  out.write((root/"nba_live_updates"/"NBA_LIVE_UPDATES.md").read_text())
+          print("NBA as-observed live update attached; no change to certified selection count.")
+          PY
+          if [[ ! -f v8_results/one_command/FULL_STACK_ALL_IN_ONE_REPORT.md ]]; then
+            cat v8_results/one_command/nba_live_updates/NBA_LIVE_UPDATES.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Refresh full NBA after a successful SharpAPI collector capture (read-only)
         if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
         env:
