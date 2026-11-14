@@ -1,5 +1,5 @@
 name: Freddy's Picks AI V8 — One Command (phone + laptop)
-# Research-only workflow; legacy SportsGameOdds archive intake disabled.
+# Research-only workflow; SportsGameOdds auto-trigger, archive retrieval and CLI intake excluded.
 on:
   workflow_dispatch:
     inputs:
