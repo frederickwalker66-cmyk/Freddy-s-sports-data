@@ -10,7 +10,12 @@ on:
         options:
           - 'nba,nfl,mlb'
           - 'ncaaf'
+          - 'ncaab'
+          - 'nhl'
+          - 'mls'
+          - 'uefa_champions_league'
           - 'nba,nfl,mlb,ncaaf'
+          - 'nba,nfl,mlb,ncaaf,ncaab,nhl,mls,uefa_champions_league'
   # PR validation executes only a fixture-test job, NEVER billable SharpAPI calls.
   pull_request:
     paths:
