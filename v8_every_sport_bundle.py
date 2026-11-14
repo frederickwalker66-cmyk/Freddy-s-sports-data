@@ -21,7 +21,9 @@ from pathlib import Path
 
 from v8_sharp_archive import summarize_sharp_archive
 from v8_sharp_player_props import summarize_player_props
-from v8_sharp_game_markets import summarize_full_game_markets
+from v8_sharp_game_markets import summarize_full_game_markets, GAME_PRICE_SPORTS
+from v8_sharp_player_props import PROP_SPORTS
+from v8_soccer_market_research import summarize_soccer_markets, SOCCER_LEAGUES
 from v8_sharp_calibration_dashboard import dashboard as sharp_calibration_dashboard
 from v8_forward_calibration_view import read_calibration
 from v8_forward_leaderboard_view import read_leaderboard
@@ -44,7 +46,7 @@ PRIMARY = {
     "nhl":"run_nhl_forward", "mlb":"run_mlb", "ncaaf":"run_ncaaf",
     "ncaab":"run_ncaab", "mls":"run_mls", "uefa_champions_league":"run_uefa",
 }
-PRICE_SPORTS = frozenset(("nba","nfl","ncaaf"))
+PRICE_SPORTS = GAME_PRICE_SPORTS | SOCCER_LEAGUES
 
 
 def _check_report(data, *, requires_explicit_champion_flag=False):
@@ -328,7 +330,7 @@ def render(r):
     lines.extend([
         "",
         "### Source and verification limitations",
-        "- The research parser now supports archived NBA, NFL and NCAAF game and selected prop markets; this does NOT establish any new NCAAF paid source capture, independently verified bettor flow or sportsbook checkout.",
+        "- Archive parsers handle six two-outcome sports and separate MLS/UCL explicit 90-minute 3-way/draw markets. They do not establish extra source capture, independently verified settlement, calibrated models or checkout prices.",
         "- Historical season ESPN statistics are not independently authenticated live odds, player identities, or official market settlements.",
         "- Readiness checks require independently captured exact prices, model forecasts, "
         "market-specific holdout calibration, source custody and matched CLV receipts.",
@@ -395,9 +397,12 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
     sharp, _=summarize_sharp_archive(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
     props, _=summarize_player_props(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
     games, _=summarize_full_game_markets(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
-    for v in (sharp,props,games):
+    soccer=summarize_soccer_markets(sharp_rows or [],now=clock,archive_run_ids=sharp_run_ids)
+    for v in (sharp,props,games,soccer):
         _check_report(v)
-    quotes=_watched_games(games,scope)
+    soccer_quotes=[q for q in soccer["today_soccer_game_market_board"]
+                   if q["league"] in scope]
+    quotes=_watched_games(games,scope)+soccer_quotes
     player_quotes=_watched_props(props,scope)
     season=review_season_artifacts(season_archive_dir or out/"no_saved_season")
     _check_report(season)
@@ -442,7 +447,9 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                 if not any(q.get("league") == lg for q in quotes + player_quotes)
                 else "UNVERIFIED_MODEL_PROBABILITY_AND_CHECKOUT"
             ),
-            "ncaaf_manual_collection_available_without_automatic_opt_in": lg == "ncaaf",
+            "provider_collector_enabled_on_schedule": lg in ("nba", "nfl", "mlb"),
+            "provider_manual_opt_in_available": lg in ("ncaaf", "ncaab", "nhl"),
+            "soccer_requires_verified_provider_competition_id": lg in SOCCER_LEAGUES,
             "original_model_market_probability_authenticated": False,
             "executable_bookmaker_checkout_authenticated": False,
             "certified_positive_ev_bets": 0,
@@ -453,8 +460,8 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
     by_league={}
     for league in scope:
         form=season.get("by_league",{}).get(league,{})
-        support=("ncaaf_parser_ready_no_archived_provider_quotes"
-                 if league == "ncaaf" and not source_quote_counts[league] else
+        support=("parser_ready_no_archived_provider_quotes"
+                 if league in PRICE_SPORTS and not source_quote_counts[league] else
                  "archived_research_only_not_live_checkout"
                  if league in PRICE_SPORTS else
                  "not_supported_by_existing_SharpAPI_parser")
@@ -497,7 +504,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "decision":"HOLD_NO_CERTIFIED_EDGE",
         },
         "sharp_edge_research":{
-            "status":"NBA_NFL_NCAAF_ARCHIVED_MARKET_RESEARCH_ONLY",
+            "status":"ALL_EIGHT_SPORT_MARKET_PARSERS_RESEARCH_ONLY",
             "archived_quote_rows_read":len(sharp_rows or []),
             "per_sport_market_evidence":market_evidence,
             "source_run_ids":list(sharp_run_ids),
@@ -512,6 +519,8 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                 for lg in scope},
             "source_verified_professional_bet_handle":False,
             "research_only_game_line_examples":quotes,
+            "soccer_90_minute_market_research":soccer,
+            "soccer_draw_three_way_required":True,
             "research_only_player_market_examples":player_quotes,
             "all_8_sports_sharp_flow_verified":False,
             "certified_positive_ev_bets":0,
@@ -521,8 +530,12 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
             "source_name":"SharpAPI DraftKings-labeled aggregator, NOT sportsbook checkout",
             "nba_nfl_only_price_parser":False,
             "ncaaf_research_parser_enabled":True,
+            "six_league_two_outcome_parsers":sorted(GAME_PRICE_SPORTS),
+            "soccer_90_minute_three_way_parsers":sorted(SOCCER_LEAGUES),
+            "soccer_asian_handicap_and_ambiguous_market_disabled":True,
             "ncaaf_live_provider_feed_proven":False,
             "archived_full_game_snapshots":quotes,
+            "archived_soccer_90_minute_snapshots":soccer_quotes,
             "archived_two_sided_player_prop_snapshots":player_quotes,
             "independent_same_market_model_p":None,
             "calibrated_sport_specific_market_p":None,
