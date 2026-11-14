@@ -12,6 +12,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # 2026-11-14 afternoon NBA Sharp Edge rerun: refresh markets, injury status, L5/L10, EV and CLV; original Champion frozen; archived/research sources only.
 # NBA 10-family player-prop audit upgrade + user-requested Sharp Edge rerun 2026-11-14: show per-game two-sided quote coverage (points, rebounds, assists, threes, combinations, steals, blocks) with HOLD, last-5/last-10, odds freshness, CLV; no certified props or paid provider calls.
 # User-issued Run ALL 2026-11-14: eight-sport Sharp Edge + props + game markets + L5/L10 + calibration, archived/public research only; Champion frozen, no paid API or betting.
+# User requested RUN again after RUN ALL on 2026-11-14: rerun eight-sport games, sharp edge, props, L5/L10, CLV and calibration; research-only, no paid API or wagers.
 on:
   workflow_dispatch:
     inputs:
