@@ -74,6 +74,8 @@ on:
       - '.github/workflows/v8-one-command.yml'
       - 'v8_one_command.py'
       - 'v8_every_sport_bundle.py'
+      - 'v8_quote_freshness.py'
+      - 'tests/test_v8_quote_freshness.py'
       - 'v8_metrics_health.py'
       - 'tests/test_v8_metrics_health.py'
       - 'collector.py'
@@ -128,6 +130,8 @@ on:
   pull_request:
     paths:
       - 'v8_one_command.py'
+      - 'v8_quote_freshness.py'
+      - 'tests/test_v8_quote_freshness.py'
       - 'v8_nba_slate_best_bets.py'
       - 'v8_nba_player_prop_dashboard.py'
       - 'tests/test_v8_nba_slate_best_bets.py'
