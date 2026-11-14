@@ -43,6 +43,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Validate web application JavaScript and bundled static assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/app.js
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from html.parser import HTMLParser
+          class Assets(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.refs=[]
+                  self.ids=[]
+              def handle_starttag(self,tag,attrs):
+                  a=dict(attrs)
+                  if "id" in a:self.ids.append(a["id"])
+                  if tag in ("link","script") and (a.get("href") or a.get("src")):
+                      self.refs.append(a.get("href") or a.get("src"))
+          root=Path("docs")
+          html=(root/"index.html").read_text(encoding="utf-8")
+          h=Assets();h.feed(html)
+          assert len(h.ids)==len(set(h.ids)), "Duplicate element ID"
+          for asset in h.refs:
+              if asset.startswith("http"):continue
+              p=(root/asset).resolve()
+              assert p.is_file() and p.is_relative_to(root.resolve()),asset
+          assert (root/"app.js").is_file() and (root/"styles.css").is_file()
+          report=json.loads((root/"data"/"dashboard.json").read_text())
+          assert report["schema"]=="freddys-picks-ai-public-v1"
+          print("Public page, asset paths and JSON schema validated.")
+          PY
       - name: Verify public-snapshot guardrails without contacting provider APIs
         run: python -m unittest discover -s tests -p 'test_build_public_dashboard.py' -v
       - name: Retrieve latest completed V8 NBA, all-sports and scoreboard artifacts
