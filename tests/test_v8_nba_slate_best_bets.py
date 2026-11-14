@@ -323,5 +323,32 @@ class FullNBACommandTests(unittest.TestCase):
             create_player_props_board(schedule(), fake)
 
 
+    def test_nba_prop_coverage_report_includes_ten_families_without_quotes(self):
+        # Props should be visible as tracked categories, without fabricated
+        # prices, player availability, model probabilities or +EV picks.
+        slate = schedule()
+        board = create_player_props_board(slate, [])
+        expected = ("points", "rebounds", "assists", "threes",
+                    "points+rebounds", "points+assists",
+                    "rebounds+assists", "PRA", "steals", "blocks")
+        self.assertEqual(tuple(board["requested_prop_market_families"]), expected)
+        self.assertEqual(len(board["prop_market_coverage_by_game"]), len(slate))
+        self.assertEqual(len(board["prop_family_readiness"]), 10)
+        self.assertTrue(all(
+            status["source_status"] == "NO_MATCHED_TWO_SIDED_ARCHIVED_MARKETS"
+            for status in board["prop_family_readiness"]))
+        self.assertTrue(all(
+            sum(g["archived_two_sided_pairs_by_stat"].values()) == 0
+            and g["active_player_status_verified"] is False
+            and g["sportsbook_checkout_verified"] is False
+            for g in board["prop_market_coverage_by_game"]))
+        self.assertEqual(board["certified_positive_ev_prop_bets"], 0)
+        view = render_player_props(board, preview=True)
+        self.assertIn("Player-prop coverage by game", view)
+        self.assertIn("PTS | REB | AST | 3PM", view)
+        self.assertIn("HOLD", view)
+        self.assertIn("not 0%", view.lower().replace("not a 0%", "not 0%"))
+
+
 if __name__ == "__main__":
     unittest.main()
