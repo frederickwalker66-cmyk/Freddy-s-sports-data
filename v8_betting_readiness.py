@@ -203,7 +203,9 @@ def audit_betting_readiness(*, calibration_file=None, sharp_rows=None,
             "saved_sharpapi_runs": list(sorted(set(sharp_run_ids))),
             "archived_quote_rows_read": len(rows),
             "archived_provider_quote_rows_by_league_unverified": observed_source_rows,
-            "recent_upcoming_nba_nfl_full_game_reference_events": game_count,
+            "recent_upcoming_nba_nfl_full_game_reference_events": sum(
+                x.get("league") in ("nba", "nfl") for x in game_board),
+            "recent_upcoming_non_soccer_full_game_reference_events": game_count,
             "recent_upcoming_ncaaf_reference_events": sum(
                 x.get("league") == "ncaaf" for x in game_board),
             "recent_upcoming_soccer_90_minute_reference_markets": len(soccer_board),
