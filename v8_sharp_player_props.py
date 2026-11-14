@@ -1,4 +1,4 @@
-"""Research-only NFL/NBA SharpAPI player-prop *price movement* audit.
+"""Research-only NBA/NFL/NCAAF SharpAPI player-prop *price movement* audit.
 
 Reads already saved DraftKings-LABELED aggregator quotes; never calls providers,
 confirms active players, infers sharp-money flow, produces a model probability,
@@ -20,7 +20,7 @@ from historical_outcomes import parse_time
 from v8_sharp_archive import MAX_RESEARCH_WATCHLIST_AGE_MINUTES
 from v8_sharp_probability_display import price_pair_probabilities
 
-PROP_SPORTS = frozenset(("nba", "nfl"))
+PROP_SPORTS = frozenset(("nba", "nfl", "ncaaf"))
 # This gate admits only individually identified, two-sided player statistics.
 # The provider's *_combo_ / *_either_ / *_each_ / *_h2h_* markets have
 # different settlement semantics and must not be treated as single-player props.
@@ -31,6 +31,13 @@ PRIMARY_PLAYER_STATS = {
         "player_turnovers", "player_points_+_rebounds",
         "player_points_+_assists", "player_rebounds_+_assists",
         "player_points_+_rebounds_+_assists",
+    )),
+    "ncaaf": frozenset((
+        "player_passing_yards", "player_passing_touchdowns",
+        "player_passing_attempts", "player_passing_completions",
+        "player_rushing_yards", "player_rushing_attempts",
+        "player_receiving_yards", "player_receiving_touchdowns",
+        "player_receptions",
     )),
     "nfl": frozenset((
         "player_passing_yards", "player_passing_touchdowns",
@@ -296,10 +303,10 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         x["start_utc"], x["league"], x["player_name"], x["prop_stat"], x["line"]))
     probability_board = {
         sport: [item for item in current_prop_markets if item["league"] == sport][:8]
-        for sport in ("nba", "nfl")
+        for sport in ("nba", "nfl", "ncaaf")
     }
     report = {
-        "report_type": "v8_nba_nfl_exact_player_props_archived_repricing_research_only",
+        "report_type": "v8_nba_nfl_ncaaf_exact_player_props_archived_repricing_research_only",
         "status": "historical_prop_quotes_analyzed" if accepted
                   else "no_eligible_archived_player_prop_quotes",
         "raw_prop_quote_observations": prop_observations,
@@ -331,6 +338,7 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         "direct_draftkings_checkout_prices_verified": 0,
         "certified_nba_player_props": 0,
         "certified_nfl_player_props": 0,
+        "certified_ncaaf_player_props": 0,
         "certified_positive_ev_bets": 0,
         "bet_ready_selections": 0,
         "automated_wagers": 0,
