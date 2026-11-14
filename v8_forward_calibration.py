@@ -184,6 +184,12 @@ def calibrate(pairs, totals):
                 "withheld_small_bin":0 < ct < MIN_BIN_FOR_OBSERVED_RATE,
             })
         active = n >= MIN_PUBLIC_SCORE_BRIER_GAMES
+        # Classification and neutral-reference skill are descriptive ONLY and
+        # follow the same 50-grade minimum as Brier/log-loss. There is no
+        # sportsbook comparison or original Champion calibration here.
+        decisions = [(row["p"], row["y"]) for row in all_rows if row["p"] != .5]
+        correct = sum(int((p > .5) == bool(y)) for p, y in decisions)
+        directional_accuracy = correct / len(decisions) if decisions else None
         brier = (sum((row["p"]-row["y"])**2 for row in all_rows) / n) if n else None
         loss = (sum(-(row["y"]*log(row["p"])+(1-row["y"])*log1p(-row["p"])) for row in all_rows) / n) if n else None
         metric_ci = None
@@ -207,6 +213,17 @@ def calibrate(pairs, totals):
             "research_Brier":round(brier,7) if active else None,
             "research_log_loss":round(loss,7) if active else None,
             "neutral_50_50_Brier_NOT_sportsbook": .25 if active else None,
+            "neutral_50_50_log_loss_NOT_sportsbook": round(log(2),7) if active else None,
+            "research_directional_decisions": len(decisions),
+            "research_directional_correct": correct,
+            "research_directional_accuracy": (
+                round(directional_accuracy,7) if active and decisions else None),
+            "research_directional_accuracy_wilson_95pct": (
+                _wilson(correct,len(decisions)) if active and decisions else None),
+            "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": (
+                round(1-brier/.25,7) if active else None),
+            "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": (
+                round(1-loss/log(2),7) if active else None),
             "day_cluster_bootstrap_approximate_Brier_95pct_CI":metric_ci,
             "exploratory_expected_calibration_error":round(ece,7) if can_ece else None,
             "retained_uncertainty_not_certification":True,
@@ -242,7 +259,9 @@ def calibrate(pairs, totals):
             "tipoff; later ESPN results are provisional. Brier/log-loss are "
             "withheld for fewer than 50 graded forward games and bin frequencies "
             "for fewer than 20 observations; ECE is withheld until >=100 "
-            "games AND >=10 observations in every occupied bin. No statistics "
+            "games AND >=10 observations in every occupied bin. Research "
+            "directional accuracy and skill versus a fixed 50/50 reference "
+            "also require 50 grades; neither is a sportsbook comparison. No statistics "
             "here validate future profits, original Champion-001, or book prices."),
     }
     return summary
