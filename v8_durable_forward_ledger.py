@@ -281,18 +281,23 @@ def _scoreboard(db,clock, source_receipt, sync_counts, grade_summary, deferred):
         direction=[(p,y) for p,y,_ in vals if p!=.5]
         brier=mean((p-y)**2 for p,y,_ in vals)
         logloss=mean(-(y*math.log(p)+(1-y)*math.log1p(-p)) for p,y,_ in vals)
+        eligible = scored >= MIN_RESEARCH_SAMPLE
         models.append({
             "model_version":version,
             "sport":"nba",
             "graded_forward_research_games":scored,
-            "mean_Brier_lower_is_better":round(brier,8),
-            "mean_log_loss_lower_is_better":round(logloss,8),
-            "neutral_half_Brier_not_sportsbook":.25,
+            # Never expose accuracy/proper-scoring metrics below 50 genuine
+            # forward grades, even in the unranked internal summary.
+            "mean_Brier_lower_is_better":round(brier,8) if eligible else None,
+            "mean_log_loss_lower_is_better":round(logloss,8) if eligible else None,
+            "neutral_half_Brier_not_sportsbook":.25 if eligible else None,
             "home_vs_away_classification_accuracy":(
                 round(mean(int((p>.5)==bool(y)) for p,y in direction),6)
-                if direction else None),
+                if eligible and direction else None),
             "win_direction_decisions":len(direction),
-            "ranking_eligible":scored>=MIN_RESEARCH_SAMPLE,
+            "minimum_games_for_published_performance_metrics":MIN_RESEARCH_SAMPLE,
+            "performance_metrics_withheld_small_forward_sample":not eligible,
+            "ranking_eligible":eligible,
             "research_only_not_certified":True,
             "positive_ev_certified":0,
         })
