@@ -23,6 +23,15 @@ SOCCER_MARKETS = {
     "three_way_90_minute": ("home", "draw", "away"),
     "total_goals_90_minute": ("over", "under"),
 }
+# Exact provider names documented Nov 2026. Treat a soccer "moneyline"
+# as 1X2 ONLY when all three home/draw/away outcomes pair at one timestamp.
+SOURCE_MARKET_MAPPING = {
+    "moneyline": "three_way_90_minute",
+    "moneyline_3-way": "three_way_90_minute",
+    "three_way_90_minute": "three_way_90_minute",
+    "total_goals": "total_goals_90_minute",
+    "total_goals_90_minute": "total_goals_90_minute",
+}
 NY = ZoneInfo("America/New_York")
 
 
@@ -32,7 +41,7 @@ def inspect_soccer_quote(row):
     league = row.get("league")
     if league not in SOCCER_LEAGUES:
         return None, "outside_soccer_scope"
-    market = row.get("market_type")
+    market = SOURCE_MARKET_MAPPING.get(row.get("market_type"))
     if market not in SOCCER_MARKETS:
         return None, "ambiguous_or_unimplemented_soccer_settlement"
     if (row.get("source") != "sharpapi_rest"
@@ -55,8 +64,11 @@ def inspect_soccer_quote(row):
     if market == "three_way_90_minute":
         if line is not None:
             return None, "three_way_market_with_unexpected_line"
-    elif type(line) not in (int, float) or not math.isfinite(line) or line <= 0:
-        return None, "invalid_soccer_goal_total_line"
+    elif (type(line) not in (int, float) or not math.isfinite(line)
+          or line <= 0 or not math.isclose(line % 1, 0.5, abs_tol=1e-8)):
+        # Integer goals can push and quarter-goals can half-win/half-lose.
+        # Those are NOT simple binary outcomes; quarantine until modeled.
+        return None, "soccer_goal_total_requires_exact_half_goal_line"
     odds, dec = row.get("odds_american"), row.get("odds_decimal")
     if (type(odds) not in (int, float) or not math.isfinite(odds)
             or abs(odds) < 100
@@ -125,6 +137,7 @@ def summarize_soccer_markets(rows, *, now=None, archive_run_ids=()):
             "provider_quote_utc": quoted.isoformat(),
             "source_received_utc": last_received.isoformat(),
             "source_book_label": key[6],
+            "source_market_types": sorted({r["raw"]["market_type"] for r in records}),
             "exact_90_minute_outcome_scope_verified": False,
             "goal_total_line": (by_side["over"][0]["raw"]["line"]
                                 if market == "total_goals_90_minute" else None),
@@ -160,6 +173,7 @@ def summarize_soccer_markets(rows, *, now=None, archive_run_ids=()):
         "supported_leagues": sorted(SOCCER_LEAGUES),
         "three_outcome_moneyline_and_draw_paired_only": True,
         "soccer_asian_handicap_supported": False,
+        "soccer_quarter_goal_settlement_supported": False,
         "non_90_minute_soccer_market_promotion_allowed": False,
         "historical_exact_paired_market_snapshots": len(paired),
         "today_recent_exact_soccer_markets": len(board),
