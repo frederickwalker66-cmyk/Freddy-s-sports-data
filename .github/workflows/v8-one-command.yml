@@ -1,4 +1,5 @@
 name: Freddy's Picks AI V8 — One Command (phone + laptop)
+# Research-only workflow; legacy SportsGameOdds archive intake disabled.
 on:
   workflow_dispatch:
     inputs:
@@ -58,7 +59,7 @@ on:
   # Automatically replay archived Sharp prices after a successful paid collector
   # run. The replay reads artifacts only; it never calls SharpAPI itself.
   workflow_run:
-    workflows: ['Collect SharpAPI DraftKings pregame odds', 'SportsGameOdds NBA NFL MLB research — manual capped intake']
+    workflows: ['Collect SharpAPI DraftKings pregame odds']
     types: [completed]
     branches: [main]
   push:
@@ -213,20 +214,6 @@ jobs:
             fi
           done
           echo "Archived SharpAPI runs downloaded: $count"
-      - name: Retrieve last completed SportsGameOdds source artifact — no paid API requests
-        if: ${{ inputs.command == 'run_mixed_market' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]')) || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && github.event.workflow_run.conclusion == 'success') || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || inputs.command == 'run_sports' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run_mlb' || inputs.command == 'run_ncaaf' || inputs.command == 'run_ncaab' || inputs.command == 'run_mls' || inputs.command == 'run_uefa' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]')) }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p saved_sgo_archives
-          latest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow sportsgameodds-research.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
-          if [[ "$latest" =~ ^[0-9]+$ ]] && gh run download "$latest" --repo "$GITHUB_REPOSITORY" --name "sgo-draftkings-research-$latest" --dir "saved_sgo_archives/$latest"; then
-            echo "Downloaded stored SportsGameOdds research run $latest. Source data is not authenticated sportsbook checkout."
-          else
-            echo "No completed SportsGameOdds source artifact. Reporting missing data, not synthetic lines."
-          fi
       - name: Load latest saved eight-league season scoreboard and player form
         if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_season_form' || inputs.command == 'run_sports' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || inputs.command == 'run_sports' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run_mlb' || inputs.command == 'run_ncaaf' || inputs.command == 'run_ncaab' || inputs.command == 'run_mls' || inputs.command == 'run_uefa' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]')) }}
         env:
@@ -409,7 +396,7 @@ jobs:
           done
       - name: Run requested model research command
         env:
-          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market' || github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]') && 'run_audit' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event.schedule == '23 9 * * 0' && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]') && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]') && 'run_nba_nfl' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]') && 'run_mixed_market' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]') && 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' && 'run_nba_best_bets' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run' }}
+          SELECTED_COMMAND: ${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]') && 'run_audit' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event.schedule == '23 9 * * 0' && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]') && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]') && 'run_nba_nfl' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]') && 'run_mixed_market' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]') && 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' && 'run_nba_best_bets' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run' }}
           HISTORY_DAYS: ${{ (github.event.schedule == '37 20 * * *' || github.event.schedule == '17 21 * * *' || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || inputs.command == 'run_nba_forward' || inputs.command == 'run_nfl_forward' || inputs.command == 'run_nhl_forward' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]'))) && '35' || inputs.days || '7' }}
           HISTORY_END_DATE: ${{ inputs.end_date }}
         shell: bash
@@ -918,7 +905,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v8-one-command-${{ github.event_name == 'workflow_run' && github.event.workflow_run.name == 'SportsGameOdds NBA NFL MLB research — manual capped intake' && 'run_mixed_market' || github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]') && 'run_audit' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event.schedule == '23 9 * * 0' && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]') && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]') && 'run_nba_nfl' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]') && 'run_mixed_market' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]') && 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' && 'run_nba_best_bets' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run' }}-${{ github.run_id }}
+          name: v8-one-command-${{ github.event_name == 'workflow_run' && 'run_sharp' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]') && 'run_audit' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-readiness]') && 'run_readiness' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-arbitrage-research]') && 'run_arbitrage' || github.event.schedule == '23 9 * * 0' && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]') && 'run_all' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]') && 'run_nba_nfl' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]') && 'run_nba_best_bets' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-five-leg]') && 'run_mixed_market' || github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]') && 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' && 'run_nba_best_bets' || github.event_name == 'push' && 'run_nba_grade' || github.event.schedule == '53 13 * * *' && 'run_nba_grade' || github.event.schedule == '37 20 * * *' && 'run_nba_forward' || inputs.command || 'run' }}-${{ github.run_id }}
           path: v8_results/one_command/
           retention-days: 90
           if-no-files-found: warn
