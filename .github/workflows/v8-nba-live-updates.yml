@@ -1,0 +1,108 @@
+name: Freddy's Picks AI V8 — NBA scoreboard live updates (research only)
+on:
+  workflow_dispatch:
+  # Best-effort NBA evening game windows; actual timestamps, not cron slots,
+  # establish observation freshness. ESPN data is delayed, not a live feed.
+  schedule:
+    - cron: '*/15 21-23,0-5 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'v8_nba_live_updates.py'
+      - 'tests/test_v8_nba_live_updates.py'
+      - '.github/workflows/v8-nba-live-updates.yml'
+  pull_request:
+    paths:
+      - 'v8_nba_live_updates.py'
+      - 'tests/test_v8_nba_live_updates.py'
+      - '.github/workflows/v8-nba-live-updates.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: freddy-v8-nba-public-live-observations
+  cancel-in-progress: false
+
+jobs:
+  offline-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate scoreboard, odds and player eligibility fail-closed guards
+        run: python -m unittest discover -s tests -p 'test_v8_nba_live_updates.py' -v
+
+  as-observed-nba:
+    needs: offline-validation
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Locate latest successful injury workflow metadata and archived odds (no paid calls)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v8_live_inputs/sharp
+          if ! gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow challenger-nba-injury-source.yml --branch main \
+               --status success --limit 1 --json databaseId,updatedAt \
+               > v8_live_inputs/injury_runs.json; then
+            echo '[]' > v8_live_inputs/injury_runs.json
+          fi
+          odds_id="$(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow collect-sharpapi.yml --branch main --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // ""' || true)"
+          if [[ "$odds_id" =~ ^[0-9]+$ ]]; then
+            mkdir -p "v8_live_inputs/sharp/$odds_id"
+            if ! gh run download "$odds_id" --repo "$GITHUB_REPOSITORY" \
+                 --name "sharpapi-pregame-$odds_id" \
+                 --dir "v8_live_inputs/sharp/$odds_id"; then
+              rm -rf "v8_live_inputs/sharp/$odds_id"
+              echo "No accessible original SharpAPI snapshot. Odds cannot be presented as current."
+            fi
+          fi
+          echo "Injury workflow metadata and at most one historical odds artifact examined."
+      - name: Capture NBA observed public scoreboard and honest price/injury recency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python v8_nba_live_updates.py \
+            --injury-metadata v8_live_inputs/injury_runs.json \
+            --sharp-archive-dir v8_live_inputs/sharp \
+            --output-dir v8_results/nba_live_updates
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path("v8_results/nba_live_updates")
+          r=json.loads((root/"NBA_LIVE_UPDATES.json").read_text())
+          assert r["certified_positive_ev_bets"]==r["wagers_placed"]==0
+          assert r["champion_001_modified"] is False
+          assert r["live_draftkings_checkout_verified"] is False
+          assert r["live_player_props_verified"] is False
+          assert r["official_final_active_lineups_verified"] is False
+          assert r["not_a_continuous_stream"] is True
+          text=(root/"NBA_LIVE_UPDATES.md").read_text()
+          print(text)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+                  f.write(text)
+          PY
+      - name: Retain source-labeled NBA update report for phone and next scans
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-nba-live-updates-${{ github.run_id }}
+          path: v8_results/nba_live_updates/
+          retention-days: 30
+          if-no-files-found: warn
