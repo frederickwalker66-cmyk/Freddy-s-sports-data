@@ -73,6 +73,29 @@ jobs:
             fi
           fi
           echo "Injury workflow metadata and at most one historical odds artifact examined."
+          # Bounded read-only recovery of the latest completed NBA-only model
+          # report. Its pregame probabilities are still uncalibrated research.
+          # Never infer fresh projections from a stale or unmatched event ID.
+          for model_run in $(gh run list --repo "$GITHUB_REPOSITORY" \
+                 --workflow v8-one-command.yml --branch main \
+                 --status success --limit 5 --json databaseId \
+                 --jq '.[].databaseId' 2>/dev/null || true); do
+            if [[ ! "$model_run" =~ ^[0-9]+$ ]]; then continue; fi
+            mkdir -p "v8_live_inputs/research/$model_run"
+            if gh run download "$model_run" --repo "$GITHUB_REPOSITORY" \
+                 --name "v8-one-command-run_nba_best_bets-$model_run" \
+                 --dir "v8_live_inputs/research/$model_run" >/dev/null 2>&1 &&
+               [[ -s "v8_live_inputs/research/$model_run/FULL_STACK_ALL_IN_ONE_REPORT.json" ]]; then
+              cp "v8_live_inputs/research/$model_run/FULL_STACK_ALL_IN_ONE_REPORT.json" \
+                 v8_live_inputs/full_stack.json
+              echo "Previous completed NBA research report loaded for exact-game matching: $model_run"
+              break
+            fi
+            rm -rf "v8_live_inputs/research/$model_run"
+          done
+          if [[ ! -f v8_live_inputs/full_stack.json ]]; then
+            echo 'No completed NBA pregame baseline report found; all baseline cells remain N/A.'
+          fi
       - name: Capture NBA observed public scoreboard and honest price/injury recency
         shell: bash
         run: |
@@ -80,6 +103,7 @@ jobs:
           python v8_nba_live_updates.py \
             --injury-metadata v8_live_inputs/injury_runs.json \
             --sharp-archive-dir v8_live_inputs/sharp \
+            --full-stack-report v8_live_inputs/full_stack.json \
             --output-dir v8_results/nba_live_updates
           python - <<'PY'
           import json, os
