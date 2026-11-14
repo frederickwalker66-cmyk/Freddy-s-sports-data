@@ -14,7 +14,9 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 ENDPOINT = "https://api.sharpapi.io/api/v1/odds"
-LEAGUES = ("nba", "nfl", "mlb")
+LEAGUES = ("nba", "nfl", "mlb")  # Scheduled baseline: DO NOT silently increase paid calls.
+OPTIONAL_LEAGUES = ("ncaaf",)  # Only with explicit --leagues opt-in.
+SUPPORTED_LEAGUES = LEAGUES + OPTIONAL_LEAGUES
 MARKETS = ("main", "props")
 
 
@@ -157,18 +159,33 @@ def main():
     parser.add_argument("--leagues", default="nba,nfl,mlb")
     parser.add_argument("--max-pages", type=int, default=4)
     parser.add_argument("--pause-seconds", type=float, default=5.5)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Validate league/market/request budget without any network calls")
     args = parser.parse_args()
-    key = os.environ.get("SHARPAPI_KEY")
-    if not key:
-        print("Missing SHARPAPI_KEY. Store it in GitHub Actions repository secrets.", file=sys.stderr)
-        return 2
     leagues = tuple(s.strip().lower() for s in args.leagues.split(",") if s.strip())
-    if not leagues or any(league not in LEAGUES for league in leagues):
-        parser.error("Choose one or more of nba,nfl,mlb")
+    if not leagues or any(league not in SUPPORTED_LEAGUES for league in leagues):
+        parser.error("Choose one or more of " + ",".join(SUPPORTED_LEAGUES))
+    if len(set(leagues)) != len(leagues):
+        parser.error("--leagues cannot contain duplicates")
     if not (1 <= args.max_pages <= 40):
         parser.error("--max-pages must be from 1 to 40")
     if args.pause_seconds < 5.5:
         parser.error("--pause-seconds must be >= 5.5 to respect the free-tier rate limit")
+    estimated_max_calls = len(leagues) * len(MARKETS) * args.max_pages
+    if args.dry_run:
+        print(json.dumps({
+            "dry_run": True, "network_calls": 0, "leagues": list(leagues),
+            "markets": list(MARKETS), "max_pages": args.max_pages,
+            "max_possible_provider_requests": estimated_max_calls,
+            "ncaaf_opted_in": "ncaaf" in leagues,
+            "certified_bets": 0, "stake_usd": 0,
+            "warning": "Request budget is an upper bound; paid/plan quota not verified."
+        }, indent=2))
+        return 0
+    key = os.environ.get("SHARPAPI_KEY")
+    if not key:
+        print("Missing SHARPAPI_KEY. Store it in GitHub Actions repository secrets.", file=sys.stderr)
+        return 2
     start = now_utc()
     try:
         odds, pages, api_calls = collect(key, leagues, args.max_pages, args.pause_seconds)
