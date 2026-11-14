@@ -12,6 +12,8 @@ on:
     branches: [main]
     paths:
       - 'v8_durable_forward_ledger.py'
+      - 'v8_forward_grading_runway.py'
+      - 'tests/test_v8_forward_grading_runway.py'
       - 'v8_forward_leaderboard_view.py'
       - 'v8_forward_calibration.py'
       - 'v8_forward_calibration_view.py'
@@ -26,6 +28,8 @@ on:
     paths:
       - 'v8_nba_forward_grade.py'
       - 'v8_durable_forward_ledger.py'
+      - 'v8_forward_grading_runway.py'
+      - 'tests/test_v8_forward_grading_runway.py'
       - 'v8_forward_leaderboard_view.py'
       - 'tests/test_v8_durable_forward_ledger.py'
       - 'tests/test_v8_nba_forward_grade.py'
@@ -57,6 +61,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_v8_forward_leaderboard_view.py' -v
           python -m unittest discover -s tests -p 'test_v8_forward_calibration.py' -v
           python -m unittest discover -s tests -p 'test_v8_forward_calibration_view.py' -v
+          python -m unittest discover -s tests -p 'test_v8_forward_grading_runway.py' -v
 
   persist-research:
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'))
@@ -129,6 +134,10 @@ jobs:
           from pathlib import Path
           r=json.loads(Path("persistent_branch/data/v8_forward/LEADERBOARD.json").read_text())
           calibration=json.loads(Path("persistent_branch/data/v8_forward/CALIBRATION.json").read_text())
+          runway=json.loads(Path("persistent_branch/data/v8_forward/GRADE_RUNWAY.json").read_text())
+          assert runway["genuinely_forward_grades"]==r["nba_forward_forecasts_graded_research_only"]
+          assert runway["certified_positive_ev_bets"]==runway["wagers_placed"]==0
+          assert runway["original_champion_001_modified"] is False
           assert calibration["certified_positive_ev_bets"]==calibration["original_Champion_001_certified_shadows"]==0
           assert calibration["graded_research_NBA_games"]==r["nba_forward_forecasts_graded_research_only"]
           assert r["certified_positive_ev_bets"]==r["certified_champion_001_shadows"]==0
@@ -143,6 +152,10 @@ jobs:
             f"**Research model leaderboard:** {r['ranking_status']}",
             f"**Original-forward calibration status:** {calibration['status']}",
             f"**Calibration graded sample:** {calibration['graded_research_NBA_games']} (minimum Brier 50; exploratory ECE 100 with populated bins)",
+            f"**Mature grading completeness:** {runway['grade_completeness_of_mature_nonquarantined_pct']}% (N/A with no mature forecasts)",
+            f"**Matured but ungraded forecasts:** {runway['mature_due_without_accepted_final']}; **over 7 days past maturity:** {runway['mature_ungraded_age_over_7_days']}",
+            f"**Median original pregame capture lead:** {runway['median_original_pregame_lead_minutes']} minutes",
+            "**Small-sample Brier, log loss and pick accuracy are withheld until 50 graded forecasts.**",
             "**Independently certified Champion-001 predictions and +EV:** 0.",
             "**Important:** Git branch storage is persistent but NOT externally immutable.",
           ]
@@ -178,5 +191,6 @@ jobs:
             persistent_branch/data/v8_forward/LEADERBOARD.json
             persistent_branch/data/v8_forward/FORECAST_HISTORY.jsonl
             persistent_branch/data/v8_forward/CALIBRATION.json
+            persistent_branch/data/v8_forward/GRADE_RUNWAY.json
           retention-days: 90
           if-no-files-found: warn
