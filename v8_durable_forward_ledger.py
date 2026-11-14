@@ -28,6 +28,7 @@ from v8_nba_forward_grade import (
     MAX_SOURCE_DAYS, grade as grade_forward, load_archived_forecasts,
 )
 from v8_forward_calibration import build_from_database as build_forward_calibration
+from v8_forward_grading_runway import grade_runway
 
 NY = ZoneInfo("America/New_York")
 DATABASE_VERSION = 1
@@ -381,6 +382,22 @@ def sync(incoming_root, output_dir, *, now=None, collector=None):
         db.commit()
     calibration = build_forward_calibration(
         db_path, root / "CALIBRATION.json")
+    runway = grade_runway(
+        history, now=clock, forecasts_deferred=deferred,
+        source_days_checked=days)
+    if (runway["total_saved_original_forecasts"]
+            != board["nba_unique_original_forecasts_archived"]
+            or runway["genuinely_forward_grades"]
+            != board["nba_forward_forecasts_graded_research_only"]
+            or runway["mature_due_without_accepted_final"]
+            != board["nba_forecasts_due_without_published_grade"]):
+        raise ValueError("grading_runway_does_not_reconcile_with_original_ledger")
+    (root / "GRADE_RUNWAY.json").write_text(
+        json.dumps(runway, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    board["grade_runway_report"] = "data/v8_forward/GRADE_RUNWAY.json"
+    board["mature_grading_completeness_pct"] = runway[
+        "grade_completeness_of_mature_nonquarantined_pct"]
     board["forward_calibration_report_version"] = calibration["version"]
     board["forward_calibration_status"] = calibration["status"]
     board["forward_calibration_graded_NBA_games"] = calibration["graded_research_NBA_games"]
@@ -409,6 +426,7 @@ def main(argv=None):
         "new_grades":board["new_forecast_sync"]["new_ESPN_published_outcomes_recorded"],
         "ranked_eligible_research_models":len(board["research_only_ranked_models"]),
         "forward_calibration_status":board["forward_calibration_status"],
+        "mature_grade_completeness_percent":board["mature_grading_completeness_pct"],
         "champion_001_certified_shadows":0,"certified_positive_EV_bets":0,
     },sort_keys=True))
 
