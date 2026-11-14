@@ -1,4 +1,5 @@
 name: Freddy's Picks AI — Publish Web Dashboard
+# User Run NBA 2026-11-14 sync: publish latest completed 43641871765 only after artifact validation; no provider calls and no wagers.
 on:
   workflow_dispatch:
   workflow_run:
