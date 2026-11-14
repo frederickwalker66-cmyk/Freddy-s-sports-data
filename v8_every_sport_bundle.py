@@ -252,7 +252,7 @@ def render(r):
     lines.extend([
         "",
         "## Sharp Edge / game and player prop markets",
-        f"**NBA/NFL/NCAAF-capable archived research quote rows:** {r['sharp_edge_research']['archived_quote_rows_read']}",
+        f"**All-eight-sport-capable archived research quote rows:** {r['sharp_edge_research']['archived_quote_rows_read']}",
         f"**Recent two-sided full-game boards:** "
         f"{r['sharp_edge_research']['today_full_game_markets_in_selected_leagues']}",
         f"**Recent two-sided player-prop examples:** "
@@ -330,7 +330,7 @@ def render(r):
     lines.extend([
         "",
         "### Source and verification limitations",
-        "- Archive parsers handle six two-outcome sports and separate MLS/UCL explicit 90-minute 3-way/draw markets. They do not establish extra source capture, independently verified settlement, calibrated models or checkout prices.",
+        "- Archive parsers cover six two-outcome sports and MLS/UCL 90-minute home/draw/away or half-goal totals. Soccer player props and Asian handicaps remain unsupported; no model or checkout prices are independently verified.",
         "- Historical season ESPN statistics are not independently authenticated live odds, player identities, or official market settlements.",
         "- Readiness checks require independently captured exact prices, model forecasts, "
         "market-specific holdout calibration, source custody and matched CLV receipts.",
@@ -518,6 +518,8 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                         props.get("ranked_prop_repricing_watchlist",[]))
                 for lg in scope},
             "source_verified_professional_bet_handle":False,
+            "all_eight_leagues_archive_parser_ready":True,
+            "soccer_player_props_supported":False,
             "research_only_game_line_examples":quotes,
             "soccer_90_minute_market_research":soccer,
             "soccer_draw_three_way_required":True,
