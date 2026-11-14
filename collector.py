@@ -15,8 +15,15 @@ from urllib.request import Request, urlopen
 
 ENDPOINT = "https://api.sharpapi.io/api/v1/odds"
 LEAGUES = ("nba", "nfl", "mlb")  # Scheduled baseline: DO NOT silently increase paid calls.
-OPTIONAL_LEAGUES = ("ncaaf",)  # Only with explicit --leagues opt-in.
+OPTIONAL_LEAGUES = ("ncaaf", "ncaab", "nhl", "mls", "uefa_champions_league")
 SUPPORTED_LEAGUES = LEAGUES + OPTIONAL_LEAGUES
+# SharpAPI canonical league slugs differ from Freddy's command aliases.
+# Always preserve provider ID in the archived quote for provenance.
+PROVIDER_LEAGUE_IDS = {
+    "mls": "usa_-_major_league_soccer",
+    "uefa_champions_league": "uefa_-_champions_league",
+}
+PROVIDER_TO_MODEL = {v: k for k, v in PROVIDER_LEAGUE_IDS.items()}
 MARKETS = ("main", "props")
 
 
@@ -60,6 +67,11 @@ def normalize_quote(row, received_at, max_age_seconds=900):
               "player_id", "line", "odds_american", "odds_decimal", "is_main_line",
               "is_alternate_line", "is_player_prop", "event_start_time", "timestamp")
     quote = {field: row.get(field) for field in fields}
+    raw_league = row.get("league")
+    if not isinstance(raw_league, str) or not raw_league.strip():
+        return None
+    quote["provider_league_id"] = raw_league
+    quote["league"] = PROVIDER_TO_MODEL.get(raw_league, raw_league)
     quote.update(record_type="pregame_odds_observation", recorded_at=received_at.isoformat(),
                  source_age_seconds=round(age_seconds, 1),
                  certified_prediction=False, model_probability=None, model_name=None,
@@ -121,7 +133,8 @@ def collect(key, leagues=LEAGUES, max_pages=4, pause_seconds=5.5):
             while pages < max_pages:
                 if requests:
                     time.sleep(pause_seconds)  # 12 req/min free-tier ceiling.
-                content = get_page(key, league, market, cursor)
+                content = get_page(
+                    key, PROVIDER_LEAGUE_IDS.get(league, league), market, cursor)
                 received_at = now_utc()
                 requests += 1
                 pages += 1
@@ -133,7 +146,17 @@ def collect(key, leagues=LEAGUES, max_pages=4, pause_seconds=5.5):
                     quote = normalize_quote(row, received_at)
                     if quote is None:
                         continue
-                    signature = (quote["id"], quote["timestamp"], quote["odds_american"], quote["line"])
+                    if quote["league"] != league:
+                        raise RuntimeError(f"SharpAPI unexpected league in {league}/{market}")
+                    # Provider price IDs may repeat across different selections.
+                    # Never remove an over, under, draw or player by ID alone.
+                    signature = (
+                        quote["league"], quote["event_id"], quote["sportsbook"],
+                        quote["market_type"], quote["selection_type"],
+                        quote["selection"], quote["player_id"],
+                        quote["player_name"], quote["line"], quote["timestamp"],
+                        quote["odds_american"], quote["id"],
+                    )
                     if signature in seen:
                         continue
                     seen.add(signature)
@@ -178,6 +201,10 @@ def main():
             "markets": list(MARKETS), "max_pages": args.max_pages,
             "max_possible_provider_requests": estimated_max_calls,
             "ncaaf_opted_in": "ncaaf" in leagues,
+            "optional_leagues_selected": [x for x in leagues if x in OPTIONAL_LEAGUES],
+            "provider_league_filters": {
+                x: PROVIDER_LEAGUE_IDS.get(x, x) for x in leagues
+            },
             "certified_bets": 0, "stake_usd": 0,
             "warning": "Request budget is an upper bound; paid/plan quota not verified."
         }, indent=2))
