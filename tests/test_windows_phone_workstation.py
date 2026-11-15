@@ -51,6 +51,19 @@ class WindowsPhoneWorkstationTests(unittest.TestCase):
                                 for arg in task["args"]))
             self.assertNotIn("git push", " ".join(task["args"]))
 
+    def test_double_click_windows_launcher_uses_only_safe_actions(self):
+        launcher = (ROOT / "START_FREDDYS_MODEL.cmd").read_text(encoding="utf-8")
+        self.assertIn("choice /C 1234567890", launcher)
+        self.assertIn('if not exist ".git"', launcher)
+        self.assertIn("windows_setup.ps1", launcher)
+        self.assertIn("windows_model.ps1", launcher)
+        for action in ("test", "run_nba", "run_nfl", "run_nhl",
+                       "run_all", "phone", "sync", "status"):
+            self.assertIn("-Action " + action, launcher)
+        self.assertNotIn("git push", launcher)
+        self.assertNotIn("SHARPAPI_KEY", launcher)
+        self.assertNotIn("powershell -EncodedCommand", launcher)
+
     def test_local_files_and_secrets_are_ignored(self):
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
         for line in (".env", ".venv/", "local_work/", "*.key"):
