@@ -206,6 +206,11 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
     by_id={}; coverage={}
     for day in mature_dates:
         rows,meta=collector((league,),1,day)
+        # The grading cutoff is captured BEFORE HTTP collection. The source
+        # receipt is correctly stamped AFTER the response arrives, so it may
+        # be later than "current". Validate against the actual end of the
+        # collector call, not the earlier grading/maturity cutoff.
+        source_checked_at=datetime.now(timezone.utc)
         stat=meta.get("by_league",{}).get(league,{}) if isinstance(meta,dict) else {}
         success=(
             isinstance(rows,list) and meta.get("leagues")==[league]
@@ -221,7 +226,7 @@ def grade(league, forecasts, *, now=None, collector=None, source_receipt=None):
             if (lg!=league or result.get("season_type")!=2
                     or result.get("source_url")!=scoreboard_url(league,day)
                     or started.astimezone(NY).date()!=day
-                    or parse_time(result.get("retrieved_at_utc"))>current):
+                    or parse_time(result.get("retrieved_at_utc"))>source_checked_at):
                 raise ValueError("published_score_is_not_verified_source_shape")
             if eid in by_id:
                 raise ValueError("duplicated_ESPN_final_event")
