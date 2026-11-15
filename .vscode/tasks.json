@@ -1,0 +1,191 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 1 - Set up Windows engineering",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_setup.ps1"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 2 - Check my laptop model",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "status"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 3 - Run all offline regression tests",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "test"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 4 - Run NBA research locally",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "run_nba"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 5 - Run NFL research locally",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "run_nfl"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 6 - Run NHL research locally",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "run_nhl"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 7 - Run all eight sports locally",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "run_all"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 8 - Open phone Command Center",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "phone"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 9 - Open phone sport commands",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "run_phone"
+      ]
+    },
+    {
+      "type": "shell",
+      "command": "powershell.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "label": "Freddy: 10 - Safely update main from GitHub",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\windows_model.ps1",
+        "-Action",
+        "sync"
+      ]
+    }
+  ]
+}
