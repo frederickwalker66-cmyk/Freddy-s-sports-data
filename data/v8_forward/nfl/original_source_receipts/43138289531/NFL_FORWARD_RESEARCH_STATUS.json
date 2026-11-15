@@ -1,0 +1,65 @@
+{
+  "automated_wagers": 0,
+  "bet_ready": false,
+  "certified_positive_ev_bets": 0,
+  "certified_v8_predictions": 0,
+  "champion_001_modified": false,
+  "forecast_probabilities_recorded_before_start": 14,
+  "forecast_target_is_true_DraftKings_moneyline": false,
+  "github_run_id_self_reported": "43138289531",
+  "history_collection_started_at_utc": "2026-11-12T02:00:07.448685+00:00",
+  "history_minimum_binary_games": 35,
+  "hold_reasons": {},
+  "independently_verified_executable_DraftKings_quotes": 0,
+  "league": "nfl",
+  "matured_binary_games": 71,
+  "matured_games": 72,
+  "matured_ties_excluded": 1,
+  "model_version": "v8-nfl-elo-forward-v0-k18-ha45",
+  "original_champion_001_certified_predictions": 0,
+  "published_history_retrieved": 72,
+  "recorded_at_utc": "2026-11-12T02:00:18.016310+00:00",
+  "schedule_future_events_identified": 14,
+  "source_days_attempted": 35,
+  "source_days_failed": 0,
+  "source_days_ok": 35,
+  "source_original_schedules_saved": [
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.336695+00:00",
+      "file": "nfl_original_future_schedule_20261111.json",
+      "sha256": "d0b7c1d790cfa9721ccd5f8d4d5bafaadb09697286709bfb74b4f200f06e9b8d"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.485662+00:00",
+      "file": "nfl_original_future_schedule_20261112.json",
+      "sha256": "558b4127933d5002140f7327692092ddd2cbb2d9bc9bd25128fd56b1f422588b"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.591335+00:00",
+      "file": "nfl_original_future_schedule_20261113.json",
+      "sha256": "d0b7c1d790cfa9721ccd5f8d4d5bafaadb09697286709bfb74b4f200f06e9b8d"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.682631+00:00",
+      "file": "nfl_original_future_schedule_20261114.json",
+      "sha256": "d0b7c1d790cfa9721ccd5f8d4d5bafaadb09697286709bfb74b4f200f06e9b8d"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.792109+00:00",
+      "file": "nfl_original_future_schedule_20261115.json",
+      "sha256": "2da4dba54e8ef7e9daa6a3c8ddc981ae4c80261194b9ad346c0aa830c38d7d7e"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:17.891395+00:00",
+      "file": "nfl_original_future_schedule_20261116.json",
+      "sha256": "5a53ffe11733e8276f6544309cd6362a234af816fd965a8577f77a7067151da6"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-12T02:00:18.016119+00:00",
+      "file": "nfl_original_future_schedule_20261117.json",
+      "sha256": "d0b7c1d790cfa9721ccd5f8d4d5bafaadb09697286709bfb74b4f200f06e9b8d"
+    }
+  ],
+  "stage": "v8_nfl_nhl_forward_original_source_research_only",
+  "warning": "Original schedule bytes and capture times are local/GitHub receipts, not independent authentication. ESPN historical finals were retrieved at the actual scan time and earlier outcomes are assumed mature after 48h. NFL tie outcomes are excluded: binary forecast conditions on no tie and MUST NOT be marketed as an actionable NFL moneyline price. NHL overtime/shootout settlement is also unaudited. These are not Champion-001 predictions or independently certified positive EV."
+}

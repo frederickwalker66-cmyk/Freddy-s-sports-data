@@ -6,36 +6,52 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-11T21:30:02.328162+00:00",
-  "graded_research_games": 0,
+  "generated_at_utc": "2026-11-15T21:51:54.536281+00:00",
+  "graded_research_games": 2,
   "last_synchronization": {
-    "due_forecast_rows_checked": 0,
+    "due_forecast_rows_checked": 2,
     "later_repeated_forecasts_ignored": 15,
-    "new_ESPN_binary_research_outcomes": 0,
+    "new_ESPN_binary_research_outcomes": 2,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 0,
-    "original_source_receipt_files_saved": 0
+    "new_original_forecasts": 1,
+    "original_source_receipt_files_saved": 44
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
-  "original_saved_forecasts": 15,
-  "pending_48h": 15,
+  "original_saved_forecasts": 16,
+  "pending_48h": 14,
   "published_NFL_ties_excluded": 0,
-  "research_model_scorecards_including_insufficient_samples": [],
+  "research_model_scorecards_including_insufficient_samples": [
+    {
+      "league": "nfl",
+      "market_betting_ready": false,
+      "model": "v8-nfl-elo-forward-v0-k18-ha45",
+      "model_independently_calibrated": false,
+      "original_forward_ESPN_games_graded": 2,
+      "rank_eligible_after_50": false,
+      "research_Brier": null,
+      "research_direction_accuracy": null,
+      "research_log_loss": null
+    }
+  ],
   "research_ranked_models_after_50": [],
   "source_research_receipts": {
-    "first_unique_event_forecasts_accepted": 15,
+    "first_unique_event_forecasts_accepted": 16,
     "independently_certified_predictions": 0,
     "league": "nfl",
     "original_completed_github_run_ids": [
       42711310554,
-      42934921978
+      42934921978,
+      43138289531,
+      43345145728,
+      43538069853,
+      43657407064
     ],
     "source_exclusions": {
-      "later_forecast_ignored": 13
+      "later_forecast_ignored": 67
     },
-    "source_forward_rows_loaded": 28
+    "source_forward_rows_loaded": 83
   },
   "sport": "nfl",
   "status": "HOLD_Fewer_than_50_research_forward_grades_per_model",
