@@ -26,12 +26,14 @@ echo   6. Run ALL eight sports on this laptop
 echo   7. Open PHONE model control ^(signed-in GitHub^)
 echo   8. Safely sync my laptop with GitHub main
 echo   9. Show model project status
+echo   A. Audit a PRIVATE lost ticket (local JSON only)
 echo   0. Exit
 echo.
 echo  Champion-001: frozen. Betting picks: HOLD. No wagers.
 echo.
-choice /C 1234567890 /N /M "Select a number [1-9,0]: "
-if errorlevel 10 goto quit
+choice /C 123456789A0 /N /M "Select [1-9,A,0]: "
+if errorlevel 11 goto quit
+if errorlevel 10 goto ticket
 if errorlevel 9 goto status
 if errorlevel 8 goto sync
 if errorlevel 7 goto phone
@@ -65,6 +67,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows_mo
 goto done
 :sync
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows_model.ps1" -Action sync
+goto done
+:ticket
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows_model.ps1" -Action ticket
 goto done
 :status
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows_model.ps1" -Action status
