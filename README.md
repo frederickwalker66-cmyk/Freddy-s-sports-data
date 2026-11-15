@@ -2,6 +2,12 @@
 
 **This repository contains a research-only sports evidence pipeline and automated GitHub workflows. It is not yet an independently certified real-money betting prediction engine.**
 
+### Laptop: one browser button to request the entire safe refresh
+
+Use **[Freddy's Picks AI — Command Center](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml)** → **Run workflow** → branch **main** → choose **full_refresh_recalibrate** → leave **paid API confirmation OFF** → **Run workflow**. This requests 14 independent research checks, including NBA/NFL/NHL outcome grading, NBA injuries, L5/L10 form, native-model readiness, and full-stack boards. No local installation is needed and no bets are placed. The request is not proof the checks finished: read each downstream job's run and artifact. For individual sport reports use [V8 One Command](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml), with **run_all**, **run_nba**, or **run_nfl**.
+
+**Repair audit dated November 15, 2026:** The NFL/NHL score-receipt timestamp defect was fixed and the main grading workflow passed. Archived research-only NBA forward scorecard: 51 original forecasts / 28 ESPN-published outcome grades. NFL: 16 / 2; NHL: 48 / 27. These are historical status values, not today's verified model accuracy; see the latest separate forward-ledger artifacts for current counts. Original Champion-001 authentication, independently executable sportsbook odds, qualified native-model calibration and certified positive-EV bets **remain blocked/HOLD**. No numbers are invented to satisfy this gate.
+
 ### Operational integrity — November 12, 2026
 
 - Fixed the failed `run_nba_grade` pipeline: live ESPN receipt timestamps are validated against **post-fetch time**, while explicit retrospective grading still respects the original `as_of` cutoff. The audited production rerun graded **8 of 28** genuine NBA research forecasts and retained 20 pending, with **no certified bets**.

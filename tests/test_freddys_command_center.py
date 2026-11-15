@@ -27,7 +27,7 @@ class MobileControlTests(unittest.TestCase):
         self.assertNotIn("collect-sharpapi.yml", checks)
     def test_full_refresh_is_broad_but_free_and_never_automatically_promoted(self):
         refresh=approve("full_refresh_recalibrate",False)
-        self.assertEqual(len(refresh),8)
+        self.assertEqual(len(refresh),14)
         self.assertEqual(len(set(refresh)),len(refresh))
         self.assertTrue(set(refresh).issubset(set(WATCH.values())))
         for disallowed in ("nba-live-connection.yml",
@@ -37,6 +37,14 @@ class MobileControlTests(unittest.TestCase):
         self.assertIn("challenger-isotonic-calibration.yml",refresh)
         self.assertIn("v8-nfl-player-props-edge.yml",refresh)
         self.assertIn("v8-elite-validation.yml",refresh)
+        for essential in (
+                "v8-durable-forward-ledger.yml",
+                "v8-nfl-nhl-forward.yml",
+                "v8-nfl-nhl-forward-grade-ledger.yml",
+                "v8-season-to-date.yml",
+                "challenger-nba-injury-source.yml",
+                "v8-one-command.yml"):
+            self.assertIn(essential, refresh)
         state=compose({},None,[{"workflow":w,"accepted":True} for w in refresh],NOW)
         self.assertFalse(state["refresh_completion_confirmed"])
         self.assertFalse(state["independent_model_recalibration_certified"])
@@ -66,6 +74,24 @@ class MobileControlTests(unittest.TestCase):
         self.assertFalse(s["champion_001_modified"])
         self.assertFalse(s["branch_protected"])
         self.assertIn("Phone Command Center",markdown(s))
+    def test_failure_dashboard_surfaces_nfl_nhl_grade_and_does_not_promote_bets(self):
+        statuses={
+            "v8-nfl-nhl-forward-grade-ledger.yml": {
+                "workflow_runs":[run(419,conclusion="failure")]},
+            "v8-durable-forward-ledger.yml": {
+                "workflow_runs":[run(420,conclusion="success")]},
+        }
+        report=compose(statuses, None, [], NOW)
+        self.assertEqual(report["latest_workflow_failure_count"], 1)
+        self.assertEqual(report["latest_failed_or_cancelled_workflows"],
+                         ["NFL/NHL durable forward grading"])
+        self.assertEqual(report["certified_positive_ev_bets"], 0)
+        self.assertFalse(report["independent_model_recalibration_certified"])
+        self.assertIn("FAILED/CANCELLED: [NFL/NHL durable forward grading]",
+                      markdown(report))
+        self.assertIn("v8-nfl-nhl-forward-grade-ledger.yml",
+                      report["latest_runs"]["NFL/NHL durable forward grading"]["workflow_link"])
+
     def test_stale_scheduled_jobs_are_visible_not_auto_refreshed(self):
         from datetime import timedelta
         payload = {
