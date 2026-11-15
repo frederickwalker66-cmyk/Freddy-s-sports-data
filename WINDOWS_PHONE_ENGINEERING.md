@@ -22,6 +22,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows_setup.
 code .
 ```
 
+**Simplest option:** In File Explorer open your cloned `Freddy-s-sports-data` folder and **double-click `START_FREDDYS_MODEL.cmd`**. Choose **1** for setup, **2** to run tests, **3–6** for local NBA/NFL/NHL/eight-sport scans, or **7** for the phone controls. This is a local menu, not a betting app, and does not execute arbitrary remote commands.
+
 The setup script requires a real Git clone, creates a private `.venv`, installs only the repository's two declared optional/test requirement sets and runs **all offline regression tests**. It does **not** download a Champion model, replace any probability model, place bets, ask for sportsbook credentials or push changes. If packages cannot be installed, rerun after checking Python/pip networking; **do not** treat a failed setup as success.
 
 If you **already have the repo cloned**, do not clone it again. Open PowerShell inside your existing clone and run just the setup command. No GitHub password or personal API key should ever be pasted into code or this public repository.

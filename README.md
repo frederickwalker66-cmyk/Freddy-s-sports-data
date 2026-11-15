@@ -6,7 +6,7 @@
 
 Your **Windows laptop** holds a real Git clone, Python 3.12 virtual environment and VS Code tasks to edit features, write tests, run NBA/NFL/NHL/all-eight-sport research locally, and submit changes through GitHub pull requests. Your **phone** runs the reviewed `main` branch in **GitHub-hosted Actions**, with signed-in commands for each sport and the free 14-workflow refresh. The cloud jobs do not require your Windows PC to stay on.
 
-**Start here: [Windows + Phone Engineering Guide](WINDOWS_PHONE_ENGINEERING.md)** — includes the first-time clone/setup commands, the safe `scripts/windows_setup.ps1` and `scripts/windows_model.ps1` PowerShell helpers, VS Code tasks, and exact Android/iPhone GitHub Actions steps.
+**Start here: [Windows + Phone Engineering Guide](WINDOWS_PHONE_ENGINEERING.md)** — after cloning the repository, **double-click `START_FREDDYS_MODEL.cmd`** in Windows File Explorer to set up Python, run tests or league research, safely sync, and open your phone controls. The guide also covers the safe `scripts/windows_setup.ps1` / `scripts/windows_model.ps1` PowerShell helpers, VS Code tasks, and exact Android/iPhone GitHub Actions steps.
 
 The research website now has a **Phone Control** section with links to actual signed-in GitHub workflow screens. It does **not** store a GitHub token in the browser or execute commands directly on your Windows laptop. Champion-001 remains frozen; zero certified model-EV bets until independently verified inputs exist.
 
