@@ -1,4 +1,5 @@
 name: Freddy's Picks AI V8 — NBA scoreboard live updates (research only)
+# User requested on-demand NBA public scoreboard and ticket observations at 2026-11-15 15:16 ET; preserve timestamps, pregame cutoff, expired odds/injury evidence fail-closed and no wagers.
 on:
   workflow_dispatch:
   # Best-effort NBA evening game windows; actual timestamps, not cron slots,
