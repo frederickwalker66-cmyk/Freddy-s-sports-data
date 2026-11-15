@@ -1,0 +1,38 @@
+{
+  "_note": "FICTIONAL EXAMPLE ONLY. COPY TO local_work/private_ticket.json ON YOUR OWN WINDOWS LAPTOP, REPLACE FIELDS WITH YOUR ACTUAL PRIVATE RECEIPT. NEVER UPLOAD TO PUBLIC GITHUB. Reported outcomes are unverified; not a model prediction.",
+  "schema_version": 1,
+  "ticket_kind": "placed",
+  "bookmaker": "EXAMPLE_BOOK_NOT_A_REAL_RECEIPT",
+  "accepted_at": "2026-11-01T17:00:00-05:00",
+  "stake_usd": "5.00",
+  "accepted_american_odds": 250,
+  "displayed_total_payout_usd": "17.50",
+  "legs": [
+    {
+      "event_id": "EXAMPLE-TEAM-A-TEAM-B",
+      "event_start": "2026-11-01T19:00:00-05:00",
+      "league": "nfl",
+      "market": "player_prop",
+      "selection": "over",
+      "line": 6.5,
+      "player_name": "Fictional Athlete A",
+      "prop_stat": "receptions",
+      "direction": "over",
+      "prior_disposition": "PASS",
+      "reported_outcome": "loss"
+    },
+    {
+      "event_id": "EXAMPLE-TEAM-A-TEAM-B",
+      "event_start": "2026-11-01T19:00:00-05:00",
+      "league": "nfl",
+      "market": "player_prop",
+      "selection": "over",
+      "line": 44.5,
+      "player_name": "Fictional Athlete A",
+      "prop_stat": "receiving_yards",
+      "direction": "over",
+      "prior_disposition": "UNKNOWN",
+      "reported_outcome": "win"
+    }
+  ]
+}
