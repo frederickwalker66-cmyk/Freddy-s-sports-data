@@ -6,3 +6,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 snapshots/
+
+# Local Windows engineering environment and private model run artifacts
+.venv/
+local_work/

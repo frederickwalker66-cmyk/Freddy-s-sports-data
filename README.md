@@ -2,6 +2,14 @@
 
 **This repository contains a research-only sports evidence pipeline and automated GitHub workflows. It is not yet an independently certified real-money betting prediction engine.**
 
+## Use your laptop for engineering; use your phone for model controls
+
+Your **Windows laptop** holds a real Git clone, Python 3.12 virtual environment and VS Code tasks to edit features, write tests, run NBA/NFL/NHL/all-eight-sport research locally, and submit changes through GitHub pull requests. Your **phone** runs the reviewed `main` branch in **GitHub-hosted Actions**, with signed-in commands for each sport and the free 14-workflow refresh. The cloud jobs do not require your Windows PC to stay on.
+
+**Start here: [Windows + Phone Engineering Guide](WINDOWS_PHONE_ENGINEERING.md)** — includes the first-time clone/setup commands, the safe `scripts/windows_setup.ps1` and `scripts/windows_model.ps1` PowerShell helpers, VS Code tasks, and exact Android/iPhone GitHub Actions steps.
+
+The research website now has a **Phone Control** section with links to actual signed-in GitHub workflow screens. It does **not** store a GitHub token in the browser or execute commands directly on your Windows laptop. Champion-001 remains frozen; zero certified model-EV bets until independently verified inputs exist.
+
 ### Laptop: one browser button to request the entire safe refresh
 
 Use **[Freddy's Picks AI — Command Center](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml)** → **Run workflow** → branch **main** → choose **full_refresh_recalibrate** → leave **paid API confirmation OFF** → **Run workflow**. This requests 14 independent research checks, including NBA/NFL/NHL outcome grading, NBA injuries, L5/L10 form, native-model readiness, and full-stack boards. No local installation is needed and no bets are placed. The request is not proof the checks finished: read each downstream job's run and artifact. For individual sport reports use [V8 One Command](https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml), with **run_all**, **run_nba**, or **run_nfl**.
