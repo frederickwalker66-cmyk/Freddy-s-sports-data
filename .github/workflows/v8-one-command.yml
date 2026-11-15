@@ -1,4 +1,5 @@
 name: Freddy's Picks AI V8 — One Command (phone + laptop)
+# User-run NBA spread scan 2026-11-15 05:00 ET: all nine games; spreads, injuries, B2B, last 5/10, line age, CLV and certification HOLD unless verified. Research only; no wagers or paid API.
 # Run NBA requested 2026-11-15: new Sunday nine-game research scan, player props, last-5/last-10, injuries, odds freshness and Sharp Edge; Champion-001 frozen, no wagers.
 # Research-only workflow; SportsGameOdds auto-trigger, archive retrieval and CLI intake excluded.
 # All-eight research parser verification 2026-11-14: 6 two-way leagues, MLS/UCL 1X2/draw, 28 markets; Champion frozen, no paid source fetch.
