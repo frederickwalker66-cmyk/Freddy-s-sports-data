@@ -139,6 +139,32 @@ class ResearchLeagueGradingTests(unittest.TestCase):
                 self.assertIsNone(graded["research_Brier"]) # 50 minimum
                 self.assertEqual(graded["certified_positive_ev_bets"],0)
 
+    def test_real_score_receipt_after_grade_cutoff_is_accepted(self):
+        # A real HTTP response completes after the grading clock was frozen.
+        # Reject only an actually future-dated receipt, not this normal lag.
+        for sport in ("nfl","nhl"):
+            with self.subTest(sport=sport), tempfile.TemporaryDirectory() as folder:
+                write_original(folder,sport)
+                forecasts,_=load_archives(folder,sport)
+                day=START.astimezone(NY).date()
+                original,meta=collector(sport)((sport,),1,day)
+                original[0]["retrieved_at_utc"]=(MATURE+timedelta(seconds=4)).isoformat()
+
+                def delayed_response(leagues,days,end):
+                    self.assertEqual((leagues,days,end),((sport,),1,day))
+                    return original,meta
+
+                report,ledger=grade(sport,forecasts,now=MATURE,
+                                    collector=delayed_response)
+                self.assertEqual(report["actual_ESPN_published_grades"],1)
+                self.assertEqual(ledger[0]["grade_status"],GRADED)
+
+                original[0]["retrieved_at_utc"]=(
+                    datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
+                with self.assertRaisesRegex(
+                        ValueError,"published_score_is_not_verified_source_shape"):
+                    grade(sport,forecasts,now=MATURE,collector=delayed_response)
+
     def test_nfl_tie_is_excluded_not_labeled_as_loss(self):
         with tempfile.TemporaryDirectory() as folder:
             write_original(folder,"nfl")
