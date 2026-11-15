@@ -23,6 +23,11 @@ WATCH = {
     "NBA/NFL Sharp Edge and props": "v8-nfl-player-props-edge.yml",
     "V8 One Command (phone/laptop)": "v8-one-command.yml",
     "Persistent NBA forward grade ledger": "v8-durable-forward-ledger.yml",
+    "NFL/NHL pregame research capture": "v8-nfl-nhl-forward.yml",
+    "NFL/NHL durable forward grading": "v8-nfl-nhl-forward-grade-ledger.yml",
+    "NBA official injury evidence": "challenger-nba-injury-source.yml",
+    "Eight-sport last-5/last-10 source": "v8-season-to-date.yml",
+    "Public web dashboard": "publish-dashboard.yml",
     "Outcome adjudication": "challenger-prospective-outcome-validation.yml",
     "Calibration research": "challenger-isotonic-calibration.yml",
     "Historical training": "challenger-multisport-training.yml",
@@ -42,6 +47,14 @@ COMMANDS = {
         "challenger-multisport-training.yml",
         "v8-elite-validation.yml",
         "v8-nfl-player-props-edge.yml",
+        # These are separate evidence and reporting lanes. Launching them
+        # concurrently does not imply chronological completion or promotion.
+        "v8-nfl-nhl-forward.yml",
+        "v8-durable-forward-ledger.yml",
+        "v8-nfl-nhl-forward-grade-ledger.yml",
+        "v8-season-to-date.yml",
+        "challenger-nba-injury-source.yml",
+        "v8-one-command.yml",
     ),
     "public_eight_sport_scan": ("challenger-eight-sport-source-preflight.yml",),
     "code_tests": ("validate-data.yml",),
@@ -61,6 +74,11 @@ CADENCE_LIMITS_MINUTES = {
     "SharpAPI multi-sport": 24 * 60,
     "NBA/NFL Sharp Edge and props": 24 * 60,
     "Persistent NBA forward grade ledger": 48 * 60,
+    "NFL/NHL pregame research capture": 48 * 60,
+    "NFL/NHL durable forward grading": 48 * 60,
+    "Eight-sport last-5/last-10 source": 48 * 60,
+    "NBA official injury evidence": 24 * 60,
+    "Public web dashboard": 90,
 }
 
 
@@ -135,9 +153,20 @@ def compose(payloads, branch_protected, accepted, now):
                 else:
                     state["operational_freshness"] = "UNTRUSTED_FUTURE_RUN_TIMESTAMP"
         workflows[display] = state
+    failed_workflows = sorted(name for name, state in workflows.items()
+                              if state["status"] == "job_failed_or_cancelled")
+    pending_workflows = sorted(name for name, state in workflows.items()
+                               if state["status"] == "job_pending_or_running")
+    stale_workflows = sorted(name for name, state in workflows.items()
+                             if state.get("operational_freshness") ==
+                             "STALE_LAST_COMPLETED_SUCCESSFUL_JOB")
     return {
         "created_at_utc": now.astimezone(timezone.utc).isoformat(),
         "repository": REPO,
+        "latest_failed_or_cancelled_workflows": failed_workflows,
+        "latest_pending_or_running_workflows": pending_workflows,
+        "stale_successful_workflows": stale_workflows,
+        "latest_workflow_failure_count": len(failed_workflows),
         "branch_protected": branch_protected,
         "latest_runs": workflows,
         "requested_workflow_dispatches": accepted,
@@ -180,6 +209,17 @@ def markdown(report):
         lines.extend(["", "**Stale scheduled-job warning:** " + ", ".join(stale) +
                       ". GitHub jobs may be delayed; no automatic paid rerun attempted."])
     lines.append("**Job-run age is NOT quote freshness, independently verified odds, or calibrated model data.**")
+    lines.extend(["", "## Operational problems (not betting performance)"])
+    if report["latest_failed_or_cancelled_workflows"]:
+        for name in report["latest_failed_or_cancelled_workflows"]:
+            state=report["latest_runs"][name]
+            lines.append(f"- FAILED/CANCELLED: [{name}]({state['url'] or state['workflow_link']})")
+    else:
+        lines.append("No completed failure in the latest observed runs. Unknown, stale and pending sources are NOT validated.")
+    if report["latest_pending_or_running_workflows"]:
+        lines.append("In progress or queued: " + ", ".join(report["latest_pending_or_running_workflows"]))
+    if report["stale_successful_workflows"]:
+        lines.append("Stale prior successful runs: " + ", ".join(report["stale_successful_workflows"]))
     lines.extend(["", "## Commands requested", ""])
     if report["requested_workflow_dispatches"]:
         for item in report["requested_workflow_dispatches"]:
