@@ -87,7 +87,7 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-15T00:42:44.957334+00:00",
+  "generated_at_utc": "2026-11-15T01:14:44.160140+00:00",
   "leagues": {
     "mlb": {
       "as_of_utc": "2026-11-14T20:04:18.656514+00:00",
@@ -108,8 +108,8 @@
       "team_last5": 30
     },
     "nba": {
-      "as_of_utc": "2026-11-14T21:23:10.717956+00:00",
-      "forecasts": 5,
+      "as_of_utc": "2026-11-15T01:05:32.338786+00:00",
+      "forecasts": 0,
       "player_last10": 237,
       "player_last5": 378,
       "status": "SUCCESS_RESEARCH_ONLY",
@@ -162,18 +162,18 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 0.5,
+  "live_age_minutes_at_publication": 32.5,
   "live_observed_at_utc": "2026-11-15T00:42:17.115103+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
   "market": {
     "archived_quotes": 5730,
     "certified_positive_ev": 0,
-    "market_blocker": "UNVERIFIED_MODEL_PROBABILITY_AND_CHECKOUT",
-    "odds_age_minutes_at_model_run": 66.0,
+    "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
+    "odds_age_minutes_at_model_run": 288.4,
     "odds_receipt_utc": "2026-11-14T20:17:09.431277+00:00",
-    "paired_game_markets": 5,
-    "paired_prop_markets": 8,
+    "paired_game_markets": 0,
+    "paired_prop_markets": 0,
     "recent_raw_quotes": 0,
     "verified_checkout_prices": 0,
     "verified_clv": null
@@ -192,6 +192,6 @@
     "github": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data",
     "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43659476213",
     "run_all": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43635239482",
-    "run_nba": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43642389612"
+    "run_nba": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43661309495"
   }
 }
