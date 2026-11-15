@@ -129,6 +129,55 @@ class ParlayRiskAuditTests(unittest.TestCase):
         self.assertIn("displayed_payout_disagrees_with_american_odds_check_boost_and_receipt",
                       result["warning_codes"])
 
+    def test_loss_audit_is_descriptive_and_flags_structural_risk(self):
+        # Fictional four-leg receipt: no user ticket or private identifier in Git.
+        receipt = placed([
+            leg("nfl:AAA-BBB", "player_prop", "over", 6.5,
+                "Sample Athlete", "receptions", league="nfl",
+                direction="over", reported_outcome="loss"),
+            leg("nfl:AAA-BBB", "player_prop", "over", 270.5,
+                "Sample Athlete", "passing_yards", league="nfl",
+                direction="over", reported_outcome="loss"),
+            leg("nfl:CCC-DDD", "player_prop", "over", 2.5,
+                "Sample Player", "receptions", league="nfl",
+                direction="over", prior_disposition="PASS",
+                reported_outcome="win"),
+            leg("nfl:EEE-FFF", "total_points", "over", 42.5,
+                league="nfl", direction="over", reported_outcome="pending"),
+        ])
+        report = audit_ticket(receipt)
+        self.assertEqual(report["reported_outcomes_as_supplied_not_verified"]["loss"], 2)
+        self.assertEqual(report["reported_outcomes_as_supplied_not_verified"]["win"], 1)
+        self.assertEqual(report["reported_outcomes_as_supplied_not_verified"]["pending"], 1)
+        self.assertAlmostEqual(
+            report["reported_settled_hit_rate_descriptive_not_model_accuracy"], 1/3,
+            places=6)
+        self.assertEqual(report["prior_pass_hold_reject_leg_numbers"], [3])
+        self.assertIn("four_or_more_legs_high_variance_not_a_certified_edge",
+                      report["structural_risk_flags"])
+        self.assertIn("all_overs_directional_concentration",
+                      report["structural_risk_flags"])
+        self.assertIn("same_player_multiple_props_require_joint_distribution",
+                      report["structural_risk_flags"])
+        self.assertIn("previously_PASS_HOLD_REJECT_legs_included",
+                      report["structural_risk_flags"])
+        self.assertTrue(report["reported_ticket_has_a_losing_leg"])
+        self.assertTrue(report["all_legs_have_reported_outcomes"])
+        self.assertIsNone(report["parlay_settlement"])
+        self.assertEqual(report["certified_positive_ev_bets"], 0)
+        self.assertFalse(report["champion_001_modified"])
+
+    def test_reported_outcome_and_direction_must_be_explicit_and_valid(self):
+        with self.assertRaisesRegex(ValueError, "invalid_reported_outcome"):
+            audit_ticket(placed([leg("nba:aaa", reported_outcome="guessed_win")]))
+        with self.assertRaisesRegex(ValueError, "direction_must_be"):
+            audit_ticket(placed([leg("nba:aaa", direction="maybe")]))
+        missing = audit_ticket(placed([leg("nba:aaa", selection="Over 5+")]))
+        self.assertIsNone(missing["reported_settled_hit_rate_descriptive_not_model_accuracy"])
+        self.assertNotIn("all_overs_directional_concentration",
+                         missing["structural_risk_flags"])
+        self.assertIsNone(missing["parlay_settlement"])
+
     def test_private_cli_creates_only_local_readonly_report(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

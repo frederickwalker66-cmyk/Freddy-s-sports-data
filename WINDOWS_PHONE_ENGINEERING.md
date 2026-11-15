@@ -53,6 +53,21 @@ Local research files are written to `local_work/research/<command>/`, excluded f
 
 In **VS Code**, choose **Terminal → Run Task** and select `Freddy: 1 - Set up Windows engineering`, `Run all offline regression tests`, `Run NBA research locally`, etc. These tasks use the same transparent PowerShell scripts. **Tests** (Ctrl+Shift+B is a build shortcut and may select NBA research) can be run with **Terminal → Run Test Task**.
 
+## Audit a lost ticket without exposing your private receipts
+
+The Windows command center now has **A. Audit a PRIVATE lost ticket**. It checks previously rejected/PASS legs, duplicate player or event exposure, all-Overs concentration and 4+ leg accumulator variance. It also summarizes **user-reported** wins/losses/pushes/voids/pending legs, without falsely claiming that an external sportsbook verified them.
+
+1. In File Explorer, locate the fictional sample `examples/private_ticket_template.example.json` and **copy** it to `local_work/private_ticket.json` in your repo. Create the `local_work` folder if necessary; it is Git-ignored.
+2. Edit the copy on your laptop using the actual exact sportsbook receipt: event IDs and UTC-offset timestamps, each player/stat/line, directions, any earlier PASS/HOLD label, reported outcomes, stake and **accepted** American ticket odds. Do not enter guesses; do not include your account number. Never commit or upload the private receipt to this public GitHub repository.
+3. Double-click `START_FREDDYS_MODEL.cmd`, choose **A**, and read the local `local_work/ticket_loss_audit.json` report. Run setup (menu 1) first if Python is not ready.
+4. You can also use `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows_model.ps1 -Action ticket` from the repo root.
+
+A ticket with **any losing leg** ordinarily loses as a conventional parlay, subject to bookmaker settlement rules. An eight-leg ticket with all Overs and repeated players is high variance and can have strong dependency between legs; this structural warning is *not* a measured probability or proof of negative EV. The tool never alters the sportsbook ticket, refunds a loss, approves future bets or computes fabricated CLV. A validated model forecast for each exact market and a defensible **joint** parlay distribution are still required for any expected-value analysis. Exact accepted tickets and final settlement need independent verification.
+
+### Prevent repeat ticket-construction mistakes
+
+The Challenger-only `audit_slip` preflight now additionally flags `four_or_more_legs_high_variance`, `all_overs_directional_concentration`, `same_player_multi_prop_exposure`, and `previously_passed_or_held_leg_included`. These are research caution flags, not a substitute for independent active-player confirmation, native probability generation, authenticated DraftKings checkout odds, or a measured correlation matrix. The future pick-release gate **remains HOLD**. Favor **PASS** rather than assuming a strong betting edge simply because a parlay looks plausible or historical hit rates are high.
+
 ## C. Safely develop new model changes on the laptop
 
 Do not edit the frozen Champion-001 code or treat market odds as native predictions. Build the **Challenger research** lane separately. For a proposed source or validation repair:

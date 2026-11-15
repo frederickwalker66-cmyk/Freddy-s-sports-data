@@ -2,7 +2,7 @@
 # Commands execute existing research-only code; no auto-bets or model promotion.
 [CmdletBinding()]
 param(
-    [ValidateSet("status","setup","sync","test","run_nba","run_nfl","run_nhl","run_all","phone","run_phone","repo","edit")]
+    [ValidateSet("status","setup","sync","test","run_nba","run_nfl","run_nhl","run_all","ticket","phone","run_phone","repo","edit")]
     [string]$Action = "status",
     [ValidateRange(1,35)]
     [int]$Days = 7
@@ -55,6 +55,23 @@ try {
             & git pull --ff-only origin main
             if ($LASTEXITCODE -ne 0) { throw "Fast-forward pull failed. Your local files were not reset." }
             Write-Host "Laptop main branch updated from GitHub."
+            break
+        }
+        "ticket" {
+            # Only local ignored data: do NOT upload screenshots/receipts to public Git.
+            $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
+            $privateTicket = Join-Path $repoRoot "local_work\private_ticket.json"
+            $auditOut = Join-Path $repoRoot "local_work\ticket_loss_audit.json"
+            if (-not (Test-Path $venvPython)) {
+                throw "Run setup first to create Python .venv."
+            }
+            if (-not (Test-Path $privateTicket)) {
+                throw "Private ticket JSON missing. Copy examples/private_ticket_template.example.json to local_work/private_ticket.json, then enter your own receipt details locally. NEVER commit it."
+            }
+            & $venvPython v8_parlay_risk_audit.py --ticket-file $privateTicket --output $auditOut
+            if ($LASTEXITCODE -ne 0) { throw "Private ticket audit failed. No result was fabricated." }
+            Write-Host "READ-ONLY ticket risk report: $auditOut"
+            Write-Host "User-entered results are NOT independently authenticated sportsbook settlements."
             break
         }
         "status" {

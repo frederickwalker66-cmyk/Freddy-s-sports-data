@@ -211,6 +211,39 @@ class ChallengerTicketPreflightTests(unittest.TestCase):
             self.assertEqual(saved["bet_ready_selections"], 0)
             self.assertFalse(saved["champion_001_modified"])
 
+    def test_eight_leg_high_variance_all_overs_prior_pass_and_same_player(self):
+        # Synthetic regression based on ticket-construction failure modes.
+        legs = []
+        for i in range(8):
+            row = leg(event="g1" if i < 2 else f"g{i}",
+                      market_type="player_receptions",
+                      selection=f"Example over line {i}",
+                      direction="over",
+                      is_player_prop=True,
+                      player_name="Example Quarterback" if i < 2 else f"Player {i}",
+                      availability_verified=False,
+                      dk_quote_verified=False)
+            if i == 4:
+                row["prior_disposition"] = "PASS"
+            legs.append(row)
+        report = audit_slip(legs)
+        self.assertEqual(report["decision"], "PASS")
+        self.assertEqual(report["leg_numbers_with_prior_PASS_HOLD_REJECT"], [5])
+        self.assertEqual(report["same_player_prop_groups"][0]["leg_numbers"], [1, 2])
+        self.assertIn("four_or_more_legs_high_variance", report["ticket_structural_risk_flags"])
+        self.assertIn("all_overs_directional_concentration", report["ticket_structural_risk_flags"])
+        self.assertIn("same_player_multi_prop_exposure", report["ticket_structural_risk_flags"])
+        self.assertIn("previously_passed_or_held_leg_included", report["ticket_structural_risk_flags"])
+        self.assertEqual(report["certified_champion_001_predictions"], 0)
+        self.assertIsNone(report["combined_model_ev_per_unit_if_verified"])
+
+    def test_no_all_overs_flag_without_explicit_leg_directions(self):
+        rows = [leg(event=f"g{i}", selection=f"Over 20+ {i}") for i in range(4)]
+        report = audit_slip(rows)
+        self.assertIn("four_or_more_legs_high_variance", report["ticket_structural_risk_flags"])
+        self.assertNotIn("all_overs_directional_concentration", report["ticket_structural_risk_flags"])
+        self.assertFalse(report["bet_ready"])
+
     def test_invalid_probabilities_rejected(self):
         for p in (-0.1, 1.01, float("nan"), True):
             with self.subTest(p=p):
