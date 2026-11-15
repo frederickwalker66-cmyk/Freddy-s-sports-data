@@ -8,7 +8,7 @@ Personal bet receipts must stay outside a public GitHub repository.
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import json
@@ -21,6 +21,8 @@ ALLOWED_LEAGUES = frozenset((
 ALLOWED_MARKETS = frozenset((
     "moneyline", "point_spread", "total_points", "player_prop",
 ))
+REPORTED_LEG_OUTCOMES = frozenset(("win", "loss", "push", "void", "pending"))
+PRIOR_REJECTION_STATUSES = frozenset(("PASS", "HOLD", "REJECT"))
 MIN_CENTS = Decimal("0.01")
 
 
@@ -109,6 +111,9 @@ def audit_ticket(ticket):
     outcome_claims = 0
     model_claims = 0
     close_claims = 0
+    reported_outcomes = Counter()
+    directions = []
+    prior_pass_or_hold_legs = []
     for idx, leg in enumerate(legs, 1):
         if not isinstance(leg, dict):
             raise ValueError("leg_must_be_object")
@@ -143,6 +148,26 @@ def audit_ticket(ticket):
         if signature in duplicate_check:
             raise ValueError("duplicate_exact_leg")
         duplicate_check.add(signature)
+        direction = leg.get("direction")
+        if direction is None:
+            directions.append(None)
+        elif isinstance(direction, str) and direction.strip().lower() in (
+                "over", "under", "other"):
+            directions.append(direction.strip().lower())
+        else:
+            raise ValueError("direction_must_be_over_under_or_other")
+        previous = leg.get("prior_disposition")
+        if previous is not None:
+            if not isinstance(previous, str) or previous.strip().upper() not in (
+                    "PASS", "HOLD", "REJECT", "RESEARCH", "UNKNOWN"):
+                raise ValueError("unrecognized_prior_disposition")
+            if previous.strip().upper() in PRIOR_REJECTION_STATUSES:
+                prior_pass_or_hold_legs.append(idx)
+        outcome = leg.get("reported_outcome")
+        if outcome is not None:
+            if not isinstance(outcome, str) or outcome not in REPORTED_LEG_OUTCOMES:
+                raise ValueError("invalid_reported_outcome")
+            reported_outcomes[outcome] += 1
         by_event[(league, event)].append(idx)
         if market == "player_prop":
             by_player[(league, event, player.strip().casefold())].append(idx)
@@ -158,7 +183,16 @@ def audit_ticket(ticket):
          "player_name_as_supplied": player, "leg_numbers": numbers}
         for (league, event, player), numbers in sorted(by_player.items()) if len(numbers) > 1
     ]
-    warnings = []
+    structural_risks = []
+    if len(legs) >= 4:
+        structural_risks.append("four_or_more_legs_high_variance_not_a_certified_edge")
+    if len(legs) >= 3 and all(x == "over" for x in directions):
+        structural_risks.append("all_overs_directional_concentration")
+    if same_player:
+        structural_risks.append("same_player_multiple_props_require_joint_distribution")
+    if prior_pass_or_hold_legs:
+        structural_risks.append("previously_PASS_HOLD_REJECT_legs_included")
+    warnings = list(structural_risks)
     if same_game:
         warnings.append("same_game_legs_are_correlated_do_not_multiply_independent_probabilities")
     if same_player:
@@ -171,6 +205,7 @@ def audit_ticket(ticket):
         warnings.append("closing_quote_claims_not_independent_authenticated_clv")
     if payout["reported_payout_math_matches"] is False:
         warnings.append("displayed_payout_disagrees_with_american_odds_check_boost_and_receipt")
+    settled = reported_outcomes["win"] + reported_outcomes["loss"]
     return {
         "report_type": "FREDDYS_PLACED_VS_RESEARCH_PARLAY_AUDIT",
         "ticket_kind": kind,
@@ -181,6 +216,18 @@ def audit_ticket(ticket):
         "same_event_groups": same_game,
         "same_player_groups": same_player,
         "correlation_risk_flagged": bool(same_game),
+        "structural_risk_flags": structural_risks,
+        "prior_pass_hold_reject_leg_numbers": prior_pass_or_hold_legs,
+        # As-supplied outcomes are a descriptive record, never authoritative
+        # bookmaker settlement, and missing leg results remain UNKNOWN.
+        "reported_outcomes_as_supplied_not_verified": {
+            status: reported_outcomes[status] for status in sorted(REPORTED_LEG_OUTCOMES)
+        },
+        "reported_settled_hit_rate_descriptive_not_model_accuracy": (
+            round(reported_outcomes["win"] / settled, 6) if settled else None
+        ),
+        "all_legs_have_reported_outcomes": sum(reported_outcomes.values()) == len(legs),
+        "reported_ticket_has_a_losing_leg": reported_outcomes["loss"] > 0,
         "warning_codes": warnings,
         "reported_outcome_claim_count_not_graded": outcome_claims,
         "reported_model_probability_claim_count_not_certified": model_claims,
@@ -201,6 +248,8 @@ def audit_ticket(ticket):
             "independent calibrated pregame probability for the exact joint parlay settlement",
             "verified independent outcomes for every settled leg",
             "matched same-settlement authenticated entry and closing prices before computing CLV",
+            "examine ticket construction: repeated players, directional concentration, "
+            "prior PASS/HOLD legs and 4+ leg accumulators; no guaranteed improvement",
         ],
     }
 
