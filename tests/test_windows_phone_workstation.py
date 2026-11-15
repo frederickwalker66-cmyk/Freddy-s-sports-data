@@ -53,7 +53,8 @@ class WindowsPhoneWorkstationTests(unittest.TestCase):
 
     def test_double_click_windows_launcher_uses_only_safe_actions(self):
         launcher = (ROOT / "START_FREDDYS_MODEL.cmd").read_text(encoding="utf-8")
-        self.assertIn("choice /C 1234567890", launcher)
+        self.assertIn("choice /C 123456789A0", launcher)
+        self.assertIn("-Action ticket", launcher)
         self.assertIn('if not exist ".git"', launcher)
         self.assertIn("windows_setup.ps1", launcher)
         self.assertIn("windows_model.ps1", launcher)
@@ -63,6 +64,18 @@ class WindowsPhoneWorkstationTests(unittest.TestCase):
         self.assertNotIn("git push", launcher)
         self.assertNotIn("SHARPAPI_KEY", launcher)
         self.assertNotIn("powershell -EncodedCommand", launcher)
+
+    def test_private_ticket_audit_is_local_only_and_does_not_upload(self):
+        from pathlib import Path
+        model = (ROOT / "scripts/windows_model.ps1").read_text(encoding="utf-8")
+        self.assertIn('"ticket" {', model)
+        self.assertIn("local_work\\private_ticket.json", model)
+        self.assertIn("local_work\\ticket_loss_audit.json", model)
+        self.assertIn("v8_parlay_risk_audit.py", model)
+        self.assertNotIn("git push", model)
+        sample = json.loads((ROOT / "examples/private_ticket_template.example.json").read_text(encoding="utf-8"))
+        self.assertEqual(sample["ticket_kind"], "placed")
+        self.assertTrue(sample["bookmaker"].startswith("EXAMPLE_"))
 
     def test_local_files_and_secrets_are_ignored(self):
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
