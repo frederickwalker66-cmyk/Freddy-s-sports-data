@@ -3,7 +3,7 @@
 This module does not infer true probabilities, certify external forecasts, fetch
 injuries/odds, place wagers, or modify Champion-001. Missing evidence fails closed.
 """
-from collections import Counter
+from collections import Counter, defaultdict
 from math import isfinite
 
 
@@ -48,6 +48,9 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
             raise ValueError("joint probability must be finite and in [0,1]")
     rows = []
     event_counts = Counter()
+    player_exposures = defaultdict(list)
+    explicit_directions = []
+    previously_rejected = []
     for i, leg in enumerate(legs):
         if not isinstance(leg, dict):
             raise ValueError("every leg must be a mapping")
@@ -70,6 +73,31 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
         is_prop = leg.get("is_player_prop") is True
         if is_prop and leg.get("availability_verified") is not True:
             reasons.append("player_availability_or_role_unverified")
+        if is_prop:
+            player = leg.get("player_name")
+            if isinstance(player, str) and player.strip() and isinstance(event, str) and event.strip():
+                player_exposures[(event, player.strip().casefold())].append(i + 1)
+            else:
+                reasons.append("player_identity_unverified_in_ticket")
+        # Never derive an 'over' or 'under' from a loose text description.
+        # Direction and the prior PASS/HOLD decision must be supplied explicitly.
+        direction = leg.get("direction")
+        if direction is None:
+            explicit_directions.append(None)
+        elif isinstance(direction, str) and direction.strip().lower() in (
+                "over", "under", "other"):
+            explicit_directions.append(direction.strip().lower())
+        else:
+            explicit_directions.append(None)
+            reasons.append("ticket_leg_direction_invalid")
+        previous = leg.get("prior_disposition")
+        if previous is not None:
+            if not isinstance(previous, str) or previous.strip().upper() not in (
+                    "PASS", "HOLD", "REJECT", "RESEARCH", "UNKNOWN"):
+                reasons.append("prior_disposition_invalid")
+            elif previous.strip().upper() in ("PASS", "HOLD", "REJECT"):
+                previously_rejected.append(i + 1)
+                reasons.append("previously_passed_or_held_leg_not_cleared")
         p = leg.get("model_probability")
         ev = None
         if p is None:
@@ -93,7 +121,24 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
             "reasons": reasons,
         })
     shared_events = sorted(k for k, v in event_counts.items() if v > 1)
-    blockers = []
+    repeated_players = [
+        {"event_id": event, "player_name_as_supplied_casefold": player,
+         "leg_numbers": indexes}
+        for (event, player), indexes in sorted(player_exposures.items())
+        if len(indexes) > 1
+    ]
+    # Research-only risk controls: structure is not an EV calculation.
+    risk_flags = []
+    if len(legs) >= 4:
+        risk_flags.append("four_or_more_legs_high_variance")
+    if (len(legs) >= 3 and len(explicit_directions) == len(legs)
+            and all(d == "over" for d in explicit_directions)):
+        risk_flags.append("all_overs_directional_concentration")
+    if repeated_players:
+        risk_flags.append("same_player_multi_prop_exposure")
+    if previously_rejected:
+        risk_flags.append("previously_passed_or_held_leg_included")
+    blockers = list(risk_flags)
     if shared_events and not (joint_probability is not None and joint_probability_verified is True):
         blockers.append("shared_event_exposure_requires_joint_model")
     if quoted_parlay_odds is None:
@@ -124,10 +169,15 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
         "decision": "PASS" if blockers or combined_ev is None or combined_ev <= 0 else "RESEARCH_REVIEW_ONLY",
         "legs": rows,
         "same_event_ids": shared_events,
+        "same_player_prop_groups": repeated_players,
+        "leg_numbers_with_prior_PASS_HOLD_REJECT": previously_rejected,
+        "ticket_structural_risk_flags": risk_flags,
         "combined_quote_break_even_probability": combined_break_even,
         "combined_model_ev_per_unit_if_verified": combined_ev,
         "blockers": blockers,
-        "note": "No independence assumption, automatic SGP payout calculation, or wager authorization.",
+        "note": ("No independence assumption, automatic SGP payout calculation, "
+                 "or wager authorization. Structural warnings do not establish "
+                 "unprofitability, and any user-supplied flags are not independent proof."),
     }
 
 
