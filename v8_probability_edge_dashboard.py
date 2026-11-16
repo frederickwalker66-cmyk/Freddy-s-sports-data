@@ -29,6 +29,20 @@ def _cell(value):
     return str(value).replace("|", "/").replace("\n", " ")[:110]
 
 
+def _percentage_cell(value):
+    """Show a numeric probability as a percent, never fabricate a missing p."""
+    if type(value) not in (int, float) or not math.isfinite(value):
+        return "N/A"
+    return f"{value:.2f}%"
+
+
+def _pp_cell(value):
+    """Model edge is in percentage points, NOT percentage return."""
+    if type(value) not in (int, float) or not math.isfinite(value):
+        return "N/A"
+    return f"{value:.2f} pp"
+
+
 def _base(league, matchup, market, selection, line=None, odds=None, source=None,
           at=None):
     return {
@@ -39,6 +53,8 @@ def _base(league, matchup, market, selection, line=None, odds=None, source=None,
         "line": line,
         "american_odds": odds,
         "model_probability_percent": None,
+        "verified_champion_001_probability_percent": None,
+        "model_probability_provenance": "not_available",
         "no_vig_market_probability_percent": None,
         "break_even_probability_percent": None,
         "model_edge_percentage_points": None,
@@ -88,6 +104,7 @@ def build_dashboard(report):
                     item.get("price_recorded_utc"))
         row["model_probability_percent"] = _pct(
             item.get("indicative_model_probability"), fraction=True)
+        row["model_probability_provenance"] = "unverified_research_projection"
         row["break_even_probability_percent"] = _pct(
             item.get("break_even_probability"), fraction=True)
         row["model_edge_percentage_points"] = item.get(
@@ -118,6 +135,7 @@ def build_dashboard(report):
                         source="uncalibrated_original_forward_model_research_only",
                         at=forecast.get("forecast_recorded_utc"))
             row["model_probability_percent"] = p
+            row["model_probability_provenance"] = "uncalibrated_forward_research"
             row["decision"] = "RESEARCH_ONLY_HOLD"
             rows.append(row)
 
@@ -233,12 +251,27 @@ def build_dashboard(report):
             "professional_bettor_identity_verified": False,
             "decision": "WATCH_RESEARCH_ONLY",
         })
+    visible = rows[:40]
+    # Counts describe DISPLAYED, source-labelled rows, not probabilities of
+    # winning and not certified wagering or expected-value evidence.
+    coverage = {
+        "research_model_probability_rows_visible":
+            sum(r["model_probability_percent"] is not None for r in visible),
+        "no_vig_market_probability_rows_visible":
+            sum(r["no_vig_market_probability_percent"] is not None for r in visible),
+        "break_even_probability_rows_visible":
+            sum(r["break_even_probability_percent"] is not None for r in visible),
+        "verified_champion_001_probability_rows_visible": 0,
+        "verified_native_model_ev_rows_visible": 0,
+        "visible_market_rows": len(visible),
+    }
     return {
         "report_type": "FREDDYS_UNIVERSAL_PROBABILITY_SHARP_EDGE_RESEARCH_VIEW",
+        "probability_coverage": coverage,
         "command": report.get("command"),
         "market_types_supported": list(MARKETS),
         "market_side_rows_total": len(rows),
-        "market_side_rows": rows[:40],
+        "market_side_rows": visible,
         "market_movement_watchlist": moves[:15],
         "last_sharpapi_archived_quote_utc":
             archive.get("latest_eligible_capture_utc"),
@@ -272,10 +305,16 @@ def render_dashboard(board):
         "## Probabilities and Sharp Edge — Every Run",
         f"**Command:** {_cell(board.get('command'))} · **Betting decision:** {_cell(board.get('decision'))}",
         "**Certified Champion-001 positive-EV bets: 0; stakes: $0.**",
-        "Model p% (research only) is distinct from no-vig market p%, break-even p%, and genuine sharp-money handle.",
+        "Research model p% is NOT a verified Champion-001 probability. Market p% and break-even p% are price-derived, not model forecasts.",
         "Edge is measured in **percentage points (pp)**; EV ROI is a separate return percentage.",
-        "| Sport / matchup | Market / side | Line | Odds | Model p% | No-vig market p% | Break-even p% | Model edge (pp) | EV ROI% | Action |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---|",
+        ("**Probability coverage on the displayed rows:** research model p: "
+         f"{_cell((board.get('probability_coverage') or {}).get('research_model_probability_rows_visible', 0))}; "
+         "verified Champion-001 p: 0; "
+         f"no-vig market p: {_cell((board.get('probability_coverage') or {}).get('no_vig_market_probability_rows_visible', 0))}; "
+         f"break-even p: {_cell((board.get('probability_coverage') or {}).get('break_even_probability_rows_visible', 0))}. "
+         "N/A means unavailable, NOT 0%."),
+        "| Sport / matchup | Market / side | Line | Odds | Research model p% | Verified Champion p% | No-vig market p% | Break-even p% | Model edge (pp) | EV ROI% | Action |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for r in board.get("market_side_rows") or []:
         title = f"{_cell(r.get('league')).upper()} {_cell(r.get('matchup'))}"
@@ -283,15 +322,17 @@ def render_dashboard(board):
         if r.get("player_name"):
             title += f" / {_cell(r['player_name'])}"
         cols = [title, market, _cell(r.get("line")), _cell(r.get("american_odds")),
-                _cell(r.get("model_probability_percent")),
-                _cell(r.get("no_vig_market_probability_percent")),
-                _cell(r.get("break_even_probability_percent")),
-                _cell(r.get("model_edge_percentage_points")),
-                _cell(r.get("expected_roi_percent")), _cell(r.get("decision"))]
+                _percentage_cell(r.get("model_probability_percent")),
+                _percentage_cell(r.get("verified_champion_001_probability_percent")),
+                _percentage_cell(r.get("no_vig_market_probability_percent")),
+                _percentage_cell(r.get("break_even_probability_percent")),
+                _pp_cell(r.get("model_edge_percentage_points")),
+                _percentage_cell(r.get("expected_roi_percent")),
+                _cell(r.get("decision"))]
         lines.append("| " + " | ".join(cols) + " |")
     if not board.get("market_side_rows"):
         for market in MARKETS:
-            lines.append(f"| N/A | {market} | N/A | N/A | N/A | N/A | N/A | N/A | N/A | HOLD |")
+            lines.append(f"| N/A | {market} | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | HOLD |")
     lines.extend([
         "",
         "**Price-movement watchlist (research only; never inferred professional sharp bets):**",
