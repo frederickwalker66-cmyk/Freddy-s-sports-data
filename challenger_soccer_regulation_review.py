@@ -175,9 +175,13 @@ def validate_packet(packet, now):
     if not isinstance(packet.get("event_id"), str) or not packet["event_id"].isdigit():
         raise ValueError("missing_espn_soccer_event_id")
     start, pregame = instant(packet["event_start_utc"]), instant(packet["snapshot_completed_at_utc"])
-    if not pregame < start < now:
+    if not pregame < start:
         raise ValueError("soccer_event_not_after_pregame_and_before_review")
     final = packet.get("published_final_only")
+    # Future fixture research is legitimate only without a published final.
+    # Never fetch a postgame source or invent a 90-minute settlement.
+    if start >= now and final is not None:
+        raise ValueError("future_soccer_event_cannot_have_published_final")
     if final is not None:
         if not isinstance(final, dict) or not goals(final.get("home_score")) or not goals(final.get("away_score")):
             raise ValueError("invalid_espn_soccer_published_final")
