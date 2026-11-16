@@ -89,6 +89,34 @@ class AllSportsSourceCoverageTests(unittest.TestCase):
             self.assertEqual(r["by_league"][sport]["next_evidence_priority"],
                              "collect_original_pregame_snapshots_and_receipts")
 
+    def test_future_original_pregame_receipt_stays_pending_eight_sports(self):
+        rows=[]
+        for i,lg in enumerate(LEAGUES):
+            p=lineage(lg,str(409000+i),final=False)
+            p["event_start_utc"]="2026-11-06T20:00:00Z"
+            p["snapshot_completed_at_utc"]="2026-11-05T10:00:00Z"
+            rows.append(p)
+        result=case(rows)
+        for lg in LEAGUES:
+            entry=result["by_league"][lg]
+            self.assertEqual(entry["original_pregame_events_receipt_backed"],1)
+            self.assertEqual(entry["linked_published_results"],0)
+            self.assertEqual(entry["qualified_chronological_training_records"],0)
+        self.assertEqual(result["certified_positive_ev_bets"],0)
+
+    def test_future_event_with_forged_final_is_rejected(self):
+        p=lineage()
+        p["event_start_utc"]="2026-11-06T20:00:00Z"
+        p["snapshot_completed_at_utc"]="2026-11-05T10:00:00Z"
+        with self.assertRaisesRegex(ValueError,"future_game_cannot_have"):
+            case([p])
+
+    def test_late_pregame_source_capture_still_rejected(self):
+        p=lineage(final=False)
+        p["snapshot_completed_at_utc"]="2026-11-03T20:00:00Z"
+        with self.assertRaisesRegex(ValueError,"after_game_original"):
+            case([p])
+
     def test_exact_nfl_pregame_and_nflverse_agreement_is_research_only(self):
         r=case([lineage()],{"nfl_second_source_score_review.jsonl":[secondary("nfl")]})
         n=r["by_league"]["nfl"]

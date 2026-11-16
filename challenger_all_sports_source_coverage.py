@@ -96,8 +96,13 @@ def _audit_lineage(rows, now):
                 raise ValueError("missing_original_source_byte_receipt")
         at=instant(item.get("snapshot_completed_at_utc"))
         start=instant(item.get("event_start_utc"))
-        if not at<start<=now:
+        # Prospective source coverage necessarily contains games not yet
+        # started. Preserve only genuinely prestart original captures.
+        # Future games without outcomes remain pending and unqualified.
+        if not at < start:
             raise ValueError("future_or_after_game_original_sport_snapshot")
+        if start > now and item.get("published_final_only") is not None:
+            raise ValueError("future_game_cannot_have_published_final")
         if item.get("published_final_only") is not None:
             published=item["published_final_only"]
             if (not isinstance(published,dict)
