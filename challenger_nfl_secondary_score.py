@@ -175,9 +175,13 @@ def validate_packet(row, observed):
         raise ValueError("duplicated_nfl_team")
     start = instant(row.get("event_start_utc"))
     capture = instant(row.get("snapshot_completed_at_utc"))
-    if not capture < start < observed:
+    if not capture < start:
         raise ValueError("invalid_pregame_capture_or_event_clock")
     published = row.get("published_final_only")
+    # Future events remain pending only when no final has been published.
+    # A claimed final before its event starts is invalid original evidence.
+    if start >= observed and published is not None:
+        raise ValueError("future_nfl_event_cannot_have_published_final")
     if published is not None:
         if not isinstance(published, dict):
             raise ValueError("invalid_published_final_object")
