@@ -118,6 +118,33 @@ class NHLOfficialScoreTests(unittest.TestCase):
         self.assertEqual(rows[0]["crosscheck_status"], "awaiting_primary_published_final")
         self.assertEqual(report["source_dates_selected"], [])
 
+    def test_genuine_future_nhl_game_without_final_is_pending_not_failure(self):
+        p = packet(event_id="4019999", start="2026-11-06T01:00:00Z")
+        p["published_final_only"] = None
+        calls = []
+        rows, report, sources = run(
+            [p], fetcher=lambda day: calls.append(day), now=NOW)
+        self.assertEqual(calls, [])
+        self.assertEqual(sources, {})
+        self.assertEqual(rows[0]["crosscheck_status"],
+                         "awaiting_primary_published_final")
+        self.assertEqual(report["independently_verified_training_games"], 0)
+        self.assertEqual(report["certified_positive_ev_bets"], 0)
+        self.assertFalse(report["champion_001_modified"])
+
+    def test_future_nhl_game_claiming_published_final_still_fails_closed(self):
+        p = packet(event_id="4019998", start="2026-11-06T01:00:00Z")
+        calls = []
+        with self.assertRaisesRegex(ValueError, "future event cannot"):
+            run([p], fetcher=lambda day: calls.append(day), now=NOW)
+        self.assertEqual(calls, [])
+
+    def test_inplay_or_late_capture_still_fails_closed(self):
+        p = packet()
+        p["snapshot_completed_at_utc"] = "2026-11-05T01:00:00Z"
+        with self.assertRaisesRegex(ValueError, "invalid NHL original capture"):
+            run([p], fetcher=lambda _d: None, now=NOW)
+
     def test_exact_recent_date_bounded_and_old_date_excluded(self):
         old = packet(event_id="4019002", start="2026-11-03T23:00:00Z")
         old["snapshot_completed_at_utc"] = "2026-11-03T21:30:00Z"
