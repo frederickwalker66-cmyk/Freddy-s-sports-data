@@ -42,7 +42,7 @@ COMMAND_TO_SPORT = {
     "run_ncaaf": ("ncaaf",), "run_ncaab": ("ncaab",),
     "run_mls": ("mls",), "run_uefa": ("uefa_champions_league",),
     "run_nba_nfl": ("nba","nfl"),
-    "run": ALL, "run_sports": ALL, "run_all": ALL,
+    "run": ALL, "run_sports": ALL, "run_all": ALL, "run_sharp": ALL,
 }
 PRIMARY = {
     "nba":"run_nba_best_bets", "nfl":"run_nfl_forward",
@@ -64,7 +64,7 @@ def _check_report(data, *, requires_explicit_champion_flag=False):
     return data
 
 
-def _project_research(reports, scope, limit=60):
+def _project_research(reports, scope, limit=10000):
     result=[]
     for league in scope:
         source=reports.get(league)
@@ -109,7 +109,7 @@ def _watched_games(sharp_games, scope):
     if not isinstance(data,list):
         raise ValueError("invalid_archived_full_game_watchlist")
     return [x for x in data if isinstance(x,dict) and x.get("league") in scope
-            and x.get("league") in PRICE_SPORTS][:30]
+            and x.get("league") in PRICE_SPORTS]
 
 
 def _watched_props(sharp_props, scope):
@@ -123,8 +123,10 @@ def _watched_props(sharp_props, scope):
         a=data.get(lg,[])
         if not isinstance(a,list):
             raise ValueError("invalid_archived_player_market_board")
-        rows += [x for x in a if isinstance(x,dict)][:30]
-    return rows[:60]
+        rows += [x for x in a if isinstance(x,dict)]
+    if len(rows)>30000:
+        raise ValueError("unified_full_stack_prop_board_budget")
+    return rows
 
 
 def _watchlist(predictions):
