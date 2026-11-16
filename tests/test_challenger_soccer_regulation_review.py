@@ -73,6 +73,26 @@ def packet(league="mls", espn_id="4011234", extra=False):
 
 
 class SoccerRegulationReviewTests(unittest.TestCase):
+    def test_real_future_soccer_fixture_without_final_remains_pending(self):
+        for league in ("mls", "uefa_champions_league"):
+            with self.subTest(league=league):
+                p=packet(league=league)
+                p["event_start_utc"]="2026-11-06T22:00:00Z"
+                p["snapshot_completed_at_utc"]="2026-11-05T10:00:00Z"
+                p["published_final_only"]=None
+                self.assertEqual(plan([p],NOW),{})
+                rows,report=review([p],{},NOW)
+                self.assertEqual(rows[0]["crosscheck_status"],
+                                 "missing_espn_published_final")
+                self.assertFalse(rows[0]["qualified_for_challenger_training"])
+                self.assertEqual(report["certified_positive_ev_bets"],0)
+
+    def test_future_soccer_fixture_claiming_final_fails_closed(self):
+        p=packet()
+        p["event_start_utc"]="2026-11-06T22:00:00Z"
+        with self.assertRaisesRegex(ValueError,"future_soccer_event"):
+            plan([p],NOW)
+
     def test_mls_regulation_score_separate_publisher_agrees_unqualified(self):
         raw = original()
         items, report = review([packet()], {"mls:2026-11-04": raw}, NOW)
