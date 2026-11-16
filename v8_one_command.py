@@ -17,6 +17,7 @@ from v8_edge_value import rank_research_edges
 from v8_probability_edge_dashboard import build_dashboard, render_dashboard
 from v8_sharp_archive import summarize_sharp_archive, read_archive
 from v8_sharp_player_props import summarize_player_props
+from v8_nba_prop_source_readiness import inspect_nba_prop_capture, render_nba_prop_capture
 from v8_sharp_game_markets import summarize_full_game_markets
 from v8_mixed_market_board import mixed_market_board
 from v8_sgo_research import audit_source_archive
@@ -108,6 +109,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "probability_sharp_edge_dashboard": None,
         "sharp_archive": None,
         "sharp_player_props": None,
+        "nba_prop_capture_readiness": None,
         "sharp_full_game_markets": None,
         "nba_always_sharp_edge": None,
         "mixed_market_research": None,
@@ -190,6 +192,14 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         report["sharp_archive"] = sharp
         report["sharp_player_props"] = props
+        prop_gap = inspect_nba_prop_capture(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        report["nba_prop_capture_readiness"] = prop_gap
+        (out / "NBA_PROP_CAPTURE_READINESS.json").write_text(
+            json.dumps(prop_gap, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        (out / "NBA_PROP_CAPTURE_READINESS.md").write_text(
+            render_nba_prop_capture(prop_gap), encoding="utf-8")
         report["sharp_full_game_markets"] = full
         always_edge = build_nba_sharp_edge(
             sharp, props, full, calibration, report["season_to_date_all_leagues"])
@@ -233,6 +243,14 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
         report["sharp_archive"] = sharp_report
         report["sharp_player_props"] = prop_report
+        prop_gap = inspect_nba_prop_capture(
+            sharp_rows or [], now=now, archive_run_ids=sharp_run_ids)
+        report["nba_prop_capture_readiness"] = prop_gap
+        (out / "NBA_PROP_CAPTURE_READINESS.json").write_text(
+            json.dumps(prop_gap, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        (out / "NBA_PROP_CAPTURE_READINESS.md").write_text(
+            render_nba_prop_capture(prop_gap), encoding="utf-8")
         report["sharp_full_game_markets"] = game_report
         if command == "run_mixed_market":
             # All four quote categories share one HOLD-only reference board.
