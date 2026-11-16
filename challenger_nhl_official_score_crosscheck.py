@@ -142,9 +142,15 @@ def validate_review_packet(row, observed):
         raise ValueError("missing exact NHL team-name crosswalk")
     start = instant(row.get("event_start_utc"))
     captured = instant(row.get("snapshot_completed_at_utc"))
-    if not captured < start < observed:
+    if not captured < start:
         raise ValueError("invalid NHL original capture or event time")
     published = row.get("published_final_only")
+    # A genuine *future* event can occur in an archival lineage review.
+    # It has no published final yet, must not trigger a scoreboard request,
+    # and remains a research-only "awaiting_primary_published_final" row.
+    # A claimed final for a not-yet-started game is a hard integrity failure.
+    if start >= observed and published is not None:
+        raise ValueError("NHL future event cannot have a published final")
     if published is not None:
         if not isinstance(published, dict):
             raise ValueError("invalid ESPN final review object")
