@@ -132,6 +132,8 @@ on:
       - 'v8_edge_value.py'
       - 'v8_probability_edge_dashboard.py'
       - 'tests/test_v8_probability_edge_dashboard.py'
+      - 'v8_unified_sharp_edge_board.py'
+      - 'tests/test_v8_unified_sharp_edge_board.py'
       - 'v8_mixed_market_board.py'
       - 'v8_sgo_research.py'
       - 'tests/test_v8_sgo_research.py'
@@ -180,6 +182,8 @@ on:
       - 'v8_edge_value.py'
       - 'v8_probability_edge_dashboard.py'
       - 'tests/test_v8_probability_edge_dashboard.py'
+      - 'v8_unified_sharp_edge_board.py'
+      - 'tests/test_v8_unified_sharp_edge_board.py'
       - 'tests/test_v8_one_command.py'
       - 'v8_mixed_market_board.py'
       - 'v8_sgo_research.py'
@@ -532,7 +536,7 @@ jobs:
           # for EVERY pillar rather than treating a "run_nfl" as historical only.
           FULL_STACK=false
           case "$SELECTED_COMMAND" in
-            run|run_nba|run_nba_best_bets|run_nba_nfl|run_all|run_sports|run_nfl|run_nhl|run_mlb|run_ncaaf|run_ncaab|run_mls|run_uefa)
+            run|run_sharp|run_nba|run_nba_best_bets|run_nba_nfl|run_all|run_sports|run_nfl|run_nhl|run_mlb|run_ncaaf|run_ncaab|run_mls|run_uefa)
               FULL_STACK=true ;;
           esac
           if [[ "$FULL_STACK" == true ]]; then
@@ -550,6 +554,21 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
+      - name: ONE DISPLAY — all sports, Sharp Edge, all markets and player combos
+        if: always()
+        shell: bash
+        run: |
+          board="v8_results/one_command/ONE_DISPLAY_SHARP_EDGE_SUMMARY.md"
+          if [[ -f "$board" ]]; then
+            cat "$board"
+            if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+              cat "$board" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "**Full unified searchable table:** Download ONE_DISPLAY_SHARP_EDGE.html from this run's artifacts. Includes all available source rows and market, player, sport and status filters." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+            echo "## ONE DISPLAY — unavailable (source failure / nonmarket command); HOLD" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Always display NBA pregame baseline and live pace/scoreboard in every command
         if: always()
         env:
