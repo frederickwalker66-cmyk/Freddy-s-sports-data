@@ -61,7 +61,7 @@ class CollegeNCAASourceTests(unittest.TestCase):
         start, published=validate_packet(p,NOW)
         self.assertIsNone(published)
         self.assertGreater(start,NOW)
-        self.assertEqual(plan([p],NOW)["requested_routes"],{})
+        self.assertEqual(plan([p],NOW),{})
 
     def test_future_college_claimed_final_is_rejected(self):
         p=packet(start="2026-11-06T22:00:00Z")
