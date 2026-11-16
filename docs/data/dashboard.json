@@ -138,7 +138,7 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-16T07:20:17.010566+00:00",
+  "generated_at_utc": "2026-11-16T07:51:49.273304+00:00",
   "leagues": {
     "mlb": {
       "as_of_utc": "2026-11-15T22:26:31.740137+00:00",
@@ -213,7 +213,7 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 0.6,
+  "live_age_minutes_at_publication": 32.2,
   "live_observed_at_utc": "2026-11-16T07:19:39.938962+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
