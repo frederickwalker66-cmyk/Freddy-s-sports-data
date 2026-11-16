@@ -100,7 +100,7 @@ def _audit_lineage(rows, now):
         # started. Preserve only genuinely prestart original captures.
         # Future games without outcomes remain pending and unqualified.
         if not at < start:
-            raise ValueError("after_game_original_sport_snapshot")
+            raise ValueError("future_or_after_game_original_sport_snapshot")
         if start > now and item.get("published_final_only") is not None:
             raise ValueError("future_game_cannot_have_published_final")
         if item.get("published_final_only") is not None:
