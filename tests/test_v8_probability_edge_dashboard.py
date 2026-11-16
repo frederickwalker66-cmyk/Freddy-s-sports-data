@@ -31,6 +31,11 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
             self.assertIn(market, text)
         self.assertIn("N/A", text)
         self.assertIn("HOLD", text)
+        self.assertIn("Verified Champion p%", text)
+        self.assertIn("research model p: 0", text)
+        self.assertIn("verified Champion-001 p: 0", text)
+        self.assertEqual(
+            view["probability_coverage"]["verified_champion_001_probability_rows_visible"], 0)
 
     def test_every_completed_one_command_emits_json_and_phone_markdown(self):
         for command in ("model_status", "run_edge", "run_calibration", "run_readiness"):
@@ -70,10 +75,14 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
         self.assertEqual(home["no_vig_market_probability_percent"], 53.37)
         self.assertEqual(home["break_even_probability_percent"], 54.55)
         self.assertIsNone(home["model_probability_percent"])
+        self.assertIsNone(home["verified_champion_001_probability_percent"])
         self.assertIsNone(home["model_edge_percentage_points"])
         self.assertIsNone(home["expected_roi_percent"])
         self.assertEqual(view["market_movement_watchlist"][0]["market_price_movement_percentage_points"], 2.3)
         self.assertIsNone(view["market_movement_watchlist"][0]["sharp_money_handle_percent"])
+        self.assertIn("53.37%", render_dashboard(view))
+        self.assertIn("54.55%", render_dashboard(view))
+        self.assertEqual(view["probability_coverage"]["no_vig_market_probability_rows_visible"], 2)
         self.assertIn("2.3", render_dashboard(view))
 
     def test_independently_authored_research_edge_visible_but_not_certified(self):
@@ -95,6 +104,13 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
         self.assertAlmostEqual(r["model_edge_percentage_points"], 5.61905)
         self.assertEqual(r["expected_roi_percent"], 10.72)
         self.assertEqual(r["decision"], "RESEARCH_ONLY_HOLD")
+        self.assertEqual(r["model_probability_provenance"], "unverified_research_projection")
+        self.assertIsNone(r["verified_champion_001_probability_percent"])
+        self.assertIn("58.00%", render_dashboard(view))
+        self.assertIn("5.62 pp", render_dashboard(view))
+        self.assertIn("10.72%", render_dashboard(view))
+        self.assertEqual(view["probability_coverage"]["research_model_probability_rows_visible"], 1)
+        self.assertEqual(view["probability_coverage"]["verified_champion_001_probability_rows_visible"], 0)
         self.assertEqual(view["certified_positive_ev_bets"], 0)
 
     def test_original_nba_forward_model_percent_but_no_betting_edge(self):
@@ -110,6 +126,9 @@ class ProbabilitySharpEdgeDashboardTests(unittest.TestCase):
         self.assertEqual(view["market_side_rows_total"], 2)
         self.assertEqual(view["market_side_rows"][0]["model_probability_percent"], 61)
         self.assertEqual(view["market_side_rows"][1]["model_probability_percent"], 39)
+        self.assertEqual(view["market_side_rows"][0]["model_probability_provenance"],
+                         "uncalibrated_forward_research")
+        self.assertEqual(view["probability_coverage"]["research_model_probability_rows_visible"], 2)
         self.assertIsNone(view["market_side_rows"][0]["no_vig_market_probability_percent"])
         self.assertIsNone(view["market_side_rows"][0]["expected_roi_percent"])
         self.assertIn("RESEARCH_ONLY_HOLD", render_dashboard(view))
