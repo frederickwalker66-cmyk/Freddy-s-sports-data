@@ -33,6 +33,7 @@ from v8_betting_readiness import audit_betting_readiness
 from v8_season_artifact_view import review as review_season_artifacts
 from v8_sgo_research import audit_source_archive
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
+from v8_unified_sharp_edge_board import build as build_one_display, save as save_one_display
 
 ALL = ("nba","nhl","mlb","nfl","ncaaf","ncaab","mls","uefa_champions_league")
 COMMAND_TO_SPORT = {
@@ -41,7 +42,7 @@ COMMAND_TO_SPORT = {
     "run_ncaaf": ("ncaaf",), "run_ncaab": ("ncaab",),
     "run_mls": ("mls",), "run_uefa": ("uefa_champions_league",),
     "run_nba_nfl": ("nba","nfl"),
-    "run": ALL, "run_sports": ALL, "run_all": ALL,
+    "run": ALL, "run_sports": ALL, "run_all": ALL, "run_sharp": ALL,
 }
 PRIMARY = {
     "nba":"run_nba_best_bets", "nfl":"run_nfl_forward",
@@ -63,7 +64,7 @@ def _check_report(data, *, requires_explicit_champion_flag=False):
     return data
 
 
-def _project_research(reports, scope, limit=60):
+def _project_research(reports, scope, limit=10000):
     result=[]
     for league in scope:
         source=reports.get(league)
@@ -108,7 +109,7 @@ def _watched_games(sharp_games, scope):
     if not isinstance(data,list):
         raise ValueError("invalid_archived_full_game_watchlist")
     return [x for x in data if isinstance(x,dict) and x.get("league") in scope
-            and x.get("league") in PRICE_SPORTS][:30]
+            and x.get("league") in PRICE_SPORTS]
 
 
 def _watched_props(sharp_props, scope):
@@ -122,8 +123,10 @@ def _watched_props(sharp_props, scope):
         a=data.get(lg,[])
         if not isinstance(a,list):
             raise ValueError("invalid_archived_player_market_board")
-        rows += [x for x in a if isinstance(x,dict)][:30]
-    return rows[:60]
+        rows += [x for x in a if isinstance(x,dict)]
+    if len(rows)>30000:
+        raise ValueError("unified_full_stack_prop_board_budget")
+    return rows
 
 
 def _watchlist(predictions):
@@ -209,6 +212,18 @@ def _season_stat_samples(source_root, leagues, *, max_teams=35,
 def _save(root, bundle):
     root=Path(root)
     root.mkdir(parents=True,exist_ok=True)
+    # One filterable all-sport market/prop/combo table and machine-readable
+    # receipts. These are source-only, never synthetic odds or model EV.
+    board=build_one_display(bundle)
+    save_one_display(board,root)
+    bundle["unified_sharp_edge_display"]={
+        "all_market_rows":board["displayed_rows"],
+        "covered_sports":board["requested_leagues"],
+        "html":"ONE_DISPLAY_SHARP_EDGE.html",
+        "json":"ONE_DISPLAY_SHARP_EDGE.json",
+        "markdown":"ONE_DISPLAY_SHARP_EDGE.md",
+        "certified_positive_ev_bets":0,
+    }
     targets={
         "FULL_STACK_ALL_IN_ONE_REPORT.json":bundle,
         "FULL_STACK_PREDICTIONS.json":bundle["research_only_pregame_predictions"],
@@ -239,6 +254,10 @@ def render(r):
         f"**Command:** {r['user_command']} · **Executed at UTC:** {r['checked_at_utc']}",
         f"**Sports:** {', '.join(x.upper() for x in r['requested_leagues'])}",
         "**Betting decision: HOLD — independently certified +EV picks: 0; Champion-001 unchanged, stake $0.**",
+        "",
+        "**ONE DISPLAY: Open ONE_DISPLAY_SHARP_EDGE.html (all supported sports, full market/prop/combos table, searchable on phone or laptop).**",
+        "**Every row: odds, source timestamp, research vs certified model p, no-vig p, break-even p, Sharp Edge pp, EV ROI, HOLD status.**",
+        f"**Visible source rows:** {r.get('unified_sharp_edge_display',{}).get('all_market_rows',0)} (not a claim of complete live-book coverage).",
         "",
         "## Research coverage by sport (unverified is N/A, not zero skill)",
         "| League | Core scan | Preface forecasts | Team L5/L10 | Player L5/L10 | Source markets |",
@@ -435,6 +454,24 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
                    if q["league"] in scope]
     quotes=_watched_games(games,scope)+soccer_quotes
     player_quotes=_watched_props(props,scope)
+    # Fixture-only coverage survives absent bookmaker pairs; original ESPN
+    # schedule is a source reference, not an odds or roster confirmation.
+    scheduled=[]
+    for lg in scope:
+        component=reports.get(lg) or {}
+        nba_games=(component.get("nba_slate_best_bets") or {}).get("games") or []
+        if lg=="nba":
+            if not isinstance(nba_games,list) or len(nba_games)>1000:
+                raise ValueError("full_stack_nba_schedule_budget")
+            for g in nba_games:
+                if not isinstance(g,dict) or not isinstance(g.get("espn_event_id"),str):
+                    raise ValueError("full_stack_invalid_schedule_game")
+                scheduled.append({"league":"nba", "away_team":g.get("away_team"),
+                                  "home_team":g.get("home_team"),
+                                  "event_id":g["espn_event_id"],
+                                  "start_utc":g.get("start_utc"),
+                                  "game_state":g.get("source_event_state"),
+                                  "source_timestamp_utc":g.get("schedule_received_or_read_utc")})
     season=review_season_artifacts(season_archive_dir or out/"no_saved_season")
     _check_report(season)
     season_stat_details=_season_stat_samples(season_archive_dir,scope)
@@ -536,6 +573,7 @@ def run_full_stack(*, command, execute_fn, days=35, end_date=None, now=None,
         "executed_core_research_lanes":{lg:PRIMARY[lg] for lg in scope},
         "by_league":by_league,
         "research_only_pregame_predictions":rows,
+        "research_game_schedule":scheduled,
         "best_bets_and_edge_leaderboard":{
             "certified_positive_ev_ranked_bets":[],
             "research_direction_watchlist_unranked_by_ev":research_watch,

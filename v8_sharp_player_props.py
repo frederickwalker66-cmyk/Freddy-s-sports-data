@@ -315,7 +315,7 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         -parse_time(x["last_capture_utc"]).timestamp(),
         x["start_utc"], x["league"], x["player_name"], x["prop_stat"], x["line"]))
     probability_board = {
-        sport: [item for item in current_prop_markets if item["league"] == sport][:8]
+        sport: [item for item in current_prop_markets if item["league"] == sport][:5000]
         for sport in ("nba", "nfl", "ncaaf", "ncaab", "mlb", "nhl")
     }
     report = {
@@ -341,6 +341,10 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
         "ranked_prop_repricing_watchlist": upcoming[:10],
         "today_recent_two_sided_prop_markets": len(current_prop_markets),
         "today_player_prop_market_probability_board": probability_board,
+        "current_source_prop_markets_total_before_display_cap": len(current_prop_markets),
+        "current_source_prop_markets_unshown_due_to_5000_per_sport_cap": sum(
+            max(0, sum(p["league"] == sport for p in current_prop_markets) - 5000)
+            for sport in PROP_SPORTS),
         "probability_source": "normalized_two_sided_source_book_price_not_native_model",
         "model_probability_display": "UNAVAILABLE_NOT_MODEL_GENERATED",
         "sharp_bettor_probability_display": "UNAVAILABLE_NO_SHARP_HANDLE_OR_TICKETS",
