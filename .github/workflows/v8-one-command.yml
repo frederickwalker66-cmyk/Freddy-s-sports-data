@@ -1069,6 +1069,17 @@ jobs:
               echo "## Probabilities and Sharp Edge — N/A (run incomplete, HOLD)" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
+      - name: Display NBA player-prop evidence gaps without provider calls
+        if: always()
+        shell: bash
+        run: |
+          report="v8_results/one_command/NBA_PROP_CAPTURE_READINESS.md"
+          if test -f "$report"; then
+            cat "$report"
+            if test -n "${GITHUB_STEP_SUMMARY:-}"; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
       - name: Downloadable historical data + status
         if: always()
         uses: actions/upload-artifact@v4
