@@ -9,6 +9,8 @@ on:
     paths:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
+      - 'challenger_prospective_artifact_layout.py'
+      - 'tests/test_challenger_prospective_artifact_layout.py'
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
@@ -58,6 +60,8 @@ on:
     paths:
       - 'challenger_prospective_outcome_validation.py'
       - 'challenger_prospective_receipts.py'
+      - 'challenger_prospective_artifact_layout.py'
+      - 'tests/test_challenger_prospective_artifact_layout.py'
       - 'challenger_multisport_evidence_bridge.py'
       - 'challenger_multisport_original_bytes_lineage.py'
       - 'tests/test_challenger_multisport_original_bytes_lineage.py'
@@ -140,8 +144,12 @@ jobs:
             if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
                  --name "challenger-prospective-evidence-$rid" \
                  --dir "snapshots/$rid"; then
-              if [[ -f "snapshots/$rid/prospective_event_evidence.jsonl" && \
-                    -f "snapshots/$rid/historical_published_results.jsonl" ]]; then
+              # The source uploader archives several paths, preserving
+              # prospective_pregame/ inside the ZIP. Normalize the ORIGINAL
+              # bytes to snapshots/<run_id>/ for downstream receipt checks;
+              # never fabricate missing files or silently merge layouts.
+              if python challenger_prospective_artifact_layout.py \
+                   --directory "snapshots/$rid" --run-id "$rid"; then
                 valid+=("$rid")
                 if [[ ! -f "snapshots/$rid/research_shadow_forecasts.jsonl" ]]; then
                   ((without_forecasts+=1))
