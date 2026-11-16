@@ -48,9 +48,11 @@ on:
       - 'challenger_nba_prospective_shadow_ledger.py'
       - 'tests/test_challenger_nba_prospective_shadow_ledger.py'
       - 'challenger_native_pregame_capture.py'
+      - 'v8_native_capture_readiness.py'
       - 'challenger_multisport_native_capture.py'
       - 'tests/test_challenger_multisport_native_capture.py'
       - 'tests/test_challenger_native_pregame_capture.py'
+      - 'tests/test_v8_native_capture_readiness.py'
       - 'tests/test_challenger_research_shadow_baseline.py'
       - 'tests/test_challenger_prospective_pregame.py'
       - 'tests/test_historical_source_receipt_timing.py'
@@ -61,7 +63,9 @@ on:
       - 'challenger_multisport_native_capture.py'
       - 'tests/test_challenger_multisport_native_capture.py'
       - 'challenger_native_pregame_capture.py'
+      - 'v8_native_capture_readiness.py'
       - 'tests/test_challenger_native_pregame_capture.py'
+      - 'tests/test_v8_native_capture_readiness.py'
       - 'challenger_prospective_pregame.py'
       - 'historical_outcomes.py'
       - 'challenger_all_sports_feature_lineage.py'
@@ -588,6 +592,38 @@ jobs:
             assert row['bet_ready'] is False
             assert row['champion_001_modified'] is False
           print('Multi-sport native research (uncertified) selections:', r['market_selections_captured_uncertified'])
+          PY
+      - name: Audit native model readiness and expose blockers in GitHub summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_v8_native_capture_readiness.py' -v
+          python v8_native_capture_readiness.py \
+            --root prospective_pregame \
+            --output prospective_pregame/native_capture_readiness.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads(Path('prospective_pregame/native_capture_readiness.json').read_text())
+          assert report['champion_001_modified'] is False
+          assert report['certified_champion_001_predictions'] == 0
+          assert report['certified_challenger_001_predictions'] == 0
+          assert report['certified_positive_ev_bets'] == report['automated_bets_placed'] == 0
+          lines=[
+            '### V8 native model readiness (research only)',
+            f'- **Result:** {report["status"]}',
+            f'- **Missing/invalid model leagues:** {", ".join(report["missing_or_invalid_model_leagues"]) or "none detected"}',
+            f'- **NBA native feature candidate rows:** {report["nba_native_feature_candidates_seen"]}',
+            f'- **Other sports native feature candidate rows:** {report["multisport_native_feature_candidates_seen"]}',
+            f'- **NBA genuine native forecast receipts:** {report["actual_native_nba_forecasts"]}',
+            f'- **Other sports genuine native forecast selections:** {report["actual_native_multisport_selections"]}',
+            '- **Independently certified probabilities / EV / bets:** 0',
+            '- **Champion-001:** frozen and unchanged',
+            '- A green workflow check means execution only; it is not a calibrated betting model.',
+            f'- **Next evidence dependency:** {report["next_action"]}',
+          ]
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf8') as f:
+            f.write('\n'.join(lines)+'\n')
           PY
       - name: Verify prospective timing and no model or betting promotion
         shell: bash
