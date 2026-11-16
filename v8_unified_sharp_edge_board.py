@@ -250,7 +250,7 @@ def build(bundle):
         "command":bundle.get("user_command"),
         "checked_at_utc":now.isoformat(), "requested_leagues":scope,
         "displayed_rows":len(rows), "rows":rows,
-        "category_counts_by_league":{lg:dict(by_league[lg]) for lg in scope},
+        "category_counts_by_league":{lg:dict(byleague[lg]) for lg in scope},
         "independently_verified_champion_probability_rows":0,
         "certified_positive_ev_bets":0,"champion_001_modified":False,
         "qualified_sharp_handle_rows":0, "verified_entry_close_clv_rows":0,
