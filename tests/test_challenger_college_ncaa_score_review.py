@@ -54,6 +54,21 @@ def raw(state="final", home="Duke", away="North Carolina", hscore="77", ascore="
 
 
 class CollegeNCAASourceTests(unittest.TestCase):
+    def test_actual_future_college_game_waits_for_final(self):
+        p=packet(final=False,start="2026-11-06T22:00:00Z")
+        p["snapshot_completed_at_utc"]="2026-11-05T10:00:00Z"
+        from challenger_college_ncaa_score_review import validate_packet
+        start, published=validate_packet(p,NOW)
+        self.assertIsNone(published)
+        self.assertGreater(start,NOW)
+        self.assertEqual(plan([p],NOW),{})
+
+    def test_future_college_claimed_final_is_rejected(self):
+        p=packet(start="2026-11-06T22:00:00Z")
+        from challenger_college_ncaa_score_review import validate_packet
+        with self.assertRaisesRegex(ValueError,"future_college_event"):
+            validate_packet(p,NOW)
+
     def test_basketball_agreement_separate_source_not_training(self):
         result, report = corroborate(
             [packet()], {"ncaab:2026-11-04": raw()}, NOW)

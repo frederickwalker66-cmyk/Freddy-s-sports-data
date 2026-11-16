@@ -54,6 +54,21 @@ class NFLSecondaryScoreTests(unittest.TestCase):
         self.assertEqual(report["certified_positive_ev_bets"], 0)
         self.assertFalse(report["champion_001_modified"])
 
+    def test_actual_future_nfl_pregame_without_final_is_pending(self):
+        p=packet(event_id="4019999", published=False)
+        p["event_start_utc"]="2026-11-06T22:00:00Z"
+        p["snapshot_completed_at_utc"]="2026-11-05T10:00:00Z"
+        rows, report=review([p], None, NOW)
+        self.assertEqual(rows[0]["crosscheck_status"],"awaiting_espn_published_final")
+        self.assertEqual(report["certified_positive_ev_bets"],0)
+        self.assertFalse(report["champion_001_modified"])
+
+    def test_false_future_nfl_final_remains_blocked(self):
+        p=packet(event_id="4019998")
+        p["event_start_utc"]="2026-11-06T22:00:00Z"
+        with self.assertRaisesRegex(ValueError,"future_nfl_event"):
+            review([p], None, NOW)
+
     def test_future_unplayed_games_not_scored(self):
         rows = parse_nflverse(csv_bytes())
         self.assertEqual(len(rows), 1)

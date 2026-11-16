@@ -402,9 +402,13 @@ def validate_packet(row, observed):
     if not isinstance(eid, str) or not eid.isdecimal():
         raise ValueError("invalid_espn_college_event_id")
     start, captured = instant(row.get("event_start_utc")), instant(row.get("snapshot_completed_at_utc"))
-    if not captured < start < observed:
+    if not captured < start:
         raise ValueError("college_pregame_capture_time_invalid")
     published = row.get("published_final_only")
+    # Live/outstanding schedule research can contain upcoming games.
+    # Permit those only with no claimed retrospective final.
+    if start >= observed and published is not None:
+        raise ValueError("future_college_event_cannot_have_published_final")
     if published is not None:
         if not isinstance(published, dict):
             raise ValueError("invalid_espn_college_final")
