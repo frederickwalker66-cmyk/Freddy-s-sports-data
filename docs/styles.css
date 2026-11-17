@@ -166,3 +166,14 @@
 .terminal-movement small{display:block;color:#9fc5b3;margin-top:4px;font-size:9px}
 .terminal-data-sub{font-size:9px;color:#87aaba}
 .terminal-team-cell small{line-height:1.5;margin-top:3px}
+
+
+/* Market feeds: exact-priced player rows cannot use old/archived research. */
+.terminal-props-stack{display:grid;gap:12px;padding:14px}
+.terminal-prop-league{min-width:0}
+.terminal-prop-league .terminal-pill-list{padding:10px 12px}
+.terminal-provider-reference{border-top:1px dashed #3d5b63;padding-top:7px;margin-top:10px}
+.terminal-provider-reference>b{font-size:9px;color:#c8f8d9;line-height:1.4;display:block;margin-bottom:5px}
+.terminal-provider-reference>small{color:#8db8a9;font-size:9px;display:block;margin-top:5px}
+.terminal-prop-league .terminal-table{min-width:640px}
+@media(max-width:570px){.terminal-props-stack{padding:8px;gap:8px}}

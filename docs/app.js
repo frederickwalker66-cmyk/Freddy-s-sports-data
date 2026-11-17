@@ -338,7 +338,23 @@ function terminalGameTable(data) {
     }
     const changeHtml=changeParts.length?'<div class="terminal-movement"><strong>OBSERVED CHANGE</strong> '
         +escapeHtml(changeParts.join(' · '))+'<small>ESPN retrieved snapshots · not sharp flow or CLV</small></div>':"";
-    const marketCell=quote?market+ml+spread+total+changeHtml:market;
+    const sourceRows=(data.fresh_provider_markets?.leagues?.[sport]?.rows||[])
+      .filter(x=>x.public_game_id===String(g.id)&&x.category==="game"
+        &&terminalAge(x.quote_observed_at_utc)!==null&&terminalAge(x.quote_observed_at_utc)<=60);
+    const filteredMarket=sourceRows.filter(x=>x.is_alternate_line!==true).slice(0,8);
+    const providerLines=filteredMarket.map(x=>{
+      const label=x.market==="moneyline"?"ML":x.market==="point_spread"?"SPREAD":"TOTAL";
+      const line=typeof x.line==="number"?" "+String(x.line):"";
+      return '<div class="terminal-price"><b>'+label+'</b> '
+        +escapeHtml(x.side.toUpperCase()+line+' '+terminalAmerican(x.american_odds))
+        +'</div>';
+    }).join("");
+    const marketCell=(quote?market+ml+spread+total+changeHtml:market)
+      +(providerLines?'<div class="terminal-provider-reference">'
+        +'<b>Recent SharpAPI · DraftKings-labelled (not checkout)</b>'
+        +providerLines
+        +'<small>Provider quote age '+escapeHtml(terminalAgeText(filteredMarket[0].quote_observed_at_utc))
+        +'</small></div>':"");
     const recordString=(g.away_record||g.home_record)
       ?'<small>Season record: '+escapeHtml(g.away_abbr||"Away")+' '+escapeHtml(g.away_record||"N/A")
        +' · '+escapeHtml(g.home_abbr||"Home")+' '+escapeHtml(g.home_record||"N/A")+'</small>'
@@ -385,34 +401,59 @@ function terminalGameTable(data) {
     'Certified Sharp Edge / EV, authenticated DraftKings checkout and professional sharp-money percentages remain N/A.</div>');
 }
 
-function terminalProps(data,combos=false) {
-  const all=terminalState.league==="all";
-  const selected=all?leagueInfo.map(x=>x[0]):[terminalState.league];
-  const name=combos?"Combination markets":"Player props";
-  const cards=selected.map(lg=>{
-    const conf=terminalGroups[lg]||{props:[],combos:[]};
-    const cats=combos?conf.combos:conf.props;
-    const meta=data.leagues?.[lg]||{};
-    const market=data.market_by_league?.[lg]||{};
-    const title=leagueInfo.find(x=>x[0]===lg)?.[2]||lg.toUpperCase();
-    return '<article class="terminal-sport-card"><div class="terminal-card-title"><strong>'
-      +escapeHtml(title)+'</strong><span class="terminal-gate-chip">HOLD</span></div>'
-      +'<div class="terminal-card-metrics"><div><span>Exact paired props</span><b>'
-      +escapeHtml(combos?"N/A":displayNum(market.paired_prop_markets))+'</b></div>'
-      +'<div><span>Historical player L5 / L10</span><b>'
-      +escapeHtml(displayNum(meta.player_last5))+' / '+escapeHtml(displayNum(meta.player_last10))+'</b></div></div>'
-      +'<div class="terminal-pill-list">'+cats.map(x=>'<span>'+escapeHtml(x)+'</span>').join("")+'</div>'
-      +'<p>Current player, market side and threshold: <b>N/A</b> · matched available price: <b>N/A</b> · certified EV: <b>N/A</b>.</p></article>';
-  }).join("");
-  return terminalBlock(
-    name+" · "+(all?"ALL EIGHT LEAGUES":terminalLeague()[2]),
-    combos?"Combined propositions require verified joint prices and dependence":"Player overs, unders and alternatives require exact market receipts",
-    '<div class="terminal-sport-grid">'+cards+'</div>'
-    +'<div class="terminal-info">These are supported research categories and genuine historical L5/L10 coverage counts, '
-    +'NOT listed player wagers or available sportsbook lines. '
-    +'Absent player-specific markets are intentionally shown as N/A rather than manufactured.</div>');
-}
 
+function terminalProps(data,combos=false) {
+  const isAll=terminalState.league==="all";
+  const selected=isAll?leagueInfo.map(i=>i[0]):[terminalState.league];
+  const category=combos?"combo":"prop";
+  const title=combos?"Player combos & combined markets":"Player props · overs & unders";
+  const search=($("terminal-search").value||"").trim().toLowerCase();
+  const provider=data.fresh_provider_markets||{};
+  const cards=selected.map(lg=>{
+    const league=provider.leagues?.[lg]||{};
+    const conf=terminalGroups[lg]||{props:[],combos:[]};
+    const examples=combos?conf.combos:conf.props;
+    const sourceRows=(Array.isArray(league.rows)?league.rows:[]).filter(x=>x.category===category);
+    const rows=sourceRows.filter(x=>(
+      [lg,x.player,x.home,x.away,x.market,x.market_label].join(" ").toLowerCase().includes(search)));
+    const label=leagueInfo.find(i=>i[0]===lg)?.[2]||lg.toUpperCase();
+    const bodyRows=rows.slice(0,35).map(x=>{
+      const line=typeof x.line==="number"?String(x.line):"N/A";
+      return terminalRow([
+        '<span class="terminal-team-cell"><strong>'+escapeHtml(x.player||"N/A")+'</strong><small>'
+          +escapeHtml(x.away)+' @ '+escapeHtml(x.home)+'</small></span>',
+        '<strong>'+escapeHtml(x.market_label||x.market)+'</strong>'
+          +(x.is_alternate_line?'<small class="terminal-muted">Alternate threshold</small>':""),
+        '<strong>'+escapeHtml(x.side.toUpperCase())+' '+escapeHtml(line)+'</strong>',
+        '<strong>'+escapeHtml(terminalAmerican(x.american_odds))+'</strong>',
+        '<small class="terminal-muted">'+escapeHtml(terminalAgeText(x.quote_observed_at_utc))
+         +' old · aggregator-labelled</small>',
+        '<span class="terminal-gate-chip">HOLD</span>'
+      ]);
+    });
+    const explain=rows.length>35?
+      '<div class="terminal-info">Showing first 35 of '+rows.length+' source-stamped quotes. Select this sport or search a player to narrow results.</div>':"";
+    const sourceState=league.status==="RECENT_AGGREGATOR_QUOTES_NOT_CHECKOUT"
+      ? rows.length+' market sides captured'
+      : 'NO CURRENT PROVIDER QUOTES';
+    const marketTable=rows.length
+      ?terminalTable(["Player / Game","Market","Over / Under","Odds","Quote age","Decision"],bodyRows)
+      :'<div class="terminal-no-source"><strong>Current '+escapeHtml(category)+' prices: N/A</strong>'
+        +'<p>No recent, matchup-checked sportsbook-aggregator quotes for '+escapeHtml(label)+'. '
+        +'The ESPN scoreboard does not publish player props or PRA prices. Historical quotes are hidden.</p></div>';
+    return '<section class="terminal-block terminal-prop-league"><div class="terminal-block-head">'
+      +'<h3>'+escapeHtml(label)+'</h3><small>'+escapeHtml(sourceState)+'</small></div>'
+      +marketTable+explain
+      +'<div class="terminal-pill-list">'+examples.map(t=>'<span>'+escapeHtml(t)+'</span>').join("")+'</div></section>';
+  });
+  return terminalBlock(title+" · "+(isAll?"ALL EIGHT LEAGUES":terminalLeague()[2]),
+    "Only real source-stamped player prices when accessible · never yesterday's odds",
+    '<div class="terminal-props-stack">'+cards.join("")+'</div>'
+      +'<div class="terminal-info">Raw market rows are not calibrated picks, player availability verification, '
+      +'or settled sportsbook prices. They remain HOLD even when recently observed. '
+      +'<a target="_blank" rel="noopener noreferrer" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/collect-sharpapi.yml">'
+      +'View provider collection status ↗</a> · More leagues and extra provider calls may use paid quota.</div>');
+}
 
 function terminalAudit(data) {
   const m=data.market_by_league||{};
@@ -436,6 +477,11 @@ function terminalAudit(data) {
   const table=terminalTable(
     ["League","Source quote archive","Quote age","Current game / prop pairs","Source quality","True CLV / sharp flow","Betting"],
     rows);
+  const providerNow=data?.fresh_provider_markets?.leagues||{};
+  const extra='<div class="terminal-info"><b>Fresh provider rows by league:</b> '+selected.map(k=>{
+    const o=providerNow[k]||{};
+    return escapeHtml((leagueInfo.find(x=>x[0]===k)?.[2]||k)+': '+String((o.game||0)+(o.prop||0)+(o.combo||0)));
+  }).join(' · ')+' — all aggregator-only / HOLD. </div>';
   const details= '<div class="terminal-audit-grid">'
     +'<div><span>FROZEN CHAMPION-001</span><strong>Original executable not independently authenticated</strong></div>'
     +'<div><span>BET-READY PROBABILITY</span><strong class="hold">N/A · independent calibration missing</strong></div>'
@@ -444,7 +490,7 @@ function terminalAudit(data) {
   return terminalBlock(
     "Sharp Edge audit · "+(all?"ALL EIGHT LEAGUES":terminalLeague()[2]),
     "Each sport has its OWN timestamp and pricing gate · no NBA quote substitution",
-    table+details+'<div class="terminal-info">All league betting decisions: <strong>HOLD / PASS</strong>. '
+    table+extra+details+'<div class="terminal-info">All league betting decisions: <strong>HOLD / PASS</strong>. '
     +'Historical archive counts are not current market coverage. '
     +'Verified +EV selections: <strong>0</strong>. Shadow stake: <strong>$0</strong>. '
     +'<a href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions" target="_blank" rel="noopener noreferrer">Source workflow history ↗</a></div>');
@@ -545,7 +591,11 @@ function renderTerminal() {
   const lineAge=observedAges.length?Math.max(...observedAges):null;
   $("t-games").textContent=displayNum(tracked);
   $("t-market-pairs").textContent=displayNum(refCount);
-  $("t-prop-pairs").textContent="N/A";
+  const currentProps=selected.reduce((sum,k)=>{
+    const row=d.fresh_provider_markets?.leagues?.[k]||{};
+    return sum+(row.prop||0)+(row.combo||0);
+  },0);
+  $("t-prop-pairs").textContent=currentProps?String(currentProps):"N/A";
   $("t-certified").textContent="0";
   $("t-research-age").textContent=modelAge===null?"N/A":modelAge<60?modelAge+"m":(modelAge/60).toFixed(1)+"h";
   $("t-odds-age").textContent=lineAge===null?"N/A":lineAge<60?lineAge+"m":(lineAge/60).toFixed(1)+"h";
@@ -559,7 +609,7 @@ function renderTerminal() {
     b.setAttribute("aria-selected",String(a));b.tabIndex=a?0:-1;
   });
   $("terminal-search").disabled=false;
-  $("terminal-search").placeholder=lg==="all"?"Search any team or league…":"Search "+terminalLeague()[2]+" teams…";
+  $("terminal-search").placeholder=lg==="all"?"Search teams, players, markets…":"Search "+terminalLeague()[2]+" teams or players…";
   const parts=[],tab=terminalState.tab;
   if(tab==="all"||tab==="games")parts.push(terminalGameTable(d));
   if(tab==="all"||tab==="data")parts.push(terminalData(d));

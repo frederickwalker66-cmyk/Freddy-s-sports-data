@@ -21,6 +21,8 @@ on:
       - 'docs/styles.css'
       - '.github/workflows/publish-dashboard.yml'
       - 'scripts/collect_public_scoreboards.py'
+      - 'scripts/build_existing_provider_market_board.py'
+      - 'tests/test_existing_provider_market_board.py'
       - 'tests/test_public_hourly_scoreboards.py'
 
 permissions:
@@ -177,6 +179,53 @@ jobs:
           assert len(v['leagues'])==8
           print("Eight-sport ESPN public observation completed; absent provider fields remain N/A.")
           PY
+      - name: Read existing SharpAPI captures only (NO new paid API calls)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dashboard_inputs/provider
+          echo "BOOK_RUN=0" >> "$GITHUB_ENV"
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow collect-sharpapi.yml --branch main --status success \
+              --limit 12 --json databaseId --jq '.[].databaseId' || true); do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            mkdir -p dashboard_inputs/provider/archive
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "sharpapi-pregame-$rid" \
+                 --dir dashboard_inputs/provider/archive >/dev/null 2>&1; then
+              candidate="$(find dashboard_inputs/provider/archive/snapshots -maxdepth 1 \
+                 -name 'sharpapi_dk_*.jsonl' -type f 2>/dev/null | sort | tail -n 1)"
+              if [[ -n "$candidate" && -s "$candidate" ]]; then
+                cp "$candidate" dashboard_inputs/provider/captured_quotes.jsonl
+                echo "BOOK_RUN=$rid" >> "$GITHUB_ENV"
+                echo "Existing provider artifact from $rid inspected; no provider API usage."
+                break
+              fi
+            fi
+            rm -rf dashboard_inputs/provider/archive
+          done
+      - name: Prepare current exact-game and player market reference rows
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_existing_provider_market_board.py' -v
+          python scripts/build_existing_provider_market_board.py \
+            --quotes dashboard_inputs/provider/captured_quotes.jsonl \
+            --public dashboard_inputs/public_scoreboard.json \
+            --provider-run "$BOOK_RUN" \
+            --out dashboard_inputs/provider/current_board.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('dashboard_inputs/provider/current_board.json').read_text())
+          assert r['certified_positive_ev']==0 and r['checkout_prices_verified']==0
+          assert set(r['leagues'])=={'nba','nfl','nhl','mlb','ncaaf','ncaab','mls','uefa_champions_league'}
+          assert all(all(x['bet_ready'] is False and x['checkout_verified'] is False
+                         for x in v['rows']) for v in r['leagues'].values())
+          print("Verified imported rows:",sum(len(v['rows']) for v in r['leagues'].values()))
+          PY
       - name: Generate bounded, sanitized public read-only snapshot
         shell: bash
         run: |
@@ -187,6 +236,7 @@ jobs:
             --all-sports-report dashboard_inputs/all/FULL_STACK_ALL_IN_ONE_REPORT.json \
             --schedule-report dashboard_inputs/schedule/espn_schedule_capture.json \
             --public-report dashboard_inputs/public_scoreboard.json \
+            --provider-market-report dashboard_inputs/provider/current_board.json \
             --previous-report docs/data/dashboard.json \
             --live-run "$LIVE_RUN" --model-run "$MODEL_RUN" --all-run "$ALL_RUN" --schedule-run "$SCHEDULE_RUN" \
             --out docs/data/dashboard.json
@@ -203,6 +253,9 @@ jobs:
           assert set(r['slates'])=={'nba','nfl','nhl','mlb','ncaaf','ncaab','mls','uefa_champions_league'}
           assert all(v['game_count'] is None or v['game_count']<=100 for v in r['slates'].values())
           assert all(v['certified_positive_ev']==0 and v['verified_checkout_prices']==0 for v in r['market_by_league'].values())
+          assert len(r['fresh_provider_markets']['leagues'])==8
+          assert r['fresh_provider_markets']['certified_positive_ev']==0
+          assert all(x['bet_ready'] is False and x['bookmaker_checkout_verified'] is False for lg in r['fresh_provider_markets']['leagues'].values() for x in lg['rows'])
           assert len(r['public_hourly_board'])==8
           assert all(g['market_reference'] is None or g['market_reference']['direct_checkout_verified'] is False for sport in r['public_hourly_board'].values() for g in sport['games'])
           print("Dashboard public snapshot verified: "+str(p))

@@ -426,5 +426,59 @@ class AllSportFixtureTests(unittest.TestCase):
 
 
 
+    def test_new_provider_board_matches_public_pregame_game_and_fails_closed(self):
+        src={
+            "schema":"freddys-espn-public-hourly-v1",
+            "date_et":"2026-11-14","champion_001_modified":False,
+            "certified_positive_ev":0,"provider_checkout_ever_verified":False,
+            "leagues":{"nba":{
+              "status":"ESPN_SCOREBOARD_OBSERVED",
+              "observed_at_utc":NOW.isoformat(),
+              "games":[{
+                "id":"404445555","home":"Toronto Raptors","away":"New York Knicks",
+                "start_et":"2026-11-14T20:00:00-05:00","status":"pre",
+                "market_reference":None
+              }]
+            }}
+        }
+        pb={
+            "schema":"freddys-existing-book-refs-v1","date_et":"2026-11-14",
+            "champion_001_modified":False,"certified_positive_ev":0,
+            "checkout_prices_verified":0,"provider_run":123,
+            "leagues":{"nba":{"rows":[{
+                "league":"nba","public_game_id":"404445555",
+                "home":"Toronto Raptors","away":"New York Knicks",
+                "event_start_et":"2026-11-14T20:00:00-05:00",
+                "player":"Example Player","market":"player_points",
+                "market_label":"points","category":"prop",
+                "side":"over","line":24.5,"american_odds":-112,
+                "provider_quote_utc":NOW.isoformat(),
+                "source_received_utc":NOW.isoformat(),
+                "provider":"SharpAPI / DraftKings-labelled",
+                "is_alternate_line":False,
+                "checkout_verified":False,"bet_ready":False,
+                "model_probability":None,"expected_value":None,
+            }]}}
+        }
+        out=build(public=src,provider_board=pb,at=NOW)
+        rows=out["fresh_provider_markets"]["leagues"]["nba"]["rows"]
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["player"],"Example Player")
+        self.assertFalse(rows[0]["bookmaker_checkout_verified"])
+        self.assertIsNone(rows[0]["native_model_probability"])
+        self.assertEqual(out["market"]["certified_positive_ev"],0)
+        pb["leagues"]["nba"]["rows"][0]["provider_quote_utc"]=(NOW-timedelta(hours=3)).isoformat()
+        stale=build(public=src,provider_board=pb,at=NOW)
+        self.assertEqual(stale["fresh_provider_markets"]["leagues"]["nba"]["rows"],[])
+
+    def test_no_provider_data_never_produces_fabricated_prop_rows(self):
+        out=build(at=NOW,public=None,provider_board=None)
+        self.assertEqual(len(out["fresh_provider_markets"]["leagues"]),8)
+        self.assertTrue(all(v["status"]=="NO_RECENT_PROVIDER_MARKETS"
+                            for v in out["fresh_provider_markets"]["leagues"].values()))
+        self.assertEqual(sum(len(v["rows"]) for v in out["fresh_provider_markets"]["leagues"].values()),0)
+
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -504,7 +504,109 @@ def build_hourly_public_board(public, *, at, date_et):
     return states
 
 
-def build(*, live=None, model=None, all_sports=None, schedule=None, public=None, previous=None, live_run=None, schedule_run=None,
+
+
+def sanitize_provider_market_board(provider, public_board, *, now, day):
+    """Exact ESP​N identity and price-time gating on previously captured odds.
+
+    All rows remain research-only; booking/execution and native model EV N/A.
+    """
+    leagues = {lg: {"status": "NO_RECENT_PROVIDER_MARKETS", "rows": [],
+                    "game": 0, "prop": 0, "combo": 0} for lg in LEAGUES}
+    output = {
+        "schema": "freddys-fresh-market-display-v1",
+        "leagues": leagues, "provider_run": None,
+        "source": "Existing SharpAPI artifact; DraftKings-labelled aggregator only",
+        "checkout_verified": False, "certified_positive_ev": 0,
+    }
+    if (not isinstance(provider, dict)
+            or provider.get("schema") != "freddys-existing-book-refs-v1"
+            or provider.get("date_et") != day
+            or provider.get("champion_001_modified") is not False
+            or provider.get("certified_positive_ev") != 0
+            or provider.get("checkout_prices_verified") != 0
+            or not isinstance(provider.get("leagues"), dict)):
+        return output
+    run_id = provider.get("provider_run")
+    output["provider_run"] = (
+        int(run_id) if type(run_id) is int and 0 < run_id < 2**63 else None)
+    for lg in LEAGUES:
+        parent = provider["leagues"].get(lg) or {}
+        raw_rows = parent.get("rows", [])
+        if not isinstance(raw_rows, list) or len(raw_rows) > 450:
+            continue
+        espn = public_board.get(lg) or {}
+        if espn.get("status") != "ESPN_PUBLIC_OBSERVED":
+            continue
+        fixtures = {g["id"]: g for g in espn.get("games", [])
+                    if isinstance(g, dict) and g.get("status") == "pre"}
+        seen = set()
+        for raw in raw_rows:
+            if not isinstance(raw, dict) or raw.get("league") != lg:
+                continue
+            if (raw.get("checkout_verified") is not False
+                    or raw.get("bet_ready") is not False
+                    or raw.get("model_probability") is not None
+                    or raw.get("expected_value") is not None
+                    or raw.get("provider") != "SharpAPI / DraftKings-labelled"):
+                continue
+            cat = raw.get("category")
+            if cat not in ("game", "prop", "combo") or raw.get("side") not in (
+                    "home", "away", "over", "under"):
+                continue
+            game_id = clean(raw.get("public_game_id"), 30)
+            game = fixtures.get(game_id)
+            if not game or raw.get("home") != game.get("home") or \
+                    raw.get("away") != game.get("away") or \
+                    raw.get("event_start_et") != game.get("start_et"):
+                continue
+            quoted = timestamp(raw.get("provider_quote_utc"))
+            received = timestamp(raw.get("source_received_utc"))
+            start = timestamp(game.get("start_et"))
+            if (not quoted or not received or not start
+                    or not (0 <= (now-quoted).total_seconds() <= 3600)
+                    or not (0 <= (now-received).total_seconds() <= 3600)
+                    or not (0 <= (received-quoted).total_seconds() <= 900)
+                    or start <= now or quoted >= start or received >= start):
+                continue
+            odds = raw.get("american_odds")
+            if type(odds) is not int or not 100 <= abs(odds) <= 99999:
+                continue
+            player = clean(raw.get("player"), 90) or None
+            line = number(raw.get("line"), -1000, 10000)
+            if cat in ("prop", "combo") and (
+                    not player or line is None or raw.get("side") not in (
+                        "over", "under")):
+                continue
+            if cat == "game" and player is not None:
+                continue
+            market = clean(raw.get("market"), 90)
+            label = clean(raw.get("market_label"), 90)
+            if not market or not label:
+                continue
+            unique=(game_id,market,player,raw.get("side"),line,odds)
+            if unique in seen:continue
+            seen.add(unique)
+            leagues[lg]["rows"].append({
+                "public_game_id": game_id, "home": game["home"], "away": game["away"],
+                "event_start_et": game["start_et"],
+                "player": player, "market": market, "market_label": label,
+                "category": cat, "side": raw.get("side"), "line": line,
+                "american_odds": odds,
+                "quote_observed_at_utc": quoted.isoformat(),
+                "provider": "SharpAPI / DraftKings-labelled",
+                "is_alternate_line": raw.get("is_alternate_line") is True,
+                "bookmaker_checkout_verified": False,
+                "native_model_probability": None, "expected_value": None,
+                "bet_ready": False,
+            })
+            leagues[lg][cat] += 1
+        if leagues[lg]["rows"]:
+            leagues[lg]["status"] = "RECENT_AGGREGATOR_QUOTES_NOT_CHECKOUT"
+    return output
+
+
+def build(*, live=None, model=None, all_sports=None, schedule=None, public=None, previous=None, provider_board=None, live_run=None, schedule_run=None,
           model_run=None, all_run=None, at=None):
     now = at or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -672,6 +774,8 @@ def build(*, live=None, model=None, all_sports=None, schedule=None, public=None,
                 "certified_positive_ev", "verified_checkout_prices", "verified_clv")}}
     public_board = merge_public_reference_history(
         build_hourly_public_board(public, at=now, date_et=date_et), previous, date_et)
+    provider_market = sanitize_provider_market_board(
+        provider_board, public_board, now=now, day=date_et)
     # Publish only data from vetted reports; never raw API payloads or secrets.
     return {
         "schema": "freddys-picks-ai-public-v1",
@@ -684,6 +788,7 @@ def build(*, live=None, model=None, all_sports=None, schedule=None, public=None,
         "games": games, "leagues": sports,
         "slates": slates, "market_by_league": per_league_market,
         "public_hourly_board": public_board,
+        "fresh_provider_markets": provider_market,
         "market": metrics, "model": health,
         "sources": {
             "github": GITHUB,
@@ -703,6 +808,7 @@ def main():
     parser.add_argument("--all-sports-report")
     parser.add_argument("--schedule-report")
     parser.add_argument("--public-report")
+    parser.add_argument("--provider-market-report")
     parser.add_argument("--previous-report")
     parser.add_argument("--schedule-run", type=int)
     parser.add_argument("--live-run", type=int)
@@ -718,6 +824,7 @@ def main():
         all_sports=read_report(args.all_sports_report),
         schedule=read_report(args.schedule_report),
         public=read_report(args.public_report),
+        provider_board=read_report(args.provider_market_report),
         previous=read_report(args.previous_report),
         live_run=args.live_run, schedule_run=args.schedule_run,
         model_run=args.model_run,
