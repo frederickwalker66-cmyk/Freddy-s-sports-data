@@ -87,10 +87,10 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-17T12:15:55.977431+00:00",
+  "generated_at_utc": "2026-11-17T14:25:53.138438+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -101,7 +101,7 @@
       "team_last5": 30
     },
     "mls": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -112,8 +112,8 @@
       "team_last5": 30
     },
     "nba": {
-      "age_minutes": 98.6,
-      "as_of_utc": "2026-11-17T10:37:22.315920+00:00",
+      "age_minutes": 25.7,
+      "as_of_utc": "2026-11-17T14:00:11.199640+00:00",
       "forecasts": 5,
       "player_last10": 264,
       "player_last5": 387,
@@ -123,7 +123,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -134,7 +134,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -145,7 +145,7 @@
       "team_last5": 138
     },
     "nfl": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 0,
@@ -156,7 +156,7 @@
       "team_last5": 32
     },
     "nhl": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 617,
@@ -167,7 +167,7 @@
       "team_last5": 32
     },
     "uefa_champions_league": {
-      "age_minutes": 892.2,
+      "age_minutes": 1022.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -178,7 +178,7 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 0.4,
+  "live_age_minutes_at_publication": 130.3,
   "live_observed_at_utc": "2026-11-17T12:15:34.005641+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
@@ -186,9 +186,9 @@
     "archived_quotes": 4820,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 98.6,
-    "odds_age_minutes_at_model_run": 640.5,
-    "odds_age_minutes_at_publication": 739.1,
+    "model_age_minutes_at_publication": 25.7,
+    "odds_age_minutes_at_model_run": 843.4,
+    "odds_age_minutes_at_publication": 869.1,
     "odds_receipt_utc": "2026-11-16T23:56:49.877214+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
