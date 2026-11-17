@@ -202,7 +202,7 @@ def build_sport_slates(schedule, *, at, date_et, models=(), live_games=()):
             and isinstance(item.get("date_et"), str)
             and isinstance(item.get("original_source_sha256"), str)
             and re.fullmatch(r"[0-9a-f]{64}", item["original_source_sha256"])
-            and date_et < item["date_et"] <= (now.astimezone(NY).date() + timedelta(days=7)).isoformat()
+            and date_et < item["date_et"] <= (at.astimezone(NY).date() + timedelta(days=7)).isoformat()
         }
         next_games = []
         seen_future = set()
@@ -222,8 +222,8 @@ def build_sport_slates(schedule, *, at, date_et, models=(), live_games=()):
             if (not gid.isdigit() or gid in seen_future or not home or not away
                     or not start or not observed
                     or start.astimezone(NY).date().isoformat() != day
-                    or start <= now
-                    or not is_fresh_source(source_age_minutes(observed.isoformat(), now), 180)):
+                    or start <= at
+                    or not is_fresh_source(source_age_minutes(observed.isoformat(), at), 180)):
                 continue
             seen_future.add(gid)
             next_games.append({
