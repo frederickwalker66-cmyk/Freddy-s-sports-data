@@ -19,6 +19,9 @@ on:
       - 'tests/test_v8_probability_edge_dashboard.py'
       - 'tests/test_v8_sharp_player_props.py'
       - 'SHARP_EDGE_RERUN_REQUEST.md'
+      - 'v8_nba_ticket_research.py'
+      - 'tests/test_v8_nba_ticket_research.py'
+      - 'examples/nba_2026_11_17_eight_leg_research.json'
   workflow_run:
     workflows: ['Collect SharpAPI DraftKings pregame odds']
     types: [completed]
@@ -85,6 +88,53 @@ jobs:
             --sharp-archive-dir saved_sharp_archives \
             --calibration-file saved_forward_calibration/CALIBRATION.json \
             --output-dir v8_results/nfl_props_edge
+      - name: Audit exact eight-leg NBA research ticket and same-game correlations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p 'test_v8_nba_ticket_research.py' -v
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from v8_nba_ticket_research import audit_named_ticket
+          root = Path("v8_results/nfl_props_edge")
+          report = json.loads((root / "ONE_COMMAND_REPORT.json").read_text(encoding="utf-8"))
+          if report.get("command") != "run_nfl_props_edge":
+              raise ValueError("unexpected_source_command")
+          ticket = json.loads(Path("examples/nba_2026_11_17_eight_leg_research.json").read_text(encoding="utf-8"))
+          result = audit_named_ticket(ticket, report["sharp_full_game_markets"], report["sharp_player_props"])
+          assert result["leg_count"] == 8
+          assert result["certified_positive_ev_bets"] == 0
+          assert result["wagers_placed"] == 0
+          assert result["champion_001_modified"] is False
+          (root / "NBA_EIGHT_LEG_EXACT_MARKET_AUDIT.json").write_text(
+              json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          md = [
+              "## NBA eight-leg named research ticket — exact-market audit",
+              "**This is a public research ticket, not a placed or approved wager.**",
+              f"**Ticket date:** {result['ticket_date_et']}; **Audit:** {result['checked_at_utc']}",
+              f"**Archived same-line research references:** {result['current_qualified_two_sided_reference_count']}/8 (NOT checkout)",
+              f"**Same-game correlated groups:** {len(result['same_event_groups'])}; never multiply individual leg probabilities.",
+              "| # | Selection | Exact line | Prior quote (NOT current) | Fresh paired archive quote | Status |",
+              "|---|---|---:|---:|---:|---|",
+          ]
+          for leg, row in zip(ticket["legs"], result["legs"]):
+              label = str(leg.get("display_label", "research selection")).replace("|", "/")
+              prev = row["previously_reported_odds_not_current"]
+              current = row["fresh_archived_price_not_executable"]
+              md.append(
+                  f"| {row['leg_number']} | {label} | {row['line'] if row['line'] is not None else '—'} | "
+                  f"{prev if prev is not None else 'N/A'} | {current if current is not None else 'N/A'} | "
+                  f"{row['source_market_status']} / HOLD |")
+          md.append("**Certified Champion-001 probabilities: 0; certified +EV: 0; CLV: N/A; wagers: 0.**")
+          md.append("**Explicit HOLD means missing independent model and executable-book evidence, not a prediction of a loss.**")
+          mdtext = "\n".join(md) + "\n"
+          (root / "NBA_EIGHT_LEG_EXACT_MARKET_AUDIT.md").write_text(mdtext, encoding="utf-8")
+          print(mdtext)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as dest:
+                  dest.write(mdtext)
+          PY
       - name: Show research results and mandatory HOLD decision
         if: always()
         shell: bash
