@@ -1,10 +1,10 @@
 {
   "disclaimer": "Public research observations. No authenticated DraftKings checkout, independently calibrated live model, or certified positive-EV bets.",
   "games": [],
-  "generated_at_utc": "2026-11-17T10:01:50.542783+00:00",
+  "generated_at_utc": "2026-11-17T10:36:01.565471+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -15,7 +15,7 @@
       "team_last5": 30
     },
     "mls": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -26,7 +26,7 @@
       "team_last5": 30
     },
     "nba": {
-      "age_minutes": 103.4,
+      "age_minutes": 137.6,
       "as_of_utc": "2026-11-17T08:18:23.888506+00:00",
       "forecasts": 5,
       "player_last10": 264,
@@ -37,7 +37,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -48,7 +48,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -59,7 +59,7 @@
       "team_last5": 138
     },
     "nfl": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 0,
@@ -70,7 +70,7 @@
       "team_last5": 32
     },
     "nhl": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 617,
@@ -81,7 +81,7 @@
       "team_last5": 32
     },
     "uefa_champions_league": {
-      "age_minutes": 758.2,
+      "age_minutes": 792.3,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -100,9 +100,9 @@
     "archived_quotes": 4820,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 103.4,
+    "model_age_minutes_at_publication": 137.6,
     "odds_age_minutes_at_model_run": 501.6,
-    "odds_age_minutes_at_publication": 605.0,
+    "odds_age_minutes_at_publication": 639.2,
     "odds_receipt_utc": "2026-11-16T23:56:49.877214+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
