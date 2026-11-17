@@ -122,23 +122,32 @@ function updateMarkets(data) {
   // Bars indicate presence of research matching, not percentage market coverage.
   $("odds-receipt").textContent = m.odds_receipt_utc
     ? dateText(m.odds_receipt_utc) : "Unavailable";
-  $("paired-readiness").textContent = g+p>0
-    ? (g+p)+" archived paired groups" : "No verified paired groups";
-  $("market-explanation").textContent =
-    "Observed market groups are archived research references. "+
-    "They are not authenticated checkout odds, professional betting flow, or positive expected value.";
+  const referenceCurrent = m.paired_market_reference_current === true;
+  $("paired-readiness").textContent = !referenceCurrent
+    ? "N/A — current source evidence missing or stale"
+    : (g+p>0 ? (g+p)+" recent research pairs" : "No recent matched markets");
+  const evidence = m.price_evidence_state || "NO_VERIFIED_PRICE_RECEIPT";
+  const reason = evidence === "STALE_OR_MISSING_MODEL_REPORT"
+    ? "The model research snapshot is old or missing."
+    : evidence === "STALE_OR_MISSING_PRICE_RECEIPT"
+      ? "The archived odds receipt is older than two hours or missing."
+      : "Recent aggregator reference only; checkout remains unverified.";
+  $("market-explanation").textContent = reason+
+    " Source state: "+evidence.replaceAll("_"," ")+
+    ". No authenticated sportsbook checkout, independently certified model EV, or sharp-money data.";
 }
 function updateLeagues(data) {
   const leagues = data.leagues || {};
   $("league-grid").innerHTML = leagueInfo.map(([key,icon,title,desc])=>{
     const val = leagues[key] || {};
     const exists = val.status === "SUCCESS_RESEARCH_ONLY";
+    const recent = exists && val.research_freshness === "RECENT_RESEARCH";
     const forecast = number(val.forecasts);
-    const status = exists ? "RESEARCH LOADED" : "NO CURRENT SYNC";
+    const status = recent ? "RECENT RESEARCH" : exists ? "ARCHIVED RESEARCH" : "NO CURRENT SYNC";
     const l5 = number(val.player_last5);
     return '<article class="league-card"><div class="league-head">'
       + '<span class="league-icon" aria-hidden="true">'+icon+'</span>'
-      + '<span class="league-status '+(exists?"ready":"")+'">'+status+'</span></div>'
+      + '<span class="league-status '+(recent?"ready":"")+'">'+status+'</span></div>'
       + '<h3>'+escapeHtml(title)+'</h3><p>'+escapeHtml(desc)+'</p>'
       + '<div class="league-foot"><span>Rule forecasts <strong>'
       + escapeHtml(forecast === null ? "N/A" : String(forecast))
@@ -153,7 +162,8 @@ function updateModel(data) {
   const total = number(model.forward_forecasts);
   $("calibration-description").textContent =
     "Forward game grading: "+(n===null?"N/A":n)+(total===null?"":"/"+total)
-    +". Exact-market model calibration and verified CLV are not established.";
+    +". Champion-001 source/model authentication, exact-market calibration, "+
+    "executable bookmaker prices and verified CLV are not established.";
   const valid = (url) => typeof url === "string" && url.startsWith(repo+"/actions/runs/")
     && /^https:\/\/github\.com\/frederickwalker66-cmyk\/Freddy-s-sports-data\/actions\/runs\/\d+$/.test(url);
   const latest = data.sources?.run_nba;
