@@ -43,6 +43,17 @@ def timestamp(value):
     return obj.astimezone(timezone.utc)
 
 
+def source_age_minutes(value, now):
+    """Age at publication from an aware source timestamp; unavailable is None."""
+    when = timestamp(value)
+    return round((now - when).total_seconds() / 60, 1) if when else None
+
+
+def recent(age, limit_minutes):
+    # Small future skew is tolerated; impossible future timestamps fail closed.
+    return age is not None and -1 <= age <= limit_minutes
+
+
 def clean(value, n=96):
     if not isinstance(value, str):
         return ""
@@ -151,10 +162,17 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
                 info = row
                 break
         if not info:
-            sports[sport] = {"status": "No synced research report", "forecasts": None}
+            sports[sport] = {"status": "No synced research report", "forecasts": None,
+                             "research_freshness": "NO_SYNCED_REPORT", "age_minutes": None}
         else:
+            source_age = source_age_minutes(bundle.get("checked_at_utc"), now)
             sports[sport] = {
                 "status": clean(info.get("execution_status"),50) or "Unverified",
+                "research_freshness": (
+                    "RECENT_RESEARCH" if recent(source_age, 180)
+                    else "STALE_RESEARCH" if source_age is not None
+                    else "UNKNOWN_RESEARCH_TIME"),
+                "age_minutes": source_age,
                 "forecasts": number(info.get("uncalibrated_pregame_forecast_rows"),0,10000),
                 "team_last5": number(info.get("complete_team_last5"),0,100000),
                 "team_last10": number(info.get("complete_team_last10"),0,100000),
@@ -187,6 +205,25 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
         recent = number(live.get("today_unstarted_nba_price_rows_within_120m"),0,500000)
         if recent is not None:
             metrics["recent_raw_quotes"] = recent
+    # A green workflow or archived quote count cannot imply that its markets
+    # are fresh today. Preserve historical counts, but suppress stale paired
+    # market counts from current-coverage widgets (N/A, not fabricated zero).
+    model_age = source_age_minutes(reference_model.get("checked_at_utc"), now)
+    quote_age = source_age_minutes(metrics["odds_receipt_utc"], now)
+    if not recent(model_age, 180):
+        evidence_state = "STALE_OR_MISSING_MODEL_REPORT"
+    elif not recent(quote_age, 120):
+        evidence_state = "STALE_OR_MISSING_PRICE_RECEIPT"
+    else:
+        evidence_state = "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
+    metrics["price_evidence_state"] = evidence_state
+    metrics["paired_market_reference_current"] = evidence_state == "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
+    metrics["model_age_minutes_at_publication"] = model_age
+    metrics["odds_age_minutes_at_publication"] = quote_age
+    if not metrics["paired_market_reference_current"]:
+        metrics["paired_game_markets"] = None
+        metrics["paired_prop_markets"] = None
+        metrics["recent_raw_quotes"] = None
     health = {
         "champion_frozen": True,
         "calibration_status": clean(calibration.get("status") or calibration.get("persisted_nba_original_forward_calibration_status"),90) or "Not independently certified",
