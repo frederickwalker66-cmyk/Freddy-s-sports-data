@@ -28,3 +28,18 @@ Edit this request file via a reviewed GitHub change whenever another on-demand a
 - **2026-11-13 06:14 ET — user requested RUN NBA:** Re-run today's nine-game NBA full-market research scan, including moneylines, exact spreads, full-game totals (Over/Under), and separately identified player-prop markets. Use existing saved SharpAPI archives at zero additional paid API cost; report qualified same-day quote availability, native probability and calibration status, and HOLD/PASS where real independent probability or executable price proof is absent. Preserve Champion-001 unchanged, zero bets, $0 shadow stake. This does not certify sharp action or profitable EV.
 
 - **2026-11-13 3:49 PM ET — user requested Sharp Edge:** Run the existing one-click archive-only NBA/NFL Sharp Edge research workflow for November 13, 2026, prioritizing all nine NBA games, full-game moneylines/spreads/totals and points/rebounds/assists/threes/PRA player props, plus any eligible NFL markets. Report bookmaker-label odds and quote timestamps only when identity, game date and exact market match. Display handle-versus-bet differences as research signals, never as verified professional sharp action. Show distinct break-even probability, no-vig market probability, independently generated Champion-001 model probability, percentage-point edge, and EV ROI (N/A unless truly supported); do not replace the model with market implied probabilities. Keep unverified prices, rosters, source mapping, CLV, calibration and any failed provider checks HOLD/PASS. No paid API calls, no wagers, $0 stakes, Champion-001 stays frozen.
+
+
+## 2026-11-17 15:52 EST — User-requested NBA-only eight-leg Sharp Edge research rerun
+
+Recheck the November 17, 2026 NBA five-game slate, prioritizing the user's eight-leg research ticket, **not** an accepted sportsbook bet:
+1. NY Knicks moneyline @ Toronto Raptors (earlier reference −148).
+2. Portland Trail Blazers @ Minnesota Timberwolves full-game Under 228.5 (earlier reference −109; flag any newer 225.5 or other changed line as a DIFFERENT market).
+3. San Antonio Spurs moneyline vs Detroit Pistons (earlier reference −396).
+4. Los Angeles Clippers moneyline vs Utah Jazz (earlier reference −238).
+5. Los Angeles Lakers −7.5 vs Charlotte Hornets (earlier reference −115).
+6. Karl-Anthony Towns 22+ points (earlier reference −104).
+7. Victor Wembanyama 35+ points + rebounds (earlier reference about −313/−321; never assume either live).
+8. Luka Dončić 30+ points (earlier reference about −364/−377; never assume either live).
+
+Audit each selection for exact market identity, time of capture, quote freshness, injury/active eligibility, available last-5/last-10 history, any internally supported original Champion-001 model probability, exact-market independent calibration, independently defensible EV, verified CLV and same-event correlations. The ticket contains multiple legs sharing games; never calculate joint parlay probability by multiplying independent p assumptions. Use existing saved research/SharpAPI archives only, **no new paid provider calls, no synthetic prices/model p, no wagers**, keep Champion-001 frozen, return **HOLD/PASS and zero certified bets** if native model or verified current checkout is missing. Capture actual run artifact and report limitations truthfully.
