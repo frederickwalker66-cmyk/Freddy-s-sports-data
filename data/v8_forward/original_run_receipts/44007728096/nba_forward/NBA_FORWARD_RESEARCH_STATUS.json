@@ -1,0 +1,33 @@
+{
+  "automated_wagers": 0,
+  "bet_ready": false,
+  "captured_at_utc": "2026-11-17T03:06:41.343443+00:00",
+  "certified_positive_ev_bets": 0,
+  "champion_001_modified": false,
+  "forward_games_with_rest_and_form_context": 5,
+  "forward_research_probabilities_recorded_before_tipoff": 5,
+  "future_schedule_events_seen": 5,
+  "github_action_run_id_self_reported": "44007728096",
+  "github_action_sha_self_reported": "2aab130bbf344a0bd8f3298be031fd4887b6204c",
+  "history_collection_started_at_utc": "2026-11-17T03:06:32.473261+00:00",
+  "history_games_retrieved": 197,
+  "hold_reasons": {},
+  "independently_certified_v8_predictions": 0,
+  "independently_verified_draftkings_checkout_odds": 0,
+  "matured_NBA_history_games": 188,
+  "nba_rest_and_form_feature_version": "nba-rest-b2b-last5-last10-research-v1",
+  "original_champion_001_predictions_certified": 0,
+  "original_github_actions_receipt_external_verification": false,
+  "recent_form_features_are_model_inputs_not_fitted_coefficients": true,
+  "research_lane": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
+  "schedule_original_sha256_local_receipts": {
+    "2026-11-16": "b1c8f6f1f3ad64179eb36ad6df36b4a4844542db05a80f2be9db5038cadb2b94",
+    "2026-11-17": "4f80728ef6e84a8da97986c068d3a115fe167c560f05abe837bd2cc4b5beb3b3"
+  },
+  "source_days_attempted": 35,
+  "source_days_failed": 0,
+  "source_days_succeeded": 35,
+  "stage": "v8_elo_genuine_forward_clocktime_research_only",
+  "v8_research_forward_predictions": 5,
+  "warning": "Forecasts recorded before kickoff are research-only in a separate V8 Elo lane. History contains published ESPN scores captured now, and assumes 48h game-result maturity. A local digest and GitHub timestamp are not publisher-signed independent model/source authentication. No independent calibration, injuries or executable sportsbook prices. B2B and last-5/10 form features are saved but not weighted into Elo. Champion-001 shadows=0."
+}
