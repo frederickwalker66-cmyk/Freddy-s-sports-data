@@ -1,10 +1,96 @@
 {
   "disclaimer": "Public research observations. No authenticated DraftKings checkout, independently calibrated live model, or certified positive-EV bets.",
-  "games": [],
-  "generated_at_utc": "2026-11-17T10:36:01.565471+00:00",
+  "games": [
+    {
+      "away": "New York Knicks",
+      "away_score": null,
+      "clock": "",
+      "home": "Toronto Raptors",
+      "home_score": null,
+      "id": "401910002",
+      "pace_away": null,
+      "pace_home": null,
+      "pace_status": "PREGAME_NO_LIVE_PROJECTION",
+      "pace_total": null,
+      "period": null,
+      "pregame_home_probability_pct": 56.9,
+      "pregame_home_probability_time_utc": "2026-11-17T10:37:16.874999+00:00",
+      "start_et": "2026-11-17T19:30:00-05:00",
+      "status": "pre"
+    },
+    {
+      "away": "Portland Trail Blazers",
+      "away_score": null,
+      "clock": "",
+      "home": "Minnesota Timberwolves",
+      "home_score": null,
+      "id": "401910003",
+      "pace_away": null,
+      "pace_home": null,
+      "pace_status": "PREGAME_NO_LIVE_PROJECTION",
+      "pace_total": null,
+      "period": null,
+      "pregame_home_probability_pct": 56.0,
+      "pregame_home_probability_time_utc": "2026-11-17T10:37:16.874999+00:00",
+      "start_et": "2026-11-17T20:00:00-05:00",
+      "status": "pre"
+    },
+    {
+      "away": "Detroit Pistons",
+      "away_score": null,
+      "clock": "",
+      "home": "San Antonio Spurs",
+      "home_score": null,
+      "id": "401910004",
+      "pace_away": null,
+      "pace_home": null,
+      "pace_status": "PREGAME_NO_LIVE_PROJECTION",
+      "pace_total": null,
+      "period": null,
+      "pregame_home_probability_pct": 64.7,
+      "pregame_home_probability_time_utc": "2026-11-17T10:37:16.874999+00:00",
+      "start_et": "2026-11-17T20:00:00-05:00",
+      "status": "pre"
+    },
+    {
+      "away": "Utah Jazz",
+      "away_score": null,
+      "clock": "",
+      "home": "LA Clippers",
+      "home_score": null,
+      "id": "401910006",
+      "pace_away": null,
+      "pace_home": null,
+      "pace_status": "PREGAME_NO_LIVE_PROJECTION",
+      "pace_total": null,
+      "period": null,
+      "pregame_home_probability_pct": 65.8,
+      "pregame_home_probability_time_utc": "2026-11-17T10:37:16.874999+00:00",
+      "start_et": "2026-11-17T22:30:00-05:00",
+      "status": "pre"
+    },
+    {
+      "away": "Charlotte Hornets",
+      "away_score": null,
+      "clock": "",
+      "home": "Los Angeles Lakers",
+      "home_score": null,
+      "id": "401910005",
+      "pace_away": null,
+      "pace_home": null,
+      "pace_status": "PREGAME_NO_LIVE_PROJECTION",
+      "pace_total": null,
+      "period": null,
+      "pregame_home_probability_pct": 73.9,
+      "pregame_home_probability_time_utc": "2026-11-17T10:37:16.874999+00:00",
+      "start_et": "2026-11-17T23:00:00-05:00",
+      "status": "pre"
+    }
+  ],
+  "generated_at_utc": "2026-11-17T12:15:55.977431+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -15,7 +101,7 @@
       "team_last5": 30
     },
     "mls": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -26,8 +112,8 @@
       "team_last5": 30
     },
     "nba": {
-      "age_minutes": 137.6,
-      "as_of_utc": "2026-11-17T08:18:23.888506+00:00",
+      "age_minutes": 98.6,
+      "as_of_utc": "2026-11-17T10:37:22.315920+00:00",
       "forecasts": 5,
       "player_last10": 264,
       "player_last5": 387,
@@ -37,7 +123,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -48,7 +134,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -59,7 +145,7 @@
       "team_last5": 138
     },
     "nfl": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 0,
@@ -70,7 +156,7 @@
       "team_last5": 32
     },
     "nhl": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 617,
@@ -81,7 +167,7 @@
       "team_last5": 32
     },
     "uefa_champions_league": {
-      "age_minutes": 792.3,
+      "age_minutes": 892.2,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -92,17 +178,17 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": null,
-  "live_observed_at_utc": null,
+  "live_age_minutes_at_publication": 0.4,
+  "live_observed_at_utc": "2026-11-17T12:15:34.005641+00:00",
   "live_scoreboard_not_continuous": true,
-  "live_source_status": "AWAITING_FRESH_PUBLIC_SCOREBOARD",
+  "live_source_status": "SOURCE_OBSERVED",
   "market": {
     "archived_quotes": 4820,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 137.6,
-    "odds_age_minutes_at_model_run": 501.6,
-    "odds_age_minutes_at_publication": 639.2,
+    "model_age_minutes_at_publication": 98.6,
+    "odds_age_minutes_at_model_run": 640.5,
+    "odds_age_minutes_at_publication": 739.1,
     "odds_receipt_utc": "2026-11-16T23:56:49.877214+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
@@ -124,7 +210,7 @@
   "schema": "freddys-picks-ai-public-v1",
   "sources": {
     "github": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data",
-    "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44009747298",
+    "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44081400391",
     "run_all": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43958296059",
     "run_nba": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44013604569"
   }
