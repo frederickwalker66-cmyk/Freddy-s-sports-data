@@ -6,8 +6,12 @@ on:
     workflows:
       - "Freddy's Picks AI V8 — One Command (phone + laptop)"
       - "Freddy's Picks AI V8 — NBA scoreboard live updates (research only)"
+      - "Freddy's Picks AI V8 — NBA + NFL Games & Player Props Sharp Edge (one click)"
+      - "Challenger-001 original eight-sport schedule preflight (research only)"
     types: [completed]
     branches: [main]
+  # Refresh the public dashboard after a completed Sharp Edge/schedule audit;
+  # this does NOT make archived quotes executable or independently certify EV.
   # Research website data freshness is best-effort, NOT a live sportsbook feed.
   schedule:
     - cron: '*/30 * * * *'
