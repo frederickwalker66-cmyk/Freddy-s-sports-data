@@ -55,6 +55,8 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 
 # [run-nba-best-bets] 2026-11-17 17:44 ET user requests best NBA bets after 17:42 combo scan; check todays five NBA games ML spread totals and PR PA RA PRA player props with latest saved archives, native Champion-001 probability qualification, exact paired source prices, EV CLV calibration; HOLD if unverified, no wager, no API spending.
 
+# [run-nba] 2026-11-17 17:56 ET user requested live NBA pregame research and market-status refresh; pull available public fixture/player-form data, audit paired sportsbook quote freshness, native Champion-001 p and certified EV/CLV, retain frozen Champion and HOLD missing evidence, no paid API requests and no wagers.
+
 on:
   workflow_dispatch:
     inputs:
