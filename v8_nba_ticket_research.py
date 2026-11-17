@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import unicodedata
 from zoneinfo import ZoneInfo
 
 from v8_parlay_risk_audit import audit_ticket
@@ -31,7 +32,14 @@ def _date(value):
 
 
 def _name(value):
-    return " ".join(value.casefold().split()) if isinstance(value, str) else None
+    if not isinstance(value, str):
+        return None
+    # Diacritic removal/LA alias are matching aids for RESEARCH only.
+    # Neither certifies an athlete's provider ID or active roster status.
+    folded = unicodedata.normalize("NFKD", value.casefold())
+    folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    result = " ".join(folded.split())
+    return {"la clippers": "los angeles clippers"}.get(result, result)
 
 
 def _source_safe(report, key):
