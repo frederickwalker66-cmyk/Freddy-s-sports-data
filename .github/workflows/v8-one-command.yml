@@ -48,6 +48,7 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 # Always-visible NBA live projections requested 2026-11-14: every V8 command prints pregame rule context (when validated), live-score pace or explicit N/A, source timestamps, sharp/CLV HOLD, even outside evening game windows.
 # NBA command requested after website creation, 2026-11-14: refreshed Sharp Edge, game/proposition research, exact price checks, live pace context and website sync; Champion frozen, stakes zero.
 # User RUN SPREAD 2026-11-14: NBA full-stack point-spread market and line-movement research, exact game identity, price freshness and calibrated spread EV check; no paid calls/bets; Champion frozen.
+# [run-nba-best-bets] 2026-11-17 16:50 ET exact eight-leg remediation: refresh current NBA source research and per-market Sharp Edge blockers after adding exact named-ticket correlation audit. This is research-only; no paid provider/API requests, no wagers, Champion-001 frozen.
 on:
   workflow_dispatch:
     inputs:
