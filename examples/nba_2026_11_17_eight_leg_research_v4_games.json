@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "ticket_kind": "research",
+  "ticket_date_et": "2026-11-17",
+  "bookmaker": "previously_published_reference_only_not_checkout",
+  "notice": "V4 GAME MARKET SWAP (research only, no wager): Replace leg 2 McDaniels combo with Minnesota Timberwolves moneyline. V1/V2/V3 remain unchanged. No independently verified current sportsbook checkout price, Champion-001 probability, certified EV or parlay probability. HOLD all 8; no paid calls, no wagers, Champion frozen.",
+  "legs": [
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:NYK@TOR",
+      "away_team": "New York Knicks",
+      "home_team": "Toronto Raptors",
+      "event_start": "2026-11-17T19:30:00-05:00",
+      "market": "moneyline",
+      "selection": "away",
+      "line": null,
+      "prior_disposition": "HOLD",
+      "prior_reference_odds": -148,
+      "display_label": "Knicks ML"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:POR@MIN",
+      "away_team": "Portland Trail Blazers",
+      "home_team": "Minnesota Timberwolves",
+      "event_start": "2026-11-17T20:00:00-05:00",
+      "market": "moneyline",
+      "selection": "home",
+      "line": null,
+      "prior_disposition": "HOLD",
+      "prior_reference_odds": -143,
+      "display_label": "Minnesota Timberwolves moneyline"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:DET@SAS",
+      "away_team": "Detroit Pistons",
+      "home_team": "San Antonio Spurs",
+      "event_start": "2026-11-17T20:00:00-05:00",
+      "market": "moneyline",
+      "selection": "home",
+      "line": null,
+      "prior_disposition": "HOLD",
+      "prior_reference_odds": -396,
+      "display_label": "Spurs ML"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:UTA@LAC",
+      "away_team": "Utah Jazz",
+      "home_team": "LA Clippers",
+      "event_start": "2026-11-17T22:30:00-05:00",
+      "market": "moneyline",
+      "selection": "home",
+      "line": null,
+      "prior_disposition": "HOLD",
+      "prior_reference_odds": -238,
+      "display_label": "Clippers ML"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:CHA@LAL",
+      "away_team": "Charlotte Hornets",
+      "home_team": "Los Angeles Lakers",
+      "event_start": "2026-11-17T23:00:00-05:00",
+      "market": "point_spread",
+      "selection": "home",
+      "line": -7.5,
+      "prior_disposition": "HOLD",
+      "prior_reference_odds": -115,
+      "display_label": "Lakers -7.5"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:NYK@TOR",
+      "away_team": "New York Knicks",
+      "home_team": "Toronto Raptors",
+      "event_start": "2026-11-17T19:30:00-05:00",
+      "market": "player_prop",
+      "selection": "over",
+      "line": 21.5,
+      "prior_disposition": "HOLD",
+      "player_name": "Karl-Anthony Towns",
+      "prop_stat": "player_points",
+      "prior_reference_odds": -104,
+      "display_label": "Karl-Anthony Towns 22+ points"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:DET@SAS",
+      "away_team": "Detroit Pistons",
+      "home_team": "San Antonio Spurs",
+      "event_start": "2026-11-17T20:00:00-05:00",
+      "market": "player_prop",
+      "selection": "over",
+      "line": 34.5,
+      "prior_disposition": "HOLD",
+      "player_name": "Victor Wembanyama",
+      "prop_stat": "player_points_+_rebounds",
+      "prior_reference_odds": -313,
+      "display_label": "Victor Wembanyama 35+ points+rebounds"
+    },
+    {
+      "league": "nba",
+      "event_id": "nba:2026-11-17:CHA@LAL",
+      "away_team": "Charlotte Hornets",
+      "home_team": "Los Angeles Lakers",
+      "event_start": "2026-11-17T23:00:00-05:00",
+      "market": "player_prop",
+      "selection": "over",
+      "line": 29.5,
+      "prior_disposition": "HOLD",
+      "player_name": "Luka Dončić",
+      "prop_stat": "player_points",
+      "prior_reference_odds": -364,
+      "display_label": "Luka Dončić 30+ points"
+    }
+  ],
+  "version": "V4_GAME_MARKET_SWAP",
+  "change_log": [
+    {
+      "change_date_et": "2026-11-17",
+      "leg": 2,
+      "replaced_label": "Trail Blazers vs Timberwolves Under 228.5",
+      "replaced_reference_odds": -109,
+      "replacement_label": "Terrence Shannon Jr. UNDER 1.5 made threes",
+      "replacement_reference_odds": -121,
+      "price_source": "DraftKings Network, Best NBA Player Props for Tuesday 11/17/26; publication reference, NOT authenticated checkout",
+      "reason": "The earlier 228.5 total was not verified available; replacing only the second leg with a published same-game player prop, with no claimed edge."
+    },
+    {
+      "change_date_et": "2026-11-17",
+      "leg": 2,
+      "replaced_label": "Terrence Shannon Jr. UNDER 1.5 made threes",
+      "replacement_label": "Jaden McDaniels OVER 8.5 rebounds + assists",
+      "replacement_reference_odds": -106,
+      "price_source": "Statsbench published 2026-11-17 DraftKings-labelled 8.5 rebound+assist over -106; not an authenticated sportsbook checkout",
+      "research_evidence": "9/10 recent games cleared 8.5; 5/5 last five reported. Historical hit rates are NOT calibrated model probability or positive EV.",
+      "reason": "User requested combo rather than individual made-threes as leg-2 replacement. Keep Minnesota-Portland event to preserve eight-leg ticket structure."
+    },
+    {
+      "change_date_et": "2026-11-17",
+      "leg": 2,
+      "replaced_label": "Jaden McDaniels OVER 8.5 rebounds + assists",
+      "replacement_label": "Minnesota Timberwolves moneyline",
+      "replacement_reference_odds": -143,
+      "price_source": "BetSharp public cross-book comparison, BetRivers reference seen Nov 17 evening, not independently authenticated executable DK checkout",
+      "reason": "User changed replacement preference from combo prop to game markets. No independently validated positive EV; Minnesota moneyline price -143 has ~58.85% break-even, above the uncalibrated research forecast ~56%, so this is NOT a certified or research-positive expected value pick."
+    }
+  ]
+}
