@@ -100,6 +100,38 @@ class PublicDashboardTests(unittest.TestCase):
         r = build(live=live(), model=unsafe, at=NOW)
         self.assertEqual(r["model"]["betting_state"], "HOLD")
 
+    def test_stale_model_report_cannot_supply_current_market_coverage(self):
+        old = model()
+        old["checked_at_utc"] = (NOW - timedelta(hours=4)).isoformat()
+        board = build(model=old, at=NOW)
+        self.assertEqual(board["leagues"]["nba"]["research_freshness"], "STALE_RESEARCH")
+        self.assertEqual(board["market"]["price_evidence_state"], "STALE_OR_MISSING_MODEL_REPORT")
+        self.assertFalse(board["market"]["paired_market_reference_current"])
+        self.assertIsNone(board["market"]["paired_game_markets"])
+        self.assertIsNone(board["market"]["paired_prop_markets"])
+        # Historical archive evidence remains visible as ARCHIVED, not live.
+        self.assertEqual(board["market"]["archived_quotes"], 1000)
+        self.assertEqual(board["market"]["certified_positive_ev"], 0)
+
+    def test_old_quote_with_recent_model_shows_missing_current_prices(self):
+        recent_model = model()
+        recent_model["source_quote_freshness"]["by_league"]["nba"][
+            "latest_valid_source_received_utc"] = (NOW - timedelta(hours=3)).isoformat()
+        board = build(model=recent_model, at=NOW)
+        self.assertEqual(board["leagues"]["nba"]["research_freshness"], "RECENT_RESEARCH")
+        self.assertEqual(board["market"]["price_evidence_state"], "STALE_OR_MISSING_PRICE_RECEIPT")
+        self.assertIsNone(board["market"]["paired_game_markets"])
+        self.assertIsNone(board["market"]["recent_raw_quotes"])
+        self.assertEqual(board["market"]["verified_checkout_prices"], 0)
+
+    def test_current_aggregator_stays_research_only(self):
+        board = build(model=model(), at=NOW)
+        self.assertTrue(board["market"]["paired_market_reference_current"])
+        self.assertEqual(board["market"]["paired_game_markets"], 5)
+        self.assertEqual(board["market"]["price_evidence_state"],
+                         "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT")
+        self.assertEqual(board["market"]["certified_positive_ev"], 0)
+
     def test_no_in_game_pace_when_pregame(self):
         row = live()
         game = row["games"][0]
