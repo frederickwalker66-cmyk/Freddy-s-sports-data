@@ -148,3 +148,13 @@
 .terminal-sport-card p{font-size:10px;line-height:1.6;margin:2px 0 0;color:#93a9b9}
 .league-slate{margin-top:12px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#a1efc5}
 @media(max-width:700px){.terminal-sport-grid{grid-template-columns:1fr}}
+
+
+/* Source-observed markets are comparison references, never executable sportsbook pricing. */
+.terminal-priced{display:flex;gap:5px;flex-direction:column;margin-bottom:8px}
+.terminal-priced strong{font-size:10px;color:#c8e2f0}
+.terminal-muted{display:block;font-size:9px;color:#8fabb8;line-height:1.5}
+.terminal-price{display:flex;gap:8px;color:#e1f8ec;font-size:11px;padding-top:4px;white-space:nowrap}
+.terminal-price b{font-size:8px;letter-spacing:.08em;min-width:47px;color:#8fc6ad}
+.terminal-team-cell small{display:block}
+.terminal-table td:nth-child(3){min-width:162px}

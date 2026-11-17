@@ -20,6 +20,8 @@ on:
       - 'docs/app.js'
       - 'docs/styles.css'
       - '.github/workflows/publish-dashboard.yml'
+      - 'scripts/collect_public_scoreboards.py'
+      - 'tests/test_public_hourly_scoreboards.py'
 
 permissions:
   contents: write
@@ -159,6 +161,22 @@ jobs:
             fi
             rm -rf dashboard_inputs/schedule
           done
+      - name: Observe current eight-sport ESPN scores and published market references (no paid provider)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/collect_public_scoreboards.py \
+            --out dashboard_inputs/public_scoreboard.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          v=json.loads(Path('dashboard_inputs/public_scoreboard.json').read_text())
+          assert v['schema']=='freddys-espn-public-hourly-v1'
+          assert v['champion_001_modified'] is False
+          assert v['certified_positive_ev']==0
+          assert len(v['leagues'])==8
+          print("Eight-sport ESPN public observation completed; absent provider fields remain N/A.")
+          PY
       - name: Generate bounded, sanitized public read-only snapshot
         shell: bash
         run: |
@@ -168,6 +186,7 @@ jobs:
             --model-report dashboard_inputs/nba/FULL_STACK_ALL_IN_ONE_REPORT.json \
             --all-sports-report dashboard_inputs/all/FULL_STACK_ALL_IN_ONE_REPORT.json \
             --schedule-report dashboard_inputs/schedule/espn_schedule_capture.json \
+            --public-report dashboard_inputs/public_scoreboard.json \
             --live-run "$LIVE_RUN" --model-run "$MODEL_RUN" --all-run "$ALL_RUN" --schedule-run "$SCHEDULE_RUN" \
             --out docs/data/dashboard.json
           python - <<'PY'
@@ -183,6 +202,8 @@ jobs:
           assert set(r['slates'])=={'nba','nfl','nhl','mlb','ncaaf','ncaab','mls','uefa_champions_league'}
           assert all(v['game_count'] is None or v['game_count']<=100 for v in r['slates'].values())
           assert all(v['certified_positive_ev']==0 and v['verified_checkout_prices']==0 for v in r['market_by_league'].values())
+          assert len(r['public_hourly_board'])==8
+          assert all(g['market_reference'] is None or g['market_reference']['direct_checkout_verified'] is False for sport in r['public_hourly_board'].values() for g in sport['games'])
           print("Dashboard public snapshot verified: "+str(p))
           PY
       - name: Commit research-only dashboard data to main for GitHub Pages

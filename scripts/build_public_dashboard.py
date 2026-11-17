@@ -242,7 +242,111 @@ def build_markets_by_league(*, models, now):
     return result
 
 
-def build(*, live=None, model=None, all_sports=None, schedule=None, live_run=None, schedule_run=None,
+
+
+def build_hourly_public_board(public, *, at, date_et):
+    """Fail-closed read-only ESPN source observations across all eight sports.
+
+    Capture time is a retrieval time, NOT the line's original posted time.
+    Third-party book labels NEVER qualify as a book checkout or model edge.
+    """
+    states = {league: {
+        "status": "NO_CURRENT_ESPN_SCOREBOARD", "observed_at_utc": None,
+        "game_count": None, "line_reference_count": None, "games": [],
+        "source": "ESPN scoreboard, source reference only"
+    } for league in LEAGUES}
+    if (not isinstance(public, dict)
+            or public.get("schema") != "freddys-espn-public-hourly-v1"
+            or public.get("date_et") != date_et
+            or public.get("champion_001_modified") is not False
+            or public.get("certified_positive_ev") != 0
+            or public.get("provider_checkout_ever_verified") is not False
+            or not isinstance(public.get("leagues"), dict)):
+        return states
+    for league in LEAGUES:
+        s = public["leagues"].get(league) or {}
+        t = clean(s.get("observed_at_utc"), 48)
+        if (s.get("status") != "ESPN_SCOREBOARD_OBSERVED"
+                or not is_fresh_source(source_age_minutes(t, at), 100)
+                or not isinstance(s.get("games"), list)
+                or len(s["games"]) > 120):
+            continue
+        rows, ids = [], set()
+        invalid = False
+        for entry in s["games"]:
+            if not isinstance(entry, dict):
+                invalid = True
+                break
+            gid = clean(entry.get("id"), 30)
+            home = clean(entry.get("home"), 90)
+            away = clean(entry.get("away"), 90)
+            start = timestamp(entry.get("start_et"))
+            state = entry.get("status")
+            if (not gid.isdigit() or gid in ids or not home or not away
+                    or home == away or start is None or
+                    start.astimezone(NY).date().isoformat() != date_et
+                    or state not in ("pre", "in", "post")):
+                invalid = True
+                break
+            ids.add(gid)
+            m = entry.get("market_reference")
+            quote = None
+            if isinstance(m, dict) and m.get("direct_checkout_verified") is False and \
+                    m.get("market_reference_only") is True and \
+                    m.get("bookmaker_quote_timestamp_utc") is None:
+                provider = clean(m.get("provider_name"), 64)
+                if provider:
+                    quote = {
+                        "provider": provider,
+                        "moneyline_away": m.get("away_moneyline") if
+                            type(m.get("away_moneyline")) is int else None,
+                        "moneyline_home": m.get("home_moneyline") if
+                            type(m.get("home_moneyline")) is int else None,
+                        "spread_details": clean(m.get("spread_details"), 55) or None,
+                        "total": number(m.get("total"), 0.5, 999.5),
+                        "over_price": m.get("over_price") if
+                            type(m.get("over_price")) is int else None,
+                        "under_price": m.get("under_price") if
+                            type(m.get("under_price")) is int else None,
+                        "home_spread_price": m.get("home_spread_price") if
+                            type(m.get("home_spread_price")) is int else None,
+                        "away_spread_price": m.get("away_spread_price") if
+                            type(m.get("away_spread_price")) is int else None,
+                        "source_observed_at_utc": t,
+                        "bookmaker_quote_timestamp_utc": None,
+                        "direct_checkout_verified": False,
+                        "bet_ready": False,
+                        "evidence_class": "PUBLIC_ESPN_BOOK_LABEL_ONLY",
+                    }
+                    if league in ("mls", "uefa_champions_league"):
+                        # No fake two-way settlement for 90-minute 3-way soccer.
+                        quote["moneyline_away"] = quote["moneyline_home"] = None
+            rows.append({
+                "id": gid, "home": home, "away": away,
+                "start_et": start.astimezone(NY).isoformat(),
+                "status": state,
+                "home_score": number(entry.get("home_score"), 0, 300)
+                    if state in ("in", "post") else None,
+                "away_score": number(entry.get("away_score"), 0, 300)
+                    if state in ("in", "post") else None,
+                "period": number(entry.get("period"), 0, 25),
+                "clock": clean(entry.get("clock"), 18) if state == "in" else "",
+                "market_reference": quote,
+            })
+        if invalid:
+            continue
+        rows.sort(key=lambda x: (x["start_et"], x["id"]))
+        states[league] = {
+            "status": "ESPN_PUBLIC_OBSERVED" if rows else "NO_GAMES_LISTED",
+            "observed_at_utc": t, "game_count": len(rows),
+            "line_reference_count": sum(g["market_reference"] is not None for g in rows),
+            "games": rows,
+            "source": "ESPN public scoreboard; provider label only, no checkout",
+        }
+    return states
+
+
+def build(*, live=None, model=None, all_sports=None, schedule=None, public=None, live_run=None, schedule_run=None,
           model_run=None, all_run=None, at=None):
     now = at or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -408,6 +512,7 @@ def build(*, live=None, model=None, all_sports=None, schedule=None, live_run=Non
                 "model_age_minutes_at_publication", "price_evidence_state",
                 "paired_market_reference_current", "market_blocker",
                 "certified_positive_ev", "verified_checkout_prices", "verified_clv")}}
+    public_board = build_hourly_public_board(public, at=now, date_et=date_et)
     # Publish only data from vetted reports; never raw API payloads or secrets.
     return {
         "schema": "freddys-picks-ai-public-v1",
@@ -419,6 +524,7 @@ def build(*, live=None, model=None, all_sports=None, schedule=None, live_run=Non
         "live_scoreboard_not_continuous": True,
         "games": games, "leagues": sports,
         "slates": slates, "market_by_league": per_league_market,
+        "public_hourly_board": public_board,
         "market": metrics, "model": health,
         "sources": {
             "github": GITHUB,
@@ -437,6 +543,7 @@ def main():
     parser.add_argument("--model-report")
     parser.add_argument("--all-sports-report")
     parser.add_argument("--schedule-report")
+    parser.add_argument("--public-report")
     parser.add_argument("--schedule-run", type=int)
     parser.add_argument("--live-run", type=int)
     parser.add_argument("--model-run", type=int)
@@ -450,6 +557,7 @@ def main():
         model=read_report(args.model_report),
         all_sports=read_report(args.all_sports_report),
         schedule=read_report(args.schedule_report),
+        public=read_report(args.public_report),
         live_run=args.live_run, schedule_run=args.schedule_run,
         model_run=args.model_run,
         all_run=args.all_run,

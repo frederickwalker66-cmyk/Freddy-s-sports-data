@@ -265,5 +265,64 @@ class AllSportFixtureTests(unittest.TestCase):
         self.assertIsNone(out["slates"]["nhl"]["games"][0]["research_home_probability_pct"])
 
 
+    def test_new_hourly_public_scoreboard_is_source_labeled_and_not_certified(self):
+        capture={
+            "schema":"freddys-espn-public-hourly-v1",
+            "date_et":"2026-11-14",
+            "champion_001_modified":False,"certified_positive_ev":0,
+            "provider_checkout_ever_verified":False,
+            "leagues":{
+                "nhl":{
+                    "status":"ESPN_SCOREBOARD_OBSERVED",
+                    "observed_at_utc":NOW.isoformat(),
+                    "games":[{
+                        "id":"777888999","home":"Boston Bruins","away":"New York Rangers",
+                        "start_et":"2026-11-14T19:00:00-05:00","status":"pre",
+                        "home_score":None,"away_score":None,
+                        "market_reference":{
+                            "provider_name":"ESPN BET","away_moneyline":130,
+                            "home_moneyline":-150,"spread_details":"BOS -1.5",
+                            "total":5.5,
+                            "bookmaker_quote_timestamp_utc":None,
+                            "direct_checkout_verified":False,"market_reference_only":True}
+                    }]
+                }
+            }
+        }
+        board=build(public=capture,at=NOW)
+        nhl=board["public_hourly_board"]["nhl"]
+        self.assertEqual(nhl["line_reference_count"],1)
+        self.assertEqual(nhl["games"][0]["market_reference"]["provider"],"ESPN BET")
+        self.assertFalse(nhl["games"][0]["market_reference"]["direct_checkout_verified"])
+        self.assertIsNone(nhl["games"][0]["market_reference"]["bookmaker_quote_timestamp_utc"])
+        self.assertEqual(board["market"]["certified_positive_ev"],0)
+
+    def test_stale_hourly_data_does_not_display_old_lines(self):
+        capture={
+            "schema":"freddys-espn-public-hourly-v1",
+            "date_et":"2026-11-14",
+            "champion_001_modified":False,"certified_positive_ev":0,
+            "provider_checkout_ever_verified":False,
+            "leagues":{
+                "nba":{
+                    "status":"ESPN_SCOREBOARD_OBSERVED",
+                    "observed_at_utc":(NOW-timedelta(hours=3)).isoformat(),
+                    "games":[]}
+            }
+        }
+        board=build(public=capture,at=NOW)
+        self.assertEqual(board["public_hourly_board"]["nba"]["status"],"NO_CURRENT_ESPN_SCOREBOARD")
+        self.assertIsNone(board["public_hourly_board"]["nba"]["line_reference_count"])
+
+    def test_public_data_with_checkout_claim_fails_closed(self):
+        capture={"schema":"freddys-espn-public-hourly-v1",
+                 "date_et":"2026-11-14",
+                 "champion_001_modified":False,
+                 "provider_checkout_ever_verified":True,
+                 "certified_positive_ev":0,"leagues":{}}
+        out=build(public=capture,at=NOW)
+        self.assertEqual(out["public_hourly_board"]["nba"]["status"],"NO_CURRENT_ESPN_SCOREBOARD")
+
+
 if __name__ == "__main__":
     unittest.main()
