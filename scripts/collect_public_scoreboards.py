@@ -16,7 +16,19 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
-from independent_schedule_review import SOURCES, BASE
+# Keep the collector self-contained so direct CLI execution from scripts/ works.
+# These are the same published ESPN scoreboard routes as the source preflight.
+SOURCES = {
+    "nba": ("basketball", "nba"),
+    "nfl": ("football", "nfl"),
+    "mlb": ("baseball", "mlb"),
+    "nhl": ("hockey", "nhl"),
+    "ncaaf": ("football", "college-football"),
+    "ncaab": ("basketball", "mens-college-basketball"),
+    "mls": ("soccer", "usa.1"),
+    "uefa_champions_league": ("soccer", "uefa.champions"),
+}
+BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
 NY = ZoneInfo("America/New_York")
 MAX_BYTES = 5_000_000
