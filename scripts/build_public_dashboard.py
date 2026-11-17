@@ -83,7 +83,166 @@ def safe_model(report):
     return report
 
 
-def build(*, live=None, model=None, all_sports=None, live_run=None,
+
+def build_sport_slates(schedule, *, at, date_et, models=(), live_games=()):
+    """Source-dated ESPN game listings for ALL eight leagues, never betting odds.
+
+    Missing or stale schedule artifacts are UNKNOWN, not an invented zero-game slate.
+    Schedule data are third-party ESPN observations, not league-certified fixtures.
+    """
+    base = {lg: {"status": "NO_FRESH_SCHEDULE", "game_count": None,
+                 "games": [], "as_of_utc": None, "source": "ESPN scoreboard research"}
+            for lg in LEAGUES}
+    if (not isinstance(schedule, dict)
+            or schedule.get("date_et") != date_et
+            or not isinstance(schedule.get("events"), list)
+            or len(schedule["events"]) > 600
+            or not isinstance(schedule.get("sources"), dict)):
+        return base
+    at_utc = schedule.get("collected_at_utc")
+    if not is_fresh_source(source_age_minutes(at_utc, at), 180):
+        return base
+
+    # Only legitimately captured current-day matchups may carry a research lean.
+    research_forecasts = {}
+    for bundle in models:
+        if not bundle or not is_fresh_source(
+                source_age_minutes(bundle.get("checked_at_utc"), at), 180):
+            continue
+        rows = bundle.get("research_only_pregame_predictions") or []
+        if not isinstance(rows, list) or len(rows) > 10_000:
+            continue
+        for row in rows:
+            if not isinstance(row, dict) or row.get("league") not in LEAGUES:
+                continue
+            if (row.get("confidence_is_uncalibrated_rule_output") is not True
+                    or row.get("native_Champion_001_model_probability") is not None
+                    or row.get("verified_live_sportsbook_quote") is not False):
+                continue
+            key = (row.get("league"), row.get("espn_event_id"))
+            p = number(row.get("home_win_research_rule_probability"), 0, 1)
+            published = timestamp(row.get("original_forecast_recorded_utc"))
+            start = timestamp(row.get("start_utc"))
+            if (key not in research_forecasts and p is not None and 0 < p < 1
+                    and published is not None and start is not None
+                    and published < start and published <= at):
+                research_forecasts[key] = (p, start)
+
+    nba_live = {str(row.get("id")): row for row in live_games
+                if isinstance(row, dict)}
+
+    for lg in LEAGUES:
+        src = schedule["sources"].get(lg)
+        if (not isinstance(src, dict) or src.get("status") != "retrieved"
+                or src.get("first_day_status") != "retrieved"):
+            continue
+        checks = src.get("lookahead")
+        if not isinstance(checks, list) or not checks or not isinstance(checks[0], dict):
+            continue
+        check = checks[0]
+        expected_hash = check.get("original_source_sha256")
+        if (check.get("date_et") != date_et
+                or not isinstance(expected_hash, str)
+                or len(expected_hash) != 64
+                or not all(c in "0123456789abcdef" for c in expected_hash)):
+            continue
+        source_rows = []
+        seen = set()
+        for item in schedule["events"]:
+            if not isinstance(item, dict) or item.get("league") != lg:
+                continue
+            if (item.get("requested_date_et") != date_et
+                    or item.get("source_original_sha256") != expected_hash
+                    or item.get("status") != "scheduled"):
+                continue
+            game_id = clean(item.get("provider_game_id"), 30)
+            away = clean(item.get("away_team"), 65)
+            home = clean(item.get("home_team"), 65)
+            start = timestamp(item.get("start_utc"))
+            observed = timestamp(item.get("observed_at_utc"))
+            if (not game_id.isdigit() or game_id in seen
+                    or not away or not home or start is None or observed is None
+                    or start.astimezone(NY).date().isoformat() != date_et
+                    or not is_fresh_source(source_age_minutes(observed.isoformat(), at), 180)):
+                continue
+            seen.add(game_id)
+            research_p = None
+            forecast = research_forecasts.get((lg, game_id))
+            if forecast and forecast[1] == start:
+                research_p = round(forecast[0] * 100, 1)
+            elif lg == "nba":
+                observed_game = nba_live.get(game_id)
+                if observed_game and observed_game.get("away") == away and observed_game.get("home") == home:
+                    research_p = probability(observed_game.get("pregame_home_probability_pct"))
+            source_rows.append({
+                "id": game_id, "away": away, "home": home,
+                "start_et": start.astimezone(NY).isoformat(),
+                "status": "scheduled", "research_home_probability_pct": research_p,
+                "research_probability_type": (
+                    "UNCALIBRATED_PREGAME_RULE_NOT_CHAMPION_001"
+                    if research_p is not None else "NOT_AVAILABLE"),
+                "source_observed_at_utc": observed.isoformat(),
+                "verified_sportsbook_odds": False,
+                "certified_ev": None,
+            })
+        listed = number(check.get("raw_events_listed"), 0, 1000)
+        # If original source listed games but no identity-qualified events,
+        # never claim a zero-game day.
+        if not source_rows and listed != 0:
+            base[lg]["status"] = "MATCHUPS_UNVERIFIED"
+            base[lg]["as_of_utc"] = at_utc
+            continue
+        source_rows.sort(key=lambda r: (r["start_et"], r["id"]))
+        base[lg] = {
+            "status": "ESPN_SCHEDULE_OBSERVED" if source_rows else "NO_GAMES_LISTED",
+            "game_count": len(source_rows),
+            "games": source_rows,
+            "as_of_utc": at_utc,
+            "source": "ESPN scoreboard research · not official league confirmation",
+        }
+    return base
+
+
+def build_markets_by_league(*, models, now):
+    """Per-sport quote gates. No NBA price data may leak into other sports."""
+    result = {}
+    for lg in LEAGUES:
+        bundle = next((b for b in models if b and isinstance(
+            (b.get("by_league") or {}).get(lg), dict)), None)
+        sharp = ((bundle or {}).get("sharp_edge_research") or {}
+                 ).get("per_sport_market_evidence") or {}
+        evidence = sharp.get(lg) or {}
+        q = (((bundle or {}).get("source_quote_freshness") or {}
+              ).get("by_league") or {}).get(lg) or {}
+        model_age = source_age_minutes((bundle or {}).get("checked_at_utc"), now)
+        quote_date = clean(q.get("latest_valid_source_received_utc"), 48) or None
+        quote_age = source_age_minutes(quote_date, now)
+        if not is_fresh_source(model_age, 180):
+            state = "STALE_OR_MISSING_MODEL_REPORT"
+        elif not is_fresh_source(quote_age, 120):
+            state = "STALE_OR_MISSING_PRICE_RECEIPT"
+        else:
+            state = "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
+        current = state == "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
+        result[lg] = {
+            "archived_quotes": number(evidence.get("archived_provider_quote_rows"), 0, 500000),
+            "paired_game_markets": (
+                number(evidence.get("fresh_paired_game_boards"), 0, 50000) if current else None),
+            "paired_prop_markets": (
+                number(evidence.get("fresh_paired_player_prop_markets"), 0, 50000) if current else None),
+            "odds_receipt_utc": quote_date,
+            "odds_age_minutes_at_publication": quote_age,
+            "model_age_minutes_at_publication": model_age,
+            "price_evidence_state": state,
+            "paired_market_reference_current": current,
+            "market_blocker": clean(evidence.get("primary_source_blocker"), 80) or "NO_VERIFIED_MARKETS",
+            "verified_checkout_prices": 0, "certified_positive_ev": 0,
+            "verified_clv": None,
+        }
+    return result
+
+
+def build(*, live=None, model=None, all_sports=None, schedule=None, live_run=None, schedule_run=None,
           model_run=None, all_run=None, at=None):
     now = at or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -235,6 +394,20 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
     if isinstance(calibration, dict):
         health["graded_forecasts"] = number(calibration.get("nba_original_graded_outcomes"),0,500000)
         health["forward_forecasts"] = number(calibration.get("nba_original_archived_forecasts"),0,500000)
+    slates = build_sport_slates(schedule, at=now, date_et=date_et,
+                               models=references, live_games=games)
+    per_league_market = build_markets_by_league(models=references, now=now)
+    # Preserve the historic NBA top-level keys for older web clients;
+    # per-league fields are the canonical all-eight-sport view.
+    if per_league_market.get("nba"):
+        per_league_market["nba"] = {
+            **per_league_market["nba"],
+            **{key: metrics[key] for key in (
+                "archived_quotes", "paired_game_markets", "paired_prop_markets",
+                "odds_receipt_utc", "odds_age_minutes_at_publication",
+                "model_age_minutes_at_publication", "price_evidence_state",
+                "paired_market_reference_current", "market_blocker",
+                "certified_positive_ev", "verified_checkout_prices", "verified_clv")}}
     # Publish only data from vetted reports; never raw API payloads or secrets.
     return {
         "schema": "freddys-picks-ai-public-v1",
@@ -245,12 +418,14 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
         "live_age_minutes_at_publication": age if valid_live else None,
         "live_scoreboard_not_continuous": True,
         "games": games, "leagues": sports,
+        "slates": slates, "market_by_league": per_league_market,
         "market": metrics, "model": health,
         "sources": {
             "github": GITHUB,
             "run_nba": safe_url(model_run),
             "run_all": safe_url(all_run),
             "live": safe_url(live_run),
+            "schedule": safe_url(schedule_run),
         },
         "disclaimer": "Public research observations. No authenticated DraftKings checkout, independently calibrated live model, or certified positive-EV bets.",
     }
@@ -261,6 +436,8 @@ def main():
     parser.add_argument("--live-report")
     parser.add_argument("--model-report")
     parser.add_argument("--all-sports-report")
+    parser.add_argument("--schedule-report")
+    parser.add_argument("--schedule-run", type=int)
     parser.add_argument("--live-run", type=int)
     parser.add_argument("--model-run", type=int)
     parser.add_argument("--all-run", type=int)
@@ -272,7 +449,8 @@ def main():
         live=read_report(args.live_report),
         model=read_report(args.model_report),
         all_sports=read_report(args.all_sports_report),
-        live_run=args.live_run,
+        schedule=read_report(args.schedule_report),
+        live_run=args.live_run, schedule_run=args.schedule_run,
         model_run=args.model_run,
         all_run=args.all_run,
     )

@@ -183,5 +183,87 @@ class PublicDashboardTests(unittest.TestCase):
         self.assertEqual(out["sources"]["run_all"].split("/")[-1], "90")
 
 
+
+
+def schedule(at=NOW):
+    from hashlib import sha256
+    digest = sha256(b"original-public-espn-scoreboard-sample").hexdigest()
+    return {
+        "date_et": at.astimezone(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat(),
+        "collected_at_utc": at.isoformat(),
+        "sources": {
+            lg: {"status": "retrieved", "first_day_status": "retrieved",
+                 "lookahead": [{"date_et": at.astimezone(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat(),
+                                "raw_events_listed": n, "original_source_sha256": digest}]}
+            for lg,n in [("nba",1),("nhl",1),("nfl",0),("mlb",0),("ncaaf",0),
+                         ("ncaab",0),("mls",0),("uefa_champions_league",0)]
+        },
+        "events": [
+            {"league": lg,"provider_game_id":id_,"away_team":a,"home_team":h,
+             "requested_date_et": at.astimezone(__import__("zoneinfo").ZoneInfo("America/New_York")).date().isoformat(),
+             "source_original_sha256": digest, "status":"scheduled",
+             "start_utc":(at+timedelta(hours=3)).isoformat(),
+             "observed_at_utc":at.isoformat()}
+            for lg,id_,a,h in (("nba","123","Chicago Bulls","Minnesota Timberwolves"),
+                               ("nhl","456","Boston Bruins","New York Rangers"))
+        ],
+    }
+
+
+class AllSportFixtureTests(unittest.TestCase):
+    def test_all_eight_league_slates_have_distinct_status_and_games(self):
+        out=build(schedule=schedule(),model=model(),live=live(),at=NOW,schedule_run=789)
+        self.assertEqual(set(out["slates"]),{"nba","nhl","nfl","mlb","ncaaf","ncaab","mls","uefa_champions_league"})
+        self.assertEqual(out["slates"]["nhl"]["game_count"],1)
+        self.assertEqual(out["slates"]["nhl"]["games"][0]["away"],"Boston Bruins")
+        self.assertEqual(out["slates"]["nfl"]["game_count"],0)
+        self.assertEqual(out["slates"]["nfl"]["status"],"NO_GAMES_LISTED")
+        self.assertIsNone(out["slates"]["nhl"]["games"][0]["research_home_probability_pct"])
+        self.assertEqual(out["sources"]["schedule"].split("/")[-1],"789")
+        self.assertIsNone(out["market_by_league"]["nhl"]["paired_game_markets"])
+        self.assertEqual(out["market_by_league"]["nhl"]["certified_positive_ev"],0)
+
+    def test_stale_source_is_not_a_fake_zero_game_day(self):
+        out=build(schedule=schedule(NOW-timedelta(hours=4)),model=model(),at=NOW)
+        self.assertEqual(out["slates"]["nfl"]["status"],"NO_FRESH_SCHEDULE")
+        self.assertIsNone(out["slates"]["nfl"]["game_count"])
+        self.assertEqual(out["slates"]["nba"]["games"],[])
+
+    def test_mismatched_original_hash_is_not_accepted(self):
+        s=schedule()
+        s["events"][1]["source_original_sha256"]="0"*64
+        out=build(schedule=s,at=NOW)
+        self.assertIsNone(out["slates"]["nhl"]["game_count"])
+        self.assertEqual(out["slates"]["nhl"]["status"],"MATCHUPS_UNVERIFIED")
+        self.assertEqual(out["slates"]["nba"]["game_count"],1)
+
+    def test_league_specific_price_receipts_never_use_nba_quotes(self):
+        m=model()
+        m["by_league"]["nhl"]={"execution_status":"SUCCESS_RESEARCH_ONLY"}
+        m["sharp_edge_research"]["per_sport_market_evidence"]["nhl"]={
+            "archived_provider_quote_rows":0,"fresh_paired_game_boards":0,
+            "fresh_paired_player_prop_markets":0}
+        out=build(model=m,schedule=schedule(),at=NOW)
+        self.assertEqual(out["market_by_league"]["nba"]["paired_game_markets"],5)
+        self.assertIsNone(out["market_by_league"]["nhl"]["paired_game_markets"])
+        self.assertIsNone(out["market_by_league"]["nhl"]["odds_receipt_utc"])
+        self.assertEqual(out["market_by_league"]["nba"]["certified_positive_ev"],0)
+
+    def test_research_forecast_requires_original_game_id_and_current_receipt(self):
+        m=model()
+        m["research_only_pregame_predictions"]=[{
+            "league":"nhl","espn_event_id":"456","confidence_is_uncalibrated_rule_output":True,
+            "native_Champion_001_model_probability":None,"verified_live_sportsbook_quote":False,
+            "home_win_research_rule_probability":0.64,
+            "original_forecast_recorded_utc":NOW.isoformat(),
+            "start_utc":(NOW+timedelta(hours=3)).isoformat(),
+        }]
+        out=build(model=m,schedule=schedule(),at=NOW)
+        self.assertEqual(out["slates"]["nhl"]["games"][0]["research_home_probability_pct"],64.0)
+        m["research_only_pregame_predictions"][0]["espn_event_id"]="wrong"
+        out=build(model=m,schedule=schedule(),at=NOW)
+        self.assertIsNone(out["slates"]["nhl"]["games"][0]["research_home_probability_pct"])
+
+
 if __name__ == "__main__":
     unittest.main()

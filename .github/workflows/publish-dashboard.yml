@@ -88,6 +88,7 @@ jobs:
           echo "MODEL_RUN=0" >> "$GITHUB_ENV"
           echo "LIVE_RUN=0" >> "$GITHUB_ENV"
           echo "ALL_RUN=0" >> "$GITHUB_ENV"
+          echo "SCHEDULE_RUN=0" >> "$GITHUB_ENV"
           # Read ONLY workflow artifacts already completed successfully.
           # No SharpAPI, sportsbook or paid provider requests here.
           for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
@@ -139,6 +140,25 @@ jobs:
               rm -rf dashboard_inputs/all
             done
           done
+
+          # Independent eight-sport ESPN schedule preflight. Read-only,
+          # original captured game listings; no sportsbook/provider spend.
+          for rid in $(gh run list --repo "$GITHUB_REPOSITORY" \
+               --workflow challenger-eight-sport-source-preflight.yml \
+               --branch main --status success \
+               --limit 30 --json databaseId --jq '.[].databaseId' || true); do
+            if [[ ! "$rid" =~ ^[0-9]+$ ]]; then continue; fi
+            mkdir -p dashboard_inputs/schedule
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+                 --name "eight-sport-source-preflight-$rid" \
+                 --dir dashboard_inputs/schedule >/dev/null 2>&1 && \
+               [[ -s dashboard_inputs/schedule/espn_schedule_capture.json ]]; then
+              echo "SCHEDULE_RUN=$rid" >> "$GITHUB_ENV"
+              echo "Eight-sport fixture snapshot from completed run $rid"
+              break
+            fi
+            rm -rf dashboard_inputs/schedule
+          done
       - name: Generate bounded, sanitized public read-only snapshot
         shell: bash
         run: |
@@ -147,7 +167,8 @@ jobs:
             --live-report dashboard_inputs/live/NBA_LIVE_UPDATES.json \
             --model-report dashboard_inputs/nba/FULL_STACK_ALL_IN_ONE_REPORT.json \
             --all-sports-report dashboard_inputs/all/FULL_STACK_ALL_IN_ONE_REPORT.json \
-            --live-run "$LIVE_RUN" --model-run "$MODEL_RUN" --all-run "$ALL_RUN" \
+            --schedule-report dashboard_inputs/schedule/espn_schedule_capture.json \
+            --live-run "$LIVE_RUN" --model-run "$MODEL_RUN" --all-run "$ALL_RUN" --schedule-run "$SCHEDULE_RUN" \
             --out docs/data/dashboard.json
           python - <<'PY'
           import json
@@ -159,6 +180,9 @@ jobs:
           assert r['market']['certified_positive_ev']==0
           assert r['market']['verified_checkout_prices']==0
           assert len(r['games'])<=100
+          assert set(r['slates'])=={'nba','nfl','nhl','mlb','ncaaf','ncaab','mls','uefa_champions_league'}
+          assert all(v['game_count'] is None or v['game_count']<=100 for v in r['slates'].values())
+          assert all(v['certified_positive_ev']==0 and v['verified_checkout_prices']==0 for v in r['market_by_league'].values())
           print("Dashboard public snapshot verified: "+str(p))
           PY
       - name: Commit research-only dashboard data to main for GitHub Pages
