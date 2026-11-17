@@ -53,6 +53,8 @@ name: Freddy's Picks AI V8 — One Command (phone + laptop)
 
 # [run-nba] 2026-11-17 17:36 ET: user command RUN NBA. Full five-game NBA one-command research board: moneyline, spread, totals, PTS, REB, AST, PR, PA, RA, PRA, L5/L10, injury, native Champion-001 probability and exact odds check; fail-closed HOLD for unverified EV/CLV. Research only, no paid APIs, no wagers, Champion frozen.
 
+# [run-nba-best-bets] 2026-11-17 17:44 ET user requests best NBA bets after 17:42 combo scan; check todays five NBA games ML spread totals and PR PA RA PRA player props with latest saved archives, native Champion-001 probability qualification, exact paired source prices, EV CLV calibration; HOLD if unverified, no wager, no API spending.
+
 on:
   workflow_dispatch:
     inputs:
