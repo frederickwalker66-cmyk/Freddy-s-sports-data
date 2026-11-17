@@ -87,10 +87,10 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-17T14:38:18.631150+00:00",
+  "generated_at_utc": "2026-11-17T14:41:07.812318+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -101,7 +101,7 @@
       "team_last5": 30
     },
     "mls": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -112,7 +112,7 @@
       "team_last5": 30
     },
     "nba": {
-      "age_minutes": 38.1,
+      "age_minutes": 40.9,
       "as_of_utc": "2026-11-17T14:00:11.199640+00:00",
       "forecasts": 5,
       "player_last10": 264,
@@ -123,7 +123,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -134,7 +134,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -145,7 +145,7 @@
       "team_last5": 138
     },
     "nfl": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 0,
@@ -156,7 +156,7 @@
       "team_last5": 32
     },
     "nhl": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 617,
@@ -167,7 +167,7 @@
       "team_last5": 32
     },
     "uefa_champions_league": {
-      "age_minutes": 1034.6,
+      "age_minutes": 1037.4,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -178,7 +178,7 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 142.7,
+  "live_age_minutes_at_publication": 145.6,
   "live_observed_at_utc": "2026-11-17T12:15:34.005641+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
@@ -186,9 +186,9 @@
     "archived_quotes": 4820,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 38.1,
+    "model_age_minutes_at_publication": 40.9,
     "odds_age_minutes_at_model_run": 843.4,
-    "odds_age_minutes_at_publication": 881.5,
+    "odds_age_minutes_at_publication": 884.3,
     "odds_receipt_utc": "2026-11-16T23:56:49.877214+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
@@ -203,7 +203,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -217,7 +217,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -231,8 +231,8 @@
       "archived_quotes": 4820,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 38.1,
-      "odds_age_minutes_at_publication": 881.5,
+      "model_age_minutes_at_publication": 40.9,
+      "odds_age_minutes_at_publication": 884.3,
       "odds_receipt_utc": "2026-11-16T23:56:49.877214+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -245,7 +245,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -259,7 +259,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -273,8 +273,8 @@
       "archived_quotes": 7295,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 1034.6,
-      "odds_age_minutes_at_publication": 2166.5,
+      "model_age_minutes_at_publication": 1037.4,
+      "odds_age_minutes_at_publication": 2169.4,
       "odds_receipt_utc": "2026-11-16T02:31:46.327174+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -287,7 +287,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -301,7 +301,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 1034.6,
+      "model_age_minutes_at_publication": 1037.4,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
