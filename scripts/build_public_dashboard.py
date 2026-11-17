@@ -49,7 +49,7 @@ def source_age_minutes(value, now):
     return round((now - when).total_seconds() / 60, 1) if when else None
 
 
-def recent(age, limit_minutes):
+def is_fresh_source(age, limit_minutes):
     # Small future skew is tolerated; impossible future timestamps fail closed.
     return age is not None and -1 <= age <= limit_minutes
 
@@ -169,7 +169,7 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
             sports[sport] = {
                 "status": clean(info.get("execution_status"),50) or "Unverified",
                 "research_freshness": (
-                    "RECENT_RESEARCH" if recent(source_age, 180)
+                    "RECENT_RESEARCH" if is_fresh_source(source_age, 180)
                     else "STALE_RESEARCH" if source_age is not None
                     else "UNKNOWN_RESEARCH_TIME"),
                 "age_minutes": source_age,
@@ -210,9 +210,9 @@ def build(*, live=None, model=None, all_sports=None, live_run=None,
     # market counts from current-coverage widgets (N/A, not fabricated zero).
     model_age = source_age_minutes(reference_model.get("checked_at_utc"), now)
     quote_age = source_age_minutes(metrics["odds_receipt_utc"], now)
-    if not recent(model_age, 180):
+    if not is_fresh_source(model_age, 180):
         evidence_state = "STALE_OR_MISSING_MODEL_REPORT"
-    elif not recent(quote_age, 120):
+    elif not is_fresh_source(quote_age, 120):
         evidence_state = "STALE_OR_MISSING_PRICE_RECEIPT"
     else:
         evidence_state = "RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
