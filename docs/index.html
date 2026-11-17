@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101d">
+  <meta name="theme-color" content="#070e19">
   <meta name="description" content="Freddy's Picks AI: an independent eight-sport research command center with published NBA scoreboards, game-market analysis and model verification.">
-  <title>Freddy's Picks AI · Command Center</title>
+  <title>Freddy's Picks AI V8 · Custom Sharp Edge Terminal</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="stylesheet" href="./styles.css">
   <script defer src="./app.js"></script>
@@ -20,6 +20,7 @@
       <p class="sidebar-label">WORKSPACE</p>
       <nav class="main-nav">
         <a class="nav-item active" href="#top"><span class="nav-icon">◈</span> Overview</a>
+        <a class="nav-item" href="#terminal"><span class="nav-icon">⚡</span> One Display</a>
         <a class="nav-item" href="#nba"><span class="nav-icon">◉</span> NBA Live Board</a>
         <a class="nav-item" href="#markets"><span class="nav-icon">⌁</span> Sharp Edge</a>
         <a class="nav-item" href="#sports"><span class="nav-icon">▦</span> All Sports</a>
@@ -46,54 +47,60 @@
       </header>
 
       <div class="page">
-        <div class="eyebrow"><span class="eyebrow-dot"></span> THE FREDDY'S PICKS RESEARCH TERMINAL</div>
-        <section class="hero" aria-labelledby="hero-title">
-          <div class="hero-copy">
-            <span class="hero-kicker">V8 SPORTS INTELLIGENCE ENGINE</span>
-            <h1 id="hero-title">Every game.<br><span>One command center.</span></h1>
-            <p>Explore your independent game research, NBA scoreboards, player-market coverage and Sharp Edge verification—from your phone or desktop.</p>
-            <div class="hero-actions">
-              <a class="btn btn-primary" href="#nba">View NBA Board <span aria-hidden="true">↗</span></a>
-              <a class="btn btn-secondary" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">Run my model <span aria-hidden="true">↗</span></a>
+
+        <section class="command-hero" aria-labelledby="command-title">
+          <div class="command-overline"><span class="command-pulse"></span> FREDDY'S PRIVATE RESEARCH WORKSPACE <span class="command-version">V8 / CUSTOM EDITION</span></div>
+          <div class="command-hero-main">
+            <div>
+              <h1 id="command-title">FREDDY'S <span>PICKS AI</span></h1>
+              <p class="command-subtitle">ONE DISPLAY. EVERY SPORT. EVERY VERIFIED SIGNAL.</p>
+              <p class="command-description">Games, moneylines, spreads, totals, player props, combos, research probabilities and Sharp Edge verification — in one transparent command center.</p>
+              <div class="command-buttons">
+                <a class="btn btn-primary" href="#terminal">Explore market board ↘</a>
+                <a class="btn btn-outline" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">Run NBA / All sports ↗</a>
+              </div>
             </div>
-            <div class="hero-foot"><span class="mini-dot"></span> Research only <span class="sep">·</span> No automated wagers <span class="sep">·</span> 8 sports</div>
-          </div>
-          <div class="hero-visual" aria-hidden="true">
-            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
-            <div class="visual-core"><div class="core-label">MODEL STATUS</div><div class="core-title">SHARP<br>EDGE</div><div class="core-hold">HOLD <span>●</span></div></div>
-            <div class="float-chip chip-top">✦ <span>SOURCE VERIFIED</span></div>
-            <div class="float-chip chip-bottom"><span class="signal-bars">▂▄▆</span> REAL DATA FIRST</div>
+            <div class="command-gate" aria-label="Current certification state">
+              <div class="command-gate-top"><span>MODEL GOVERNANCE</span><span class="gate-diode" aria-hidden="true"></span></div>
+              <span class="command-gate-caption">CERTIFIED SHARP EDGE</span>
+              <strong id="terminal-decision">HOLD</strong>
+              <p>Champion-001 frozen <span aria-hidden="true">·</span> $0 shadow stake</p>
+              <div class="command-gate-bottom"><span>CHECKOUT PRICES</span><b>NOT VERIFIED</b></div>
+            </div>
           </div>
         </section>
 
-        <section id="control" class="remote-control-section" aria-labelledby="control-title">
-          <div class="section-heading">
-            <div><span class="section-kicker">WINDOWS ENGINEERING + PHONE COMMANDS</span>
-              <h2 id="control-title">Control your research from anywhere</h2>
-              <p>Develop and test the model on your Windows laptop. Use your phone to launch GitHub-hosted research workflows after signing in.</p>
+        <section class="terminal-section" id="terminal" aria-labelledby="terminal-title">
+          <div class="terminal-heading">
+            <div><span class="section-kicker">MARKET OPERATIONS / ALL-IN-ONE</span><h2 id="terminal-title">Sharp Edge <span>Command Deck</span></h2><p>Actual publication evidence, not invented live odds or made-up model probabilities.</p></div>
+            <div class="terminal-tools"><span id="terminal-sync" class="terminal-sync">Syncing published data</span><button type="button" class="terminal-density" id="terminal-density" aria-pressed="false">Compact view</button></div>
+          </div>
+          <div class="terminal-stats" aria-label="Verified research at a glance">
+            <article><span>NBA GAMES</span><strong id="t-games">—</strong><small>Public scoreboard slate</small></article>
+            <article><span>GAME PAIRS</span><strong id="t-market-pairs">N/A</strong><small>Current exact markets</small></article>
+            <article><span>PLAYER PROPS</span><strong id="t-prop-pairs">N/A</strong><small>Current matched prices</small></article>
+            <article class="terminal-stat-hold"><span>CERTIFIED +EV</span><strong id="t-certified">0</strong><small>No forced bets</small></article>
+            <article><span>RESEARCH AGE</span><strong id="t-research-age">—</strong><small>Selected league snapshot</small></article>
+            <article><span>ODDS RECEIPT AGE</span><strong id="t-odds-age">—</strong><small>Aggregator, not checkout</small></article>
+          </div>
+          <div class="terminal-workspace">
+            <div class="terminal-league-row"><span class="terminal-overline">CHOOSE SPORT</span><div id="terminal-leagues" class="terminal-leagues" role="group" aria-label="Select sport"><button type="button" class="active" data-league="nba">🏀 NBA</button></div></div>
+            <div class="terminal-panel-top">
+              <div id="terminal-tabs" class="terminal-tabs" role="tablist" aria-label="Market categories">
+                <button type="button" role="tab" aria-selected="true" data-tab="all" class="active">All in one</button>
+                <button type="button" role="tab" aria-selected="false" data-tab="games">Games & lines</button>
+                <button type="button" role="tab" aria-selected="false" data-tab="props">Player props</button>
+                <button type="button" role="tab" aria-selected="false" data-tab="combos">Combos</button>
+                <button type="button" role="tab" aria-selected="false" data-tab="sharp">Sharp audit</button>
+              </div>
+              <label class="terminal-search-label"><span class="visually-hidden">Filter team matchups</span><input id="terminal-search" type="search" placeholder="Search teams…" autocomplete="off"></label>
             </div>
-            <span class="tag tag-accent">ACCOUNT LOGIN REQUIRED</span>
+            <div id="terminal-body" class="terminal-body" aria-live="polite"><div class="terminal-empty">Loading the latest published game and market research…</div></div>
+            <div class="terminal-disclaimer"><span aria-hidden="true">ⓘ</span><span><b>Evidence-first policy.</b> Research leans are uncalibrated and cannot be treated as Champion-001 selections. If a specific market, player, sportsbook price, probability or CLV receipt is unavailable, it displays <b>N/A</b>. This site never places wagers.</span></div>
           </div>
-          <div class="remote-control-grid">
-            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">
-              <span class="remote-card-kicker">ONE COMMAND</span><strong>🏀 Run NBA / NFL / NHL</strong>
-              <small>Open GitHub, select main and your sport, then tap Run workflow.</small><span class="remote-card-link">Open sport commands ↗</span>
-            </a>
-            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">
-              <span class="remote-card-kicker">EIGHT-SPORT RESEARCH</span><strong>🌐 Run all sports</strong>
-              <small>Choose the run_all command in GitHub Actions. Research-only reports, no wagers.</small><span class="remote-card-link">Open all-sports command ↗</span>
-            </a>
-            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml" target="_blank" rel="noopener noreferrer">
-              <span class="remote-card-kicker">OPERATIONS + HEALTH</span><strong>🛠 Full model refresh</strong>
-              <small>Choose full_refresh_recalibrate for 14 cloud research jobs; review completion separately.</small><span class="remote-card-link">Open phone control ↗</span>
-            </a>
-            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/blob/main/WINDOWS_PHONE_ENGINEERING.md" target="_blank" rel="noopener noreferrer">
-              <span class="remote-card-kicker">DEVELOPMENT WORKSTATION</span><strong>💻 Windows laptop setup</strong>
-              <small>Install Python 3.12, local tests and VS Code tasks. Keep your model files private.</small><span class="remote-card-link">Read engineering guide ↗</span>
-            </a>
-          </div>
-          <p class="remote-control-note">These buttons open GitHub Actions; they do not bypass sign-in, call a private laptop directly, or establish certified model probabilities. Champion-001 remains frozen; unsupported EV stays HOLD.</p>
         </section>
+
+
 
         <div class="session-strip">
           <span>LAST PUBLISHED <strong id="published-at">Awaiting first synchronization</strong></span>
@@ -156,6 +163,35 @@
             <article class="health-card"><span class="health-symbol">◷</span><h3>Calibration</h3><div class="health-value" id="model-calibration">UNVERIFIED</div><p id="calibration-description">Independent out-of-sample performance must be established before a probability is bet-certified.</p></article>
             <article class="health-card"><span class="health-symbol">◇</span><h3>Authentic CLV</h3><div class="health-value amber">NOT AVAILABLE</div><p>Matching entry and actual closing-line receipts are required to validate CLV.</p></article>
           </div>
+        </section>
+
+        <section id="control" class="remote-control-section" aria-labelledby="control-title">
+          <div class="section-heading">
+            <div><span class="section-kicker">WINDOWS ENGINEERING + PHONE COMMANDS</span>
+              <h2 id="control-title">Control your research from anywhere</h2>
+              <p>Develop and test the model on your Windows laptop. Use your phone to launch GitHub-hosted research workflows after signing in.</p>
+            </div>
+            <span class="tag tag-accent">ACCOUNT LOGIN REQUIRED</span>
+          </div>
+          <div class="remote-control-grid">
+            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">
+              <span class="remote-card-kicker">ONE COMMAND</span><strong>🏀 Run NBA / NFL / NHL</strong>
+              <small>Open GitHub, select main and your sport, then tap Run workflow.</small><span class="remote-card-link">Open sport commands ↗</span>
+            </a>
+            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml" target="_blank" rel="noopener noreferrer">
+              <span class="remote-card-kicker">EIGHT-SPORT RESEARCH</span><strong>🌐 Run all sports</strong>
+              <small>Choose the run_all command in GitHub Actions. Research-only reports, no wagers.</small><span class="remote-card-link">Open all-sports command ↗</span>
+            </a>
+            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/freddys-command-center.yml" target="_blank" rel="noopener noreferrer">
+              <span class="remote-card-kicker">OPERATIONS + HEALTH</span><strong>🛠 Full model refresh</strong>
+              <small>Choose full_refresh_recalibrate for 14 cloud research jobs; review completion separately.</small><span class="remote-card-link">Open phone control ↗</span>
+            </a>
+            <a class="remote-control-card" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/blob/main/WINDOWS_PHONE_ENGINEERING.md" target="_blank" rel="noopener noreferrer">
+              <span class="remote-card-kicker">DEVELOPMENT WORKSTATION</span><strong>💻 Windows laptop setup</strong>
+              <small>Install Python 3.12, local tests and VS Code tasks. Keep your model files private.</small><span class="remote-card-link">Read engineering guide ↗</span>
+            </a>
+          </div>
+          <p class="remote-control-note">These buttons open GitHub Actions; they do not bypass sign-in, call a private laptop directly, or establish certified model probabilities. Champion-001 remains frozen; unsupported EV stays HOLD.</p>
         </section>
 
         <footer class="footer">

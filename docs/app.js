@@ -177,6 +177,7 @@ function update(data) {
   updateMarkets(data);
   updateLeagues(data);
   updateModel(data);
+  updateTerminal(data);
 }
 let refreshing = false;
 async function refresh() {
@@ -209,5 +210,168 @@ document.querySelectorAll(".nav-item").forEach(el=>{
     el.classList.add("active");
   });
 });
+
+
+/* Custom unified, source-aware sports terminal. Never substitute market prices for a native model. */
+const terminalState = {league:"nba",tab:"all",compact:false,data:null};
+const terminalGroups = {
+  nba:{props:["Points","Rebounds","Assists","3-pointers","Steals","Blocks","Stocks"],combos:["Points + rebounds","Points + assists","Rebounds + assists","PRA"]},
+  nfl:{props:["Passing yards","Rush yards","Receiving yards","Receptions","Touchdowns","Pass attempts"],combos:["Pass + rush","Same-game markets"]},
+  nhl:{props:["Shots on goal","Goals","Assists","Points","Blocked shots","Goalie saves"],combos:["Goals + assists","Same-game markets"]},
+  mlb:{props:["Hits","Total bases","RBIs","Runs","Home runs","Pitcher strikeouts"],combos:["Batter combinations","First-five markets"]},
+  ncaaf:{props:["Pass yards","Rush yards","Receptions","Touchdowns"],combos:["QB pass + rush","Same-game markets"]},
+  ncaab:{props:["Points","Rebounds","Assists","3-pointers","Blocks"],combos:["PR","PA","RA","PRA"]},
+  mls:{props:["Goals","Shots","Shots on target","Assists","Saves"],combos:["Same-game markets"]},
+  uefa_champions_league:{props:["Goals","Shots","Shots on target","Assists","Saves"],combos:["Same-game markets"]}
+};
+function terminalAge(utc) {
+  const n=sourceAge(utc);
+  return n!==null && n>=0 ? n : null;
+}
+function terminalAgeText(utc) {
+  const m=terminalAge(utc);
+  if(m===null)return "N/A";
+  return m<60?m+"m":(m/60).toFixed(1)+"h";
+}
+function terminalLeague() {
+  return leagueInfo.find(i=>i[0]===terminalState.league) || leagueInfo[0];
+}
+function terminalBlock(title,subtitle,body) {
+  return '<section class="terminal-block"><div class="terminal-block-head"><h3>'+escapeHtml(title)+'</h3><small>'+escapeHtml(subtitle)+'</small></div>'+body+'</section>';
+}
+function terminalTable(headers,rows) {
+  return '<div class="terminal-table-scroll"><table class="terminal-table"><thead><tr>'
+    +headers.map(s=>'<th scope="col">'+escapeHtml(s)+'</th>').join('')
+    +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+}
+function terminalRow(values) { return '<tr>'+values.map(s=>'<td>'+s+'</td>').join('')+'</tr>'; }
+function terminalEmptyRow(count,text) {
+  return '<tr><td colspan="'+count+'" class="terminal-no-source">'+escapeHtml(text)+'</td></tr>';
+}
+function terminalGameTable(data) {
+  const isNBA=terminalState.league==="nba";
+  const gdata=Array.isArray(data.games)?data.games:[];
+  const q=($("terminal-search").value||"").toLowerCase().trim();
+  const filtered=isNBA?gdata.filter(g=>(g.away+" "+g.home).toLowerCase().includes(q)):[];
+  const l=data.leagues?.nba||{};
+  const leagueFresh=terminalAge(l.as_of_utc)!==null && terminalAge(l.as_of_utc)<=180;
+  const rows=filtered.map(g=>{
+    const p=number(g.pregame_home_probability_pct);
+    const usable=leagueFresh&&p!==null&&p>0&&p<100;
+    const homeLean=usable&&p>=50;
+    const pct=usable?(homeLean?p:100-p):null;
+    const lean=usable?(homeLean?g.home:g.away):"N/A";
+    const hint=usable?'<div class="terminal-lean">'+escapeHtml(lean)+'<small>Rule research · uncalibrated</small><div class="terminal-bar"><span style="width:'+Math.max(0,Math.min(100,pct)).toFixed(1)+'%"></span></div></div>':'<span class="terminal-na">N/A · research stale</span>';
+    return terminalRow([
+      '<div class="terminal-team-cell"><strong>'+escapeHtml(g.away)+' @ '+escapeHtml(g.home)+'</strong><small>'+escapeHtml(dateText(g.start_et,{month:undefined,day:undefined,timeZoneName:undefined}))+' ET · '+escapeHtml(g.status==="post"?"FINAL":g.status==="in"?"IN PROGRESS":"PREGAME")+'</small></div>',
+      hint,
+      usable?'<b>'+escapeHtml(pct.toFixed(1))+'%</b> <small class="terminal-na">research only</small>':'<span class="terminal-na">N/A</span>',
+      '<span class="terminal-na">N/A</span>',
+      '<span class="terminal-na">N/A</span>',
+      '<span class="terminal-na">N/A</span>',
+      '<span class="terminal-gate-chip">HOLD</span>'
+    ]);
+  });
+  const label=isNBA?"NBA public game slate":terminalLeague()[2]+" event-level slate unavailable in public feed";
+  const subtitle=isNBA?"Research lean ≠ Champion forecast":"No verified exact-match games";
+  const table=terminalTable(["Game / Start ET","Uncalibrated lean","Rule %","ML / Spread / O-U","Champion p / EV","Sharp flow / CLV","Decision"],rows.length?rows:[terminalEmptyRow(7,isNBA?"No matching NBA teams in this published slate.":"Public JSON has league research counts but no independently verified upcoming event-level slate for this sport.")]);
+  return terminalBlock("Game markets · "+label,subtitle,table
+    +'<div class="terminal-info">All current sportsbook lines, authenticated checkout prices and verified game-market EV: <strong>N/A</strong>. Historical or external prices are not silently reused. <a target="_blank" rel="noopener noreferrer" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml">Run game-market research ↗</a></div>');
+}
+function terminalProps(data,combos=false) {
+  const conf=terminalGroups[terminalState.league]||{props:[],combos:[]};
+  const cats=combos?conf.combos:conf.props;
+  const name=combos?"Combination markets":"Player props";
+  const val=data.leagues?.[terminalState.league]||{};
+  const p=combos?null:data.market?.paired_prop_markets;
+  let body='<div class="terminal-pill-list">'+cats.map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>';
+  body+='<div class="terminal-market-cards">'+[
+    ['Verified exact markets',p===null?"N/A":displayNum(p),'Current executable quotes required'],
+    ['Player L5 available',displayNum(val.player_last5),'Historical records, not picks'],
+    ['Player L10 available',displayNum(val.player_last10),'Historical records, not probabilities']
+  ].map(([lab,num,note])=>'<article><span>'+escapeHtml(lab)+'</span><strong>'+escapeHtml(num)+'</strong><small>'+escapeHtml(note)+'</small></article>').join('')+'</div>';
+  body+='<div class="terminal-no-source"><strong>WATCH / HOLD — no qualified player-specific selection.</strong><p>Exact player, opponent, side, stat line, offered sportsbook price, source timestamp, active/injury status, calibrated model probability and same-game correlation are not all published together. Empty coverage is <b>N/A</b>, not a zero-percent chance.</p></div>';
+  return terminalBlock(name,combos?"Correlated legs require executable joint prices":"Overs, unders and alt-lines require real offers",body);
+}
+function terminalAudit(data) {
+  const m=data.market||{},mod=data.model||{};
+  const odds=terminalAge(m.odds_receipt_utc);
+  const stale=odds===null||odds>120;
+  const pairs=m.paired_market_reference_current===true && !stale;
+  const fields=[
+    ["Champion-001","FROZEN · original executable not independently authenticated"],
+    ["Odds receipt",m.odds_receipt_utc?dateText(m.odds_receipt_utc)+" · "+terminalAgeText(m.odds_receipt_utc)+" old":"N/A"],
+    ["Exact market matching",pairs?"Recent research pairs only; no checkout":"N/A · stale or missing"],
+    ["Price execution","N/A · no direct sportsbook checkout"],
+    ["Native model probability","N/A · original frozen model unavailable"],
+    ["Professional handle / tickets","N/A · no independently sourced sharp flow"],
+    ["Certified EV & CLV","0 +EV selections · CLV N/A"],
+    ["Stake","$0 shadow research · no wagers"]
+  ];
+  const grid='<div class="terminal-audit-grid">'+fields.map(([label,value])=>'<div><span>'+escapeHtml(label)+'</span><strong class="'+(/N\/A|FROZEN/.test(value)?"hold":"")+'">'+escapeHtml(value)+'</strong></div>').join('')+'</div>';
+  return terminalBlock("Sharp Edge · evidence audit","Fail-closed until price + model + settlement prove value",grid
+    +'<div class="terminal-info">Source state: '+escapeHtml(m.price_evidence_state||"NOT VERIFIED")
+    +'. Archived quote records: '+escapeHtml(displayNum(m.archived_quotes))
+    +'. Model calibration status: '+escapeHtml(mod.calibration_status||"N/A")
+    +'. <a target="_blank" rel="noopener noreferrer" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions">View GitHub workflow receipts ↗</a></div>');
+}
+function renderTerminal() {
+  const d=terminalState.data;
+  if(!d)return;
+  const v=d.leagues?.[terminalState.league]||{};
+  const age=terminalAge(v.as_of_utc);
+  const n=Array.isArray(d.games)?d.games.length:null;
+  $("t-games").textContent=displayNum(n);
+  $("t-market-pairs").textContent=displayNum(d.market?.paired_game_markets);
+  $("t-prop-pairs").textContent=displayNum(d.market?.paired_prop_markets);
+  $("t-certified").textContent=displayNum(d.market?.certified_positive_ev);
+  $("t-research-age").textContent=terminalAgeText(v.as_of_utc);
+  $("t-odds-age").textContent=terminalAgeText(d.market?.odds_receipt_utc);
+  $("terminal-sync").textContent="Published "+dateText(d.generated_at_utc)+" · static snapshot";
+  $("terminal-decision").textContent=d.model?.betting_state==="HOLD"?"HOLD":"NOT CERTIFIED";
+  $("terminal-leagues").querySelectorAll("button").forEach(b=>{
+    const a=b.dataset.league===terminalState.league;b.classList.toggle("active",a);b.setAttribute("aria-pressed",String(a));
+  });
+  $("terminal-tabs").querySelectorAll("button").forEach(b=>{
+    const a=b.dataset.tab===terminalState.tab;b.classList.toggle("active",a);b.setAttribute("aria-selected",String(a));b.tabIndex=a?0:-1;
+  });
+  $("terminal-search").disabled=terminalState.league!=="nba";
+  $("terminal-search").placeholder=terminalState.league==="nba"?"Search NBA teams…":"NBA search only";
+  const parts=[];
+  const tab=terminalState.tab;
+  const blockGame=terminalGameTable(d),blockProp=terminalProps(d),blockCombo=terminalProps(d,true),blockSharp=terminalAudit(d);
+  if(tab==="all"||tab==="games")parts.push(blockGame);
+  if(tab==="all"||tab==="props")parts.push(blockProp);
+  if(tab==="all"||tab==="combos")parts.push(blockCombo);
+  if(tab==="all"||tab==="sharp")parts.push(blockSharp);
+  const lTitle=terminalLeague()[2],lcount=displayNum(v.forecasts);
+  const header='<div class="terminal-meta"><strong>'+escapeHtml(lTitle)+'</strong> · '+escapeHtml(lcount)+' uncalibrated research-rule forecasts · '+escapeHtml(age!==null&&age<=180?"recent research":"archived or unsynced research")+' · no certified +EV</div>';
+  $("terminal-body").innerHTML=header+'<div class="terminal-stack">'+parts.join("")+'</div>';
+}
+function updateTerminal(data){
+  terminalState.data=data;
+  if(!$("terminal-leagues").dataset.ready){
+    $("terminal-leagues").innerHTML=leagueInfo.map(([k,emoji,name])=>'<button type="button" data-league="'+escapeHtml(k)+'">'+emoji+' '+escapeHtml(name)+'</button>').join("");
+    $("terminal-leagues").dataset.ready="true";
+  }
+  renderTerminal();
+}
+$("terminal-leagues").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-league]");
+  if(!b)return;terminalState.league=b.dataset.league;
+  $("terminal-search").value="";renderTerminal();
+});
+$("terminal-tabs").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-tab]");
+  if(!b)return;terminalState.tab=b.dataset.tab;renderTerminal();
+});
+$("terminal-search").addEventListener("input",()=>renderTerminal());
+$("terminal-density").addEventListener("click",()=>{
+  terminalState.compact=!terminalState.compact;
+  $("terminal").classList.toggle("terminal-compact",terminalState.compact);
+  $("terminal-density").setAttribute("aria-pressed",String(terminalState.compact));
+  $("terminal-density").textContent=terminalState.compact?"Comfort view":"Compact view";
+});
+
 refresh();
 setInterval(refresh, 120000);
