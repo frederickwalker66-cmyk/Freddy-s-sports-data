@@ -145,10 +145,14 @@ function updateLeagues(data) {
     const forecast = number(val.forecasts);
     const status = recent ? "RECENT RESEARCH" : exists ? "ARCHIVED RESEARCH" : "NO CURRENT SYNC";
     const l5 = number(val.player_last5);
+    const slate = data.slates?.[key] || {};
+    const games = slate.status === "ESPN_SCHEDULE_OBSERVED"
+      ? String(slate.game_count)+" GAMES"
+      : slate.status === "NO_GAMES_LISTED" ? "NO GAMES LISTED" : "SCHEDULE N/A";
     return '<article class="league-card"><div class="league-head">'
       + '<span class="league-icon" aria-hidden="true">'+icon+'</span>'
       + '<span class="league-status '+(recent?"ready":"")+'">'+status+'</span></div>'
-      + '<h3>'+escapeHtml(title)+'</h3><p>'+escapeHtml(desc)+'</p>'
+      + '<h3>'+escapeHtml(title)+'</h3><p>'+escapeHtml(desc)+'</p><div class="league-slate">'+escapeHtml(games)+'</div>'
       + '<div class="league-foot"><span>Rule forecasts <strong>'
       + escapeHtml(forecast === null ? "N/A" : String(forecast))
       +'</strong></span><span>Player L5 <strong>'
@@ -213,7 +217,7 @@ document.querySelectorAll(".nav-item").forEach(el=>{
 
 
 /* Custom unified, source-aware sports terminal. Never substitute market prices for a native model. */
-const terminalState = {league:"nba",tab:"all",compact:false,data:null};
+const terminalState = {league:"all",tab:"all",compact:false,data:null};
 const terminalGroups = {
   nba:{props:["Points","Rebounds","Assists","3-pointers","Steals","Blocks","Stocks"],combos:["Points + rebounds","Points + assists","Rebounds + assists","PRA"]},
   nfl:{props:["Passing yards","Rush yards","Receiving yards","Receptions","Touchdowns","Pass attempts"],combos:["Pass + rush","Same-game markets"]},
@@ -234,7 +238,8 @@ function terminalAgeText(utc) {
   return m<60?m+"m":(m/60).toFixed(1)+"h";
 }
 function terminalLeague() {
-  return leagueInfo.find(i=>i[0]===terminalState.league) || leagueInfo[0];
+  return terminalState.league==="all"?["all","🌐","ALL SPORTS","All eight leagues"]:
+    leagueInfo.find(i=>i[0]===terminalState.league) || leagueInfo[0];
 }
 function terminalBlock(title,subtitle,body) {
   return '<section class="terminal-block"><div class="terminal-block-head"><h3>'+escapeHtml(title)+'</h3><small>'+escapeHtml(subtitle)+'</small></div>'+body+'</section>';
@@ -248,110 +253,187 @@ function terminalRow(values) { return '<tr>'+values.map(s=>'<td>'+s+'</td>').joi
 function terminalEmptyRow(count,text) {
   return '<tr><td colspan="'+count+'" class="terminal-no-source">'+escapeHtml(text)+'</td></tr>';
 }
+
 function terminalGameTable(data) {
-  const isNBA=terminalState.league==="nba";
-  const gdata=Array.isArray(data.games)?data.games:[];
-  const q=($("terminal-search").value||"").toLowerCase().trim();
-  const filtered=isNBA?gdata.filter(g=>(g.away+" "+g.home).toLowerCase().includes(q)):[];
-  const l=data.leagues?.nba||{};
-  const leagueFresh=terminalAge(l.as_of_utc)!==null && terminalAge(l.as_of_utc)<=180;
-  const rows=filtered.map(g=>{
-    const p=number(g.pregame_home_probability_pct);
-    const usable=leagueFresh&&p!==null&&p>0&&p<100;
-    const homeLean=usable&&p>=50;
-    const pct=usable?(homeLean?p:100-p):null;
+  const lg=terminalState.league;
+  const q=($("terminal-search").value||"").trim().toLowerCase();
+  const sports=lg==="all"?leagueInfo.map(x=>x[0]):[lg];
+  const slates=data.slates||{};
+  const selected=sports.flatMap(s=>{
+    const slate=slates[s]||{};
+    const games=Array.isArray(slate.games)?slate.games:[];
+    return games.filter(g=>(s+" "+g.away+" "+g.home).toLowerCase().includes(q))
+      .map(g=>({sport:s,game:g,observed:slate.as_of_utc}));
+  }).sort((a,b)=>{
+    return String(a.game.start_et||"").localeCompare(String(b.game.start_et||""))
+      || a.sport.localeCompare(b.sport) || String(a.game.id).localeCompare(String(b.game.id));
+  });
+  const rows=selected.map(({sport,game:g,observed})=>{
+    const modelFresh=terminalAge(data.leagues?.[sport]?.as_of_utc)!==null
+      && terminalAge(data.leagues?.[sport]?.as_of_utc)<=180;
+    const scheduleFresh=terminalAge(observed)!==null && terminalAge(observed)<=180;
+    const pb=number(g.research_home_probability_pct);
+    const usable=modelFresh&&scheduleFresh&&pb!==null&&pb>0&&pb<100;
+    const homeLean=usable&&pb>=50;
+    const pct=usable?(homeLean?pb:100-pb):null;
     const lean=usable?(homeLean?g.home:g.away):"N/A";
-    const hint=usable?'<div class="terminal-lean">'+escapeHtml(lean)+'<small>Rule research · uncalibrated</small><div class="terminal-bar"><span style="width:'+Math.max(0,Math.min(100,pct)).toFixed(1)+'%"></span></div></div>':'<span class="terminal-na">N/A · research stale</span>';
+    const research=usable?'<div class="terminal-lean">'+escapeHtml(lean)
+        +'<small>Uncalibrated rule</small>'
+        +'<div class="terminal-bar"><span style="width:'+pct.toFixed(1)+'%"></span></div></div>'
+      :'<span class="terminal-na">N/A</span>';
+    const gameTime=g.start_et?dateText(g.start_et,{month:undefined,day:undefined,timeZoneName:undefined}):"TBD";
     return terminalRow([
-      '<div class="terminal-team-cell"><strong>'+escapeHtml(g.away)+' @ '+escapeHtml(g.home)+'</strong><small>'+escapeHtml(dateText(g.start_et,{month:undefined,day:undefined,timeZoneName:undefined}))+' ET · '+escapeHtml(g.status==="post"?"FINAL":g.status==="in"?"IN PROGRESS":"PREGAME")+'</small></div>',
-      hint,
-      usable?'<b>'+escapeHtml(pct.toFixed(1))+'%</b> <small class="terminal-na">research only</small>':'<span class="terminal-na">N/A</span>',
-      '<span class="terminal-na">N/A</span>',
+      '<span class="terminal-sport-pill">'+escapeHtml(leagueInfo.find(x=>x[0]===sport)?.[2]||sport)+'</span>',
+      '<div class="terminal-team-cell"><strong>'+escapeHtml(g.away)+' @ '+escapeHtml(g.home)+'</strong><small>'
+        +escapeHtml(gameTime)+' ET · '+escapeHtml(g.status==="scheduled"?"Scheduled · research snapshot":"Observed")+'</small></div>',
+      research,
+      usable?'<strong>'+pct.toFixed(1)+'%</strong> <small class="terminal-na">research</small>':'<span class="terminal-na">N/A</span>',
       '<span class="terminal-na">N/A</span>',
       '<span class="terminal-na">N/A</span>',
       '<span class="terminal-gate-chip">HOLD</span>'
     ]);
   });
-  const label=isNBA?"NBA public game slate":terminalLeague()[2]+" event-level slate unavailable in public feed";
-  const subtitle=isNBA?"Research lean ≠ Champion forecast":"No verified exact-match games";
-  const table=terminalTable(["Game / Start ET","Uncalibrated lean","Rule %","ML / Spread / O-U","Champion p / EV","Sharp flow / CLV","Decision"],rows.length?rows:[terminalEmptyRow(7,isNBA?"No matching NBA teams in this published slate.":"Public JSON has league research counts but no independently verified upcoming event-level slate for this sport.")]);
-  return terminalBlock("Game markets · "+label,subtitle,table
-    +'<div class="terminal-info">All current sportsbook lines, authenticated checkout prices and verified game-market EV: <strong>N/A</strong>. Historical or external prices are not silently reused. <a target="_blank" rel="noopener noreferrer" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/workflows/v8-one-command.yml">Run game-market research ↗</a></div>');
+  const statusLines=sports.map(s=>{
+    const slate=slates[s]||{};
+    const title=leagueInfo.find(x=>x[0]===s)?.[2]||s;
+    const status=slate.status==="ESPN_SCHEDULE_OBSERVED"
+      ?displayNum(slate.game_count)+" ESPN-listed game(s)"
+      :slate.status==="NO_GAMES_LISTED"?"0 games listed by ESPN"
+      :slate.status==="MATCHUPS_UNVERIFIED"?"Unverified source identity"
+      :"Schedule not current";
+    return '<span class="terminal-slate-source"><b>'+escapeHtml(title)+'</b> '+escapeHtml(status)+'</span>';
+  }).join("");
+  const text=q?"No games match this search.":"No eligible, source-observed matchups in this selection.";
+  const table=terminalTable(
+    ["League","Matchup / ET","Research lean","Rule p%","ML / Spread / O-U","Champion p / EV","Sharp status"],
+    rows.length?rows:[terminalEmptyRow(7,text)]);
+  return terminalBlock(
+    "Game markets · "+(lg==="all"?"ALL EIGHT LEAGUES":terminalLeague()[2]),
+    "Observed ESPN fixture snapshots · not authenticated sportsbook lines",
+    '<div class="terminal-slate-sources">'+statusLines+'</div>'+table+
+    '<div class="terminal-info">Matches and kickoff/tipoff originate from the archived ESPN schedule preflight; third-party research only. '
+    +'Odds, spreads, totals, bookmaker IDs, official lineup confirmation, independently calibrated game probabilities, sharp handle and EV: '
+    +'<strong>N/A until separately validated.</strong> No verified fixture is silently replaced with a predicted game.</div>');
 }
+
+
 function terminalProps(data,combos=false) {
-  const conf=terminalGroups[terminalState.league]||{props:[],combos:[]};
-  const cats=combos?conf.combos:conf.props;
+  const all=terminalState.league==="all";
+  const selected=all?leagueInfo.map(x=>x[0]):[terminalState.league];
   const name=combos?"Combination markets":"Player props";
-  const val=data.leagues?.[terminalState.league]||{};
-  const p=combos?null:data.market?.paired_prop_markets;
-  let body='<div class="terminal-pill-list">'+cats.map(x=>'<span>'+escapeHtml(x)+'</span>').join('')+'</div>';
-  body+='<div class="terminal-market-cards">'+[
-    ['Verified exact markets',p===null?"N/A":displayNum(p),'Current executable quotes required'],
-    ['Player L5 available',displayNum(val.player_last5),'Historical records, not picks'],
-    ['Player L10 available',displayNum(val.player_last10),'Historical records, not probabilities']
-  ].map(([lab,num,note])=>'<article><span>'+escapeHtml(lab)+'</span><strong>'+escapeHtml(num)+'</strong><small>'+escapeHtml(note)+'</small></article>').join('')+'</div>';
-  body+='<div class="terminal-no-source"><strong>WATCH / HOLD — no qualified player-specific selection.</strong><p>Exact player, opponent, side, stat line, offered sportsbook price, source timestamp, active/injury status, calibrated model probability and same-game correlation are not all published together. Empty coverage is <b>N/A</b>, not a zero-percent chance.</p></div>';
-  return terminalBlock(name,combos?"Correlated legs require executable joint prices":"Overs, unders and alt-lines require real offers",body);
+  const cards=selected.map(lg=>{
+    const conf=terminalGroups[lg]||{props:[],combos:[]};
+    const cats=combos?conf.combos:conf.props;
+    const meta=data.leagues?.[lg]||{};
+    const market=data.market_by_league?.[lg]||{};
+    const title=leagueInfo.find(x=>x[0]===lg)?.[2]||lg.toUpperCase();
+    return '<article class="terminal-sport-card"><div class="terminal-card-title"><strong>'
+      +escapeHtml(title)+'</strong><span class="terminal-gate-chip">HOLD</span></div>'
+      +'<div class="terminal-card-metrics"><div><span>Exact paired props</span><b>'
+      +escapeHtml(combos?"N/A":displayNum(market.paired_prop_markets))+'</b></div>'
+      +'<div><span>Historical player L5 / L10</span><b>'
+      +escapeHtml(displayNum(meta.player_last5))+' / '+escapeHtml(displayNum(meta.player_last10))+'</b></div></div>'
+      +'<div class="terminal-pill-list">'+cats.map(x=>'<span>'+escapeHtml(x)+'</span>').join("")+'</div>'
+      +'<p>Current player, market side and threshold: <b>N/A</b> · matched available price: <b>N/A</b> · certified EV: <b>N/A</b>.</p></article>';
+  }).join("");
+  return terminalBlock(
+    name+" · "+(all?"ALL EIGHT LEAGUES":terminalLeague()[2]),
+    combos?"Combined propositions require verified joint prices and dependence":"Player overs, unders and alternatives require exact market receipts",
+    '<div class="terminal-sport-grid">'+cards+'</div>'
+    +'<div class="terminal-info">These are supported research categories and genuine historical L5/L10 coverage counts, '
+    +'NOT listed player wagers or available sportsbook lines. '
+    +'Absent player-specific markets are intentionally shown as N/A rather than manufactured.</div>');
 }
+
+
 function terminalAudit(data) {
-  const m=data.market||{},mod=data.model||{};
-  const odds=terminalAge(m.odds_receipt_utc);
-  const stale=odds===null||odds>120;
-  const pairs=m.paired_market_reference_current===true && !stale;
-  const fields=[
-    ["Champion-001","FROZEN · original executable not independently authenticated"],
-    ["Odds receipt",m.odds_receipt_utc?dateText(m.odds_receipt_utc)+" · "+terminalAgeText(m.odds_receipt_utc)+" old":"N/A"],
-    ["Exact market matching",pairs?"Recent research pairs only; no checkout":"N/A · stale or missing"],
-    ["Price execution","N/A · no direct sportsbook checkout"],
-    ["Native model probability","N/A · original frozen model unavailable"],
-    ["Professional handle / tickets","N/A · no independently sourced sharp flow"],
-    ["Certified EV & CLV","0 +EV selections · CLV N/A"],
-    ["Stake","$0 shadow research · no wagers"]
-  ];
-  const grid='<div class="terminal-audit-grid">'+fields.map(([label,value])=>'<div><span>'+escapeHtml(label)+'</span><strong class="'+(/N\/A|FROZEN/.test(value)?"hold":"")+'">'+escapeHtml(value)+'</strong></div>').join('')+'</div>';
-  return terminalBlock("Sharp Edge · evidence audit","Fail-closed until price + model + settlement prove value",grid
-    +'<div class="terminal-info">Source state: '+escapeHtml(m.price_evidence_state||"NOT VERIFIED")
-    +'. Archived quote records: '+escapeHtml(displayNum(m.archived_quotes))
-    +'. Model calibration status: '+escapeHtml(mod.calibration_status||"N/A")
-    +'. <a target="_blank" rel="noopener noreferrer" href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions">View GitHub workflow receipts ↗</a></div>');
+  const m=data.market_by_league||{};
+  const all=terminalState.league==="all";
+  const selected=all?leagueInfo.map(x=>x[0]):[terminalState.league];
+  const rows=selected.map(lg=>{
+    const row=m[lg]||{};
+    const status=row.price_evidence_state==="RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT"
+      ?"AGGREGATOR · NOT CHECKOUT":row.price_evidence_state==="STALE_OR_MISSING_MODEL_REPORT"
+      ?"MODEL STALE":"MISSING / STALE ODDS";
+    return terminalRow([
+      '<span class="terminal-sport-pill">'+escapeHtml(leagueInfo.find(x=>x[0]===lg)?.[2]||lg)+'</span>',
+      escapeHtml(displayNum(row.archived_quotes))+' <small class="terminal-na">archived</small>',
+      escapeHtml(row.odds_receipt_utc?terminalAgeText(row.odds_receipt_utc):"N/A"),
+      escapeHtml(displayNum(row.paired_game_markets))+' / '+escapeHtml(displayNum(row.paired_prop_markets)),
+      '<span class="terminal-na">'+escapeHtml(status)+'</span>',
+      '<span class="terminal-na">N/A</span>',
+      '<span class="terminal-gate-chip">HOLD</span>'
+    ]);
+  });
+  const table=terminalTable(
+    ["League","Source quote archive","Quote age","Current game / prop pairs","Source quality","True CLV / sharp flow","Betting"],
+    rows);
+  const details= '<div class="terminal-audit-grid">'
+    +'<div><span>FROZEN CHAMPION-001</span><strong>Original executable not independently authenticated</strong></div>'
+    +'<div><span>BET-READY PROBABILITY</span><strong class="hold">N/A · independent calibration missing</strong></div>'
+    +'<div><span>PROVIDER DIRECT CHECKOUT</span><strong class="hold">N/A · original sportsbook price not verified</strong></div>'
+    +'<div><span>REAL SPORTSBOOK CLV & SHARP HANDLE</span><strong class="hold">N/A · audited receipts unavailable</strong></div></div>';
+  return terminalBlock(
+    "Sharp Edge audit · "+(all?"ALL EIGHT LEAGUES":terminalLeague()[2]),
+    "Each sport has its OWN timestamp and pricing gate · no NBA quote substitution",
+    table+details+'<div class="terminal-info">All league betting decisions: <strong>HOLD / PASS</strong>. '
+    +'Historical archive counts are not current market coverage. '
+    +'Verified +EV selections: <strong>0</strong>. Shadow stake: <strong>$0</strong>. '
+    +'<a href="https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions" target="_blank" rel="noopener noreferrer">Source workflow history ↗</a></div>');
 }
+
+
 function renderTerminal() {
   const d=terminalState.data;
   if(!d)return;
-  const v=d.leagues?.[terminalState.league]||{};
-  const age=terminalAge(v.as_of_utc);
-  const n=Array.isArray(d.games)?d.games.length:null;
-  $("t-games").textContent=displayNum(n);
-  $("t-market-pairs").textContent=displayNum(d.market?.paired_game_markets);
-  $("t-prop-pairs").textContent=displayNum(d.market?.paired_prop_markets);
-  $("t-certified").textContent=displayNum(d.market?.certified_positive_ev);
-  $("t-research-age").textContent=terminalAgeText(v.as_of_utc);
-  $("t-odds-age").textContent=terminalAgeText(d.market?.odds_receipt_utc);
-  $("terminal-sync").textContent="Published "+dateText(d.generated_at_utc)+" · static snapshot";
-  $("terminal-decision").textContent=d.model?.betting_state==="HOLD"?"HOLD":"NOT CERTIFIED";
+  const lg=terminalState.league;
+  const selected=lg==="all"?leagueInfo.map(x=>x[0]):[lg];
+  const slates=d.slates||{}, markets=d.market_by_league||{};
+  const allCount=selected.every(k=>typeof slates[k]?.game_count==="number");
+  const tracked=allCount?selected.reduce((sum,k)=>sum+slates[k].game_count,0):null;
+  const paired=(key)=>{
+    const values=selected.map(k=>markets[k]?.[key]);
+    return values.every(x=>typeof x==="number"&&Number.isFinite(x))
+      ?values.reduce((sum,x)=>sum+x,0):null;
+  };
+  const ages=selected.map(k=>terminalAge(d.leagues?.[k]?.as_of_utc));
+  const currentAge=ages.length&&ages.every(x=>x!==null)?Math.max(...ages):null;
+  const quoteAges=selected.map(k=>terminalAge(markets[k]?.odds_receipt_utc));
+  const quoteAge=quoteAges.length&&quoteAges.every(x=>x!==null)?Math.max(...quoteAges):null;
+  $("t-games").textContent=displayNum(tracked);
+  $("t-market-pairs").textContent=displayNum(paired("paired_game_markets"));
+  $("t-prop-pairs").textContent=displayNum(paired("paired_prop_markets"));
+  $("t-certified").textContent="0";
+  $("t-research-age").textContent=currentAge===null?"N/A":currentAge<60?currentAge+"m":(currentAge/60).toFixed(1)+"h";
+  $("t-odds-age").textContent=quoteAge===null?"N/A":quoteAge<60?quoteAge+"m":(quoteAge/60).toFixed(1)+"h";
+  $("terminal-sync").textContent="Published "+dateText(d.generated_at_utc)+" · source snapshot";
+  $("terminal-decision").textContent="HOLD";
   $("terminal-leagues").querySelectorAll("button").forEach(b=>{
-    const a=b.dataset.league===terminalState.league;b.classList.toggle("active",a);b.setAttribute("aria-pressed",String(a));
+    const a=b.dataset.league===lg;b.classList.toggle("active",a);b.setAttribute("aria-pressed",String(a));
   });
   $("terminal-tabs").querySelectorAll("button").forEach(b=>{
     const a=b.dataset.tab===terminalState.tab;b.classList.toggle("active",a);b.setAttribute("aria-selected",String(a));b.tabIndex=a?0:-1;
   });
-  $("terminal-search").disabled=terminalState.league!=="nba";
-  $("terminal-search").placeholder=terminalState.league==="nba"?"Search NBA teams…":"NBA search only";
-  const parts=[];
-  const tab=terminalState.tab;
-  const blockGame=terminalGameTable(d),blockProp=terminalProps(d),blockCombo=terminalProps(d,true),blockSharp=terminalAudit(d);
-  if(tab==="all"||tab==="games")parts.push(blockGame);
-  if(tab==="all"||tab==="props")parts.push(blockProp);
-  if(tab==="all"||tab==="combos")parts.push(blockCombo);
-  if(tab==="all"||tab==="sharp")parts.push(blockSharp);
-  const lTitle=terminalLeague()[2],lcount=displayNum(v.forecasts);
-  const header='<div class="terminal-meta"><strong>'+escapeHtml(lTitle)+'</strong> · '+escapeHtml(lcount)+' uncalibrated research-rule forecasts · '+escapeHtml(age!==null&&age<=180?"recent research":"archived or unsynced research")+' · no certified +EV</div>';
-  $("terminal-body").innerHTML=header+'<div class="terminal-stack">'+parts.join("")+'</div>';
+  $("terminal-search").disabled=false;
+  $("terminal-search").placeholder=lg==="all"?"Search any team or league…":"Search "+terminalLeague()[2]+" teams…";
+  const parts=[],tab=terminalState.tab;
+  if(tab==="all"||tab==="games")parts.push(terminalGameTable(d));
+  if(tab==="all"||tab==="props")parts.push(terminalProps(d));
+  if(tab==="all"||tab==="combos")parts.push(terminalProps(d,true));
+  if(tab==="all"||tab==="sharp")parts.push(terminalAudit(d));
+  const leagueTitle=terminalLeague()[2];
+  const forecastCount=selected.reduce((sum,k)=>sum+(number(d.leagues?.[k]?.forecasts)||0),0);
+  const status='<div class="terminal-meta"><strong>'+escapeHtml(leagueTitle)+'</strong> · '
+    +escapeHtml(displayNum(tracked))+' source-listed games today · '
+    +escapeHtml(String(forecastCount))+' research rule forecast rows (not certified) · '
+    +'0 certified +EV · <span class="hold-text">HOLD</span></div>';
+  $("terminal-body").innerHTML=status+'<div class="terminal-stack">'+parts.join("")+'</div>';
 }
+
 function updateTerminal(data){
   terminalState.data=data;
   if(!$("terminal-leagues").dataset.ready){
-    $("terminal-leagues").innerHTML=leagueInfo.map(([k,emoji,name])=>'<button type="button" data-league="'+escapeHtml(k)+'">'+emoji+' '+escapeHtml(name)+'</button>').join("");
+    $("terminal-leagues").innerHTML='<button type="button" data-league="all">🌐 ALL SPORTS</button>'+leagueInfo.map(([k,emoji,name])=>'<button type="button" data-league="'+escapeHtml(k)+'">'+emoji+' '+escapeHtml(name)+'</button>').join("");
     $("terminal-leagues").dataset.ready="true";
   }
   renderTerminal();

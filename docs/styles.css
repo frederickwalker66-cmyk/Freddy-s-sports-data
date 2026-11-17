@@ -130,3 +130,21 @@
 @media(max-width:1350px){.terminal-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.command-hero-main{grid-template-columns:1fr}.command-gate{display:grid;grid-template-columns:1fr 1fr;align-items:center;column-gap:18px}.command-gate-top,.command-gate-bottom{grid-column:1/-1}.command-gate-caption{margin:0}.command-gate>strong{font-size:29px}.command-gate>p{margin:0}.terminal-panel-top{flex-direction:column;align-items:stretch}.terminal-search-label input{width:100%}}
 @media(max-width:570px){.command-overline{font-size:8px;padding:15px 15px 0;letter-spacing:.08em}.command-version{font-size:8px}.command-hero-main{padding:16px;gap:17px}.command-hero h1{font-size:35px}.command-subtitle{font-size:9px;letter-spacing:.06em}.command-description{font-size:11px}.command-buttons .btn{font-size:10px;padding:11px 12px}.terminal-heading{flex-direction:column;align-items:flex-start}.terminal-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.terminal-stats article{padding:10px}.terminal-stats article>span{font-size:8px}.terminal-stats article strong{font-size:20px}.terminal-stats article small{font-size:8px}.terminal-league-row,.terminal-panel-top{padding:11px}.terminal-body{padding:11px}.terminal-tabs button{font-size:10px;padding:9px}.terminal-market-cards,.terminal-audit-grid{grid-template-columns:1fr}.terminal-table{min-width:620px}.terminal-disclaimer{padding:11px;font-size:9px}.command-gate{padding:13px}}
+
+
+/* All eight sports share the same game/prop/combination and model-evidence surface. */
+.terminal-slate-sources{display:flex;gap:7px;flex-wrap:wrap;padding:14px;border-bottom:1px solid #293e4e}
+.terminal-slate-source{border:1px solid #344c5c;border-radius:7px;padding:7px 9px;background:#142839;font-size:9px;color:#a3bcc9;white-space:nowrap}
+.terminal-slate-source b{color:#baf4d2;margin-right:4px}
+.terminal-sport-pill{display:inline-flex;font-size:9px;white-space:nowrap;color:#c8f8e1;font-weight:800;background:#1b403d;border:1px solid #3c796b;padding:5px 7px;border-radius:6px}
+.terminal-sport-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px}
+.terminal-sport-card{min-width:0;background:linear-gradient(150deg,#13283c,#102131);border:1px solid #2d4b5c;border-radius:10px;padding:15px}
+.terminal-card-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:12px}
+.terminal-card-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.terminal-card-metrics div{display:flex;flex-direction:column;gap:4px;border:1px solid #2b4052;border-radius:7px;padding:9px;background:#0f2232}
+.terminal-card-metrics span{font-size:9px;color:#8eabb9}
+.terminal-card-metrics b{color:#e0f8ec;font-size:14px}
+.terminal-sport-card .terminal-pill-list{padding:11px 0}
+.terminal-sport-card p{font-size:10px;line-height:1.6;margin:2px 0 0;color:#93a9b9}
+.league-slate{margin-top:12px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#a1efc5}
+@media(max-width:700px){.terminal-sport-grid{grid-template-columns:1fr}}
