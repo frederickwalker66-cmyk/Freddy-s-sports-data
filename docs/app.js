@@ -317,7 +317,7 @@ function terminalGameTable(data) {
       ?'<div class="terminal-price"><b>ML</b> '+escapeHtml(terminalAmerican(quote.moneyline_away))
         +' / '+escapeHtml(terminalAmerican(quote.moneyline_home))+'</div>' : "";
     const spread=quote?.spread_details
-      ?'<div class="terminal-price"><b>SPREAD</b> '+escapeHtml(quote.spread_details)+'</div>':"";
+      ?'<div class="terminal-price"><b>ESPN LINE</b> '+escapeHtml(quote.spread_details)+'</div>':"";
     const total=number(quote?.total)!==null
       ?'<div class="terminal-price"><b>TOTAL</b> '+escapeHtml(String(quote.total))
        +(quote.over_price!==null||quote.under_price!==null
@@ -357,7 +357,7 @@ function terminalGameTable(data) {
     "Best-effort ESPN source snapshots · hourly requested · no sportsbook checkout",
     '<div class="terminal-slate-sources">'+sourceStatus+'</div>'+table
     +'<div class="terminal-info">Market columns display only source-labelled ESPN references when published. '
-    +'ML = away/home prices. TOTAL price pair = over/under. Observation time is when ESPN was fetched, '
+    +'ML = away/home prices when explicitly provided. ESPN LINE may be a spread or headline moneyline (especially NHL); it is not necessarily a verified spread. TOTAL price pair = over/under when available. Observation time is when ESPN was fetched, '
     +'<strong>not the bookmaker quote time.</strong> In-play source fields are not automatically executable live betting lines. '
     +'Certified Sharp Edge / EV, authenticated DraftKings checkout and professional sharp-money percentages remain N/A.</div>');
 }
