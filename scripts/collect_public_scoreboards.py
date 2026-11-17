@@ -128,6 +128,38 @@ def parse_market(competition, league):
     return None
 
 
+
+def record_summary(competitor):
+    """ESPN-reported overall W-L(-T) record, not a projected win percentage."""
+    records = competitor.get("records") or []
+    if not isinstance(records, list):
+        return None
+    for item in records[:8]:
+        if not isinstance(item, dict):
+            continue
+        if (str(item.get("name") or "").lower() not in ("overall", "")
+                and str(item.get("type") or "").lower() != "total"):
+            continue
+        summary = item.get("summary")
+        if isinstance(summary, str) and re.fullmatch(r"\d{1,3}-\d{1,3}(?:-\d{1,3})?", summary):
+            return summary
+    return None
+
+
+def broadcast_names(event, competition):
+    """Only explicitly listed scoreboard broadcasters."""
+    result = []
+    for parent in (competition, event):
+        for record in parent.get("broadcasts") or []:
+            if not isinstance(record, dict):
+                continue
+            names = record.get("names") or []
+            if isinstance(names, list):
+                result.extend(scrub(n, 40) for n in names if isinstance(n, str))
+    return list(dict.fromkeys(n for n in result if n))[:4]
+
+
+
 def parse_scoreboard(league, payload, *, date_et, observed_at):
     if (not isinstance(payload, dict) or not isinstance(payload.get("events"), list)
             or len(payload["events"]) > MAX_EVENTS):
@@ -145,6 +177,8 @@ def parse_scoreboard(league, payload, *, date_et, observed_at):
         comp = cs[0]
         sides = {}
         scores = {}
+        records = {}
+        abbreviations = {}
         for entry in comp.get("competitors") or []:
             if not isinstance(entry, dict):
                 continue
@@ -153,6 +187,8 @@ def parse_scoreboard(league, payload, *, date_et, observed_at):
             if side not in ("home", "away") or not isinstance(team, dict):
                 continue
             sides[side] = scrub(team.get("displayName"), 90)
+            abbreviations[side] = scrub(team.get("abbreviation"), 12)
+            records[side] = record_summary(entry)
             val = entry.get("score")
             try:
                 scores[side] = int(val) if re.fullmatch(r"\d{1,3}", str(val)) else None
@@ -169,9 +205,19 @@ def parse_scoreboard(league, payload, *, date_et, observed_at):
             continue
         seen.add(game_id)
         market = parse_market(comp, league)
+        venue_obj = comp.get("venue") or {}
+        venue = scrub(venue_obj.get("fullName"), 100) if isinstance(venue_obj, dict) else ""
+        status_type = status_obj.get("type") or {}
+        status_detail = scrub(status_type.get("shortDetail"), 50) if isinstance(status_type, dict) else ""
         row = {
             "id": game_id,
             "home": sides["home"], "away": sides["away"],
+            "home_abbr": abbreviations.get("home") or None,
+            "away_abbr": abbreviations.get("away") or None,
+            "home_record": records.get("home"), "away_record": records.get("away"),
+            "venue": venue or None,
+            "broadcasts": broadcast_names(item, comp),
+            "status_detail": status_detail or None,
             "start_et": start.astimezone(NY).isoformat(),
             "status": state,
             "home_score": scores.get("home") if state in ("in", "post") else None,

@@ -158,3 +158,11 @@
 .terminal-price b{font-size:8px;letter-spacing:.08em;min-width:47px;color:#8fc6ad}
 .terminal-team-cell small{display:block}
 .terminal-table td:nth-child(3){min-width:162px}
+
+
+/* 2026-11-17 source-data expansion: real records, venue, broadcast and reference repricing */
+.terminal-movement{margin:9px 0 2px;padding:9px 10px;border:1px solid #50745d;border-radius:7px;background:#19372e;color:#c7f3d9;font-size:10px;line-height:1.6;max-width:260px}
+.terminal-movement strong{display:block;color:#b6ecc8;font-size:8px;letter-spacing:.12em}
+.terminal-movement small{display:block;color:#9fc5b3;margin-top:4px;font-size:9px}
+.terminal-data-sub{font-size:9px;color:#87aaba}
+.terminal-team-cell small{line-height:1.5;margin-top:3px}

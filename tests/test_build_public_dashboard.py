@@ -324,5 +324,107 @@ class AllSportFixtureTests(unittest.TestCase):
         self.assertEqual(out["public_hourly_board"]["nba"]["status"],"NO_CURRENT_ESPN_SCOREBOARD")
 
 
+    def test_hourly_public_team_records_venue_and_broadcasts(self):
+        capture={
+            "schema":"freddys-espn-public-hourly-v1",
+            "date_et":"2026-11-14",
+            "champion_001_modified":False,"certified_positive_ev":0,
+            "provider_checkout_ever_verified":False,
+            "leagues":{"nba":{
+                "status":"ESPN_SCOREBOARD_OBSERVED",
+                "observed_at_utc":NOW.isoformat(),
+                "games":[{
+                    "id":"12345","home":"Minnesota Timberwolves","away":"Chicago Bulls",
+                    "start_et":"2026-11-14T20:00:00-05:00","status":"pre",
+                    "home_record":"12-3","away_record":"9-6","home_abbr":"MIN",
+                    "away_abbr":"CHI","venue":"Target Center",
+                    "broadcasts":["ESPN","ABC"],"status_detail":"8:00 PM ET",
+                    "market_reference":None
+                }]
+            }}
+        }
+        out=build(public=capture,at=NOW)
+        game=out["public_hourly_board"]["nba"]["games"][0]
+        self.assertEqual(game["home_record"],"12-3")
+        self.assertEqual(game["away_record"],"9-6")
+        self.assertEqual(game["venue"],"Target Center")
+        self.assertEqual(game["broadcasts"],["ESPN","ABC"])
+        capture["leagues"]["nba"]["games"][0]["home_record"]="wrong"
+        another=build(public=capture,at=NOW)
+        self.assertIsNone(another["public_hourly_board"]["nba"]["games"][0]["home_record"])
+
+    def test_observed_line_change_requires_same_book_game_and_date(self):
+        def capture(when,total=224.5,book="DraftKings",gid="12345"):
+            return {
+                "schema":"freddys-espn-public-hourly-v1",
+                "date_et":"2026-11-14","champion_001_modified":False,
+                "provider_checkout_ever_verified":False,"certified_positive_ev":0,
+                "leagues":{"nba":{
+                    "status":"ESPN_SCOREBOARD_OBSERVED",
+                    "observed_at_utc":when.isoformat(),
+                    "games":[{
+                        "id":gid,"home":"Minnesota Timberwolves","away":"Chicago Bulls",
+                        "start_et":"2026-11-14T20:00:00-05:00",
+                        "status":"pre",
+                        "market_reference":{
+                            "provider_name":book,"total":total,"spread_details":"MIN -4.5",
+                            "bookmaker_quote_timestamp_utc":None,
+                            "direct_checkout_verified":False,"market_reference_only":True,
+                        }
+                    }]
+                }}
+            }
+        first=build(public=capture(NOW),at=NOW)
+        second=build(public=capture(NOW+timedelta(minutes=30),225.5),
+                     previous=first,at=NOW+timedelta(minutes=30))
+        game=second["public_hourly_board"]["nba"]["games"][0]
+        self.assertEqual(game["reference_change"]["previous_total"],224.5)
+        self.assertEqual(game["reference_change"]["current_total"],225.5)
+        self.assertEqual(len(game["reference_history"]),2)
+        self.assertFalse(game["reference_change"]["sharp_action_verified"])
+        self.assertIsNone(game["market_reference"]["bookmaker_quote_timestamp_utc"])
+        third=build(public=capture(NOW+timedelta(minutes=60),225.5),
+                    previous=second,at=NOW+timedelta(minutes=60))
+        g3=third["public_hourly_board"]["nba"]["games"][0]
+        self.assertEqual(len(g3["reference_history"]),2)
+        self.assertNotIn("reference_change",g3)
+        different=build(public=capture(NOW+timedelta(minutes=30),225.5,book="Other"),
+                        previous=first,at=NOW+timedelta(minutes=30))
+        self.assertNotIn("reference_change",
+            different["public_hourly_board"]["nba"]["games"][0])
+        mismatch=build(public=capture(NOW+timedelta(minutes=30),225.5,gid="54321"),
+                       previous=first,at=NOW+timedelta(minutes=30))
+        self.assertNotIn("reference_change",
+            mismatch["public_hourly_board"]["nba"]["games"][0])
+
+    def test_next_week_source_checked_events_only(self):
+        a=schedule()
+        from hashlib import sha256
+        source=sha256(b"tomorrow ESPN original").hexdigest()
+        a["sources"]["mls"]["lookahead"].append({
+            "date_et":"2026-11-15",
+            "original_source_sha256":source,
+            "raw_events_listed":1,
+        })
+        a["events"].append({
+            "league":"mls","provider_game_id":"99112233",
+            "home_team":"LA Galaxy","away_team":"Inter Miami CF",
+            "requested_date_et":"2026-11-15",
+            "source_original_sha256":source,
+            "status":"scheduled",
+            "start_utc":"2026-11-15T20:00:00+00:00",
+            "observed_at_utc":NOW.isoformat(),
+        })
+        b=build(schedule=a,at=NOW)
+        self.assertEqual(b["slates"]["mls"]["game_count"],0)
+        self.assertEqual(len(b["slates"]["mls"]["next_games"]),1)
+        self.assertEqual(b["slates"]["mls"]["next_games"][0]["home"],"LA Galaxy")
+        self.assertIsNone(b["slates"]["mls"]["next_games"][0]["odds"])
+        a["events"][-1]["source_original_sha256"]="0"*64
+        b=build(schedule=a,at=NOW)
+        self.assertEqual(b["slates"]["mls"]["next_games"],[])
+
+
+
 if __name__ == "__main__":
     unittest.main()

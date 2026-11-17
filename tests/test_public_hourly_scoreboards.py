@@ -83,6 +83,36 @@ class PublicHourlyESPNTests(TestCase):
         d["events"][0]["competitions"][0]["competitors"][0]["team"]["displayName"]=""
         self.assertEqual(parse_scoreboard("nba",d,date_et=DAY,observed_at=NOW.isoformat()),[])
 
+
+    def test_real_scoreboard_metadata_is_exposed_without_inference(self):
+        row=fixture()["events"][0]
+        competitors=row["competitions"][0]["competitors"]
+        competitors[0]["team"]["abbreviation"]="CHI"
+        competitors[1]["team"]["abbreviation"]="NYK"
+        competitors[0]["records"]=[{"name":"overall","summary":"11-3"}]
+        competitors[1]["records"]=[{"type":"total","summary":"9-5"}]
+        row["competitions"][0]["venue"]={"fullName":"United Center"}
+        row["competitions"][0]["broadcasts"]=[{"market":"national","names":["ESPN"]}]
+        row["status"]["type"]["shortDetail"]="7:00 PM ET"
+        parsed=parse_scoreboard("nba",fixture() if False else {"events":[row]},
+                                date_et=DAY,observed_at=NOW.isoformat())
+        self.assertEqual(parsed[0]["away_record"],"9-5")
+        self.assertEqual(parsed[0]["home_record"],"11-3")
+        self.assertEqual(parsed[0]["away_abbr"],"NYK")
+        self.assertEqual(parsed[0]["home_abbr"],"CHI")
+        self.assertEqual(parsed[0]["venue"],"United Center")
+        self.assertEqual(parsed[0]["broadcasts"],["ESPN"])
+
+    def test_malformed_and_missing_records_are_not_invented(self):
+        item=fixture()
+        comp=item["events"][0]["competitions"][0]["competitors"][0]
+        comp["records"]=[{"name":"overall","summary":"won eight straight"}]
+        games=parse_scoreboard("nba",item,date_et=DAY,observed_at=NOW.isoformat())
+        self.assertIsNone(games[0]["home_record"])
+        self.assertIsNone(games[0]["away_record"])
+        self.assertIsNone(games[0]["venue"])
+        self.assertEqual(games[0]["broadcasts"],[])
+
     def test_untrusted_provider_does_not_show_prices(self):
         comp=fixture()["events"][0]["competitions"][0]
         comp["odds"][0]["provider"]={}

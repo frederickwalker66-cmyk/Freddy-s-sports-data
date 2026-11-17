@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone, timedelta
 import json
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -193,10 +194,50 @@ def build_sport_slates(schedule, *, at, date_et, models=(), live_games=()):
             base[lg]["as_of_utc"] = at_utc
             continue
         source_rows.sort(key=lambda r: (r["start_et"], r["id"]))
+        # Original source preflight checks the next day for sports without games
+        # today. Do not fabricate an upcoming schedule or use unpaired hashes.
+        future_receipts = {
+            item.get("date_et"): item.get("original_source_sha256")
+            for item in checks[1:8] if isinstance(item, dict)
+            and isinstance(item.get("date_et"), str)
+            and isinstance(item.get("original_source_sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", item["original_source_sha256"])
+            and date_et < item["date_et"] <= (now.astimezone(NY).date() + timedelta(days=7)).isoformat()
+        }
+        next_games = []
+        seen_future = set()
+        for item in schedule["events"]:
+            if not isinstance(item, dict) or item.get("league") != lg:
+                continue
+            day = item.get("requested_date_et")
+            if (day not in future_receipts
+                    or item.get("source_original_sha256") != future_receipts[day]
+                    or item.get("status") != "scheduled"):
+                continue
+            gid = clean(item.get("provider_game_id"), 30)
+            home = clean(item.get("home_team"), 65)
+            away = clean(item.get("away_team"), 65)
+            start = timestamp(item.get("start_utc"))
+            observed = timestamp(item.get("observed_at_utc"))
+            if (not gid.isdigit() or gid in seen_future or not home or not away
+                    or not start or not observed
+                    or start.astimezone(NY).date().isoformat() != day
+                    or start <= now
+                    or not is_fresh_source(source_age_minutes(observed.isoformat(), now), 180)):
+                continue
+            seen_future.add(gid)
+            next_games.append({
+                "id": gid, "away": away, "home": home,
+                "start_et": start.astimezone(NY).isoformat(),
+                "source": "ESPN original-hash matched future fixture, research only",
+                "odds": None, "certified_ev": None,
+            })
+        next_games.sort(key=lambda r: (r["start_et"], r["id"]))
         base[lg] = {
             "status": "ESPN_SCHEDULE_OBSERVED" if source_rows else "NO_GAMES_LISTED",
             "game_count": len(source_rows),
             "games": source_rows,
+            "next_games": next_games[:6],
             "as_of_utc": at_utc,
             "source": "ESPN scoreboard research · not official league confirmation",
         }
@@ -242,6 +283,114 @@ def build_markets_by_league(*, models, now):
     return result
 
 
+
+
+
+def _record(value):
+    return value if isinstance(value, str) and re.fullmatch(
+        r"\d{1,3}-\d{1,3}(?:-\d{1,3})?", value) else None
+
+
+def _short_abbreviation(value):
+    return value if isinstance(value, str) and re.fullmatch(
+        r"[A-Z0-9]{2,8}", value) else None
+
+
+def _public_quote_observation(quote):
+    """Snapshot of ESPN-displayed provider-labelled references, never checkout."""
+    if not isinstance(quote, dict) or quote.get("direct_checkout_verified") is not False:
+        return None
+    provider = clean(quote.get("provider"), 64)
+    at = clean(quote.get("source_observed_at_utc"), 48)
+    if not provider or not timestamp(at):
+        return None
+    return {
+        "provider": provider, "observed_at_utc": at,
+        "total": number(quote.get("total"), .5, 999.5),
+        "spread_details": clean(quote.get("spread_details"), 55) or None,
+        "moneyline_home": quote.get("moneyline_home") if type(quote.get("moneyline_home")) is int else None,
+        "moneyline_away": quote.get("moneyline_away") if type(quote.get("moneyline_away")) is int else None,
+        "checkout_verified": False, "sharp_action_verified": False,
+    }
+
+
+def merge_public_reference_history(current, previous, date_et):
+    """Retain at most 12 actual same-game, same-provider observed price changes.
+
+    This is not market opening/closing CLV, professional sharp action, or
+    verified quote-change time. Each timestamp is ESPN retrieval time.
+    """
+    if (not isinstance(previous, dict)
+            or previous.get("schema") != "freddys-picks-ai-public-v1"
+            or previous.get("reference_date_eastern") != date_et
+            or (previous.get("model") or {}).get("champion_frozen") is not True):
+        return current
+    past = previous.get("public_hourly_board")
+    if not isinstance(past, dict):
+        return current
+    for league in LEAGUES:
+        old_block = past.get(league) or {}
+        new_block = current[league]
+        if new_block["status"] != "ESPN_PUBLIC_OBSERVED" or not isinstance(
+                old_block.get("games"), list):
+            continue
+        old_games = {str(g.get("id")): g for g in old_block["games"][:120]
+                     if isinstance(g, dict) and str(g.get("id", "")).isdigit()}
+        for game in new_block["games"]:
+            old = old_games.get(game["id"])
+            current_quote = game.get("market_reference")
+            if not old or not current_quote:
+                continue
+            if (old.get("home") != game["home"] or old.get("away") != game["away"]
+                    or old.get("start_et") != game["start_et"]):
+                continue
+            last = _public_quote_observation(current_quote)
+            previous_quote = _public_quote_observation(old.get("market_reference"))
+            if last is None or previous_quote is None or last["provider"] != previous_quote["provider"]:
+                continue
+            entries = []
+            old_history = old.get("reference_history")
+            if isinstance(old_history, list) and len(old_history) <= 12:
+                for s in old_history:
+                    if (not isinstance(s, dict)
+                            or s.get("provider") != last["provider"]
+                            or s.get("checkout_verified") is not False
+                            or s.get("sharp_action_verified") is not False
+                            or timestamp(s.get("observed_at_utc")) is None):
+                        continue
+                    entries.append({
+                        "provider": last["provider"],
+                        "observed_at_utc": clean(s.get("observed_at_utc"), 48),
+                        "total": number(s.get("total"), .5, 999.5),
+                        "spread_details": clean(s.get("spread_details"), 55) or None,
+                        "moneyline_home": s.get("moneyline_home") if type(s.get("moneyline_home")) is int else None,
+                        "moneyline_away": s.get("moneyline_away") if type(s.get("moneyline_away")) is int else None,
+                        "checkout_verified": False, "sharp_action_verified": False,
+                    })
+            if not entries:
+                entries = [previous_quote]
+            if entries[-1]["provider"] != last["provider"]:
+                continue
+            fields = ("total", "spread_details", "moneyline_home", "moneyline_away")
+            old_observed = timestamp(entries[-1]["observed_at_utc"])
+            new_observed = timestamp(last["observed_at_utc"])
+            if old_observed is None or new_observed is None or new_observed <= old_observed:
+                continue
+            if any(entries[-1][k] != last[k] for k in fields):
+                game["reference_change"] = {
+                    "previous_observed_at_utc": entries[-1]["observed_at_utc"],
+                    "current_observed_at_utc": last["observed_at_utc"],
+                    "provider": last["provider"],
+                    "previous_total": entries[-1]["total"],
+                    "current_total": last["total"],
+                    "previous_line": entries[-1]["spread_details"],
+                    "current_line": last["spread_details"],
+                    "source_retrieval_differences_only": True,
+                    "sharp_action_verified": False,
+                }
+                entries.append(last)
+            game["reference_history"] = entries[-12:]
+    return current
 
 
 def build_hourly_public_board(public, *, at, date_et):
@@ -323,6 +472,15 @@ def build_hourly_public_board(public, *, at, date_et):
                         quote["moneyline_away"] = quote["moneyline_home"] = None
             rows.append({
                 "id": gid, "home": home, "away": away,
+                "home_record": _record(entry.get("home_record")),
+                "away_record": _record(entry.get("away_record")),
+                "home_abbr": _short_abbreviation(entry.get("home_abbr")),
+                "away_abbr": _short_abbreviation(entry.get("away_abbr")),
+                "venue": clean(entry.get("venue"), 100) or None,
+                "broadcasts": [clean(v, 40) for v in entry.get("broadcasts", [])[:4]
+                    if isinstance(v, str) and clean(v, 40)]
+                    if isinstance(entry.get("broadcasts"), list) else [],
+                "status_detail": clean(entry.get("status_detail"), 50) or None,
                 "start_et": start.astimezone(NY).isoformat(),
                 "status": state,
                 "home_score": number(entry.get("home_score"), 0, 300)
@@ -346,7 +504,7 @@ def build_hourly_public_board(public, *, at, date_et):
     return states
 
 
-def build(*, live=None, model=None, all_sports=None, schedule=None, public=None, live_run=None, schedule_run=None,
+def build(*, live=None, model=None, all_sports=None, schedule=None, public=None, previous=None, live_run=None, schedule_run=None,
           model_run=None, all_run=None, at=None):
     now = at or datetime.now(timezone.utc)
     if now.tzinfo is None:
@@ -512,7 +670,8 @@ def build(*, live=None, model=None, all_sports=None, schedule=None, public=None,
                 "model_age_minutes_at_publication", "price_evidence_state",
                 "paired_market_reference_current", "market_blocker",
                 "certified_positive_ev", "verified_checkout_prices", "verified_clv")}}
-    public_board = build_hourly_public_board(public, at=now, date_et=date_et)
+    public_board = merge_public_reference_history(
+        build_hourly_public_board(public, at=now, date_et=date_et), previous, date_et)
     # Publish only data from vetted reports; never raw API payloads or secrets.
     return {
         "schema": "freddys-picks-ai-public-v1",
@@ -544,6 +703,7 @@ def main():
     parser.add_argument("--all-sports-report")
     parser.add_argument("--schedule-report")
     parser.add_argument("--public-report")
+    parser.add_argument("--previous-report")
     parser.add_argument("--schedule-run", type=int)
     parser.add_argument("--live-run", type=int)
     parser.add_argument("--model-run", type=int)
@@ -558,6 +718,7 @@ def main():
         all_sports=read_report(args.all_sports_report),
         schedule=read_report(args.schedule_report),
         public=read_report(args.public_report),
+        previous=read_report(args.previous_report),
         live_run=args.live_run, schedule_run=args.schedule_run,
         model_run=args.model_run,
         all_run=args.all_run,

@@ -323,11 +323,33 @@ function terminalGameTable(data) {
        +(quote.over_price!==null||quote.under_price!==null
          ?' ('+escapeHtml(terminalAmerican(quote.over_price))+' / '+escapeHtml(terminalAmerican(quote.under_price))+')':"")
        +'</div>':"";
-    const marketCell=quote?market+ml+spread+total:market;
+    const changed = g.reference_change?.source_retrieval_differences_only===true
+      && g.reference_change.provider===quote?.provider?g.reference_change:null;
+    const changeParts=[];
+    if(changed) {
+      if(typeof changed.previous_total==="number" && typeof changed.current_total==="number"
+          && changed.previous_total!==changed.current_total) {
+        changeParts.push('TOTAL '+changed.previous_total+' → '+changed.current_total);
+      }
+      if(changed.previous_line && changed.current_line
+          && changed.previous_line!==changed.current_line) {
+        changeParts.push('LINE '+changed.previous_line+' → '+changed.current_line);
+      }
+    }
+    const changeHtml=changeParts.length?'<div class="terminal-movement"><strong>OBSERVED CHANGE</strong> '
+        +escapeHtml(changeParts.join(' · '))+'<small>ESPN retrieved snapshots · not sharp flow or CLV</small></div>':"";
+    const marketCell=quote?market+ml+spread+total+changeHtml:market;
+    const recordString=(g.away_record||g.home_record)
+      ?'<small>Season record: '+escapeHtml(g.away_abbr||"Away")+' '+escapeHtml(g.away_record||"N/A")
+       +' · '+escapeHtml(g.home_abbr||"Home")+' '+escapeHtml(g.home_record||"N/A")+'</small>'
+      :"";
+    const venueString=g.venue?'<small>Venue: '+escapeHtml(g.venue)+'</small>':"";
+    const networks=Array.isArray(g.broadcasts)&&g.broadcasts.length
+      ?'<small>TV: '+escapeHtml(g.broadcasts.join(", "))+'</small>':"";
     return terminalRow([
       '<span class="terminal-sport-pill">'+escapeHtml(leagueInfo.find(x=>x[0]===sport)?.[2]||sport)+'</span>',
       '<div class="terminal-team-cell"><strong>'+escapeHtml(g.away)+' @ '+escapeHtml(g.home)
-        +'</strong><small>'+escapeHtml(time)+' ET · '+escapeHtml(type)+score+'</small></div>',
+        +'</strong><small>'+escapeHtml(time)+' ET · '+escapeHtml(type)+score+'</small>'+recordString+venueString+networks+'</div>',
       marketCell,
       research,
       usable?'<b>'+pct.toFixed(1)+'%</b><small class="terminal-muted">rule only</small>':'<span class="terminal-na">N/A</span>',
@@ -359,7 +381,8 @@ function terminalGameTable(data) {
     +'<div class="terminal-info">Market columns display only source-labelled ESPN references when published. '
     +'ML = away/home prices when explicitly provided. ESPN LINE may be a spread or headline moneyline (especially NHL); it is not necessarily a verified spread. TOTAL price pair = over/under when available. Observation time is when ESPN was fetched, '
     +'<strong>not the bookmaker quote time.</strong> In-play source fields are not automatically executable live betting lines. '
-    +'Certified Sharp Edge / EV, authenticated DraftKings checkout and professional sharp-money percentages remain N/A.</div>');
+    +'Historical reference changes are source-observed comparisons—not sharp-money action, CLV, or verified executable line movement. '+
+    'Certified Sharp Edge / EV, authenticated DraftKings checkout and professional sharp-money percentages remain N/A.</div>');
 }
 
 function terminalProps(data,combos=false) {
@@ -429,6 +452,66 @@ function terminalAudit(data) {
 
 
 
+
+function terminalData(data) {
+  const lg=terminalState.league;
+  const selected=lg==="all"?leagueInfo.map(x=>x[0]):[lg];
+  const rows=selected.map(k=>{
+    const label=leagueInfo.find(x=>x[0]===k)?.[2]||k;
+    const counts=data.leagues?.[k]||{};
+    const publicData=data.public_hourly_board?.[k]||{};
+    const status=publicData.status==="ESPN_PUBLIC_OBSERVED"||publicData.status==="NO_GAMES_LISTED";
+    const games=status?publicData.games||[]:[];
+    const completeTeamRecords=games.filter(g=>g.home_record&&g.away_record).length;
+    const sampleHistory=games.filter(g=>Array.isArray(g.reference_history)&&g.reference_history.length>1).length;
+    const form=[displayNum(counts.team_last5),displayNum(counts.team_last10)].join(" / ");
+    const player=[displayNum(counts.player_last5),displayNum(counts.player_last10)].join(" / ");
+    const rowStatus=status
+      ?'ESPN observed '+terminalAgeText(publicData.observed_at_utc)+' ago'
+      :'Public scoreboard unavailable';
+    return terminalRow([
+      '<span class="terminal-sport-pill">'+escapeHtml(label)+'</span>',
+      '<b>'+escapeHtml(displayNum(publicData.game_count))+'</b>',
+      '<b>'+escapeHtml(String(completeTeamRecords))+'</b>',
+      '<b>'+escapeHtml(displayNum(publicData.line_reference_count))+'</b>',
+      '<b>'+escapeHtml(String(sampleHistory))+'</b>',
+      '<span class="terminal-muted">'+escapeHtml(form)+'</span>',
+      '<span class="terminal-muted">'+escapeHtml(player)+'</span>',
+      '<span class="terminal-muted">'+escapeHtml(rowStatus)+'</span>'
+    ]);
+  });
+  const table=terminalTable(
+    ["League","Games","2-team records","ESPN line refs","Observed changes","Team L5 / L10","Player L5 / L10","Source"],
+    rows);
+  const nextRows=[];
+  selected.forEach(k=>{
+    const next=data.slates?.[k]?.next_games;
+    if(!Array.isArray(next))return;
+    const name=leagueInfo.find(x=>x[0]===k)?.[2]||k;
+    next.slice(0,6).forEach(g=>{
+      if(!g.away||!g.home||!g.start_et)return;
+      nextRows.push(terminalRow([
+        '<span class="terminal-sport-pill">'+escapeHtml(name)+'</span>',
+        '<span>'+escapeHtml(g.away)+' @ '+escapeHtml(g.home)+'</span>',
+        '<span>'+escapeHtml(dateText(g.start_et,{timeZoneName:undefined}))+'</span>',
+        '<span class="terminal-na">ESPN source-matched · no verified odds</span>'
+      ]));
+    });
+  });
+  const future=terminalTable(["League","Next fixture","Eastern time","Source status"],
+    nextRows.length?nextRows:[terminalEmptyRow(4,
+      "No independently source-matched upcoming game entries in the current seven-day preflight.")]);
+  return terminalBlock("Source data & season-form coverage",
+    "Observed scores, W–L records, verified source identity and historical data coverage",
+    table+'<div class="terminal-info">L5 / L10 values are counts of complete HISTORICAL source records '
+      +'already collected, not team recent averages or calibrated winning probabilities. '
+      +'Observed changes are comparisons between ESPN pulls, not professional sharp action. '
+      +'No injury or active-roster status is implied.</div>')
+    +terminalBlock("Next upcoming fixtures",
+      "Displayed only when a source-hash-matched future ESPN schedule record is available",
+      future);
+}
+
 function renderTerminal() {
   const d=terminalState.data;
   if(!d)return;
@@ -479,6 +562,7 @@ function renderTerminal() {
   $("terminal-search").placeholder=lg==="all"?"Search any team or league…":"Search "+terminalLeague()[2]+" teams…";
   const parts=[],tab=terminalState.tab;
   if(tab==="all"||tab==="games")parts.push(terminalGameTable(d));
+  if(tab==="all"||tab==="data")parts.push(terminalData(d));
   if(tab==="all"||tab==="props")parts.push(terminalProps(d));
   if(tab==="all"||tab==="combos")parts.push(terminalProps(d,true));
   if(tab==="all"||tab==="sharp")parts.push(terminalAudit(d));
