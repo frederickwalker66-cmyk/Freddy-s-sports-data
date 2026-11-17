@@ -21,7 +21,8 @@ on:
       - 'SHARP_EDGE_RERUN_REQUEST.md'
       - 'v8_nba_ticket_research.py'
       - 'tests/test_v8_nba_ticket_research.py'
-      - 'examples/nba_2026_11_17_eight_leg_research.json'
+      - 'tests/test_v8_nba_ticket_replacement.py'
+      - 'examples/nba_2026_11_17_eight_leg_research_v2.json'
   workflow_run:
     workflows: ['Collect SharpAPI DraftKings pregame odds']
     types: [completed]
@@ -247,6 +248,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p 'test_v8_nba_ticket_research.py' -v
+          python -m unittest discover -s tests -p 'test_v8_nba_ticket_replacement.py' -v
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -255,7 +257,7 @@ jobs:
           report = json.loads((root / "ONE_COMMAND_REPORT.json").read_text(encoding="utf-8"))
           if report.get("command") != "run_nfl_props_edge":
               raise ValueError("unexpected_source_command")
-          ticket = json.loads(Path("examples/nba_2026_11_17_eight_leg_research.json").read_text(encoding="utf-8"))
+          ticket = json.loads(Path("examples/nba_2026_11_17_eight_leg_research_v2.json").read_text(encoding="utf-8"))
           result = audit_named_ticket(ticket, report["sharp_full_game_markets"], report["sharp_player_props"])
           assert result["leg_count"] == 8
           assert result["certified_positive_ev_bets"] == 0
