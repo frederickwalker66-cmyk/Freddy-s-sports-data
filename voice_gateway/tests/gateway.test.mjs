@@ -356,3 +356,115 @@ test("Private Zoom video room loads for CEO before any Zoom/ElevenLabs secrets e
   const stranger=await handleRequest(request("/zoom-video.html"),env(),mockFetch);
   assert.equal(stranger.status,401);
 });
+
+test("Staff Zoom token readiness is identity gated and makes no provider calls",async()=>{
+  const outsider=await handleRequest(request("/api/zoom-staff-readiness"),env(),mockFetch);
+  assert.equal(outsider.status,401);
+  let networkCalls=0;
+  const noProviders=async url=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    networkCalls++;throw Error("No Zoom, WhatsApp or ElevenLabs calls allowed");
+  };
+  const res=await handleRequest(request("/api/zoom-staff-readiness","GET",await jwt()),
+    env(),noProviders);
+  assert.equal(res.status,200);
+  const body=await res.json();
+  assert.equal(body.role_signing_configured,false);
+  assert.deepEqual(body.roles,["bella","david","cassidy","roger","sarah","adam"]);
+  assert.equal(body.role_count,6);
+  assert.equal(body.connected_live_bots,0);
+  assert.equal(body.externally_hosted_bot_runtime_verified,false);
+  assert.equal(body.elevenlabs_media_bridge_verified,false);
+  assert.equal(body.provider_contacted,false);
+  assert.equal(networkCalls,0);
+  assert.ok(res.headers.get("Cache-Control").includes("no-store"));
+});
+
+test("Role-specific Zoom bot tokens require owner, known employee and explicit preparation",async()=>{
+  const config={
+    ZOOM_VIDEO_SDK_KEY:"zoom-key-example-12345",
+    ZOOM_VIDEO_SDK_SECRET:"zoom-server-secret-example-12345",
+    ZOOM_VIDEO_SESSION_TOPIC:"Freddys V9 Private Room"
+  };
+  const make=(token,body,options={})=>{
+    const headers={"Origin":origin,"Content-Type":"application/json"};
+    if(token)headers["Cf-Access-Jwt-Assertion"]=token;
+    if(options.origin)headers.Origin=options.origin;
+    return new Request(origin+"/api/zoom-staff-token",{method:"POST",headers,body:JSON.stringify(body)});
+  };
+  const owner=await jwt();
+  const unauthorized=await handleRequest(make(null,{confirm:"prepare",role:"bella"}),env(config),mockFetch);
+  assert.equal(unauthorized.status,401);
+  const wrongUser=await handleRequest(
+    make(await jwt({email:"outsider@example.com"}),{confirm:"prepare",role:"bella"}),
+    env(config),mockFetch);
+  assert.equal(wrongUser.status,401);
+  const unknown=await handleRequest(make(owner,{confirm:"prepare",role:"stranger"}),
+    env(config),mockFetch);
+  assert.equal(unknown.status,400);
+  const wildcard=await handleRequest(make(owner,{confirm:"prepare",role:"all"}),
+    env(config),mockFetch);
+  assert.equal(wildcard.status,400);
+  const escalated=await handleRequest(make(owner,{confirm:"prepare",role:"bella",role_type:1}),
+    env(config),mockFetch);
+  assert.equal(escalated.status,400);
+  const unconfirmed=await handleRequest(make(owner,{confirm:"join",role:"bella"}),
+    env(config),mockFetch);
+  assert.equal(unconfirmed.status,400);
+  const missing=await handleRequest(make(owner,{confirm:"prepare",role:"bella"}),
+    env(),mockFetch);
+  assert.equal(missing.status,503);
+  const crossOrigin=await handleRequest(make(owner,{confirm:"prepare",role:"bella"},
+    {origin:"https://evil.example"}),env(config),mockFetch);
+  assert.equal(crossOrigin.status,403);
+  const method=await handleRequest(request("/api/zoom-staff-token","GET",owner),
+    env(config),mockFetch);
+  assert.equal(method.status,405);
+  const limited=await handleRequest(make(owner,{confirm:"prepare",role:"bella"}),
+    env({...config,VOICE_LIMITER:{async limit(){return{success:false}}}}),mockFetch);
+  assert.equal(limited.status,429);
+});
+
+test("Every employee gets an independently scoped Zoom Video SDK participant token without joining",async()=>{
+  const config={
+    ZOOM_VIDEO_SDK_KEY:"zoom-key-example-12345",
+    ZOOM_VIDEO_SDK_SECRET:"zoom-server-secret-example-12345",
+    ZOOM_VIDEO_SESSION_TOPIC:"Freddys V9 Private Room"
+  };
+  const identity=await jwt();
+  const roles=["bella","david","cassidy","roger","sarah","adam"];
+  const subjects=new Set();
+  let providerCalls=0;
+  const noProvider=async url=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    providerCalls++;throw Error("Unwanted external provider call");
+  };
+  for(const role of roles){
+    const req=new Request(origin+"/api/zoom-staff-token",{
+      method:"POST",
+      headers:{"Origin":origin,"Content-Type":"application/json",
+        "Cf-Access-Jwt-Assertion":identity},
+      body:JSON.stringify({confirm:"prepare",role})
+    });
+    const res=await handleRequest(req,env(config),noProvider);
+    assert.equal(res.status,200,role);
+    const result=await res.json();
+    const pieces=result.token.split(".");
+    const claims=JSON.parse(Buffer.from(pieces[1],"base64url").toString("utf8"));
+    assert.equal(claims.role_type,0);
+    assert.equal(claims.tpc,config.ZOOM_VIDEO_SESSION_TOPIC);
+    assert.equal(claims.user_key,"freddys-v9-bot-"+role);
+    assert.equal(claims.exp-claims.iat,3600);
+    subjects.add(claims.user_key);
+    const key=await crypto.subtle.importKey("raw",
+      new TextEncoder().encode(config.ZOOM_VIDEO_SDK_SECRET),
+      {name:"HMAC",hash:"SHA-256"},false,["verify"]);
+    assert.equal(await crypto.subtle.verify("HMAC",key,
+      Buffer.from(pieces[2],"base64url"),
+      new TextEncoder().encode(pieces[0]+"."+pieces[1])),true);
+    assert.equal(JSON.stringify(result).includes(config.ZOOM_VIDEO_SDK_SECRET),false);
+    assert.ok(res.headers.get("Cache-Control").includes("no-store"));
+  }
+  assert.equal(subjects.size,6);
+  assert.equal(providerCalls,0);
+});
