@@ -46,7 +46,7 @@ $("check-zoom").addEventListener("click",async()=>{
     const url=new URL(data.zoom.join_url);
     const host=url.hostname.toLowerCase();
     if(url.protocol!=="https:" || !(host==="zoom.us"||host.endsWith(".zoom.us")) ||
-        !/^\/j\/[0-9]{9,11}\/?$/.test(url.pathname)){
+        !new RegExp("^/j/[0-9]{9,11}/?$").test(url.pathname)){
       throw Error("Invalid Zoom meeting link. No navigation occurred.");
     }
     link.href=url.href;
