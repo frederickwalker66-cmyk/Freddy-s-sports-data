@@ -39,6 +39,10 @@
       <div><div class="eyebrow">Direct employee conversation</div><h2 id="live-heading">Voice meeting control</h2><div class="muted" id="status" role="status" aria-live="polite">Not connected</div></div>
       <div id="voice-orb" class="orb" aria-label="Audio indicator, inactive">◎</div>
     </div>
+    <div class="readiness">
+      <button id="check-setup" class="secondary" type="button">Check private setup · no voice charges</button>
+      <p id="setup-result" class="muted small" role="status" aria-live="polite">Setup not checked. This button verifies Worker configuration only; it will not open a microphone or call ElevenLabs.</p>
+    </div>
     <div class="controls">
       <button id="start" class="primary" type="button">Start conversation with Bella</button>
       <button id="stop" class="secondary" disabled type="button">End conversation</button>
