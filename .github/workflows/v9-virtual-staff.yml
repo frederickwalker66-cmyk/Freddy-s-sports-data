@@ -1,0 +1,66 @@
+name: Freddy's Picks AI V9 — Six Virtual Staff (read-only)
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Freddy's Picks AI — Phone Command Center"
+      - "Freddy's Picks AI V8 — One Command (phone + laptop)"
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'v9_virtual_staff.py'
+      - 'tests/test_v9_virtual_staff.py'
+      - 'V9_VIRTUAL_STAFF_SETUP.md'
+      - '.github/workflows/v9-virtual-staff.yml'
+  pull_request:
+    paths:
+      - 'v9_virtual_staff.py'
+      - 'tests/test_v9_virtual_staff.py'
+      - '.github/workflows/v9-virtual-staff.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: v9-virtual-staff-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test six read-only roles and fail-closed rules
+        run: python -m unittest discover -s tests -p 'test_v9_virtual_staff.py' -v
+  write-status:
+    if: github.event_name != 'pull_request'
+    needs: [offline-safety]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build six-employee board from real GitHub workflow metadata
+        run: python v9_virtual_staff.py --output-dir v9_results
+      - name: Archive board, sources and HOLD gates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v9-six-staff-dashboard-${{ github.run_id }}
+          path: v9_results/
+          retention-days: 30
+          if-no-files-found: warn
