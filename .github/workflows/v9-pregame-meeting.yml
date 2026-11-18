@@ -22,6 +22,7 @@ on:
       - 'tests/test_v9_sharp_edge_evidence_board.py'
       - 'tests/test_v9_prediction_certification_gate.py'
       - 'tests/test_v9_unanimous_per_pick.py'
+      - 'tests/test_v9_source_recovery_heartbeat.py'
       - '.github/workflows/v9-pregame-meeting.yml'
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - 'tests/test_v9_sharp_edge_evidence_board.py'
       - 'tests/test_v9_prediction_certification_gate.py'
       - 'tests/test_v9_unanimous_per_pick.py'
+      - 'tests/test_v9_source_recovery_heartbeat.py'
       - '.github/workflows/v9-pregame-meeting.yml'
 permissions:
   contents: read
