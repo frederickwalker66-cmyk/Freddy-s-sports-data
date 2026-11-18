@@ -75,6 +75,32 @@ function bindEvents() {
   });
 }
 
+$("check-staff-video").addEventListener("click",async()=>{
+  const button=$("check-staff-video");
+  button.disabled=true;
+  $("staff-video-status").textContent="Checking role authorization only. No Zoom or ElevenLabs call…";
+  try {
+    const response=await fetch("/api/zoom-staff-readiness",{
+      method:"GET",credentials:"same-origin",cache:"no-store",
+      headers:{"Accept":"application/json"},
+    });
+    if(response.status===401)throw Error("Owner login through Cloudflare Access is required.");
+    if(!response.ok)throw Error("The six-agent readiness endpoint isn't available yet. Verify your Cloudflare deployment.");
+    const report=await response.json();
+    const count=report.role_count===6 ? 6 : 0;
+    const signing=report.role_signing_configured===true ?
+      "Zoom role-specific token signing is configured." :
+      "Zoom SDK credentials are not yet configured in Cloudflare.";
+    $("staff-video-status").textContent=
+      count+" of 6 employee identities defined. "+signing+
+      " Live AI video bots connected: 0. The separate six-client audio/video runtime is not deployed; checking this does not start any meeting.";
+  } catch(error) {
+    $("staff-video-status").textContent=error instanceof Error?error.message:"Staff video setup check failed.";
+  } finally {
+    button.disabled=false;
+  }
+});
+
 $("check-zoom-setup").addEventListener("click",async()=>{
   const button=$("check-zoom-setup"); button.disabled=true;
   $("zoom-setup-result").textContent="Checking private Zoom SDK setup without starting a meeting…";
