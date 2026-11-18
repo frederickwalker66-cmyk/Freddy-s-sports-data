@@ -32,7 +32,7 @@ def source_age(source, clock):
 def analyze(board, schedule=None, *, clock=None, lookahead_minutes=90):
     if not isinstance(board, dict):
         raise ValueError("sharp_evidence_board_required")
-    if type(lookahead_minutes) is not int or not 1 <= lookahead_minutes <= 180:
+    if type(lookahead_minutes) is not int or not 1 <= lookahead_minutes <= 720:
         raise ValueError("invalid_window")
     clock = clock or datetime.now(timezone.utc)
     if clock.tzinfo is None:
@@ -111,6 +111,15 @@ def analyze(board, schedule=None, *, clock=None, lookahead_minutes=90):
         "source_run_url":source.get("run_url") if isinstance(source,dict) else None,
         "rejected_source_rows":rejected,"six_staff":roles,"markets":list(MARKETS),
         "pregame_games":games,"final_prediction":None,
+        "nba_full_slate_games_displayed":sum(g["league"] == "NBA" for g in games),
+        "nba_requested_markets":["moneyline","spread","game_total","player_points",
+                                 "player_rebounds","player_assists","three_pointers",
+                                 "player_PR","player_PA","player_RA","player_PRA"],
+        "nba_injuries_and_final_lineups_verified_here":False,
+        "eight_leg_required_certified_legs":8,
+        "eight_leg_certified_legs":0,
+        "eight_leg_lock_decision":"NO_LOCK_HOLD",
+        "ceo_take_or_pass":"PASS_UNTIL_INDEPENDENT_PROOF",
         "final_team_decision":"HOLD","certified_bets_or_parlays":0,
         "evidence_gate_counts_board_level_only":gates,
         "automated_bets":0,"paid_api_calls":0,"shadow_stake_usd":0,
@@ -128,7 +137,20 @@ def markdown(r):
         "| Employee | Decision | Finding |","|---|---|---|"]
     for s in r["six_staff"]:
         lines.append(f"| {text_safe(s['employee'])} | HOLD | {text_safe(s['finding'])} |")
-    lines.extend(["","## Upcoming games — researched, not approved","",
+    lines.extend(["",
+                  "## CEO pregame eight-leg verdict: NO LOCK / DO NOT PLACE",
+                  "Required: eight exact-market certified positive-EV legs, final injury/lineup checks, "
+                  "joint parlay probability and correlation, authenticated six-specialist votes, "
+                  "and separate CEO signoff. None of those can be assumed from a successful workflow.",
+                  "",
+                  f"NBA games in upcoming window: **{r['nba_full_slate_games_displayed']}**. "
+                  "Eight-leg certified legs: **0 / 8**.",
+                  "Injuries and expected lineups: **not independently matched to players in this run**; "
+                  "review official updates before any decision.",
+                  "Exact DraftKings quotes, frozen Champion-001 market probabilities, "
+                  "model-derived EV, and qualified parlay joint probability: **N/A / HOLD**.",
+                  "",
+                  "## Upcoming games — researched, not approved","",
                   "| League | Matchup | Start Eastern | Minutes away | Decision |",
                   "|---|---|---|---:|---|"])
     for g in r["pregame_games"]:
@@ -136,7 +158,13 @@ def markdown(r):
                      f"{text_safe(g['start_eastern'])} | {g['minutes_to_start']} | HOLD |")
     if not r["pregame_games"]:
         lines.append("| — | None verified in the window | — | — | HOLD |")
-    lines.extend(["","## Evidence gate counts — global only, not game certifications"])
+    lines.extend(["", "## NBA complete market scope — verification dashboard",
+                  "For every NBA game above: moneyline, spread, game total; points, rebounds, "
+                  "assists, three-pointers, PR, PA, RA, and PRA are requested research markets. "
+                  "Individual prices or model predictions appear only when independently sourced "
+                  "and attributable to that exact event and market. Missing information is N/A, "
+                  "not a 0% probability or an Under/Over recommendation.",
+                  "", "## Evidence gate counts — global only, not game certifications"])
     lines.extend(f"- {text_safe(k)}: {v}" for k,v in r["evidence_gate_counts_board_level_only"].items())
     if r["source_run_url"]:
         lines.append("Archived source run: "+text_safe(r["source_run_url"],240))
