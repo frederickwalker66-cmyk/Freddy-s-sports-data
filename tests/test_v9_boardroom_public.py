@@ -31,6 +31,11 @@ class BoardroomPublicPrototypeTests(unittest.TestCase):
         for name in ("Bella","David","Cassidy","Roger","Sarah","Adam Stone"):
             self.assertIn(name,raw)
         self.assertIn("Freddy voice remains reserved for the CEO",raw)
+        self.assertIn('assets/v9-casual-staff.jpg',raw)
+        self.assertIn('portraits.onload',raw)
+        self.assertNotIn('portrait pending',raw)
+        self.assertEqual(raw.count('Static fictional portrait of '),6)
+
 
     def test_voice_call_security_not_open_to_public_page(self):
         raw=HTML.read_text(encoding="utf-8")
