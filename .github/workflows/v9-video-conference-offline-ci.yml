@@ -1,0 +1,28 @@
+name: V9 Zoom Video Conference — Offline Bot Coordination Tests
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'video_bridge/**'
+      - '.github/workflows/v9-video-conference-offline-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'video_bridge/**'
+      - '.github/workflows/v9-video-conference-offline-ci.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify six-bot coordinator and protective gates (no Zoom or voice calls)
+        run: node --test video_bridge/test/*.test.mjs
+      - name: Confirm what is and is not deployed
+        run: |
+          echo 'Only Zoom bot coordinator and integration preflight were tested. No native Zoom bots, virtual cameras, WhatsApp video, voice calls or wagers were deployed.' >> "$GITHUB_STEP_SUMMARY"
