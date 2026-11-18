@@ -1,0 +1,44 @@
+name: V9 Private Voice Gateway — Offline Safety & Build
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'voice_gateway/**'
+      - '.github/workflows/v9-secure-voice-gateway-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'voice_gateway/**'
+      - '.github/workflows/v9-secure-voice-gateway-ci.yml'
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install client SDK and build tools (not a voice conversation)
+        working-directory: voice_gateway
+        run: npm install --no-audit --no-fund
+      - name: Verify Access JWT, role isolation and browser build offline
+        working-directory: voice_gateway
+        run: npm run check
+      - name: Guard against committing private authentication settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          for p in (Path('voice_gateway/web/index.html'),Path('voice_gateway/web/app.js'),
+                    Path('voice_gateway/wrangler.jsonc'),Path('voice_gateway/web/style.css')):
+              text=p.read_text(encoding='utf-8')
+              assert 'agent_8301m7' not in text and 'xi-api-key' not in text and 'ELEVENLABS_API_KEY=' not in text, p
+          print('Public browser assets and Wrangler config contain no owner voice-agent IDs or credentials')
+          PY
+      - name: Confirm no voice, betting or hosting deployment was triggered
+        run: |
+          echo 'Validated source only. No Wrangler deploy, voice-provider API call, microphone, wagers, or Champion-001 changes.' >> "$GITHUB_STEP_SUMMARY"
