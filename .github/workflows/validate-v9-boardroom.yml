@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'docs/boardroom.html'
+      - 'docs/assets/v9-casual-staff.jpg'
       - 'docs/index.html'
       - 'tests/test_v9_boardroom_public.py'
       - '.github/workflows/validate-v9-boardroom.yml'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'docs/boardroom.html'
+      - 'docs/assets/v9-casual-staff.jpg'
       - 'docs/index.html'
       - 'tests/test_v9_boardroom_public.py'
       - '.github/workflows/validate-v9-boardroom.yml'
@@ -54,6 +56,21 @@ jobs:
           Path('/tmp/v9-boardroom.js').write_text(x.scripts[0],encoding='utf-8')
           PY
           node --check /tmp/v9-boardroom.js
+      - name: Decode and verify fictional portrait image before publishing
+        shell: bash
+        run: |
+          python -m pip install -q pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageFile
+          p=Path('docs/assets/v9-casual-staff.jpg')
+          assert p.is_file() and 2500 < p.stat().st_size < 60000
+          with Image.open(p) as im:
+              assert im.format == 'JPEG'
+              assert im.size == (240,160)
+              im.load()
+          print('Six-portrait JPEG decoded successfully:',p.stat().st_size,'bytes')
+          PY
       - name: Confirm existing public command center links to boardroom
         run: |
           grep -Fq 'href="./boardroom.html"' docs/index.html
