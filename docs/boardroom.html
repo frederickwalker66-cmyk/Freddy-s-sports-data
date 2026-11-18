@@ -27,6 +27,22 @@
     .person{position:relative;text-align:left;min-height:186px;width:100%;background:linear-gradient(125deg,#152f3e,#101d2e 73%);border:1px solid var(--border);border-radius:15px;padding:16px;color:inherit}
     .person:hover,.person.selected{border-color:var(--teal);background:linear-gradient(145deg,#1b4148,#132337)}
     .person .info{display:flex;gap:12px;align-items:center}.portrait{flex:0 0 70px;width:70px;height:70px;border-radius:50%;border:2px solid #476477;display:grid;place-items:center;background:linear-gradient(130deg,#375e6b,#1f344f);font-size:1.4rem;font-weight:800;color:#e5f8f7}
+    
+    /* One original, fictional six-person image. It stays hidden until decoded. */
+    body.portraits-ready .portrait{
+      background-image:url("./assets/v9-casual-staff.jpg");
+      background-size:300% 200%;
+      background-repeat:no-repeat;
+      font-size:0;
+      color:transparent;
+      border-color:#789aa7;
+    }
+    body.portraits-ready .person[data-person="bella"] .portrait{background-position:0% 0%}
+    body.portraits-ready .person[data-person="david"] .portrait{background-position:50% 0%}
+    body.portraits-ready .person[data-person="cassidy"] .portrait{background-position:100% 0%}
+    body.portraits-ready .person[data-person="roger"] .portrait{background-position:0% 100%}
+    body.portraits-ready .person[data-person="sarah"] .portrait{background-position:50% 100%}
+    body.portraits-ready .person[data-person="adam"] .portrait{background-position:100% 100%}
     .person .name{font-size:1.06rem;font-weight:820}.role{font-size:.82rem;color:var(--teal);margin-top:2px}.person .detail{margin-top:13px;color:var(--muted);font-size:.85rem}.person .tag{margin-top:10px;font-size:.73rem;color:var(--amber)}
     .section-pair{display:grid;grid-template-columns:1.05fr 1fr;gap:15px;margin-top:18px}.detailpanel{min-height:235px}.detailpanel .role{margin:5px 0 12px}
     .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:11px 15px;background:var(--teal);color:#092421;font-weight:800;text-decoration:none;border:1px solid transparent;margin-right:8px;margin-top:12px}
@@ -57,7 +73,7 @@
       <div class="eyebrow">Your six specialists · one CEO · read-only evidence</div>
       <h1 id="heading">The Virtual Boardroom</h1>
       <p class="sub">Talk with your distinct ElevenLabs voice employees through the private ElevenLabs workspace. Review public GitHub workflow status here, then question each specialist before any per-pick decision.</p>
-      <p class="notice">Audio sessions and animated human avatars are not yet embedded on this public page.</p>
+      <p class="notice">The six portraits are fictional still images. Live audio and animated speaking avatars are not embedded on this public page.</p>
       <div class="metrics">
         <div class="metric"><strong>6</strong><span>Specialist roles</span></div>
         <div class="metric"><strong>6/6</strong><span>Needed per exact pick</span></div>
@@ -76,12 +92,12 @@
   <section aria-labelledby="team-heading">
     <div class="rowtop"><div><div class="eyebrow">Boardroom roster</div><h2 id="team-heading">Your six named employees</h2></div><div class="small muted">3 women · 3 men · everyday casual style</div></div>
     <div class="staff-grid" id="staff">
-      <button class="person selected" type="button" data-person="bella" aria-pressed="true"><div class="info"><span class="portrait" aria-label="Portrait pending">B</span><div><div class="name">Bella</div><div class="role">Command Center Manager</div></div></div><div class="detail">Meeting agenda, evidence handoffs and final coordination</div><div class="tag">Voice configured · portrait pending</div></button>
-      <button class="person" type="button" data-person="david" aria-pressed="false"><div class="info"><span class="portrait" aria-label="Portrait pending">D</span><div><div class="name">David</div><div class="role">Sports Data Analyst</div></div></div><div class="detail">Schedules, player data, source timing, injuries</div><div class="tag">Voice configured · portrait pending</div></button>
-      <button class="person" type="button" data-person="cassidy" aria-pressed="false"><div class="info"><span class="portrait" aria-label="Portrait pending">C</span><div><div class="name">Cassidy</div><div class="role">Sharp Edge Analyst</div></div></div><div class="detail">Native model probability, calibration, actual EV</div><div class="tag">Voice configured · portrait pending</div></button>
-      <button class="person" type="button" data-person="roger" aria-pressed="false"><div class="info"><span class="portrait" aria-label="Portrait pending">R</span><div><div class="name">Roger</div><div class="role">Parlay Builder</div></div></div><div class="detail">Moneylines, props, combos, correlated legs</div><div class="tag">Voice configured · portrait pending</div></button>
-      <button class="person" type="button" data-person="sarah" aria-pressed="false"><div class="info"><span class="portrait" aria-label="Portrait pending">S</span><div><div class="name">Sarah</div><div class="role">Risk Manager</div></div></div><div class="detail">Adversarial review, price risk, pick-specific veto</div><div class="tag">Voice configured · portrait pending</div></button>
-      <button class="person" type="button" data-person="adam" aria-pressed="false"><div class="info"><span class="portrait" aria-label="Portrait pending">A</span><div><div class="name">Adam Stone</div><div class="role">Audit Engineer</div></div></div><div class="detail">Workflow integrity, source run IDs and evidence</div><div class="tag">Voice configured · portrait pending</div></button>
+      <button class="person selected" type="button" data-person="bella" aria-pressed="true"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of Bella">B</span><div><div class="name">Bella</div><div class="role">Command Center Manager</div></div></div><div class="detail">Meeting agenda, evidence handoffs and final coordination</div><div class="tag">Voice configured · static portrait</div></button>
+      <button class="person" type="button" data-person="david" aria-pressed="false"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of David">D</span><div><div class="name">David</div><div class="role">Sports Data Analyst</div></div></div><div class="detail">Schedules, player data, source timing, injuries</div><div class="tag">Voice configured · static portrait</div></button>
+      <button class="person" type="button" data-person="cassidy" aria-pressed="false"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of Cassidy">C</span><div><div class="name">Cassidy</div><div class="role">Sharp Edge Analyst</div></div></div><div class="detail">Native model probability, calibration, actual EV</div><div class="tag">Voice configured · static portrait</div></button>
+      <button class="person" type="button" data-person="roger" aria-pressed="false"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of Roger">R</span><div><div class="name">Roger</div><div class="role">Parlay Builder</div></div></div><div class="detail">Moneylines, props, combos, correlated legs</div><div class="tag">Voice configured · static portrait</div></button>
+      <button class="person" type="button" data-person="sarah" aria-pressed="false"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of Sarah">S</span><div><div class="name">Sarah</div><div class="role">Risk Manager</div></div></div><div class="detail">Adversarial review, price risk, pick-specific veto</div><div class="tag">Voice configured · static portrait</div></button>
+      <button class="person" type="button" data-person="adam" aria-pressed="false"><div class="info"><span class="portrait" role="img" aria-label="Static fictional portrait of Adam Stone">A</span><div><div class="name">Adam Stone</div><div class="role">Audit Engineer</div></div></div><div class="detail">Workflow integrity, source run IDs and evidence</div><div class="tag">Voice configured · static portrait</div></button>
     </div>
   </section>
   <div class="section-pair">
@@ -132,6 +148,10 @@
     adam:{name:"Adam Stone",role:"Audit Engineer",work:"Specialist in GitHub workflow provenance, run timestamps, source evidence retention, duplicate votes and independent audit of the model freeze."}
   });
   const $ = id => document.getElementById(id);
+  const portraits = new Image();
+  portraits.onload = () => document.body.classList.add("portraits-ready");
+  portraits.onerror = () => document.body.classList.remove("portraits-ready");
+  portraits.src = "./assets/v9-casual-staff.jpg";
   document.querySelectorAll("[data-person]").forEach(button => button.addEventListener("click", () => {
     document.querySelectorAll("[data-person]").forEach(b => {
       b.classList.toggle("selected", b === button);
