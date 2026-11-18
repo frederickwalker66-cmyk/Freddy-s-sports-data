@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "npm run test && npm run build"
+    "check": "node --check web/video.js && npm run test && npm run build"
   },
   "dependencies": {
     "@elevenlabs/client": "1.36.1"
