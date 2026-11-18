@@ -91,6 +91,34 @@ function configured(env) {
     env.ASSETS && typeof env.ASSETS.fetch === "function";
 }
 
+function readinessReport(env) {
+  // Only served after cryptographic CEO Access identity verification.
+  // Never include secret values, agent identifiers or provider credentials.
+  const agentRoles = Object.keys(ROLES);
+  const configuredEmployees = agentRoles.filter(role =>
+    typeof env[ROLES[role]] === "string" &&
+    /^agent_[a-z0-9]{15,60}$/i.test(env[ROLES[role]])).length;
+  const checks = {
+    signing_key_present: typeof env.ELEVENLABS_API_KEY === "string" &&
+      env.ELEVENLABS_API_KEY.length > 8,
+    voice_rate_limiter_bound: !!env.VOICE_LIMITER &&
+      typeof env.VOICE_LIMITER.limit === "function",
+    private_assets_bound: !!env.ASSETS && typeof env.ASSETS.fetch === "function",
+    all_six_employee_ids_present: configuredEmployees === agentRoles.length,
+  };
+  return {
+    status: Object.values(checks).every(Boolean)
+      ? "CONFIGURATION_READY_FOR_SHORT_VOICE_TEST"
+      : "CONFIGURATION_INCOMPLETE",
+    configured_employees: configuredEmployees,
+    required_employees: agentRoles.length,
+    checks,
+    live_voice_call_tested: false,
+    certified_bets: 0,
+    external_provider_queried: false,
+  };
+}
+
 async function signedSession(request, env, identity, fetcher) {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const origin = request.headers.get("Origin");
@@ -149,7 +177,6 @@ async function signedSession(request, env, identity, fetcher) {
 }
 
 export async function handleRequest(request, env, fetcher = fetch) {
-  if (!configured(env)) return json({ error: "private_voice_gateway_not_configured" }, 503);
   let identity;
   try {
     identity = await verifyAccessJwt(
@@ -158,6 +185,11 @@ export async function handleRequest(request, env, fetcher = fetch) {
     return json({ error: "authenticated_ceo_access_required" }, 401);
   }
   const path = new URL(request.url).pathname;
+  if (path === "/api/readiness") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    return json(readinessReport(env));
+  }
+  if (!configured(env)) return json({ error: "private_voice_gateway_not_configured" }, 503);
   if (path === "/api/session") {
     return signedSession(request, env, identity, fetcher);
   }
