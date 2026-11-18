@@ -8,6 +8,7 @@ on:
   workflow_run:
     workflows:
       - 'Challenger-001 original eight-sport schedule preflight (research only)'
+      - "Freddy's Picks AI V8 — One Command (phone + laptop)"
     types: [completed]
     branches: [main]
   push:
@@ -79,7 +80,7 @@ jobs:
             --board-json v9_results/V9_SHARP_EDGE_EVIDENCE_BOARD.json \
             --cache-root v9_results/_cached_source/schedule \
             --output-dir v9_results \
-            --lookahead-minutes 90
+            --lookahead-minutes 720
       - name: Independent evidence checklist for every game in staff meeting
         run: |
           python v9_prediction_certification_gate.py \
