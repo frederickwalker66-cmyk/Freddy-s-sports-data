@@ -36,6 +36,28 @@ An Access-protected hostname and private signing secrets have NOT been set up by
 - Browser transcripts live only in the current session's DOM, rendered using safe textContent. They are not ballot signatures and are not saved by the page. ElevenLabs may retain and bill for actual calls separately.
 - Unanimity is six independent approvals per exact reviewed pick followed by CEO approval, and missing model/odds evidence always forces HOLD. Neither the client nor voice gateway authenticates votes or certifies bets.
 
+## Private CEO setup check (safe to run before paid voice)
+
+After hosting under Cloudflare Access and entering your required Worker bindings,
+sign into the protected private voice-room URL. Select
+**Check private setup · no voice charges**. The server checks:
+
+- Whether the ElevenLabs signing credential is present, without reading it back.
+- Whether six syntactically valid employee agent IDs are configured, reporting only a count.
+- Whether the Cloudflare rate-limiting and private static-asset bindings exist.
+- Whether the owner's cryptographically validated Cloudflare Access identity is present.
+
+The check is implemented as a CEO-only GET at `/api/readiness`. It
+never contacts ElevenLabs, starts audio, signs a voice session, or stores a
+transcript. It reports `CONFIGURATION_INCOMPLETE` or
+`CONFIGURATION_READY_FOR_SHORT_VOICE_TEST`. Even the second status does
+**not** mean a live voice conversation was completed, that ElevenLabs calls
+are free, or that sportsbook/model evidence is valid.
+
+For a failed readiness check, correct only the missing or invalid Worker
+bindings using the Cloudflare Secrets UI. Do not paste their values into
+ChatGPT or commit them into GitHub.
+
 ## Offline test and build
 
 - npm run test: synthetic JWT, origin, unauthorized user, unknown employee and provider safety tests; no API calls.
