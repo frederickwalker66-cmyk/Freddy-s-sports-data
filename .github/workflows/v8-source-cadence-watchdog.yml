@@ -47,7 +47,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Fail-closed metadata and dispatch fixture tests
-        run: python -m unittest discover -s tests -p 'test_v8_source_cadence_watchdog.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_v8_source_cadence_watchdog.py' -v
+          python -m unittest discover -s tests -p 'test_v9_source_recovery_heartbeat.py' -v
 
   check-and-recover:
     # Pull requests are read-only synthetic tests. A successful upstream
