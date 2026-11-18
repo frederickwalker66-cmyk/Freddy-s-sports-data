@@ -12,4 +12,7 @@ await build({
 });
 await copyFile(join(root,"web","index.html"),join(root,"dist","index.html"));
 await copyFile(join(root,"web","style.css"),join(root,"dist","style.css"));
-console.log("Built protected CEO meeting room (no embedded agent IDs or keys)");
+await copyFile(join(root,"web","video.html"),join(root,"dist","video.html"));
+await copyFile(join(root,"web","video.css"),join(root,"dist","video.css"));
+await copyFile(join(root,"web","video.js"),join(root,"dist","video.js"));
+console.log("Built protected CEO voice and Zoom Video SDK rooms (no credentials or paid calls)");
