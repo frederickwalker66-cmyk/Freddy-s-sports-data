@@ -58,6 +58,18 @@ class PregameMeetingTests(unittest.TestCase):
         self.assertEqual(len(report["pregame_games"]),1)
         self.assertGreaterEqual(report["rejected_source_rows"],2)
 
+    def test_full_evening_nba_slate_and_hard_no_lock(self):
+        late=game(start="2026-11-18T21:45:00Z",eid="7788")
+        report=analyze(board(),{"events":[game(),late]},
+                       clock=NOW,lookahead_minutes=720)
+        self.assertEqual(report["nba_full_slate_games_displayed"],2)
+        self.assertEqual(report["eight_leg_required_certified_legs"],8)
+        self.assertEqual(report["eight_leg_certified_legs"],0)
+        self.assertEqual(report["eight_leg_lock_decision"],"NO_LOCK_HOLD")
+        self.assertFalse(report["nba_injuries_and_final_lineups_verified_here"])
+        self.assertIn("NO LOCK",markdown(report))
+        self.assertIn("PRA",markdown(report))
+
     def test_no_fabricated_selection_on_claim_of_upstream_ev(self):
         b=board()
         b["certified_positive_ev_count_by_this_board"]=999
