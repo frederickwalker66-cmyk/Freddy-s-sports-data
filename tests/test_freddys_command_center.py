@@ -138,5 +138,16 @@ class MobileControlTests(unittest.TestCase):
             compose({},None,[],datetime(2026,11,6,21))
         with self.assertRaisesRegex(ValueError,"branch_protection"):
             compose({},"yes",[],NOW)
+class BoardroomMonitoringTests(unittest.TestCase):
+    def test_offline_success_does_not_verify_private_services(self):
+        payload = {"v9-secure-voice-gateway-ci.yml": {"workflow_runs": [run(700)]}}
+        report = compose(payload, None, [], NOW)
+        self.assertEqual(report["latest_runs"]["V9 private voice offline checks"]["status"],
+                         "job_success_not_model_certification")
+        self.assertFalse(report["private_boardroom_live_access_verified"])
+        self.assertFalse(report["zoom_live_readiness_verified"])
+        self.assertIn("V9 Zoom offline checks", report["unknown_workflows"])
+        self.assertIn("Unknown or unobserved workflows", markdown(report))
+        self.assertIn("Live access remains unverified", markdown(report))
 if __name__ == "__main__":
     unittest.main()

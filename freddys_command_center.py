@@ -31,6 +31,9 @@ WATCH = {
     "Outcome adjudication": "challenger-prospective-outcome-validation.yml",
     "Calibration research": "challenger-isotonic-calibration.yml",
     "Historical training": "challenger-multisport-training.yml",
+    "V9 private voice offline checks": "v9-secure-voice-gateway-ci.yml",
+    "V9 Zoom offline checks": "v9-video-conference-offline-ci.yml",
+    "V9 pregame meeting": "v9-pregame-meeting.yml",
     "Source and branch backup": "export-github-source-backup.yml",
 }
 COMMANDS = {
@@ -157,6 +160,10 @@ def compose(payloads, branch_protected, accepted, now):
                               if state["status"] == "job_failed_or_cancelled")
     pending_workflows = sorted(name for name, state in workflows.items()
                                if state["status"] == "job_pending_or_running")
+    unknown_workflows = sorted(name for name, state in workflows.items()
+                               if state["status"] in ("github_api_unknown",
+                                   "malformed_response_unknown",
+                                   "no_recent_production_run", "job_status_unknown"))
     stale_workflows = sorted(name for name, state in workflows.items()
                              if state.get("operational_freshness") ==
                              "STALE_LAST_COMPLETED_SUCCESSFUL_JOB")
@@ -164,6 +171,9 @@ def compose(payloads, branch_protected, accepted, now):
         "created_at_utc": now.astimezone(timezone.utc).isoformat(),
         "repository": REPO,
         "latest_failed_or_cancelled_workflows": failed_workflows,
+        "unknown_workflows": unknown_workflows,
+        "private_boardroom_live_access_verified": False,
+        "zoom_live_readiness_verified": False,
         "latest_pending_or_running_workflows": pending_workflows,
         "stale_successful_workflows": stale_workflows,
         "latest_workflow_failure_count": len(failed_workflows),
@@ -220,7 +230,9 @@ def markdown(report):
         lines.append("In progress or queued: " + ", ".join(report["latest_pending_or_running_workflows"]))
     if report["stale_successful_workflows"]:
         lines.append("Stale prior successful runs: " + ", ".join(report["stale_successful_workflows"]))
-    lines.extend(["", "## Commands requested", ""])
+    if report["unknown_workflows"]:
+        lines.append("Unknown or unobserved workflows: " + ", ".join(report["unknown_workflows"]))
+    lines.extend(["", "**Private boardroom:** offline checks do not verify Cloudflare Access, runtime secrets, or a live Zoom session. Live access remains unverified.", "", "## Commands requested", ""])
     if report["requested_workflow_dispatches"]:
         for item in report["requested_workflow_dispatches"]:
             lines.append(f"- {item['workflow']}: {'REQUEST ACCEPTED, job not yet verified' if item['accepted'] else 'DISPATCH FAILED'}")
