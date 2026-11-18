@@ -185,6 +185,38 @@ does not fake six SDK participants or claim they can speak in Zoom.
 Zoom docs: https://developers.zoom.us/docs/video-sdk/web/sessions/
 and https://developers.zoom.us/docs/video-sdk/auth/
 
+## Six independent Zoom SDK identities: verified token signer, NOT connected video bots
+
+The CEO-authenticated `GET /api/zoom-staff-readiness` checks whether Zoom
+Video SDK signing can be configured for exactly six allowlisted staff roles
+(`bella`, `david`, `cassidy`, `roger`, `sarah`, `adam`). It reports **0
+connected video bots** because it does not contact Zoom or monitor an external
+bot runtime. A private button on `/zoom-video.html` displays that status.
+
+The CEO-only `POST /api/zoom-staff-token` accepts exactly the same-origin JSON
+`{"confirm":"prepare","role":"bella"}` (replace role for another staff member),
+after validating Cloudflare Access identity, origin, body schema, Zoom SDK
+secrets and rate limiting. It creates a distinct short-lived signed JWT per
+staff member with `role_type:0`, `user_key:freddys-v9-bot-<role>` and the
+same configured Zoom Video SDK session topic. It never calls Zoom, ElevenLabs
+or WhatsApp. It does NOT launch a participant, create a meeting, publish a
+video frame, send audio or establish a signed ballot.
+
+**Important: Signing a Zoom participant JWT does not create an AI agent video
+chat.** The next large engineering milestone is a separately hosted, approved
+runtime able to run six distinct Zoom Video SDK clients, publish valid
+separate virtual cameras (Zoom Web Video SDK supports media-file video) and
+virtual microphones or supported media audio feeds, and connect those to
+actual ElevenLabs agent output with turn-taking. Official media-file references:
+https://developers.zoom.us/docs/video-sdk/web/video-advanced/
+https://developers.zoom.us/docs/video-sdk/web/audio-advanced/
+
+The signed JWT endpoint is owner-only; do not make it public or supply signed
+JWTs to an untrusted third party. Cloudflare Access protects the endpoint.
+Real participant joins will be explicitly opt-in and may consume Zoom/ElevenLabs
+credits. No paid calls, private account updates, wagers or Champion-001 edits
+are part of this stage.
+
 ## Offline test and build
 
 - npm run test: synthetic JWT, origin, unauthorized user, unknown employee and provider safety tests; no API calls.
