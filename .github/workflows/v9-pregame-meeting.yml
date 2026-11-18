@@ -74,13 +74,27 @@ jobs:
           python-version: '3.12'
       - name: Index existing V8 Sharp Edge and all-sports schedule artifacts
         run: python v9_sharp_edge_evidence_board.py --output-dir v9_results
+      - name: Retrieve latest archived NBA official PDF injury status rows (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v9_results/_cached_source/injury
+          rid="$(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow challenger-nba-injury-source.yml --branch main --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // ""' 2>/dev/null || true)"
+          if [[ "$rid" =~ ^[0-9]+$ ]]; then
+            gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+              --name "nba-injury-original-$rid" --dir v9_results/_cached_source/injury \
+              >/dev/null 2>&1 || echo 'Original PDF rows unavailable; injury status must remain N/A.'
+          fi
       - name: Assemble final six-staff research meeting and HOLD gates
         run: |
           python v9_pregame_staff_meeting.py \
             --board-json v9_results/V9_SHARP_EDGE_EVIDENCE_BOARD.json \
             --cache-root v9_results/_cached_source/schedule \
             --output-dir v9_results \
-            --lookahead-minutes 720
+            --lookahead-minutes 720 \
+            --injury-rows-jsonl v9_results/_cached_source/injury/player_rows_review/nba_injury_pdf_player_review.jsonl
       - name: Independent evidence checklist for every game in staff meeting
         run: |
           python v9_prediction_certification_gate.py \
