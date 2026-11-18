@@ -84,6 +84,26 @@ export async function verifyAccessJwt(token, env, fetcher = fetch, nowMs = Date.
   return { email: claims.email.toLowerCase(), sub: claims.sub || "" };
 }
 
+function validatedZoomJoinUrl(env) {
+  // Optional owner-supplied Zoom link. No Zoom OAuth, meetings API, or bot calls.
+  const value = env && env.ZOOM_JOIN_URL;
+  if (typeof value !== "string" || value.length > 1000) return null;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" ||
+        !(host === "zoom.us" || host.endsWith(".zoom.us")) ||
+        url.username || url.password || url.port || url.hash ||
+        !/^\\/j\\/[0-9]{9,11}\\/?$/.test(url.pathname)) return null;
+    // Only the usual Zoom invite password token is preserved, if present.
+    if ([...url.searchParams.keys()].some(key => key !== "pwd") ||
+        url.searchParams.getAll("pwd").length > 1) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 function configured(env) {
   return env && typeof env.ELEVENLABS_API_KEY === "string" &&
     env.ELEVENLABS_API_KEY.length > 8 &&
@@ -189,14 +209,28 @@ export async function handleRequest(request, env, fetcher = fetch) {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
     return json(readinessReport(env));
   }
-  if (!configured(env)) return json({ error: "private_voice_gateway_not_configured" }, 503);
+  if (path === "/api/integrations") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    const zoomUrl = validatedZoomJoinUrl(env);
+    return json({
+      zoom: { configured: Boolean(zoomUrl), join_url: zoomUrl },
+      whatsapp: { share_only: true, automated_messages: false },
+      live_meeting_started: false,
+      provider_api_called: false,
+    });
+  }
   if (path === "/api/session") {
+    if (!configured(env)) return json({ error: "private_voice_gateway_not_configured" }, 503);
     return signedSession(request, env, identity, fetcher);
   }
   if (path.startsWith("/api/")) return json({ error: "not_found" }, 404);
   if (request.method !== "GET" && request.method !== "HEAD") {
     return json({ error: "method_not_allowed" }, 405);
   }
+  // Permit authenticated CEO access to the boardroom and setup UI even if
+  // ElevenLabs secrets have not been entered. Session signing stays fail-closed.
+  if (!env.ASSETS || typeof env.ASSETS.fetch !== "function")
+    return json({ error: "private_assets_not_configured" }, 503);
   const result = await env.ASSETS.fetch(request);
   const headers = new Headers(result.headers);
   for (const [k, v] of Object.entries(NO_CACHE)) {
