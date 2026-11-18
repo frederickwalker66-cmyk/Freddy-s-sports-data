@@ -199,6 +199,18 @@ async function signedSession(request, env, identity, fetcher) {
 }
 
 export async function handleRequest(request, env, fetcher = fetch) {
+  // Non-sensitive, no-provider-call external probe. Cloudflare Access may still
+  // intercept this route before the request reaches the Worker.
+  const probePath = new URL(request.url).pathname;
+  if (probePath === "/healthz") {
+    if (request.method !== "GET" && request.method !== "HEAD")
+      return json({ error: "method_not_allowed" }, 405);
+    const response = json({ status: "up", component: "private_voice_gateway",
+      check: "worker_reachable", authentication: "not_tested" });
+    return request.method === "HEAD"
+      ? new Response(null, { status: response.status, headers: response.headers })
+      : response;
+  }
   let identity;
   try {
     identity = await verifyAccessJwt(
