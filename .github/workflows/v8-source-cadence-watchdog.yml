@@ -2,16 +2,20 @@ name: V8 public-source schedule recovery (research only)
 
 on:
   workflow_dispatch:
-  # This scheduler is independent of the source workflow's existing twice
-  # hourly cron. GitHub can still delay/drop any scheduled execution.
+  # Two metadata-only checks independently watch the existing twice-hourly source cron.
+  # GitHub can still delay/drop all schedules; this does NOT guarantee collection.
   schedule:
     - cron: '17 * * * *'
-  # Other source pipelines provide another opportunity to check a stale
-  # source preflight; never trigger on our own target to avoid recursion.
+    - cron: '41 * * * *'  # second best-effort metadata-only check, NOT a second collector
+  # V9 meeting completion is an additional heartbeat: when the pregame report
+  # detects stale source evidence, the existing bounded watchdog may dispatch
+  # ONLY the original free public-schedule collector (never a paid odds feed).
+  # Never subscribe to the collector itself or this watchdog (loop prevention).
   workflow_run:
     workflows:
       - "Freddy's Picks AI — Phone Command Center"
       - "Challenger-001 prospective eight-league pregame evidence capture"
+      - "Freddy's Picks AI V9 — Six Staff Pregame Meeting (read-only)"
     types: [completed]
     branches: [main]
   push:
@@ -43,7 +47,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Fail-closed metadata and dispatch fixture tests
-        run: python -m unittest discover -s tests -p 'test_v8_source_cadence_watchdog.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_v8_source_cadence_watchdog.py' -v
+          python -m unittest discover -s tests -p 'test_v9_source_recovery_heartbeat.py' -v
 
   check-and-recover:
     # Pull requests are read-only synthetic tests. A successful upstream
