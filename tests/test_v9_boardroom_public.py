@@ -31,8 +31,10 @@ class BoardroomPublicPrototypeTests(unittest.TestCase):
         for name in ("Bella","David","Cassidy","Roger","Sarah","Adam Stone"):
             self.assertIn(name,raw)
         self.assertIn("Freddy voice remains reserved for the CEO",raw)
-        self.assertIn('assets/v9-casual-staff.jpg',raw)
-        self.assertIn('portraits.onload',raw)
+        for person in ('bella','david','cassidy','roger','sarah','adam-stone'):
+            self.assertIn('assets/v9-'+person+'.jpg',raw)
+            self.assertTrue((ROOT/'docs'/'assets'/('v9-'+person+'.jpg')).exists())
+        self.assertIn('picture.onload',raw)
         self.assertNotIn('portrait pending',raw)
         self.assertEqual(raw.count('Static fictional portrait of '),6)
 
