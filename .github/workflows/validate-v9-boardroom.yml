@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'docs/boardroom.html'
-      - 'docs/assets/v9-casual-staff.jpg'
+      - 'docs/assets/v9-*.jpg'
       - 'docs/index.html'
       - 'tests/test_v9_boardroom_public.py'
       - '.github/workflows/validate-v9-boardroom.yml'
@@ -12,7 +12,7 @@ on:
     branches: [main]
     paths:
       - 'docs/boardroom.html'
-      - 'docs/assets/v9-casual-staff.jpg'
+      - 'docs/assets/v9-*.jpg'
       - 'docs/index.html'
       - 'tests/test_v9_boardroom_public.py'
       - '.github/workflows/validate-v9-boardroom.yml'
@@ -56,20 +56,25 @@ jobs:
           Path('/tmp/v9-boardroom.js').write_text(x.scripts[0],encoding='utf-8')
           PY
           node --check /tmp/v9-boardroom.js
-      - name: Decode and verify fictional portrait image before publishing
+      - name: Decode all six original fictional portraits before publishing
         shell: bash
         run: |
           python -m pip install -q pillow
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageFile
-          p=Path('docs/assets/v9-casual-staff.jpg')
-          assert p.is_file() and 2500 < p.stat().st_size < 60000
-          with Image.open(p) as im:
-              assert im.format == 'JPEG'
-              assert im.size == (240,160)
-              im.load()
-          print('Six-portrait JPEG decoded successfully:',p.stat().st_size,'bytes')
+          from PIL import Image
+          expected=('bella','david','cassidy','roger','sarah','adam-stone')
+          for name in expected:
+              p=Path('docs/assets')/f'v9-{name}.jpg'
+              assert p.is_file() and 5000 < p.stat().st_size < 100000, f'absent or tiny file: {name}'
+              with Image.open(p) as picture:
+                  assert picture.format == 'JPEG', name
+                  assert picture.width >= 200 and picture.height >= 200, (name,picture.size)
+                  picture.verify()
+              with Image.open(p) as picture:
+                  picture.load()
+              print(f'{name}: valid JPEG portrait ({p.stat().st_size} bytes)')
+          assert len(expected) == 6
           PY
       - name: Confirm existing public command center links to boardroom
         run: |
