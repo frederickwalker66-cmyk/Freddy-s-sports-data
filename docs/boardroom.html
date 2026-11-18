@@ -28,22 +28,15 @@
     .person:hover,.person.selected{border-color:var(--teal);background:linear-gradient(145deg,#1b4148,#132337)}
     .person .info{display:flex;gap:12px;align-items:center}.portrait{flex:0 0 70px;width:70px;height:70px;border-radius:50%;border:2px solid #476477;display:grid;place-items:center;background:linear-gradient(130deg,#375e6b,#1f344f);font-size:1.4rem;font-weight:800;color:#e5f8f7}
     
-    /* One original, fictional six-person image. It stays hidden until decoded. */
-    body.portraits-ready .portrait{
-      background-image:url("./assets/v9-casual-staff.jpg");
-      background-size:300% 200%;
-      background-repeat:no-repeat;
-      font-size:0;
-      color:transparent;
-      border-color:#789aa7;
-    }
-    body.portraits-ready .person[data-person="bella"] .portrait{background-position:0% 0%}
-    body.portraits-ready .person[data-person="david"] .portrait{background-position:50% 0%}
-    body.portraits-ready .person[data-person="cassidy"] .portrait{background-position:100% 0%}
-    body.portraits-ready .person[data-person="roger"] .portrait{background-position:0% 100%}
-    body.portraits-ready .person[data-person="sarah"] .portrait{background-position:50% 100%}
-    body.portraits-ready .person[data-person="adam"] .portrait{background-position:100% 100%}
-    .person .name{font-size:1.06rem;font-weight:820}.role{font-size:.82rem;color:var(--teal);margin-top:2px}.person .detail{margin-top:13px;color:var(--muted);font-size:.85rem}.person .tag{margin-top:10px;font-size:.73rem;color:var(--amber)}
+    /* Six original fictional portrait files; initials are the loading fallback. */
+    body.portraits-ready .portrait {background-size:cover;background-position:center;background-repeat:no-repeat;font-size:0;color:transparent;border-color:#789aa7}
+    body.portraits-ready .person[data-person="bella"] .portrait {background-image:url("./assets/v9-bella.jpg")}
+    body.portraits-ready .person[data-person="david"] .portrait {background-image:url("./assets/v9-david.jpg")}
+    body.portraits-ready .person[data-person="cassidy"] .portrait {background-image:url("./assets/v9-cassidy.jpg")}
+    body.portraits-ready .person[data-person="roger"] .portrait {background-image:url("./assets/v9-roger.jpg")}
+    body.portraits-ready .person[data-person="sarah"] .portrait {background-image:url("./assets/v9-sarah.jpg")}
+    body.portraits-ready .person[data-person="adam"] .portrait {background-image:url("./assets/v9-adam-stone.jpg")}
+        .person .name{font-size:1.06rem;font-weight:820}.role{font-size:.82rem;color:var(--teal);margin-top:2px}.person .detail{margin-top:13px;color:var(--muted);font-size:.85rem}.person .tag{margin-top:10px;font-size:.73rem;color:var(--amber)}
     .section-pair{display:grid;grid-template-columns:1.05fr 1fr;gap:15px;margin-top:18px}.detailpanel{min-height:235px}.detailpanel .role{margin:5px 0 12px}
     .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:11px 15px;background:var(--teal);color:#092421;font-weight:800;text-decoration:none;border:1px solid transparent;margin-right:8px;margin-top:12px}
     .btn.secondary{background:transparent;color:var(--text);border-color:#557184}.btn:hover{filter:brightness(1.08)}
@@ -148,10 +141,14 @@
     adam:{name:"Adam Stone",role:"Audit Engineer",work:"Specialist in GitHub workflow provenance, run timestamps, source evidence retention, duplicate votes and independent audit of the model freeze."}
   });
   const $ = id => document.getElementById(id);
-  const portraits = new Image();
-  portraits.onload = () => document.body.classList.add("portraits-ready");
-  portraits.onerror = () => document.body.classList.remove("portraits-ready");
-  portraits.src = "./assets/v9-casual-staff.jpg";
+  const portraitSources=["bella","david","cassidy","roger","sarah","adam-stone"];
+  Promise.all(portraitSources.map(name=>new Promise((resolve,reject)=>{
+    const picture=new Image();
+    picture.onload=()=>resolve(true);
+    picture.onerror=()=>reject(new Error("portrait unavailable"));
+    picture.src="./assets/v9-"+name+".jpg";
+  }))).then(()=>document.body.classList.add("portraits-ready"))
+     .catch(()=>document.body.classList.remove("portraits-ready"));
   document.querySelectorAll("[data-person]").forEach(button => button.addEventListener("click", () => {
     document.querySelectorAll("[data-person]").forEach(b => {
       b.classList.toggle("selected", b === button);
