@@ -5,6 +5,8 @@ on:
   # Existing ESPN collector runs at :27 and :53; do not add a second collector.
   schedule:
     - cron: '45 * * * *'
+    - cron: '30 22 * * *' # 6:30pm EDT / 5:30pm EST; extra low-cost pregame run
+    - cron: '30 23 * * *' # 6:30pm EST / 7:30pm EDT; exclude already-started games
   workflow_run:
     workflows:
       - 'Challenger-001 original eight-sport schedule preflight (research only)'
