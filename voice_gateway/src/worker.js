@@ -94,7 +94,7 @@ function validatedZoomJoinUrl(env) {
     if (url.protocol !== "https:" ||
         !(host === "zoom.us" || host.endsWith(".zoom.us")) ||
         url.username || url.password || url.port || url.hash ||
-        !/^\\/j\\/[0-9]{9,11}\\/?$/.test(url.pathname)) return null;
+        !new RegExp("^/j/[0-9]{9,11}/?$").test(url.pathname)) return null;
     // Only the usual Zoom invite password token is preserved, if present.
     if ([...url.searchParams.keys()].some(key => key !== "pwd") ||
         url.searchParams.getAll("pwd").length > 1) return null;
