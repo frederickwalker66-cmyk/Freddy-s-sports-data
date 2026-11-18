@@ -35,18 +35,28 @@ function b64url(bytes) {
 function b64json(input) {
   return b64url(new TextEncoder().encode(JSON.stringify(input)));
 }
-export async function signZoomVideoToken(env,{nowMs=Date.now()}={}) {
+export const ZOOM_STAFF_ROLES = Object.freeze([
+  "bella", "david", "cassidy", "roger", "sarah", "adam"
+]);
+
+/**
+ * Each future SDK bot joins as a separate participant (role_type 0).
+ * A role-scoped token alone does not start a session or connect a bot.
+ */
+export async function signZoomVideoToken(env,{nowMs=Date.now(),participant="ceo"}={}) {
+  if(participant!=="ceo" && !ZOOM_STAFF_ROLES.includes(participant))
+    throw Error("unknown_zoom_participant");
   if(!Object.values(zoomVideoChecks(env)).every(Boolean))
     throw Error("zoom_video_not_configured");
   const iat=Math.floor(nowMs/1000)-30;
   const payload={
     app_key:env.ZOOM_VIDEO_SDK_KEY,
-    role_type:1,
+    role_type:participant==="ceo"?1:0,
     tpc:env.ZOOM_VIDEO_SESSION_TOPIC,
     version:1,
     iat,
     exp:iat+3600,
-    user_key:"freddys-v9-ceo",
+    user_key:participant==="ceo"?"freddys-v9-ceo":"freddys-v9-bot-"+participant,
     audio_webrtc_mode:1,
   };
   const header=b64json({alg:"HS256",typ:"JWT"});

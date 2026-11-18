@@ -35,6 +35,11 @@
     </div>
     <p class="small" id="zoom-setup-result" aria-live="polite">Use Check Zoom setup before attempting to join. This requires the Zoom Video SDK Key and Secret in Cloudflare Worker Secrets.</p>
     <p class="small">This is a custom Zoom-powered video application, <strong>not</strong> a Zoom Meetings or WhatsApp group call.</p>
+    <div class="bot-preflight">
+      <h3>Six employee video readiness</h3>
+      <button id="check-staff-video" class="secondary" type="button">Check all six employee identities · no call</button>
+      <p id="staff-video-status" role="status" aria-live="polite" class="small">Not checked. Video bot processes and real-time speaking avatars still require a separate authenticated runtime.</p>
+    </div>
   </section>
   <section class="meeting" aria-labelledby="meeting-heading">
     <div class="heading"><h2 id="meeting-heading">Connected video participants</h2><span id="connected-count">0 live participants</span></div>

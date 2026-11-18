@@ -27,6 +27,13 @@ jobs:
       - name: Verify Access JWT, role isolation and browser build offline
         working-directory: voice_gateway
         run: npm run check
+      - name: Check Cloudflare Worker bundle using Wrangler dry-run (no deployment)
+        working-directory: voice_gateway
+        run: |
+          set -euo pipefail
+          npx wrangler deploy --dry-run --outdir .wrangler-dry-run
+          test -d .wrangler-dry-run
+          echo 'Wrangler dry-run passed; no Cloudflare upload or provider request occurred.' >> "$GITHUB_STEP_SUMMARY"
       - name: Guard against committing private authentication settings
         shell: bash
         run: |
