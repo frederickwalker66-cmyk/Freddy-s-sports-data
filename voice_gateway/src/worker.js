@@ -203,7 +203,18 @@ export async function handleRequest(request, env, fetcher = fetch) {
   try {
     identity = await verifyAccessJwt(
       request.headers.get("Cf-Access-Jwt-Assertion"), env, fetcher);
-  } catch {
+  } catch (error) {
+    // Emit only a fixed diagnostic category. Never log JWTs, emails, claims,
+    // headers, request URLs, or credential values.
+    const safeReasons = new Set([
+      "missing-jwt", "access-not-configured", "malformed-jwt",
+      "bad-jwt-segment", "unsupported-jwt-algorithm",
+      "access-claims-not-authorized", "access-jwks-unavailable",
+      "access-signing-key-unavailable", "invalid-access-signature",
+    ]);
+    const reason = error instanceof Error && safeReasons.has(error.message)
+      ? error.message : "jwt-verification-unexpected-failure";
+    console.warn("private_boardroom_access_denied", { reason });
     return json({ error: "authenticated_ceo_access_required" }, 401);
   }
   const path = new URL(request.url).pathname;
