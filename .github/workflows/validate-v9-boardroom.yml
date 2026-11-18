@@ -1,0 +1,60 @@
+name: V9 Boardroom — Static and Privacy Validation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'docs/boardroom.html'
+      - 'docs/index.html'
+      - 'tests/test_v9_boardroom_public.py'
+      - '.github/workflows/validate-v9-boardroom.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/boardroom.html'
+      - 'docs/index.html'
+      - 'tests/test_v9_boardroom_public.py'
+      - '.github/workflows/validate-v9-boardroom.yml'
+permissions:
+  contents: read
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check boardroom roster, HOLD rules and public voice privacy
+        run: python -m unittest discover -s tests -p 'test_v9_boardroom_public.py' -v
+      - name: Extract and check client-side boardroom JavaScript syntax
+        shell: bash
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Extract(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.inside=False
+                  self.scripts=[]
+              def handle_starttag(self,tag,attrs):
+                  if tag=="script" and "src" not in dict(attrs):
+                      self.inside=True
+                      self.scripts.append("")
+              def handle_endtag(self,tag):
+                  if tag=="script":
+                      self.inside=False
+              def handle_data(self,data):
+                  if self.inside:
+                      self.scripts[-1]+=data
+          x=Extract()
+          x.feed(Path('docs/boardroom.html').read_text(encoding='utf-8'))
+          assert len(x.scripts)==1, 'Expect one local script and no external voice scripts'
+          Path('/tmp/v9-boardroom.js').write_text(x.scripts[0],encoding='utf-8')
+          PY
+          node --check /tmp/v9-boardroom.js
+      - name: Confirm existing public command center links to boardroom
+        run: |
+          grep -Fq 'href="./boardroom.html"' docs/index.html
+          echo 'V9 boardroom static and public privacy checks passed.'

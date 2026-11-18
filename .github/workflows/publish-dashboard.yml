@@ -21,6 +21,8 @@ on:
       - 'scripts/build_public_dashboard.py'
       - 'tests/test_build_public_dashboard.py'
       - 'docs/index.html'
+      - 'docs/boardroom.html'
+      - 'tests/test_v9_boardroom_public.py'
       - 'docs/app.js'
       - 'docs/styles.css'
       - '.github/workflows/publish-dashboard.yml'
@@ -85,7 +87,9 @@ jobs:
           print("Public page, asset paths and JSON schema validated.")
           PY
       - name: Verify public-snapshot guardrails without contacting provider APIs
-        run: python -m unittest discover -s tests -p 'test_build_public_dashboard.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_build_public_dashboard.py' -v
+          python -m unittest discover -s tests -p 'test_v9_boardroom_public.py' -v
       - name: Retrieve latest completed V8 NBA, all-sports and scoreboard artifacts
         env:
           GH_TOKEN: ${{ github.token }}
