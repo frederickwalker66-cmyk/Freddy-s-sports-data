@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#071624">
+  <title>Freddy's Picks AI V9 — Zoom Video Boardroom</title>
+  <link rel="stylesheet" href="/video.css">
+  <script type="module" src="/video.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <header class="topbar">
+    <div class="logo">FREDDY'S <span>PICKS AI</span><small>V9 · PRIVATE VIDEO BOARDROOM</small></div>
+    <a href="/" class="nav">← Voice room</a>
+  </header>
+  <section class="intro">
+    <p class="eyebrow">CEO CONTROL CENTER · ZOOM VIDEO SDK</p>
+    <h1>Your virtual <em>video boardroom</em></h1>
+    <p>This is a private Zoom-powered video room within your browser. A real Zoom Video SDK session connects when you explicitly approve and press Join. It is <strong>not</strong> a traditional Zoom Meeting link. The employee portraits below are previews, <strong>not connected Zoom participants</strong>.</p>
+    <div class="badges"><span>Six employee identities</span><span>Private Access required</span><span>No automatic video sessions</span></div>
+  </section>
+
+  <section class="meeting" aria-labelledby="video-title">
+    <div class="heading"><div><p class="eyebrow">Live media</p><h2 id="video-title">CEO video meeting</h2></div><span class="pill" id="zoom-state">Disconnected</span></div>
+    <div id="zoom-status" role="status" aria-live="polite" class="msg">No Zoom session is running. Checking setup never contacts Zoom.</div>
+    <div class="preflight">
+      <button type="button" class="secondary" id="check-zoom">Check Zoom setup · no charge</button>
+      <p id="config-report" class="note" aria-live="polite">Setup has not been checked.</p>
+      <label class="approve"><input type="checkbox" id="approve-join"> I approve starting a Zoom Video SDK session, which may incur Zoom usage charges.</label>
+      <div class="controls">
+        <button type="button" id="join" class="primary">Join private Zoom video room</button>
+        <button type="button" id="leave" class="danger" disabled>Leave meeting</button>
+        <button type="button" id="camera" class="secondary" disabled>Start camera</button>
+        <button type="button" id="audio" class="secondary" disabled>Connect microphone</button>
+        <button type="button" id="mute" class="secondary" disabled>Mute microphone</button>
+      </div>
+    </div>
+    <div class="live-grid">
+      <div class="live-tile"><div class="tile-header">YOU · CEO</div><video-player-container id="ceo-video"></video-player-container><p id="camera-label" class="caption">Camera off · permissions are never requested automatically</p></div>
+      <div class="live-tile"><div class="tile-header">VERIFIED ZOOM PARTICIPANTS <span id="remote-count">0</span></div><div id="remote-tiles" aria-live="polite" class="remote-tiles"><p class="caption">No other Video SDK clients connected. Employee portraits are not remote video participants.</p></div></div>
+    </div>
+    <p class="note">Zoom's Video SDK credentials are issued from your private Cloudflare Worker. They never go into this webpage's source. Video starts only after you explicitly join and enable your camera or microphone.</p>
+  </section>
+
+  <section aria-labelledby="staff-title" class="people-section">
+    <div class="heading"><div><p class="eyebrow">Employee video identities</p><h2 id="staff-title">Your six specialists</h2></div><span class="pill dim">Avatar previews · not live</span></div>
+    <div class="roster">
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-bella.jpg" alt="Bella avatar portrait" loading="lazy"><div><h3>Bella</h3><p>Command Center Manager</p><small>Awaiting video bridge</small></div></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-david.jpg" alt="David avatar portrait" loading="lazy"><div><h3>David</h3><p>Sports Data Analyst</p><small>Awaiting video bridge</small></div></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-cassidy.jpg" alt="Cassidy avatar portrait" loading="lazy"><div><h3>Cassidy</h3><p>Sharp Edge Analyst</p><small>Awaiting video bridge</small></div></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-roger.jpg" alt="Roger avatar portrait" loading="lazy"><div><h3>Roger</h3><p>Parlay Builder</p><small>Awaiting video bridge</small></div></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-sarah.jpg" alt="Sarah avatar portrait" loading="lazy"><div><h3>Sarah</h3><p>Risk Manager</p><small>Awaiting video bridge</small></div></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-adam-stone.jpg" alt="Adam Stone avatar portrait" loading="lazy"><div><h3>Adam Stone</h3><p>Audit Engineer</p><small>Awaiting video bridge</small></div></article>
+    </div>
+    <p class="note">Six live autonomous video/audio bots require a separate authorized runtime that has not been deployed. This page shows accurate connection status and never invents participants, votes, predictions or conversation activity.</p>
+  </section>
+  <footer>CEO access via Cloudflare · No WhatsApp native bot video integration · Champion-001 remains frozen · No automatic wagers or calls.</footer>
+</main>
+</body>
+</html>
