@@ -35,7 +35,7 @@ class V9HeartbeatRecoveryTests(unittest.TestCase):
     def test_meeting_uses_source_archives_and_stays_read_only(self):
         text=MEETING.read_text(encoding="utf-8")
         self.assertIn("v9_pregame_staff_meeting.py",text)
-        self.assertIn("--lookahead-minutes 90",text)
+        self.assertIn("--lookahead-minutes 720",text)
         self.assertIn("permissions:\n  contents: read\n  actions: read",text)
         self.assertNotIn("--execute-recovery",text)
         self.assertNotIn("actions: write",text)
