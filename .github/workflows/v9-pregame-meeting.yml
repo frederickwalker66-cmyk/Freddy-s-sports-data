@@ -15,15 +15,19 @@ on:
     paths:
       - 'v9_pregame_staff_meeting.py'
       - 'v9_sharp_edge_evidence_board.py'
+      - 'v9_prediction_certification_gate.py'
       - 'tests/test_v9_pregame_staff_meeting.py'
       - 'tests/test_v9_sharp_edge_evidence_board.py'
+      - 'tests/test_v9_prediction_certification_gate.py'
       - '.github/workflows/v9-pregame-meeting.yml'
   pull_request:
     paths:
       - 'v9_pregame_staff_meeting.py'
       - 'v9_sharp_edge_evidence_board.py'
+      - 'v9_prediction_certification_gate.py'
       - 'tests/test_v9_pregame_staff_meeting.py'
       - 'tests/test_v9_sharp_edge_evidence_board.py'
+      - 'tests/test_v9_prediction_certification_gate.py'
       - '.github/workflows/v9-pregame-meeting.yml'
 permissions:
   contents: read
@@ -42,7 +46,7 @@ jobs:
           python-version: '3.12'
       - name: Test evidence board, six employees and fail-closed pregame meeting
         run: |
-          python -m py_compile v9_sharp_edge_evidence_board.py v9_pregame_staff_meeting.py
+          python -m py_compile v9_sharp_edge_evidence_board.py v9_pregame_staff_meeting.py v9_prediction_certification_gate.py
           python -m unittest discover -s tests -p 'test_v9_*.py' -v
   meeting:
     # A pull request cannot trigger a live read. No new sports-provider calls.
@@ -72,6 +76,13 @@ jobs:
             --cache-root v9_results/_cached_source/schedule \
             --output-dir v9_results \
             --lookahead-minutes 90
+      - name: Independent evidence checklist for every game in staff meeting
+        run: |
+          python v9_prediction_certification_gate.py \
+            --board-json v9_results/V9_SHARP_EDGE_EVIDENCE_BOARD.json \
+            --meeting-json v9_results/V9_PREGAME_MEETING.json \
+            --archive-root v9_results/_cached_source/schedule \
+            --output-dir v9_results
       - name: Archive one evidence board and one pregame meeting
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,5 +93,7 @@ jobs:
             v9_results/V9_SHARP_EDGE_EVIDENCE_BOARD.md
             v9_results/V9_PREGAME_MEETING.json
             v9_results/V9_PREGAME_MEETING.md
+            v9_results/V9_PREDICTION_CERTIFICATION_GAPS.json
+            v9_results/V9_PREDICTION_CERTIFICATION_GAPS.md
           retention-days: 14
           if-no-files-found: warn
