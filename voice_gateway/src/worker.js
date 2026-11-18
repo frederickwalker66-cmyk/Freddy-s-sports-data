@@ -1,4 +1,4 @@
-import {zoomVideoReadiness,signZoomVideoToken,zoomVideoChecks} from "./zoom-video-token.js";
+import {zoomVideoReadiness,signZoomVideoToken,zoomVideoChecks,ZOOM_STAFF_ROLES} from "./zoom-video-token.js";
 
 /**
  * Freddy's V9 private voice gateway, intentionally NOT deployed by GitHub Actions.
@@ -224,6 +224,49 @@ export async function handleRequest(request, env, fetcher = fetch) {
   if (path === "/api/zoom-video-readiness") {
     if (request.method !== "GET") return json({error:"method_not_allowed"},405);
     return json(zoomVideoReadiness(env));
+  }
+  if (path === "/api/zoom-staff-readiness") {
+    if (request.method !== "GET") return json({error:"method_not_allowed"},405);
+    const zoomChecks=zoomVideoChecks(env);
+    return json({
+      role_signing_configured:Object.values(zoomChecks).every(Boolean),
+      role_count:ZOOM_STAFF_ROLES.length,
+      roles:ZOOM_STAFF_ROLES,
+      connected_live_bots:0,
+      externally_hosted_bot_runtime_verified:false,
+      elevenlabs_media_bridge_verified:false,
+      whatsapp_native_group_video_supported:false,
+      live_zoom_session_started:false,
+      provider_contacted:false,
+    });
+  }
+  if (path === "/api/zoom-staff-token") {
+    if (request.method !== "POST") return json({error:"method_not_allowed"},405);
+    if (request.headers.get("Origin")!==new URL(request.url).origin ||
+        !String(request.headers.get("Content-Type")).startsWith("application/json"))
+      return json({error:"same_origin_post_required"},403);
+    if (Number(request.headers.get("content-length")||"0")>160)
+      return json({error:"body_too_large"},413);
+    let body;
+    try {
+      const raw=await request.text();
+      if(raw.length>160) return json({error:"body_too_large"},413);
+      body=JSON.parse(raw);
+    } catch {return json({error:"invalid_json"},400)}
+    if(!body || typeof body!=="object" || Array.isArray(body) ||
+        Object.keys(body).length!==2 ||
+        body.confirm!=="prepare" ||
+        typeof body.role!=="string" || !ZOOM_STAFF_ROLES.includes(body.role))
+      return json({error:"invalid_role_or_explicit_prepare_required"},400);
+    if(!Object.values(zoomVideoChecks(env)).every(Boolean))
+      return json({error:"zoom_video_sdk_not_configured"},503);
+    const result=await env.VOICE_LIMITER.limit({key:"zoom-staff:"+identity.email});
+    if(!result || result.success!==true)return json({error:"zoom_staff_token_rate_limit"},429);
+    try {
+      return json(await signZoomVideoToken(env,{participant:body.role}));
+    } catch {
+      return json({error:"zoom_staff_signing_unavailable"},503);
+    }
   }
   if (path === "/api/zoom-video-token") {
     if (request.method !== "POST") return json({error:"method_not_allowed"},405);
