@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#081625">
+  <title>Freddy's Picks AI V9 · Zoom Video SDK Room</title>
+  <link rel="stylesheet" href="/zoom-video.css">
+  <script src="https://source.zoom.us/videosdk/zoom-video-2.6.10.min.js" defer></script>
+  <script src="/zoom-video.js" defer></script>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <a href="/" class="back">← Private V9 Boardroom</a>
+    <span class="eyebrow">CEO PRIVATE VIDEO CONFERENCE</span>
+  </header>
+  <section class="hero">
+    <h1>Freddy's V9 <em>Video Boardroom</em></h1>
+    <p>Zoom Video SDK-powered private video session. Only your camera and genuinely connected Zoom Video SDK users appear as live streams. The six employee portraits below are <strong>placeholders, not connected Zoom bot participants</strong>.</p>
+    <p class="notice">Cloudflare Access protects this website. Starting a Zoom Video SDK session may consume your Zoom account credits; nothing is started automatically.</p>
+  </section>
+  <section class="controlbox" aria-labelledby="control-title">
+    <h2 id="control-title">CEO meeting controls</h2>
+    <p id="zoom-status" role="status" aria-live="polite">Not joined. Camera and microphone off.</p>
+    <div class="buttons">
+      <button id="check-zoom-setup" class="secondary">Check Zoom setup · no call</button>
+      <button id="join-zoom-sdk" class="primary">Join Zoom video room (may incur charges)</button>
+      <button id="enable-zoom-audio" class="secondary" disabled>Enable microphone</button>
+      <button id="mute-zoom-audio" class="secondary" disabled>Mute microphone</button>
+      <button id="enable-zoom-video" class="secondary" disabled>Enable camera</button>
+      <button id="disable-zoom-video" class="secondary" disabled>Stop camera</button>
+      <button id="leave-zoom-sdk" class="danger" disabled>Leave session</button>
+    </div>
+    <p class="small" id="zoom-setup-result" aria-live="polite">Use Check Zoom setup before attempting to join. This requires the Zoom Video SDK Key and Secret in Cloudflare Worker Secrets.</p>
+    <p class="small">This is a custom Zoom-powered video application, <strong>not</strong> a Zoom Meetings or WhatsApp group call.</p>
+  </section>
+  <section class="meeting" aria-labelledby="meeting-heading">
+    <div class="heading"><h2 id="meeting-heading">Connected video participants</h2><span id="connected-count">0 live participants</span></div>
+    <video-player-container id="live-zoom-video" class="video-grid"></video-player-container>
+    <p class="small">Your camera and other real connected Zoom users are displayed here after an explicit join. Microphone and camera require separate actions.</p>
+  </section>
+  <section aria-labelledby="agents-heading">
+    <div class="heading"><h2 id="agents-heading">V9 specialist team</h2><span>Six pending video integrations</span></div>
+    <div class="roster">
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-bella.jpg" alt="Fictional portrait of Bella" loading="lazy"><strong>Bella</strong><span>Command Center Manager</span><small>Video bot not connected</small></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-david.jpg" alt="Fictional portrait of David" loading="lazy"><strong>David</strong><span>Sports Data Analyst</span><small>Video bot not connected</small></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-cassidy.jpg" alt="Fictional portrait of Cassidy" loading="lazy"><strong>Cassidy</strong><span>Sharp Edge Analyst</span><small>Video bot not connected</small></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-roger.jpg" alt="Fictional portrait of Roger" loading="lazy"><strong>Roger</strong><span>Parlay Builder</span><small>Video bot not connected</small></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-sarah.jpg" alt="Fictional portrait of Sarah" loading="lazy"><strong>Sarah</strong><span>Risk Manager</span><small>Video bot not connected</small></article>
+      <article class="person"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-adam-stone.jpg" alt="Fictional portrait of Adam Stone" loading="lazy"><strong>Adam Stone</strong><span>Audit Engineer</span><small>Video bot not connected</small></article>
+    </div>
+  </section>
+  <footer>No Zoom, ElevenLabs, or WhatsApp calls are initiated on page load. Zoom token is issued only after you press Join; the six employee video bot feeds must still be deployed separately. Frozen Champion-001 remains unchanged. No automatic wagers.</footer>
+</main>
+</body>
+</html>
