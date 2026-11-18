@@ -42,7 +42,7 @@ class BoardroomPublicPrototypeTests(unittest.TestCase):
         self.assertNotIn("GH_TOKEN",raw)
         self.assertNotIn("HeyGen",raw.replace("No HeyGen used.",""))
         self.assertIn("https://elevenlabs.io/app/agents",raw)
-        self.assertIn("voice agents",raw.lower())
+        self.assertIn("voice employees",raw.lower())
 
     def test_exact_pick_voting_fail_closed(self):
         raw=HTML.read_text(encoding="utf-8")
