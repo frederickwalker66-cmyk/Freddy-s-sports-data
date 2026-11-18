@@ -34,6 +34,31 @@
       <button class="person" aria-pressed="false" data-role="adam" type="button"><img src="https://frederickwalker66-cmyk.github.io/Freddy-s-sports-data/assets/v9-adam-stone.jpg" alt="Adam Stone, fictional employee portrait" loading="lazy"><span class="persontext"><strong>Adam Stone</strong><small>Audit Engineer</small><span>GitHub provenance</span></span></button>
     </div>
   </section>
+  <section class="integrations" aria-labelledby="integrations-heading">
+    <div class="sectionhead"><h2 id="integrations-heading">Phone meeting access</h2><span>Manual, CEO-controlled launch only</span></div>
+    <p class="muted small">Zoom and WhatsApp are optional ways to meet or share this protected room. Your six ElevenLabs voices run here, not automatically as Zoom participants or WhatsApp callers. No meeting or paid call starts from these controls.</p>
+    <div class="integration-grid">
+      <article class="integration-card">
+        <h3>Zoom · human meeting</h3>
+        <p>Open an existing Zoom meeting, if its private invitation link is configured. No bot joins Zoom and no Zoom meeting is created automatically.</p>
+        <div class="integration-actions">
+          <button id="check-zoom" type="button" class="secondary">Check my Zoom link · no call</button>
+          <a id="join-zoom" href="#" class="action-link" target="_blank" rel="noopener noreferrer" hidden>Open my Zoom meeting</a>
+          <a href="https://zoom.us/meeting" class="muted small" target="_blank" rel="noopener noreferrer">Manage meetings on Zoom</a>
+        </div>
+        <p id="zoom-status" class="muted small" role="status" aria-live="polite">Zoom meeting link not checked.</p>
+      </article>
+      <article class="integration-card">
+        <h3>WhatsApp · protected link</h3>
+        <p>Share only the URL of this Cloudflare Access-protected room. The link does not grant anyone admission or share your Zoom password, API keys, or session tokens.</p>
+        <div class="integration-actions">
+          <a id="share-whatsapp" href="https://wa.me/" class="action-link" target="_blank" rel="noopener noreferrer">Share via WhatsApp</a>
+          <button id="copy-room" type="button" class="secondary">Copy room link</button>
+        </div>
+        <p id="share-status" class="muted small" role="status" aria-live="polite">Nothing has been sent to WhatsApp.</p>
+      </article>
+    </div>
+  </section>
   <section class="room" aria-labelledby="live-heading">
     <div class="room-top">
       <div><div class="eyebrow">Direct employee conversation</div><h2 id="live-heading">Voice meeting control</h2><div class="muted" id="status" role="status" aria-live="polite">Not connected</div></div>
