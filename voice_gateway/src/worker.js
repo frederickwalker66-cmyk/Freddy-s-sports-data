@@ -1,3 +1,4 @@
+import {createZoomVideoSdkJwt,zoomVideoConfigured} from "./zoom-video.js";
 /**
  * Freddy's V9 private voice gateway, intentionally NOT deployed by GitHub Actions.
  *
@@ -205,6 +206,46 @@ export async function handleRequest(request, env, fetcher = fetch) {
     return json({ error: "authenticated_ceo_access_required" }, 401);
   }
   const path = new URL(request.url).pathname;
+  if (path === "/api/zoom-video-readiness") {
+    if (request.method !== "GET") return json({error:"method_not_allowed"},405);
+    return json({
+      zoom_video_sdk_configured:zoomVideoConfigured(env),
+      jwt_issuer_available:true,
+      live_video_session_started:false,
+      video_bots_connected:0,
+      remote_provider_contacted:false,
+      message:zoomVideoConfigured(env)
+        ?"Video SDK credentials present; Zoom service has NOT been contacted."
+        :"Configure ZOOM_VIDEO_SDK_KEY and ZOOM_VIDEO_SDK_SECRET as Cloudflare Worker Secrets.",
+    });
+  }
+  if (path === "/api/zoom-video-token") {
+    if (request.method !== "POST") return json({error:"method_not_allowed"},405);
+    if (request.headers.get("Origin") !== new URL(request.url).origin ||
+        !String(request.headers.get("Content-Type")).startsWith("application/json"))
+      return json({error:"same_origin_post_required"},403);
+    if(Number(request.headers.get("content-length") || 0)>256)
+      return json({error:"body_too_large"},413);
+    let body;
+    try {body=JSON.parse(await request.text());}
+    catch{return json({error:"invalid_json"},400);}
+    if(!body || Object.keys(body).length!==1 || body.approved!==true)
+      return json({error:"explicit_ceo_consent_required"},403);
+    if(!zoomVideoConfigured(env))return json({error:"zoom_video_sdk_not_configured"},503);
+    if(!env.VOICE_LIMITER || typeof env.VOICE_LIMITER.limit!=="function")
+      return json({error:"rate_limit_not_configured"},503);
+    const limit=await env.VOICE_LIMITER.limit({key:"zoom-video:"+identity.email});
+    if(!limit || limit.success!==true)return json({error:"rate_limit_exceeded"},429);
+    const signed=await createZoomVideoSdkJwt(env);
+    return json({
+      token:signed.signature,
+      session_name:signed.sessionName,
+      expires_at:signed.expiresAt,
+      host_name:"Freddy (CEO)",
+      zoom_provider_called:false,
+      live_session_started:false,
+    });
+  }
   if (path === "/api/readiness") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
     return json(readinessReport(env));
@@ -236,11 +277,26 @@ export async function handleRequest(request, env, fetcher = fetch) {
   for (const [k, v] of Object.entries(NO_CACHE)) {
     if (k !== "Content-Security-Policy") headers.set(k, v);
   }
-  headers.set("Content-Security-Policy",
-    "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io; " +
-    "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io; " +
-    "script-src 'self'; style-src 'self'; media-src 'self' blob:; " +
-    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  if (path === "/video.html") {
+    // Restricted to this Zoom SDK video page, since Zoom's WASM media runtime
+    // needs specific script/worker/connect permissions absent from the voice UI.
+    // The rest of the Worker retains its stronger default CSP.
+    headers.set("Content-Security-Policy",
+      "default-src 'self'; img-src 'self' data: blob: https://frederickwalker66-cmyk.github.io https://*.zoom.us; " +
+      "script-src 'self' 'unsafe-eval' blob: https://source.zoom.us https://*.zoom.us https://dmogdx0jrul3u.cloudfront.net; " +
+      "connect-src 'self' https://zoom.us https://*.zoom.us wss://*.zoom.us " +
+      "https://zoom.com https://*.zoom.com wss://*.zoom.com " +
+      "https://zoom.com.cn https://*.zoom.com.cn wss://*.zoom.com.cn; " +
+      "worker-src 'self' blob:; media-src 'self' blob: https:; " +
+      "font-src 'self' https: data:; style-src 'self'; " +
+      "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  } else {
+    headers.set("Content-Security-Policy",
+      "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io; " +
+      "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io; " +
+      "script-src 'self'; style-src 'self'; media-src 'self' blob:; " +
+      "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  }
   return new Response(result.body, { status: result.status, headers });
 }
 
