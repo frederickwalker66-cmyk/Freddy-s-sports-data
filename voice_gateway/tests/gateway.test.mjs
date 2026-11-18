@@ -343,3 +343,16 @@ test("Authorized CEO gets short-lived valid HS256 Zoom token only on explicit jo
   assert.equal(callsToZoom,0);
   assert.equal(res.headers.get("Cache-Control").includes("no-store"),true);
 });
+
+test("Private Zoom video room loads for CEO before any Zoom/ElevenLabs secrets exist",async()=>{
+  const r=await handleRequest(request("/zoom-video.html","GET",await jwt()),
+    env({ELEVENLABS_API_KEY:undefined,ZOOM_VIDEO_SDK_KEY:undefined}),mockFetch);
+  assert.equal(r.status,200);
+  assert.equal(await r.text(),"private static app");
+  const policy=r.headers.get("Content-Security-Policy");
+  assert.ok(policy.includes("https://source.zoom.us"));
+  assert.ok(policy.includes("frame-ancestors 'none'"));
+  assert.equal(r.headers.get("Cache-Control").includes("no-store"),true);
+  const stranger=await handleRequest(request("/zoom-video.html"),env(),mockFetch);
+  assert.equal(stranger.status,401);
+});
