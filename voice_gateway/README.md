@@ -58,6 +58,22 @@ For a failed readiness check, correct only the missing or invalid Worker
 bindings using the Cloudflare Secrets UI. Do not paste their values into
 ChatGPT or commit them into GitHub.
 
+## Cloudflare Git-linked production redeployment
+
+The Cloudflare production Build settings shown by the owner use the connected
+`main` branch, root directory `voice_gateway`, build command
+`npm install && npm run build`, and deploy command `npx wrangler deploy`.
+A new commit changing this directory should request another Cloudflare build
+**if those settings have been saved and Git deploys are enabled**.
+
+After any redeployment, confirm in Cloudflare **Deployments / Builds** that the
+new commit finished successfully. Then open the production URL behind the
+existing **Freddy only** Access policy: the browser must show six employee
+portraits rather than Cloudflare's "Hello World" starter. Use the protected
+**Check private setup · no voice charges** button before ever starting a live
+voice call. A GitHub CI success does not establish that Cloudflare deployed,
+that Access authentication succeeded, or that the required Worker secrets exist.
+
 ## Offline test and build
 
 - npm run test: synthetic JWT, origin, unauthorized user, unknown employee and provider safety tests; no API calls.
