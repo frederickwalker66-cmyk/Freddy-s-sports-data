@@ -70,6 +70,24 @@ class PregameMeetingTests(unittest.TestCase):
         self.assertIn("NO LOCK",markdown(report))
         self.assertIn("PRA",markdown(report))
 
+    def test_archived_injury_designation_never_activates_player(self):
+        row={
+            "record_type":"nba_official_pdf_player_status_extracted_for_review_only",
+            "game_match_status":"exact_date_clubs_research_only",
+            "espn_event_id_research_match":"1234",
+            "source_player_name_display":"Test Player",
+            "source_injury_designation":"Questionable",
+            "player_current_game_active_status_verified":False,
+        }
+        report=analyze(board(),{"events":[game()]},clock=NOW,injury_rows=[row])
+        item=report["pregame_games"][0]
+        self.assertEqual(item["injury_source_player_designations"],
+                         [{"player":"Test Player","status":"Questionable"}])
+        self.assertEqual(item["injury_source_status"],"ARCHIVED_OFFICIAL_PDF_NOT_FINAL_LINEUP")
+        self.assertFalse(report["nba_injuries_and_final_lineups_verified_here"])
+        self.assertEqual(report["eight_leg_lock_decision"],"NO_LOCK_HOLD")
+        self.assertIn("Test Player (Questionable)", markdown(report))
+
     def test_no_fabricated_selection_on_claim_of_upstream_ev(self):
         b=board()
         b["certified_positive_ev_count_by_this_board"]=999
