@@ -74,6 +74,71 @@ portraits rather than Cloudflare's "Hello World" starter. Use the protected
 voice call. A GitHub CI success does not establish that Cloudflare deployed,
 that Access authentication succeeded, or that the required Worker secrets exist.
 
+## Zoom Video SDK — private browser video room (custom app, not Zoom Meetings)
+
+A second private page, `/video.html`, has been added under the **same Cloudflare
+Access-protected Worker**. It is a mobile-friendly Zoom Video SDK browser client:
+- Six named fictional employee **portrait previews**, all clearly labeled
+  *Awaiting video bridge*; these are **not** authenticated remote participants
+  and are not video streams. Do not misrepresent them as live.
+- CEO-only **Check Zoom setup · no charge** button. The protected
+  `GET /api/zoom-video-readiness` reports presence of Zoom SDK credentials
+  without returning credentials or contacting Zoom.
+- After CEO explicitly selects the potential Zoom billing checkbox and clicks
+  **Join private Zoom video room**, the protected
+  `POST /api/zoom-video-token` issues a one-hour HS256
+  Zoom Video SDK JWT server-side using Cloudflare Web Crypto.
+  The Zoom key/secret never appear in GitHub or browser source. The endpoint
+  requires the existing verified Cloudflare Access JWT, a strict same-origin
+  POST, explicit `approved:true`, and rate limiting. It makes **no** Zoom
+  API calls. The browser loads the pinned Zoom Web SDK from Zoom's CDN and
+  asks Zoom to start or join a session only when the CEO clicks Join.
+- After joining, separate explicit **Start camera** and **Connect microphone**
+  buttons control permissions and media. Only actually connected Zoom SDK
+  participants can appear as live remote video tiles. The app can mute and
+  leave. Neither the setup check nor GitHub CI initiates paid calls.
+- The Zoom-specific Content Security Policy is limited to `/video.html`,
+  not the regular private ElevenLabs voice boardroom. Cloudflare Access
+  remains mandatory even when the Zoom Video SDK credentials are absent.
+
+### Owner setup in Zoom Platform Studio and Cloudflare
+
+1. In **Zoom Platform Studio → Video SDK → Credentials**, locate your Video
+   SDK **SDK Key** and **SDK Secret**. These are different from Zoom API
+   credentials. Do not send them to ChatGPT or commit them to your repository.
+2. In Cloudflare **Workers & Pages → freddys-v9-private-voice →
+   Settings → Variables and Secrets**, add `ZOOM_VIDEO_SDK_KEY` and
+   `ZOOM_VIDEO_SDK_SECRET` as **encrypted Secret** values. Retain existing
+   Access policy `Freddy only` and the Access JWT configuration.
+3. Wait for Cloudflare to apply the secret binding if necessary. Confirm
+   deployment of the latest `main` commit. Sign into the protected
+   `https://freddys-v9-private-voice.frederickwalker66.workers.dev/video.html`.
+4. Tap **Check Zoom setup · no charge**. This checks configuration locally
+   without a provider request. If it says missing, verify the Worker
+   secret names (not the secret values). Do not click Join until ready to
+   incur Zoom SDK charges and explicitly approve any required Zoom account
+   plan/credit enrollment.
+
+### What is not built yet
+
+The Zoom Video SDK session is a **custom browser application**, not a session
+inside the Zoom Meetings client. No six autonomous avatar bots currently
+connect. The separate `video_bridge/` package contains only an offline
+six-participant coordinator; actual video SDK bot clients, credentials,
+avatar video rendering and bidirectional ElevenLabs media transport
+still require separate authorized runtime hosting, cost approval and integration.
+The page clearly distinguishes portraits from actual Zoom SDK participants.
+Neither the static portraits nor the V9 voice browser handoff are six native
+video participants. Native WhatsApp six-AI group video calls are not offered
+by the current supported business API.
+
+Official references:
+- https://developers.zoom.us/docs/video-sdk/web/get-started/
+- https://developers.zoom.us/docs/video-sdk/web/sessions/
+- https://developers.zoom.us/docs/video-sdk/web/video/
+- https://developers.zoom.us/docs/video-sdk/web/audio/
+- https://developers.zoom.us/docs/video-sdk/auth/
+
 ## Optional Zoom + WhatsApp entry points (no automated or paid calls)
 
 This feature adds a section in the **Access-protected private Worker** for
