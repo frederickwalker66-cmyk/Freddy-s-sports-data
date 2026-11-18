@@ -120,6 +120,71 @@ this code. A meeting invite with an embedded passcode is a sensitive URL;
 protect it as a Worker Secret. WhatsApp share text is derived from the
 currently authenticated room origin and excludes all query strings or tokens.
 
+## Zoom Video SDK custom video room — new construction stage
+
+A new CEO-only **Zoom-powered video room** lives at `/zoom-video.html` on the
+same Access-protected Worker. The V9 landing page includes a direct link.
+Unlike the manual `ZOOM_JOIN_URL` control (for ordinary Zoom Meetings), this
+uses **Zoom Video SDK** to create/join a *custom* video session; it is not a
+meeting inside the standard Zoom application and Zoom Meetings invite links
+will not join this custom Video SDK session.
+
+### Owner's required setup (do not enter values in GitHub or chat)
+
+In Zoom Platform Studio, create or select the Video SDK app and retrieve
+its **Video SDK Key and Video SDK Secret**. These are not OAuth API credentials.
+In Cloudflare **Workers & Pages → freddys-v9-private-voice → Settings →
+Variables and Secrets**, add **Secrets**:
+
+- `ZOOM_VIDEO_SDK_KEY` = Video SDK Key from Zoom Platform Studio.
+- `ZOOM_VIDEO_SDK_SECRET` = Video SDK Secret from Zoom Platform Studio.
+- `ZOOM_VIDEO_SESSION_TOPIC` = a private stable session label, e.g.
+  `Freddys V9 CEO Room` (3–80 alphanumeric/space/underscore/hyphen).
+  Avoid sensitive information or passwords in this label.
+
+The three existing Cloudflare Access identity config values
+(`ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CEO_EMAIL`) and the
+`VOICE_LIMITER` binding must also work. Access remains required for
+all room assets, Zoom readiness and token issuing.
+
+**Verification steps:**
+
+1. Confirm Cloudflare successfully deployed the **new `main` commit**.
+2. Sign in through Cloudflare Access and open `/zoom-video.html`.
+3. Tap **Check Zoom setup · no call**. This GET validates configured
+   fields only and does not generate a token or make an external Zoom request.
+4. Only if you accept potential Zoom usage charges, tap
+   **Join Zoom video room**. This makes a same-origin POST
+   `/api/zoom-video-token`; the Worker verifies the CEO's Cloudflare Access
+   JWT, explicit intent, rate limit and secret presence before generating a
+   short-lived HS256 Video SDK JWT (3600 seconds) using WebCrypto.
+5. The web page uses the official Zoom Video SDK Web library, authenticates
+   with the short-lived JWT, then displays **real connected Zoom users**.
+   Camera and microphone are **OFF until separately enabled** by the CEO.
+6. Leave the session manually when finished and check Zoom usage if billed.
+
+The private Worker **never** returns the SDK secret, Zoom signing key, or
+Access credentials. Zoom session tokens are not saved by the page. No
+credentials or API tokens should ever be committed to the public repo.
+The Zoom Video SDK Web client is loaded from Zoom's pinned official CDN
+`https://source.zoom.us/videosdk/zoom-video-2.6.10.min.js`, not from an
+untrusted host.
+
+### Actual AI employee video participant status
+
+**Not connected.** The six Bella/David/Cassidy/Roger/Sarah/Adam tiles on
+`/zoom-video.html` are explicitly labelled placeholders, not authenticated
+Zoom participants. Live six-agent video requires *six separately authenticated
+Zoom Video SDK client processes*, an outbound avatar video renderer, real-time
+ElevenLabs audio/media bridge, turn-taking and consent. The separate
+`video_bridge/` folder contains only offline Zoom Meetings coordinator
+logic, not those actual media bots. This version makes the owner's **real
+Zoom Video SDK meeting UI and credential flow** ready for integration; it
+does not fake six SDK participants or claim they can speak in Zoom.
+
+Zoom docs: https://developers.zoom.us/docs/video-sdk/web/sessions/
+and https://developers.zoom.us/docs/video-sdk/auth/
+
 ## Offline test and build
 
 - npm run test: synthetic JWT, origin, unauthorized user, unknown employee and provider safety tests; no API calls.
