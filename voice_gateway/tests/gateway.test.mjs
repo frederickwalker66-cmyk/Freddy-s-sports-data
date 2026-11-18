@@ -59,8 +59,13 @@ function request(path="/",method="GET",token=null,role="bella",extra={}) {
 }
 
 test("deny missing secrets, credentials and configuration by default",async()=>{
+  // CEO sees the private setup/meeting entry screen before voice secrets exist.
+  // Only paid ElevenLabs signing endpoint stays blocked.
   const missing=await handleRequest(request("/", "GET", await jwt()),env({ELEVENLABS_API_KEY:undefined}),mockFetch);
-  assert.equal(missing.status,503);
+  assert.equal(missing.status,200);
+  const deniedSigning=await handleRequest(
+    request("/api/session","POST",await jwt()),env({ELEVENLABS_API_KEY:undefined}),mockFetch);
+  assert.equal(deniedSigning.status,503);
   const noAuth=await handleRequest(request(),env(),mockFetch);
   assert.equal(noAuth.status,401);
   assert.equal(noAuth.headers.get("Cache-Control").includes("no-store"),true);
@@ -174,4 +179,67 @@ test("readiness becomes ready when all six agent bindings exist without a voice 
   assert.equal(blocked.status,405);
   const rejected=await handleRequest(request("/api/readiness","GET",await jwt({email:"other@example.com"})),complete,mockFetch);
   assert.equal(rejected.status,401);
+});
+
+test("Zoom and WhatsApp integrations are owner-only and do not contact providers",async()=>{
+  const outsider=await handleRequest(request("/api/integrations","GET"),env(),mockFetch);
+  assert.equal(outsider.status,401);
+  let outsideCalls=0;
+  const noProviders=async url=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    outsideCalls++;
+    throw Error("No Zoom, WhatsApp, or ElevenLabs requests permitted");
+  };
+  const token=await jwt();
+  const missing=await handleRequest(request("/api/integrations","GET",token),
+    env({ELEVENLABS_API_KEY:undefined}),noProviders);
+  assert.equal(missing.status,200);
+  const body=await missing.json();
+  assert.equal(body.zoom.configured,false);
+  assert.equal(body.zoom.join_url,null);
+  assert.equal(body.whatsapp.share_only,true);
+  assert.equal(body.whatsapp.automated_messages,false);
+  assert.equal(body.live_meeting_started,false);
+  assert.equal(body.provider_api_called,false);
+  assert.equal(outsideCalls,0);
+  assert.equal(JSON.stringify(body).includes("private-key"),false);
+  assert.equal(JSON.stringify(body).includes("agent_bella"),false);
+  assert.equal(missing.headers.get("Cache-Control").includes("no-store"),true);
+  const posted=await handleRequest(request("/api/integrations","POST",token),env(),noProviders);
+  assert.equal(posted.status,405);
+  const wrongUser=await handleRequest(
+    request("/api/integrations","GET",await jwt({email:"intruder@example.com"})),env(),noProviders);
+  assert.equal(wrongUser.status,401);
+  assert.equal(outsideCalls,0);
+});
+
+test("Only strict Zoom meeting join URLs are returned to authenticated owner",async()=>{
+  const token=await jwt();
+  const good=["https://zoom.us/j/12345678901",
+    "https://us02web.zoom.us/j/12345678901?pwd=example-token"];
+  for(const joinUrl of good){
+    const result=await handleRequest(request("/api/integrations","GET",token),
+      env({ZOOM_JOIN_URL:joinUrl}),mockFetch);
+    assert.equal(result.status,200);
+    const body=await result.json();
+    assert.equal(body.zoom.configured,true);
+    assert.equal(body.zoom.join_url,joinUrl);
+  }
+  const bad=["https://zoom.us.evil.example/j/12345678901",
+    "https://evil.example/j/12345678901",
+    "http://zoom.us/j/12345678901",
+    "https://zoom.us@evil.example/j/12345678901",
+    "https://evil.example@zoom.us/j/12345678901",
+    "https://zoom.us:8443/j/12345678901",
+    "https://zoom.us/j/12345678",
+    "https://zoom.us/admin",
+    "https://zoom.us/j/12345678901?redirect=https://evil.example",
+    "https://zoom.us/j/12345678901#secret"];
+  for(const joinUrl of bad){
+    const result=await handleRequest(request("/api/integrations","GET",token),
+      env({ZOOM_JOIN_URL:joinUrl}),mockFetch);
+    const body=await result.json();
+    assert.equal(body.zoom.configured,false,joinUrl);
+    assert.equal(body.zoom.join_url,null,joinUrl);
+  }
 });

@@ -10,6 +10,55 @@ let active = null;
 let initialRole = "bella";
 let muted = false;
 
+// WhatsApp receives a link ONLY on the CEO's explicit click; Cloudflare Access
+// independently controls admission. Never append signed URLs or meeting data.
+const privateRoomUrl = new URL("/",window.location.origin).href;
+$("share-whatsapp").href = "https://wa.me/?text=" + encodeURIComponent(
+  "Freddy's Picks AI V9 private boardroom (authorized Cloudflare Access login required): " +
+  privateRoomUrl);
+$("copy-room").addEventListener("click",async()=>{
+  try {
+    await navigator.clipboard.writeText(privateRoomUrl);
+    $("share-status").textContent="Protected boardroom link copied. Access permissions have not changed.";
+  } catch {
+    $("share-status").textContent="Copy unavailable; use your browser's Copy Link feature. No messages were sent.";
+  }
+});
+$("check-zoom").addEventListener("click",async()=>{
+  const button=$("check-zoom");
+  const link=$("join-zoom");
+  link.hidden=true;
+  link.removeAttribute("href");
+  button.disabled=true;
+  $("zoom-status").textContent="Checking optional private Zoom meeting link (no Zoom API call)…";
+  try {
+    const response=await fetch("/api/integrations",{
+      method:"GET",credentials:"same-origin",cache:"no-store",
+      headers:{"Accept":"application/json"},
+    });
+    if(response.status===401)throw Error("Sign in through Cloudflare Access to inspect the Zoom link.");
+    if(!response.ok)throw Error("Zoom link check unavailable. Verify the protected Worker deployment.");
+    const data=await response.json();
+    if(!data.zoom?.configured || typeof data.zoom?.join_url!=="string"){
+      $("zoom-status").textContent="No Zoom link configured. Create a meeting in Zoom and store its join link as the Cloudflare Worker secret ZOOM_JOIN_URL. No meeting was started.";
+      return;
+    }
+    const url=new URL(data.zoom.join_url);
+    const host=url.hostname.toLowerCase();
+    if(url.protocol!=="https:" || !(host==="zoom.us"||host.endsWith(".zoom.us")) ||
+        !new RegExp("^/j/[0-9]{9,11}/?$").test(url.pathname)){
+      throw Error("Invalid Zoom meeting link. No navigation occurred.");
+    }
+    link.href=url.href;
+    link.hidden=false;
+    $("zoom-status").textContent="Private Zoom meeting link available. Open it only when ready. Your virtual employees will not automatically join Zoom.";
+  }catch(err){
+    $("zoom-status").textContent=err instanceof Error?err.message:"Unable to check Zoom settings.";
+  }finally{
+    button.disabled=false;
+  }
+});
+
 function textStatus(value) { $("status").textContent = value; }
 function enabled(on) {
   $("start").disabled = Boolean(on);
