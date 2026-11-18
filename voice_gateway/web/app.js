@@ -122,6 +122,43 @@ async function launch() {
   }
 }
 
+const READINESS_LABELS = Object.freeze({
+  signing_key_present: "ElevenLabs API key",
+  voice_rate_limiter_bound: "Cloudflare rate limiter",
+  private_assets_bound: "private app files",
+  all_six_employee_ids_present: "all six employee IDs",
+});
+$("check-setup").addEventListener("click",async()=>{
+  const button=$("check-setup");
+  button.disabled=true;
+  $("setup-result").textContent="Checking owner-protected configuration (no paid voice call)…";
+  try {
+    const response=await fetch("/api/readiness",{
+      method:"GET",credentials:"same-origin",cache:"no-store",
+      headers:{"Accept":"application/json"},
+    });
+    if(response.status===401)throw Error("Owner authentication is required; open the private Cloudflare Access login.");
+    if(!response.ok)throw Error("The Worker setup check is unavailable. Check Cloudflare deployment.");
+    const result=await response.json();
+    if(result.status==="CONFIGURATION_READY_FOR_SHORT_VOICE_TEST"){
+      $("setup-result").textContent="Ready for a short, manually initiated voice test. Six employee IDs, signing key, rate limiter and private assets are configured. Live voice has NOT been tested.";
+      return;
+    }
+    const checks=result.checks||{};
+    const missing=Object.entries(READINESS_LABELS)
+      .filter(([key])=>checks[key]!==true).map(([,label])=>label);
+    const count=Number.isInteger(result.configured_employees)?result.configured_employees:0;
+    $("setup-result").textContent=
+      "Configuration incomplete: "+count+" of 6 employees present. Missing or invalid: "+
+      (missing.join(", ")||"configuration check unavailable")+
+      ". Review these fields privately in Cloudflare; do not paste secret values here.";
+  }catch(err){
+    $("setup-result").textContent=err instanceof Error?err.message:"Setup check unavailable.";
+  }finally{
+    button.disabled=false;
+  }
+});
+
 $("start").addEventListener("click",launch);
 $("stop").addEventListener("click",async()=>{
   const current=active;
