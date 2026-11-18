@@ -29,7 +29,7 @@ def source_age(source, clock):
     return minutes, "RECENT_ARCHIVED_RESEARCH_ONLY"
 
 
-def analyze(board, schedule=None, *, clock=None, lookahead_minutes=90):
+def analyze(board, schedule=None, *, clock=None, lookahead_minutes=90, injury_rows=None):
     if not isinstance(board, dict):
         raise ValueError("sharp_evidence_board_required")
     if type(lookahead_minutes) is not int or not 1 <= lookahead_minutes <= 720:
@@ -80,6 +80,28 @@ def analyze(board, schedule=None, *, clock=None, lookahead_minutes=90):
                 "verified_odds":None,"certified_ev":None,
                 "decision":"HOLD_UNVERIFIED"
             })
+    # Report only extracted, exact-game-linked NBA-owned PDF designations;
+    # never treat an injury listing as proof of an active lineup or player ID.
+    for g in games:
+        g["injury_source_player_designations"] = []
+        g["injury_source_status"] = "NOT_VERIFIED_IN_THIS_RUN"
+    for item in (injury_rows if isinstance(injury_rows, list) else [])[:2500]:
+        if not isinstance(item, dict) or item.get("game_match_status") != "exact_date_clubs_research_only":
+            continue
+        if item.get("record_type") != "nba_official_pdf_player_status_extracted_for_review_only":
+            continue
+        if item.get("player_current_game_active_status_verified") is not False:
+            continue
+        name, status = item.get("source_player_name_display"), item.get("source_injury_designation")
+        if (not isinstance(name, str) or not 0 < len(name) <= 120
+                or status not in ("Out", "Doubtful", "Questionable", "Probable", "Available")):
+            continue
+        for g in games:
+            if g["league"] == "NBA" and g["event_id"] == str(item.get("espn_event_id_research_match")):
+                if len(g["injury_source_player_designations"]) < 60:
+                    g["injury_source_player_designations"].append({"player":name,"status":status})
+                    g["injury_source_status"] = "ARCHIVED_OFFICIAL_PDF_NOT_FINAL_LINEUP"
+                break
     games.sort(key=lambda g:(g["start_utc"],g["league"],g["event_id"]))
     gates={
         "native_champion_probabilities":board.get("certified_native_model_probability_count_by_this_board") or 0,
@@ -158,7 +180,19 @@ def markdown(r):
                      f"{text_safe(g['start_eastern'])} | {g['minutes_to_start']} | HOLD |")
     if not r["pregame_games"]:
         lines.append("| — | None verified in the window | — | — | HOLD |")
-    lines.extend(["", "## NBA complete market scope — verification dashboard",
+    lines.extend(["", "## Archived NBA official injury PDF rows — not final starters", "",
+                  "| Game | Reported player designations from archive | Source status |",
+                  "|---|---|---|"])
+    for g in r["pregame_games"]:
+        if g["league"] != "NBA":
+            continue
+        entries = g.get("injury_source_player_designations") or []
+        detail = ", ".join(text_safe(p["player"]+" ("+p["status"]+")") for p in entries[:15])
+        lines.append("| "+text_safe(g["game"])+" | "+(detail or "N/A — cannot infer availability")+" | "
+                     +text_safe(g.get("injury_source_status") or "UNKNOWN")+" |")
+    lines.extend(["", "An archived injury-report designation is not a confirmed starting lineup, "
+                  "real-time game-active status, or independently authenticated sportsbook-player identity.",
+                  "", "## NBA complete market scope — verification dashboard",
                   "For every NBA game above: moneyline, spread, game total; points, rebounds, "
                   "assists, three-pointers, PR, PA, RA, and PRA are requested research markets. "
                   "Individual prices or model predictions appear only when independently sourced "
@@ -180,6 +214,7 @@ def main(argv=None):
     parser.add_argument("--cache-root",default="v9_results/_cached_source/schedule")
     parser.add_argument("--output-dir",default="v9_results")
     parser.add_argument("--lookahead-minutes",type=int,default=90)
+    parser.add_argument("--injury-rows-jsonl")
     args=parser.parse_args(argv)
     board=json.loads(Path(args.board_json).read_text(encoding="utf-8"))
     path=Path(args.schedule_json) if args.schedule_json else None
@@ -194,7 +229,18 @@ def main(argv=None):
             schedule=json.loads(path.read_text(encoding="utf-8"))
         except (ValueError,UnicodeDecodeError,OSError):
             schedule=None
-    report=analyze(board,schedule,lookahead_minutes=args.lookahead_minutes)
+    injury_rows=[]
+    injury_path=Path(args.injury_rows_jsonl) if args.injury_rows_jsonl else None
+    if injury_path and injury_path.is_file() and injury_path.stat().st_size < 2000000:
+        for line in injury_path.read_text(encoding="utf-8").splitlines()[:2500]:
+            try:
+                item=json.loads(line)
+            except (ValueError,UnicodeDecodeError):
+                continue
+            if isinstance(item,dict):
+                injury_rows.append(item)
+    report=analyze(board,schedule,lookahead_minutes=args.lookahead_minutes,
+                   injury_rows=injury_rows)
     root=Path(args.output_dir)
     root.mkdir(parents=True,exist_ok=True)
     (root/"V9_PREGAME_MEETING.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
