@@ -12,4 +12,7 @@ await build({
 });
 await copyFile(join(root,"web","index.html"),join(root,"dist","index.html"));
 await copyFile(join(root,"web","style.css"),join(root,"dist","style.css"));
+for (const file of ["zoom-video.html","zoom-video.css","zoom-video.js"]) {
+  await copyFile(join(root,"web",file),join(root,"dist",file));
+}
 console.log("Built protected CEO meeting room (no embedded agent IDs or keys)");

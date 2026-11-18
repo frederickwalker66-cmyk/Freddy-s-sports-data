@@ -1,0 +1,23 @@
+:root{color-scheme:dark;--bg:#081625;--surface:#132b3d;--line:#355268;--muted:#b1c4d3;--accent:#72ddbf;--text:#eef6fc}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--text);background:linear-gradient(170deg,#0f3541,#081625 55%);min-height:100vh}
+.shell{max-width:1160px;margin:auto;padding:24px}
+header,.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.back{color:var(--accent);font-weight:800;text-decoration:none}
+.eyebrow{font-size:.72rem;letter-spacing:.14em;color:var(--muted)}
+.hero,.controlbox,.meeting{border-radius:18px;padding:22px;margin:20px 0;border:1px solid var(--line);background:var(--surface)}
+.hero h1{margin:0;font-size:clamp(1.7rem,5vw,2.7rem)}.hero em{color:var(--accent)}.hero p{line-height:1.55}
+.notice{border-left:3px solid #efc66c;padding:10px 15px;background:#243747}
+h2{font-size:1.2rem}.buttons{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0}
+button{border:1px solid #45677a;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;background:#254157;color:var(--text)}
+button:disabled{opacity:.45;cursor:not-allowed}.primary{background:var(--accent);color:#082720}.danger{background:#662c35;border-color:#b64a5b}.small{font-size:.84rem;color:var(--muted);line-height:1.5}
+button:focus-visible,a:focus-visible{outline:3px solid #efc66c;outline-offset:2px}
+.video-grid{display:flex!important;flex-wrap:wrap;gap:10px;align-items:flex-start;width:100%;min-height:170px}
+.video-grid video-player{display:block;width:clamp(180px,46%,400px);height:auto;aspect-ratio:16/9;border-radius:10px;border:1px solid var(--line)}
+.roster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.person{border:1px solid var(--line);background:var(--surface);padding:12px;border-radius:13px;display:grid;gap:5px}
+.person img{display:block;width:100%;height:170px;object-fit:cover;border-radius:9px}
+.person strong{font-size:1rem}.person span{font-size:.8rem;color:var(--accent)}
+.person small{font-size:.75rem;color:#ffca8b}
+footer{padding:24px 0;font-size:.8rem;color:var(--muted);line-height:1.5}
+@media(max-width:780px){.roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){.shell{padding:12px}.roster{grid-template-columns:repeat(2,minmax(0,1fr))}.person img{height:125px}.hero,.controlbox,.meeting{padding:15px}.video-grid video-player{width:100%}.buttons button{flex:1;min-width:145px}}

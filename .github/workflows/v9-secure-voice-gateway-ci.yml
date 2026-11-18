@@ -34,9 +34,11 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           for p in (Path('voice_gateway/web/index.html'),Path('voice_gateway/web/app.js'),
+                    Path('voice_gateway/web/zoom-video.html'),Path('voice_gateway/web/zoom-video.js'),
+                    Path('voice_gateway/web/zoom-video.css'),
                     Path('voice_gateway/wrangler.jsonc'),Path('voice_gateway/web/style.css')):
               text=p.read_text(encoding='utf-8')
-              assert 'agent_8301m7' not in text and 'xi-api-key' not in text and 'ELEVENLABS_API_KEY=' not in text, p
+              assert 'agent_8301m7' not in text and 'xi-api-key' not in text and 'ELEVENLABS_API_KEY=' not in text and 'ZOOM_VIDEO_SDK_SECRET=' not in text, p
           print('Public browser assets and Wrangler config contain no owner voice-agent IDs or credentials')
           PY
       - name: Confirm no voice, betting or hosting deployment was triggered

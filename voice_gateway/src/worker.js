@@ -1,3 +1,5 @@
+import {zoomVideoReadiness,signZoomVideoToken,zoomVideoChecks} from "./zoom-video-token.js";
+
 /**
  * Freddy's V9 private voice gateway, intentionally NOT deployed by GitHub Actions.
  *
@@ -219,6 +221,33 @@ export async function handleRequest(request, env, fetcher = fetch) {
       provider_api_called: false,
     });
   }
+  if (path === "/api/zoom-video-readiness") {
+    if (request.method !== "GET") return json({error:"method_not_allowed"},405);
+    return json(zoomVideoReadiness(env));
+  }
+  if (path === "/api/zoom-video-token") {
+    if (request.method !== "POST") return json({error:"method_not_allowed"},405);
+    if (request.headers.get("Origin") !== new URL(request.url).origin ||
+        !String(request.headers.get("Content-Type")).startsWith("application/json"))
+      return json({error:"same_origin_post_required"},403);
+    if (Number(request.headers.get("content-length")||"0") > 80)
+      return json({error:"body_too_large"},413);
+    let body;
+    try {
+      const raw=await request.text();
+      if (raw.length > 80) return json({error:"body_too_large"},413);
+      body=JSON.parse(raw);
+    } catch {return json({error:"invalid_json"},400)}
+    if (!body || typeof body!=="object" || Array.isArray(body) ||
+        Object.keys(body).length!==1 || body.confirm!=="join")
+      return json({error:"explicit_meeting_join_required"},400);
+    if (!Object.values(zoomVideoChecks(env)).every(Boolean))
+      return json({error:"zoom_video_sdk_not_configured"},503);
+    const result=await env.VOICE_LIMITER.limit({key:"zoom:"+identity.email});
+    if (!result || result.success!==true) return json({error:"zoom_session_rate_limit"},429);
+    try {return json(await signZoomVideoToken(env))}
+    catch {return json({error:"zoom_token_signing_unavailable"},503)}
+  }
   if (path === "/api/session") {
     if (!configured(env)) return json({ error: "private_voice_gateway_not_configured" }, 503);
     return signedSession(request, env, identity, fetcher);
@@ -236,11 +265,18 @@ export async function handleRequest(request, env, fetcher = fetch) {
   for (const [k, v] of Object.entries(NO_CACHE)) {
     if (k !== "Content-Security-Policy") headers.set(k, v);
   }
-  headers.set("Content-Security-Policy",
-    "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io; " +
-    "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io; " +
-    "script-src 'self'; style-src 'self'; media-src 'self' blob:; " +
-    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  const isZoomVideo = path === "/zoom-video.html" ||
+    path === "/zoom-video.js" || path === "/zoom-video.css";
+  headers.set("Content-Security-Policy",isZoomVideo
+    ? "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io data:; " +
+      "connect-src 'self' https://source.zoom.us https://*.zoom.us wss://*.zoom.us https://*.zoom.com wss://*.zoom.com; " +
+      "script-src 'self' https://source.zoom.us 'wasm-unsafe-eval'; " +
+      "style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; " +
+      "media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    : "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io; " +
+      "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io; " +
+      "script-src 'self'; style-src 'self'; media-src 'self' blob:; " +
+      "frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   return new Response(result.body, { status: result.status, headers });
 }
 

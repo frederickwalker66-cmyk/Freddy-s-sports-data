@@ -243,3 +243,116 @@ test("Only strict Zoom meeting join URLs are returned to authenticated owner",as
     assert.equal(body.zoom.join_url,null,joinUrl);
   }
 });
+
+test("Zoom Video SDK readiness is CEO-only, no-cost and reports no actual users",async()=>{
+  const outsider=await handleRequest(request("/api/zoom-video-readiness"),env(),mockFetch);
+  assert.equal(outsider.status,401);
+  const owner=await jwt();
+  const res=await handleRequest(request("/api/zoom-video-readiness","GET",owner),env(),mockFetch);
+  assert.equal(res.status,200);
+  const report=await res.json();
+  assert.equal(report.status,"CONFIGURATION_INCOMPLETE");
+  assert.equal(report.connected_zoom_video_users,0);
+  assert.equal(report.connected_ai_video_bots,0);
+  assert.equal(report.video_sdk_session_started,false);
+  assert.equal(report.signed_token_created,false);
+  assert.equal(report.zoom_sdk_provider_called,false);
+  const notGet=await handleRequest(request("/api/zoom-video-readiness","POST",owner),env(),mockFetch);
+  assert.equal(notGet.status,405);
+  assert.equal(res.headers.get("Cache-Control").includes("no-store"),true);
+});
+
+test("Zoom signing needs same-origin explicit CEO join, secrets and rate limiter",async()=>{
+  const owner=await jwt();
+  const zoomConfig={
+    ZOOM_VIDEO_SDK_KEY:"zoom-key-example-12345",
+    ZOOM_VIDEO_SDK_SECRET:"zoom-server-secret-example-12345",
+    ZOOM_VIDEO_SESSION_TOPIC:"Freddys V9 Private Room",
+  };
+  const post=(token,body={confirm:"join"},headers={})=>{
+    const h=new Headers({"Origin":origin,"Content-Type":"application/json",...headers});
+    if(token)h.set("Cf-Access-Jwt-Assertion",token);
+    return new Request(origin+"/api/zoom-video-token",{
+      method:"POST",headers:h,body:JSON.stringify(body),
+    });
+  };
+  const noAccess=await handleRequest(post(null),env(zoomConfig),mockFetch);
+  assert.equal(noAccess.status,401);
+  const wrongUser=await handleRequest(post(await jwt({email:"stranger@example.com"})),
+    env(zoomConfig),mockFetch);
+  assert.equal(wrongUser.status,401);
+  const missing=await handleRequest(post(owner),env(),mockFetch);
+  assert.equal(missing.status,503);
+  const noConsent=await handleRequest(post(owner,{confirm:"no"}),env(zoomConfig),mockFetch);
+  assert.equal(noConsent.status,400);
+  const arbitrary=await handleRequest(post(owner,{confirm:"join",role_type:1}),
+    env(zoomConfig),mockFetch);
+  assert.equal(arbitrary.status,400);
+  const get=await handleRequest(request("/api/zoom-video-token","GET",owner),
+    env(zoomConfig),mockFetch);
+  assert.equal(get.status,405);
+  const evil=post(owner,{confirm:"join"},{Origin:"https://evil.example"});
+  const wrongOrigin=await handleRequest(evil,env(zoomConfig),mockFetch);
+  assert.equal(wrongOrigin.status,403);
+  const limited=await handleRequest(post(owner),
+    env({...zoomConfig,VOICE_LIMITER:{async limit(){return{success:false}}}}),mockFetch);
+  assert.equal(limited.status,429);
+});
+
+test("Authorized CEO gets short-lived valid HS256 Zoom token only on explicit join",async()=>{
+  const owner=await jwt();
+  const zoomConfig={
+    ZOOM_VIDEO_SDK_KEY:"zoom-key-example-12345",
+    ZOOM_VIDEO_SDK_SECRET:"zoom-server-secret-example-12345",
+    ZOOM_VIDEO_SESSION_TOPIC:"Freddys V9 Private Room",
+  };
+  let callsToZoom=0;
+  const onlyAccess=async url=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    callsToZoom++;throw Error("Zoom provider was unexpectedly called");
+  };
+  const req=new Request(origin+"/api/zoom-video-token",{
+    method:"POST",
+    headers:{"Origin":origin,"Content-Type":"application/json",
+      "Cf-Access-Jwt-Assertion":owner},
+    body:JSON.stringify({confirm:"join"}),
+  });
+  const res=await handleRequest(req,env(zoomConfig),onlyAccess);
+  assert.equal(res.status,200);
+  const result=await res.json();
+  assert.equal(result.topic,zoomConfig.ZOOM_VIDEO_SESSION_TOPIC);
+  assert.equal(typeof result.token,"string");
+  const pieces=result.token.split(".");
+  assert.equal(pieces.length,3);
+  const decode=s=>JSON.parse(Buffer.from(s,"base64url").toString("utf8"));
+  assert.equal(decode(pieces[0]).alg,"HS256");
+  const claims=decode(pieces[1]);
+  assert.equal(claims.app_key,zoomConfig.ZOOM_VIDEO_SDK_KEY);
+  assert.equal(claims.role_type,1);
+  assert.equal(claims.tpc,zoomConfig.ZOOM_VIDEO_SESSION_TOPIC);
+  assert.equal(claims.version,1);
+  assert.equal(claims.exp-claims.iat,3600);
+  const key=await crypto.subtle.importKey("raw",
+    new TextEncoder().encode(zoomConfig.ZOOM_VIDEO_SDK_SECRET),
+    {name:"HMAC",hash:"SHA-256"},false,["verify"]);
+  const good=await crypto.subtle.verify("HMAC",key,
+    Buffer.from(pieces[2],"base64url"),
+    new TextEncoder().encode(pieces[0]+"."+pieces[1]));
+  assert.equal(good,true);
+  assert.equal(JSON.stringify(result).includes(zoomConfig.ZOOM_VIDEO_SDK_SECRET),false);
+  assert.equal(callsToZoom,0);
+  assert.equal(res.headers.get("Cache-Control").includes("no-store"),true);
+});
+
+test("Private Zoom video room loads for CEO before any Zoom/ElevenLabs secrets exist",async()=>{
+  const r=await handleRequest(request("/zoom-video.html","GET",await jwt()),
+    env({ELEVENLABS_API_KEY:undefined,ZOOM_VIDEO_SDK_KEY:undefined}),mockFetch);
+  assert.equal(r.status,200);
+  assert.equal(await r.text(),"private static app");
+  const policy=r.headers.get("Content-Security-Policy");
+  assert.ok(policy.includes("https://source.zoom.us"));
+  assert.ok(policy.includes("frame-ancestors 'none'"));
+  assert.equal(r.headers.get("Cache-Control").includes("no-store"),true);
+  const stranger=await handleRequest(request("/zoom-video.html"),env(),mockFetch);
+  assert.equal(stranger.status,401);
+});
