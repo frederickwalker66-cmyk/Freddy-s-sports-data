@@ -567,6 +567,62 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
+      - name: Final NBA eight-leg preflight verdict — no synthetic locks
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from datetime import datetime, timezone
+          root = Path("v8_results/one_command")
+          root.mkdir(parents=True, exist_ok=True)
+          source = root / "FULL_STACK_ALL_IN_ONE_REPORT.json"
+          source_status = "NOT_PRODUCED"
+          source_claimed_certified = None
+          if source.is_file():
+              try:
+                  data = json.loads(source.read_text(encoding="utf-8"))
+                  if isinstance(data, dict):
+                      source_status = "EXISTS_NOT_INDEPENDENTLY_ATTESTED"
+                      source_claimed_certified = data.get("certified_positive_ev_bets")
+                  else:
+                      source_status = "UNSUPPORTED_CONTENT"
+              except (ValueError, OSError):
+                  source_status = "UNREADABLE"
+          final = {
+              "report_type": "NBA_EIGHT_LEG_NO_LOCK_RELEASE_GATE",
+              "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+              "source_report_status": source_status,
+              "source_claimed_certified_bets_not_independent_proof": source_claimed_certified,
+              "requires_exact_current_sportsbook_checkout": True,
+              "requires_authenticated_frozen_champion_001_market_probabilities": True,
+              "requires_actual_official_player_and_injury_availability": True,
+              "requires_parlay_joint_calibration_and_correlation_review": True,
+              "requires_independent_per_leg_release_and_owner_approval": True,
+              "previous_hold_pass_reject_not_promoted": True,
+              "eight_leg_decision": "NO_LOCK_PASS",
+              "certified_bets_approved_by_this_gate": 0,
+              "automated_wagers": 0,
+              "champion_001_modified": False,
+          }
+          (root / "NBA_FINAL_EIGHT_LEG_DECISION.json").write_text(
+              json.dumps(final, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          summary = (
+              "## NBA Final Eight-Leg Decision — NO LOCK / PASS\n\n"
+              "**Do not convert research leans or prior HOLD/PASS/REJECT legs into betting locks.**\n\n"
+              f"**Unified report:** {source_status}; model release evidence unverified.\n\n"
+              "**Required before any TAKE:** authenticated frozen Champion-001 exact-market forecasts, "
+              "current executable sportsbook prices, verified injuries and starting players, "
+              "market-specific calibration, same-game correlation/joint EV, and independent approval.\n\n"
+              "**Certified bets in this additional guard:** 0; **wagers:** 0; **stake:** $0.\n"
+          )
+          (root / "NBA_FINAL_EIGHT_LEG_DECISION.md").write_text(summary, encoding="utf-8")
+          print(summary)
+          if os.getenv("GITHUB_STEP_SUMMARY"):
+              Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8").write(summary)
+          PY
       - name: ONE DISPLAY — all sports, Sharp Edge, all markets and player combos
         if: always()
         shell: bash
