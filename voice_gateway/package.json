@@ -9,7 +9,8 @@
     "check": "npm run test && npm run build"
   },
   "dependencies": {
-    "@elevenlabs/client": "1.36.1"
+    "@elevenlabs/client": "1.36.1",
+    "@anam-ai/js-sdk": "4.29.3"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
