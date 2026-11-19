@@ -16,6 +16,19 @@ const ROLES = Object.freeze({
   adam: "ELEVENLABS_ADAM_AGENT_ID",
 });
 
+// Persona IDs come from the connected owner's Anam account. These are not API secrets.
+const ANAM_PERSONAS = Object.freeze({
+  bella:"14d4d30f-220b-4286-8d9e-93bdb6b0e725",
+  david:"272ceabe-cf93-4c0a-9ec9-ad678aaee263",
+  cassidy:"abf651d6-5de8-4fe9-9cb2-d728484be449",
+  roger:"684c4388-4aed-4104-b4a7-16323c05fe45",
+  sarah:"6b8b30a6-d11c-41c7-9156-dae9696d396e",
+  adam:"6b97e944-0138-461d-ba9f-c8382072e711",
+  "bella-studio":"5b176814-9acf-48e5-9253-0530fc48122f",
+  "roger-studio":"23074722-867e-4666-b641-bc5ebea64cd0",
+  "cassidy-studio":"e415a998-584c-432a-8dbe-b3123555120e",
+});
+
 const NO_CACHE = {
   "Cache-Control": "private, no-store, max-age=0",
   "Pragma": "no-cache",
@@ -198,6 +211,56 @@ async function signedSession(request, env, identity, fetcher) {
   return json({ signedUrl: signed, role: body.role });
 }
 
+function anamReadiness(env) {
+  // CEO-only, no provider or billable call. Never return secrets.
+  return { ready: typeof env.ANAM_API_KEY === "string" &&
+    env.ANAM_API_KEY.length > 8 &&
+    !!env.VOICE_LIMITER && typeof env.VOICE_LIMITER.limit === "function",
+    configured_personas: Object.keys(ANAM_PERSONAS).length,
+    live_session_started: false, provider_called: false };
+}
+
+async function anamSessionToken(request,env,identity,fetcher) {
+  if(request.method!=="POST")return json({error:"method_not_allowed"},405);
+  if(request.headers.get("Origin")!==new URL(request.url).origin ||
+    !String(request.headers.get("Content-Type")).startsWith("application/json"))
+    return json({error:"same_origin_post_required"},403);
+  if(typeof env.ANAM_API_KEY!=="string" || env.ANAM_API_KEY.length<=8 ||
+    !env.VOICE_LIMITER || typeof env.VOICE_LIMITER.limit!=="function")
+    return json({error:"anam_not_configured"},503);
+  if(Number(request.headers.get("content-length")||"0")>160)
+    return json({error:"body_too_large"},413);
+  let body;
+  try{const raw=await request.text();if(raw.length>160)return json({error:"body_too_large"},413);body=JSON.parse(raw)}
+  catch{return json({error:"invalid_json"},400)}
+  if(!body || Array.isArray(body) || typeof body!=="object" ||
+    Object.keys(body).length!==1 || typeof body.role!=="string" ||
+    !Object.hasOwn(ANAM_PERSONAS,body.role))
+    return json({error:"unsupported_anam_persona"},400);
+  const limit=await env.VOICE_LIMITER.limit({key:"anam:"+identity.email});
+  if(!limit || limit.success!==true)return json({error:"anam_session_rate_limit"},429);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),9000);
+  let response;
+  try{
+    response=await fetcher("https://api.anam.ai/v1/auth/session-token",{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+env.ANAM_API_KEY,
+        "Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify({personaConfig:{personaId:ANAM_PERSONAS[body.role]}}),
+      signal:controller.signal,
+    });
+  }catch{return json({error:"anam_provider_unreachable"},502)}
+  finally{clearTimeout(timer)}
+  if(!response.ok)return json({error:"anam_provider_unavailable"},502);
+  let token;
+  try{token=(await response.json()).sessionToken}
+  catch{return json({error:"invalid_anam_response"},502)}
+  if(typeof token!=="string" || token.length<10 || token.length>16384)
+    return json({error:"invalid_anam_response"},502);
+  return json({sessionToken:token,role:body.role});
+}
+
 export async function handleRequest(request, env, fetcher = fetch) {
   // Non-sensitive, no-provider-call external probe. Cloudflare Access may still
   // intercept this route before the request reaches the Worker.
@@ -230,6 +293,11 @@ export async function handleRequest(request, env, fetcher = fetch) {
     return json({ error: "authenticated_ceo_access_required" }, 401);
   }
   const path = new URL(request.url).pathname;
+  if (path === "/api/anam/readiness") {
+    if(request.method!=="GET")return json({error:"method_not_allowed"},405);
+    return json(anamReadiness(env));
+  }
+  if (path === "/api/anam/session-token") return anamSessionToken(request,env,identity,fetcher);
   if (path === "/api/readiness") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
     return json(readinessReport(env));
@@ -290,7 +358,13 @@ export async function handleRequest(request, env, fetcher = fetch) {
   }
   const isZoomVideo = path === "/zoom-video.html" ||
     path === "/zoom-video.js" || path === "/zoom-video.css";
-  headers.set("Content-Security-Policy",isZoomVideo
+  const isAnamRoom = path === "/anam-room.html" || path === "/anam-room.js" || path === "/anam-room.css";
+  headers.set("Content-Security-Policy",isAnamRoom
+    ? "default-src 'self'; img-src 'self' data:; " +
+      "connect-src 'self' https://api.anam.ai wss://connect.anam.ai wss://connect-us.anam.ai wss://connect-eu.anam.ai; " +
+      "script-src 'self'; style-src 'self'; media-src 'self' blob:; " +
+      "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    : isZoomVideo
     ? "default-src 'self'; img-src 'self' https://frederickwalker66-cmyk.github.io data:; " +
       "connect-src 'self' https://source.zoom.us https://*.zoom.us wss://*.zoom.us https://*.zoom.com wss://*.zoom.com; " +
       "script-src 'self' https://source.zoom.us 'wasm-unsafe-eval'; " +
