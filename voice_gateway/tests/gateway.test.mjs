@@ -426,3 +426,54 @@ test("Anam V10 session signing permits only nine authorized saved personas",asyn
     VOICE_LIMITER:{async limit(){return{success:false}}}});
   assert.equal((await handleRequest(request("/api/anam/session-token","POST",owner),rateLimited,mockAnam)).status,429);
 });
+
+
+test("Anam portrait proxy respects CEO access, role allowlist and media restrictions",async()=>{
+  const outsider=await handleRequest(request("/api/anam/avatar/adam"),env(),mockFetch);
+  assert.equal(outsider.status,401);
+  const owner=await jwt();
+  const images={
+    bella:"410bd990-d7ca-4054-bf5b-ce862d249a8a",
+    david:"fa2b8027-f776-4485-820f-a79cf8412b6f",
+    cassidy:"9bff6b0b-d649-4b28-ae1c-241ec7ebafe3",
+    roger:"2a900f85-6f8e-4070-825e-07ac8a55b7c4",
+    sarah:"2891de34-9f0c-4b47-a7f5-091844dda047",
+    adam:"046fd8cf-e5cb-43d6-9f63-729e5b695c5c",
+    "bella-studio":"1957d20f-11c1-494f-bfcf-885925701292",
+    "roger-studio":"0f601e66-ac3f-44f8-9834-6eecdd7d58ff",
+    "cassidy-studio":"5d0de80c-7668-4bdc-8e9d-c01a82ec62fe",
+  };
+  const received=[];
+  const mockAvatar=async(url)=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    received.push(url);
+    return new Response(Uint8Array.from([137,80,78,71,13,10,26,10]),{
+      headers:{"Content-Type":"image/png"}
+    });
+  };
+  for(const [role,avatar] of Object.entries(images)){
+    const res=await handleRequest(request("/api/anam/avatar/"+role,"GET",owner),env(),mockAvatar);
+    assert.equal(res.status,200,role);
+    assert.equal(res.headers.get("Content-Type"),"image/png");
+    assert.equal(res.headers.get("Cache-Control").includes("no-store"),true);
+    assert.equal((await res.arrayBuffer()).byteLength,8);
+    assert.equal(received.at(-1),"https://lab.anam.ai/api/avatars/"+avatar+"/image/portrait");
+  }
+  assert.equal(received.length,9);
+  const rejected=await handleRequest(request("/api/anam/avatar/unknown","GET",owner),env(),mockAvatar);
+  assert.equal(rejected.status,404);
+  assert.equal(received.length,9);
+  const wrongMethod=await handleRequest(request("/api/anam/avatar/bella","POST",owner),env(),mockAvatar);
+  assert.equal(wrongMethod.status,405);
+  const notAnImage=async(url)=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    return new Response("<html>not an image</html>",{headers:{"Content-Type":"text/html"}});
+  };
+  const denied=await handleRequest(request("/api/anam/avatar/bella","GET",owner),env(),notAnImage);
+  assert.equal(denied.status,502);
+  const huge=async(url)=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    return new Response("ignored",{headers:{"Content-Type":"image/png","Content-Length":"5000000"}});
+  };
+  assert.equal((await handleRequest(request("/api/anam/avatar/bella","GET",owner),env(),huge)).status,502);
+});
