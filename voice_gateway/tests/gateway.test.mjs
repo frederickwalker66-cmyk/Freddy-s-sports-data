@@ -356,3 +356,73 @@ test("Private Zoom video room loads for CEO before any Zoom/ElevenLabs secrets e
   const stranger=await handleRequest(request("/zoom-video.html"),env(),mockFetch);
   assert.equal(stranger.status,401);
 });
+
+test("Anam V10 cast readiness and video pages remain CEO-only and do not call providers",async()=>{
+  const unauth=await handleRequest(request("/api/anam/readiness"),env(),mockFetch);
+  assert.equal(unauth.status,401);
+  const owner=await jwt();
+  let externalCalls=0;
+  const noProviders=async(url)=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    externalCalls++;
+    throw Error("No provider calls expected");
+  };
+  const incomplete=await handleRequest(request("/api/anam/readiness","GET",owner),env(),noProviders);
+  assert.equal(incomplete.status,200);
+  assert.equal((await incomplete.json()).ready,false);
+  const ready=await handleRequest(request("/api/anam/readiness","GET",owner),
+    env({ANAM_API_KEY:"example-anam-secret-server-only"}),noProviders);
+  const state=await ready.json();
+  assert.equal(state.ready,true);
+  assert.equal(state.configured_personas,9);
+  assert.equal(state.live_session_started,false);
+  const page=await handleRequest(request("/anam-room.html","GET",owner),env(),noProviders);
+  assert.equal(page.status,200);
+  assert.ok(page.headers.get("Content-Security-Policy").includes("wss://connect.anam.ai"));
+  assert.equal(externalCalls,0);
+});
+
+test("Anam V10 session signing permits only nine authorized saved personas",async()=>{
+  const owner=await jwt();
+  const expected={
+    bella:"14d4d30f-220b-4286-8d9e-93bdb6b0e725",
+    david:"272ceabe-cf93-4c0a-9ec9-ad678aaee263",
+    cassidy:"abf651d6-5de8-4fe9-9cb2-d728484be449",
+    roger:"684c4388-4aed-4104-b4a7-16323c05fe45",
+    sarah:"6b8b30a6-d11c-41c7-9156-dae9696d396e",
+    adam:"6b97e944-0138-461d-ba9f-c8382072e711",
+    "bella-studio":"5b176814-9acf-48e5-9253-0530fc48122f",
+    "roger-studio":"23074722-867e-4666-b641-bc5ebea64cd0",
+    "cassidy-studio":"e415a998-584c-432a-8dbe-b3123555120e",
+  };
+  const seen=[];
+  const mockAnam=async(url,opts)=>{
+    if(url===team+"/cdn-cgi/access/certs")return Response.json({keys:[jwk]});
+    assert.equal(url,"https://api.anam.ai/v1/auth/session-token");
+    assert.equal(opts.method,"POST");
+    assert.equal(opts.headers.Authorization,"Bearer example-anam-secret-server-only");
+    seen.push(JSON.parse(opts.body).personaConfig.personaId);
+    return Response.json({sessionToken:"test-short-lived-private-token"});
+  };
+  const setup=env({ANAM_API_KEY:"example-anam-secret-server-only"});
+  for(const [role,personaId] of Object.entries(expected)){
+    const res=await handleRequest(request("/api/anam/session-token","POST",owner,role),setup,mockAnam);
+    assert.equal(res.status,200);
+    const body=await res.json();
+    assert.equal(body.role,role);
+    assert.equal(body.sessionToken,"test-short-lived-private-token");
+    assert.equal(seen.at(-1),personaId);
+    assert.equal(JSON.stringify(body).includes("example-anam-secret"),false);
+  }
+  assert.equal(seen.length,9);
+  assert.equal((await handleRequest(request("/api/anam/session-token","POST",owner,"invalid"),setup,mockAnam)).status,400);
+  assert.equal((await handleRequest(request("/api/anam/session-token","POST",null,"bella"),setup,mockAnam)).status,401);
+  assert.equal((await handleRequest(request("/api/anam/session-token","POST",owner,"bella"),env(),mockAnam)).status,503);
+  assert.equal((await handleRequest(request("/api/anam/session-token","GET",owner),setup,mockAnam)).status,405);
+  const wrongOrigin=request("/api/anam/session-token","POST",owner,"bella");
+  wrongOrigin.headers.set("Origin","https://other.example");
+  assert.equal((await handleRequest(wrongOrigin,setup,mockAnam)).status,403);
+  const rateLimited=env({ANAM_API_KEY:"example-anam-secret-server-only",
+    VOICE_LIMITER:{async limit(){return{success:false}}}});
+  assert.equal((await handleRequest(request("/api/anam/session-token","POST",owner),rateLimited,mockAnam)).status,429);
+});
