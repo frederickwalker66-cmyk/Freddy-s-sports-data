@@ -29,6 +29,18 @@ const ANAM_PERSONAS = Object.freeze({
   "cassidy-studio":"e415a998-584c-432a-8dbe-b3123555120e",
 });
 
+const ANAM_AVATARS = Object.freeze({
+  bella:"410bd990-d7ca-4054-bf5b-ce862d249a8a",
+  david:"fa2b8027-f776-4485-820f-a79cf8412b6f",
+  cassidy:"9bff6b0b-d649-4b28-ae1c-241ec7ebafe3",
+  roger:"2a900f85-6f8e-4070-825e-07ac8a55b7c4",
+  sarah:"2891de34-9f0c-4b47-a7f5-091844dda047",
+  adam:"046fd8cf-e5cb-43d6-9f63-729e5b695c5c",
+  "bella-studio":"1957d20f-11c1-494f-bfcf-885925701292",
+  "roger-studio":"0f601e66-ac3f-44f8-9834-6eecdd7d58ff",
+  "cassidy-studio":"5d0de80c-7668-4bdc-8e9d-c01a82ec62fe",
+});
+
 const NO_CACHE = {
   "Cache-Control": "private, no-store, max-age=0",
   "Pragma": "no-cache",
@@ -261,6 +273,39 @@ async function anamSessionToken(request,env,identity,fetcher) {
   return json({sessionToken:token,role:body.role});
 }
 
+async function anamAvatarImage(request, fetcher, role) {
+  if(request.method!=="GET")return json({error:"method_not_allowed"},405);
+  if(!Object.hasOwn(ANAM_AVATARS,role))
+    return json({error:"unsupported_anam_avatar"},404);
+  // Image bytes stay behind validated CEO Cloudflare Access; no public image
+  // CDN URLs or user portraits are committed to the public GitHub repository.
+  // The Anam Lab image route must be accessible without browser session cookies.
+  const target="https://lab.anam.ai/api/avatars/"+ANAM_AVATARS[role]+"/image/portrait";
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  let response;
+  try{response=await fetcher(target,{
+    method:"GET",redirect:"follow",signal:controller.signal,
+    headers:{"Accept":"image/avif,image/webp,image/png,image/jpeg"},
+  })}
+  catch{return json({error:"avatar_source_unavailable"},502)}
+  finally{clearTimeout(timer)}
+  if(!response.ok)return json({error:"avatar_source_unavailable"},502);
+  const type=String(response.headers.get("Content-Type")||"").split(";")[0].trim().toLowerCase();
+  if(!["image/webp","image/png","image/jpeg","image/avif"].includes(type))
+    return json({error:"avatar_unexpected_media"},502);
+  const length=Number(response.headers.get("Content-Length")||"0");
+  if(length>4000000)return json({error:"avatar_too_large"},502);
+  let bytes;
+  try{bytes=await response.arrayBuffer()}
+  catch{return json({error:"avatar_source_unavailable"},502)}
+  if(bytes.byteLength>4000000 || bytes.byteLength<1)
+    return json({error:"avatar_invalid_size"},502);
+  return new Response(bytes,{status:200,headers:{
+    ...NO_CACHE,"Content-Type":type,"Content-Length":String(bytes.byteLength),
+  }});
+}
+
 export async function handleRequest(request, env, fetcher = fetch) {
   // Non-sensitive, no-provider-call external probe. Cloudflare Access may still
   // intercept this route before the request reaches the Worker.
@@ -293,6 +338,7 @@ export async function handleRequest(request, env, fetcher = fetch) {
     return json({ error: "authenticated_ceo_access_required" }, 401);
   }
   const path = new URL(request.url).pathname;
+  if (path.startsWith("/api/anam/avatar/")) return anamAvatarImage(request,fetcher,path.slice("/api/anam/avatar/".length));
   if (path === "/api/anam/readiness") {
     if(request.method!=="GET")return json({error:"method_not_allowed"},405);
     return json(anamReadiness(env));
