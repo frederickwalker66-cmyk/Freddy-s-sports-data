@@ -1,0 +1,39 @@
+name: V10 Research Bridge (read-only, manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publish-sanitized-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare safe research summary and signed delivery
+        env:
+          V10_RESEARCH_PUSH_SECRET: ${{ secrets.V10_RESEARCH_PUSH_SECRET }}
+          V10_RESEARCH_ENDPOINT: ${{ vars.V10_RESEARCH_ENDPOINT }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import datetime, hashlib, hmac, json, os, time, urllib.request
+          secret=os.getenv('V10_RESEARCH_PUSH_SECRET','')
+          endpoint=os.getenv('V10_RESEARCH_ENDPOINT','')
+          if len(secret)<32 or not endpoint.startswith('https://'):
+              raise SystemExit('Configure V10_RESEARCH_PUSH_SECRET and HTTPS V10_RESEARCH_ENDPOINT before running')
+          # Deliberately sends workflow provenance only; no raw secrets, odds, or uncertified picks.
+          payload={'schemaVersion':1,'runId':int(os.environ['GITHUB_RUN_ID']),
+                   'createdAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                   'reports':[{'name':'V10 research bridge','summary':'Authenticated GitHub Actions delivery test. Research datasets are not yet imported or certified.'}]}
+          raw=json.dumps(payload,separators=(',',':')).encode()
+          stamp=str(int(time.time()*1000))
+          sig=hmac.new(secret.encode(),stamp.encode()+b'.'+raw,hashlib.sha256).hexdigest()
+          req=urllib.request.Request(endpoint.rstrip('/')+'/api/research-push',data=raw,method='POST',
+               headers={'Content-Type':'application/json','X-Research-Timestamp':stamp,'X-Research-Signature':'sha256='+sig})
+          with urllib.request.urlopen(req,timeout=12) as response:
+              print('V10 research delivery HTTP',response.status)
+          PY
