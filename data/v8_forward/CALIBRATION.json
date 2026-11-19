@@ -1,12 +1,12 @@
 {
   "ESPN_published_final_is_official_bet_settlement": false,
-  "archived_original_forward_forecasts": 76,
+  "archived_original_forward_forecasts": 80,
   "automatic_wagers": 0,
   "bet_ready": false,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
   "data_is_independently_publisher_authenticated": false,
-  "graded_research_NBA_games": 51,
+  "graded_research_NBA_games": 59,
   "independently_certified_models": 0,
   "independently_verified_sportsbook_checkout_quotes": 0,
   "minimum_forward_graded_games_for_exploratory_calibration": 100,
@@ -37,27 +37,30 @@
           "withheld_small_bin": true
         },
         {
-          "home_wins": 12,
-          "mean_original_forecast_probability": 0.5184796,
-          "observations": 31,
-          "observed_home_win_frequency": 0.3870968,
+          "home_wins": 15,
+          "mean_original_forecast_probability": 0.5169943,
+          "observations": 36,
+          "observed_home_win_frequency": 0.4166667,
           "probability_max_exclusive": 0.6,
           "probability_min_inclusive": 0.4,
           "wilson_95pct_descriptive_interval": [
-            0.23733,
-            0.56176
+            0.27141,
+            0.578
           ],
           "withheld_small_bin": false
         },
         {
-          "home_wins": 15,
-          "mean_original_forecast_probability": 0.6524536,
-          "observations": 18,
-          "observed_home_win_frequency": null,
+          "home_wins": 16,
+          "mean_original_forecast_probability": 0.6549796,
+          "observations": 21,
+          "observed_home_win_frequency": 0.7619048,
           "probability_max_exclusive": 0.8,
           "probability_min_inclusive": 0.6,
-          "wilson_95pct_descriptive_interval": null,
-          "withheld_small_bin": true
+          "wilson_95pct_descriptive_interval": [
+            0.54909,
+            0.89372
+          ],
+          "withheld_small_bin": false
         },
         {
           "home_wins": 0,
@@ -78,24 +81,24 @@
       "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
       "neutral_50_50_Brier_NOT_sportsbook": 0.25,
       "neutral_50_50_log_loss_NOT_sportsbook": 0.6931472,
-      "original_forward_pregame_games_graded": 51,
-      "research_Brier": 0.2150432,
-      "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": 0.1398274,
-      "research_directional_accuracy": 0.6470588,
+      "original_forward_pregame_games_graded": 59,
+      "research_Brier": 0.2219574,
+      "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": 0.1121702,
+      "research_directional_accuracy": 0.6440678,
       "research_directional_accuracy_wilson_95pct": [
-        0.50986,
-        0.76366
+        0.51655,
+        0.75397
       ],
-      "research_directional_correct": 33,
-      "research_directional_decisions": 51,
-      "research_log_loss": 0.6214343,
-      "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": 0.1034599,
+      "research_directional_correct": 38,
+      "research_directional_decisions": 59,
+      "research_log_loss": 0.6359514,
+      "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": 0.0825161,
       "retained_uncertainty_not_certification": true
     }
   ],
   "original_Champion_001_certified_shadows": 0,
   "original_Champion_001_executable_authenticated": false,
-  "pending_ungraded": 25,
+  "pending_ungraded": 21,
   "quarantined": 0,
   "stage": "genuinely_forward_recorded_NBA_research_calibration_only",
   "status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
