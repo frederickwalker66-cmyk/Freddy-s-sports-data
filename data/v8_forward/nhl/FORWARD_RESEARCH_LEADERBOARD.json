@@ -6,21 +6,21 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-18T22:26:43.166684+00:00",
-  "graded_research_games": 48,
+  "generated_at_utc": "2026-11-19T02:01:11.500797+00:00",
+  "graded_research_games": 49,
   "last_synchronization": {
-    "due_forecast_rows_checked": 0,
+    "due_forecast_rows_checked": 1,
     "later_repeated_forecasts_ignored": 64,
-    "new_ESPN_binary_research_outcomes": 0,
+    "new_ESPN_binary_research_outcomes": 1,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 0,
-    "original_source_receipt_files_saved": 0
+    "new_original_forecasts": 12,
+    "original_source_receipt_files_saved": 12
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
-  "original_saved_forecasts": 64,
-  "pending_48h": 16,
+  "original_saved_forecasts": 76,
+  "pending_48h": 27,
   "published_NFL_ties_excluded": 0,
   "research_model_scorecards_including_insufficient_samples": [
     {
@@ -28,7 +28,7 @@
       "market_betting_ready": false,
       "model": "v8-nhl-elo-forward-v0-k16-ha35",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 48,
+      "original_forward_ESPN_games_graded": 49,
       "rank_eligible_after_50": false,
       "research_Brier": null,
       "research_direction_accuracy": null,
@@ -37,7 +37,7 @@
   ],
   "research_ranked_models_after_50": [],
   "source_research_receipts": {
-    "first_unique_event_forecasts_accepted": 64,
+    "first_unique_event_forecasts_accepted": 76,
     "independently_certified_predictions": 0,
     "league": "nhl",
     "original_completed_github_run_ids": [
@@ -50,12 +50,14 @@
       43766716355,
       43779973693,
       44008227126,
-      44224434376
+      44224434376,
+      44411521007,
+      44441013723
     ],
     "source_exclusions": {
-      "later_forecast_ignored": 27
+      "later_forecast_ignored": 43
     },
-    "source_forward_rows_loaded": 91
+    "source_forward_rows_loaded": 119
   },
   "sport": "nhl",
   "status": "HOLD_Fewer_than_50_research_forward_grades_per_model",
