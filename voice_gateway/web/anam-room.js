@@ -8,10 +8,16 @@ let selected = "bella";
 let client = null;
 let starting = false;
 const buttons = [...document.querySelectorAll("[data-role]")];
+// The private Worker supplies preview pixels only after CEO authentication.
+// A missing or blocked preview never prevents selecting or calling a persona.
+document.querySelectorAll(".avatar-image").forEach(img=>{
+  img.addEventListener("load",()=>img.closest(".avatar-wrap")?.classList.add("has-image"));
+  img.addEventListener("error",()=>img.closest(".avatar-wrap")?.classList.remove("has-image"));
+});
 const status = message => { $("status").textContent = message; };
 const controls = () => {
   $("start").disabled = Boolean(client) || starting;
-  $("stop").disabled = !client && !starting;
+  $("stop").disabled = starting || !client;
   $("check").disabled = starting;
   buttons.forEach(button => {button.disabled = starting || Boolean(client);});
 };
@@ -43,7 +49,8 @@ $("start").addEventListener("click",async()=>{
     const response=await fetch("/api/anam/session-token",{method:"POST",credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({role:selected})});
     if(response.status===401)throw Error("Sign in through Cloudflare Access before starting an avatar.");
     if(response.status===429)throw Error("Anam session start limit reached.");
-    if(response.status===503)throw Error("Set ANAM_API_KEY in the private Cloudflare Worker's Secrets to enable Anam.");
+    if(response.status===503)throw Error("Anam is not configured. Add ANAM_API_KEY as a Cloudflare Worker Secret.");
+    if(response.status===502)throw Error("The Anam service could not issue a session token. Check the Worker secret and provider availability.");
     if(!response.ok)throw Error("Anam session token was not available. No call started.");
     const data=await response.json();
     if(typeof data.sessionToken!=="string" || data.sessionToken.length<10)throw Error("Invalid Anam session token.");
