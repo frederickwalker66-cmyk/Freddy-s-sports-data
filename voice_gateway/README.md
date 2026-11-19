@@ -193,3 +193,27 @@ and https://developers.zoom.us/docs/video-sdk/auth/
 - GitHub Actions performs these checks, **but does not deploy the private Worker or start any paid voice call**.
 
 The public docs/boardroom.html stays public, read-only and free of ElevenLabs agent IDs, keys, microphones or session tokens. The protected voice room will have a separate URL when hosting is configured.
+
+
+## V10 Anam video cast — original six + three Studio variants
+
+The private CEO interface now includes `/anam-room.html`, linked from the protected main voice-room page. All nine saved Anam personas are referenced by their stable persona UUIDs (not credentials). The original six are Bella, David, Cassidy, Roger, Sarah and Adam Stone. Additional optional variants are Bella Studio, Roger Studio and Cassidy Studio.
+
+The new room is independent of the older ElevenLabs V9 voice room and the Zoom Video SDK stage; it provides **one live Anam avatar session at a time**, started and stopped by the CEO. It does not create Zoom participants, WhatsApp bots, certified betting picks or background audio sessions.
+
+### Required owner-only hosting setup
+
+1. In Anam Lab, create a server API key under https://lab.anam.ai/api-keys. The key is sensitive: never paste its value into chat, GitHub, browser code or any public file.
+2. In the existing Cloudflare Worker `freddys-v9-private-voice`, choose **Settings → Variables and Secrets → Add → Secret**, and create the single secret **`ANAM_API_KEY`** with the Anam server API key value. The Worker already requires Cloudflare Access JWT verification; keep the CEO-only Access rule and existing `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CEO_EMAIL`, `VOICE_LIMITER` and `ASSETS` bindings in place.
+3. Verify the Cloudflare Git integration for repository `frederickwalker66-cmyk/Freddy-s-sports-data`, branch `main`, root `voice_gateway` is deploying its latest commit. GitHub CI only tests the code, not live Cloudflare Access or production deployment. The build command is `npm install && npm run build`; the deploy command is `npx wrangler deploy`. A deploy must complete before the newly added route exists in production.
+4. Sign into the protected Worker and follow **Open V10 Anam AI video cast**, or open `/anam-room.html` on that same verified protected origin. Press **Check setup · free** first. This calls only the CEO-protected local `GET /api/anam/readiness` endpoint and does not contact Anam or consume a session minute.
+5. When the setup check says configured, select a cast member and press **Start private video conversation**. This calls `POST /api/anam/session-token` from the same protected origin, which requests a short-lived token using the server-only key. Browser code receives only the session token. Allow mic access when prompted and press **End conversation** to close the session. A real Anam session can consume Anam plan minutes.
+
+### Security and separation
+
+- The Anam server token exchange and all static assets require the existing cryptographically validated CEO identity. Cross-origin requests, unsupported personas and rate-limited requests fail closed.
+- All nine role-to-persona assignments are explicit and cannot be supplied arbitrarily by the browser.
+- **Readiness is a zero-provider-call check.** It does not confirm production deployment, token issuance or a completed audio/video test.
+- This source currently has no Cloudflare deployment API or Worker secret write access; the owner must provision the secret privately in Cloudflare. Never publish an unprotected test Worker.
+- `npm run check` executes protected-worker unit tests (including all nine authorized Anam role tokens) and bundles the Anam browser SDK. A green CI run verifies the source but not an externally authenticated session.
+
