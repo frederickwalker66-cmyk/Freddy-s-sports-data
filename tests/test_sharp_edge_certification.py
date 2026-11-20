@@ -23,7 +23,7 @@ class SharpEdgeCertificationTests(unittest.TestCase):
         self.assertEqual(evaluate(self.candidate())["decision"], "HOLD")
 
     def test_distinct_verified_sources_allow_take(self):
-        report = evaluate(self.candidate(), model_key="m"*40, odds_key="o"*40)
+        report = evaluate(self.candidate(), model_key="m"*40, odds_key="o"*40, approved_model_versions=("challenger-validated-v1",))
         self.assertEqual(report["decision"], "TAKE")
         self.assertTrue(report["certified"])
 
@@ -42,6 +42,11 @@ class SharpEdgeCertificationTests(unittest.TestCase):
         odds["line"] = 226.5
         candidate["odds_attestation"] = self.signed(odds, "o"*40)
         self.assertIn("EXACT_MARKET_MISMATCH", evaluate(candidate, model_key="m"*40, odds_key="o"*40)["reasons"])
+
+    def test_unapproved_model_release_holds(self):
+        report = evaluate(self.candidate(), model_key="m"*40, odds_key="o"*40)
+        self.assertEqual(report["decision"], "HOLD")
+        self.assertIn("MODEL_RELEASE_NOT_IN_INDEPENDENT_APPROVAL_REGISTRY", report["reasons"])
 
     def test_same_custodian_holds(self):
         self.assertEqual(evaluate(self.candidate(), model_key="m"*40, odds_key="m"*40)["decision"], "HOLD")
