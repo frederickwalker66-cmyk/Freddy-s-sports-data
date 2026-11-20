@@ -15,6 +15,7 @@ on:
     - cron: '33 12,23 * * *'
 permissions:
   contents: read
+  id-token: write
 concurrency:
   group: v10-sgo-snapshot-collector
   cancel-in-progress: false
@@ -24,7 +25,6 @@ jobs:
     timeout-minutes: 6
     env:
       SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY || secrets.SPORTSGAMEODDS_KEY || secrets.SPORTS_GAME_ODDS_API_KEY || secrets.SPORTSGAMEODDS || secrets.SPORTS_GAME_ODDS || secrets.SPORTSGAMESODD || secrets.SPORTSGAMESODDS || secrets.SPORTS_GAMES_ODD || secrets.SPORTS_GAMES_ODDS || secrets.SPORTSGAMEODD || secrets.SPORTS_GAME_ODD }}
-      V10_RESEARCH_PUSH_SECRET: ${{ secrets.V10_RESEARCH_PUSH_SECRET }}
       SGO_LEAGUE: ${{ github.event_name == 'workflow_dispatch' && inputs.league || 'NBA' }}
     steps:
       - name: Verify secret presence and collect one capped provider page without printing credentials
@@ -34,11 +34,9 @@ jobs:
           python3 - <<'PY'
           import datetime, hashlib, hmac, json, os, time, urllib.error, urllib.parse, urllib.request
           provider_key=os.environ.get('SPORTSGAMEODDS_API_KEY','')
-          signing_key=os.environ.get('V10_RESEARCH_PUSH_SECRET','')
           league=os.environ.get('SGO_LEAGUE','NBA')
           if league not in ('NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL'): raise SystemExit('Unsupported league')
           if not provider_key: raise SystemExit('Existing SportsGameOdds GitHub repository secret is missing; NO provider call made')
-          if len(signing_key)<32: raise SystemExit('V10_RESEARCH_PUSH_SECRET is not configured; NO provider call made')
           now=datetime.datetime.now(datetime.timezone.utc)
           params={'leagueID':league,'bookmakerID':'draftkings,fanduel','oddsAvailable':'true','limit':'5','includeAltLines':'false',
                   'startsAfter':(now-datetime.timedelta(hours=2)).isoformat(),'startsBefore':(now+datetime.timedelta(hours=48)).isoformat()}
@@ -79,16 +77,22 @@ jobs:
           payload={'schemaVersion':2,'runId':int(os.environ['GITHUB_RUN_ID']),'fetchedAt':now.isoformat(),'league':league,'events':events}
           raw=json.dumps(payload,separators=(',',':'),ensure_ascii=False).encode('utf-8')
           if len(raw)>280000:raise SystemExit('Source payload unexpectedly large; no unverified data sent')
-          stamp=str(int(time.time()*1000))
-          sig='sha256='+hmac.new(signing_key.encode(),stamp.encode()+b'.'+raw,hashlib.sha256).hexdigest()
+          # Get a one-use, GitHub-signed OIDC identity for this specific workflow.
+          # The source API key is NOT included in the token or in the uploaded market snapshot.
+          oidc_url=os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
+          oidc_url+=('&' if '?' in oidc_url else '?')+urllib.parse.urlencode({'audience':'freddys-v10-signed-sportsbook-odds'})
+          oidc_req=urllib.request.Request(oidc_url,headers={'Authorization':'bearer '+os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN'],'Accept':'application/json'})
+          with urllib.request.urlopen(oidc_req,timeout=12) as response:
+              identity=json.load(response).get('value','')
+          if identity.count('.')!=2: raise SystemExit('GitHub signed identity unavailable')
           endpoint='https://v10-voice-boardroom-production.up.railway.app/api/sportsbook-quote-push'
-          push=urllib.request.Request(endpoint,data=raw,method='POST',headers={'Content-Type':'application/json','X-Research-Timestamp':stamp,'X-Research-Signature':sig})
+          push=urllib.request.Request(endpoint,data=raw,method='POST',headers={'Content-Type':'application/json','Authorization':'Bearer '+identity})
           try:
               with urllib.request.urlopen(push,timeout=18) as response:
                   ack=json.load(response)
                   if response.status!=200 or ack.get('received') is not True:raise SystemExit('Signed research delivery not confirmed')
           except urllib.error.HTTPError as exc:
-              raise SystemExit('Signed V10 research delivery failed HTTP '+str(exc.code)+'; check shared research signing secret') from None
+              raise SystemExit('GitHub OIDC-signed sportsbook snapshot delivery failed HTTP '+str(exc.code)+'; inspect Railway signature verification logs') from None
           print('Source research delivered: league',league,'events',ack.get('events'),'quoted selections',ack.get('quotedSelections'),'receivedAt',ack.get('receivedAt'))
-          print('GitHub provider key and signing secret remained private; frozen Champion probabilities unchanged; certified EV = zero.')
+          print('SportsGameOdds API key remained only in GitHub Actions; sent sanitized source quotes with GitHub OIDC; certified model EV = zero.')
           PY
