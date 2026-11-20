@@ -33,6 +33,22 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(report["graded_rows"],1)
         self.assertEqual(report["strategy_eligible_rows"],0)
 
+    def test_duplicate_is_quarantined(self):
+        report=backtest([row(),row()])
+        self.assertEqual(report["graded_rows"],1)
+        self.assertEqual(report["quarantined_rows"],1)
+
+    def test_confidence_interval(self):
+        report=backtest([row()])
+        lo,hi=report["eligible_hit_rate_wilson_95_interval"]
+        self.assertLess(lo,1)
+        self.assertEqual(hi,1)
+        self.assertEqual(report["eligible_losses"],0)
+
+    def test_unstamped_odds_quarantined(self):
+        report=backtest([row(odds_timestamp="")])
+        self.assertEqual(report["quarantined_rows"],1)
+
     def test_empty_dataset_is_not_90_percent(self):
         report=backtest([])
         self.assertIsNone(report["eligible_empirical_hit_rate"])
