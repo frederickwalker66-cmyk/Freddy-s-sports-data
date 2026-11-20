@@ -2,6 +2,47 @@ import http from 'node:http';import {timingSafeEqual,createHmac,createPublicKey,
 const people={Bella:['ZiWfeUWO2JpAtPiRibtD','Host and meeting manager'],David:['2W3ktgP14sBp51pZmeuS','Statistics analyst'],Cassidy:['DQhiAUrU5tMfpg9uNiku','Sharp Edge analyst'],Roger:['Qcs9afjSSfOxjd3ZXgP2','Parlay analyst'],Sarah:['V3vLUgWq7G1IeyDYZnIs','Risk manager'],'Adam Stone':['ZTCNLgI96Mvf8kTqLAmb','Moderator and audit engineer']};
 const v10ModelGuide={identity:'Freddys Picks AI V10 studio integrates read-only V9/V10 research, not the frozen production model itself.',sports:['NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UEFA Champions League'],markets:['moneyline','spread','game total','player points','rebounds','assists','PTS+REB+AST','PTS+REB','PTS+AST','REB+AST','parlays'],analysis:['last five and last ten games','injuries and lineups','back-to-back and rest','DraftKings prices','line movement','closing line value (CLV)','probability calibration','expected value (EV)','data timestamps','independent validation'],governance:'Champion-001 is frozen. Challenger-001 research and training remain separate. Never invent native model probabilities, verified odds, outcomes, or positive EV. No certified pick without a documented pregame prediction, odds, model probability and independent result audit. Otherwise HOLD/PASS.',roles:{Bella:'Lead the meeting, coordinate analysts, summarize source status and disagreements.',David:'Analyze game and player historical samples, last 5/10, opponent, pace, injury, rest and data quality.',Cassidy:'Evaluate Sharp Edge, implied vs independently produced probability, EV, CLV and calibration; HOLD without evidence.',Roger:'Construct and stress-test parlays, correlated legs, combined probability and payout; do not label unverified legs as bets.',Sarah:'Assess bankroll exposure, risk, uncertainty, stale prices, correlation and missing evidence.', 'Adam Stone':'Moderate, verify source provenance, audit Champion vs Challenger separation and call out unsupported claims.'}};
 const analystContext=(speaker)=>{const snap=globalThis.v10ResearchSnapshot;const reports=Array.isArray(snap?.reports)?snap.reports:[];const recent=reports.slice(0,18).map(x=>({name:String(x.name).slice(0,100),summary:String(x.summary).slice(0,1000)}));return JSON.stringify({model:v10ModelGuide,analyst:speaker,role:v10ModelGuide.roles[speaker],research:snap?{source:'signed GitHub research bridge',createdAt:snap.createdAt,receivedAt:snap.receivedAt,runId:snap.runId,reports:recent,certified:false}:{source:'none received since server start',reports:[],certified:false},note:'Signed research is context, not a verified live betting feed. Explicitly say when latest games, odds, injuries, player props or Champion probabilities are unavailable.'}).slice(0,13000)};
+
+/* On-demand ESPN rosters; provider published, not verified active lists. */
+const podcastRosterCache=new Map();
+async function podcastRoster(league='NBA',team=''){
+ const sport=scoreboardSources[league],now=Date.now();
+ if(!sport)return {status:'UNSUPPORTED_LEAGUE',league};
+ const key=league+':'+team.toLowerCase(),old=podcastRosterCache.get(key);
+ if(old&&now-old.at<(team?300000:3600000))return old.data;
+ const url='https://site.api.espn.com/apis/site/v2/sports/'+sport+'/teams?limit=500';
+ try{
+  const response=await fetch(url,{signal:AbortSignal.timeout(10000),headers:{accept:'application/json'}});
+  if(!response.ok)throw Error('TEAM_INDEX_HTTP_'+response.status);
+  const json=await response.json();
+  const clubs=(json.sports?.[0]?.leagues?.[0]?.teams||[]).map(x=>x.team||x).filter(x=>x.id&&x.displayName).map(x=>({id:String(x.id),name:String(x.displayName),abbr:String(x.abbreviation||'')}));
+  if(!clubs.length)throw Error('NO_PROVIDER_TEAM_INDEX');
+  const normalize=x=>String(x||'').trim().toLowerCase();
+  if(!team){const data={league,status:'TEAM_INDEX_ONLY',source:'ESPN public team directory',retrievedAt:new Date().toISOString(),teams:clubs,currentRosterVerified:false};podcastRosterCache.set(key,{at:now,data});return data}
+  const selected=clubs.filter(x=>normalize(x.name)===normalize(team)||normalize(x.abbr)===normalize(team));
+  if(selected.length!==1)return {league,status:'TEAM_NOT_UNIQUELY_MATCHED',requested:team,playerTeamVerified:false};
+  const club=selected[0];
+  const rosterResponse=await fetch('https://site.api.espn.com/apis/site/v2/sports/'+sport+'/teams/'+encodeURIComponent(club.id)+'/roster',{signal:AbortSignal.timeout(10000),headers:{accept:'application/json'}});
+  if(!rosterResponse.ok)throw Error('ROSTER_HTTP_'+rosterResponse.status);
+  const body=await rosterResponse.json();
+  const athletes=(Array.isArray(body.athletes)?body.athletes:[]).flatMap(x=>Array.isArray(x.items)?x.items:x&&x.id?[x]:[]);
+  const players=athletes.map(x=>({id:String(x.id||''),name:String(x.displayName||x.fullName||''),position:x.position?.abbreviation||null})).filter(x=>x.id&&x.name).slice(0,140);
+  if(!players.length)throw Error('ROSTER_UNAVAILABLE_OR_EMPTY');
+  const data={league,team:club,status:'PROVIDER_ROSTER_RETURNED_UNVERIFIED',source:'ESPN public roster',retrievedAt:new Date().toISOString(),players,independentlyVerified:false,activeTodayVerified:false,warning:'This is not an authoritative final active list. Do not invent missing player-team assignments or bet eligibility.'};
+  podcastRosterCache.set(key,{at:now,data});return data;
+ }catch(e){return {league,status:'ROSTER_SOURCE_UNAVAILABLE',error:String(e.message||e).slice(0,90),playerTeamVerified:false}}
+}
+async function podcastRosterForSpeech(question){
+ const q=String(question||'').toLowerCase();
+ const lg=/\\b(nfl|football)\\b/.test(q)?'NFL':/\\b(mlb|baseball)\\b/.test(q)?'MLB':/\\b(nhl|hockey)\\b/.test(q)?'NHL':/\\b(ncaaf|college football)\\b/.test(q)?'NCAAF':/\\b(ncaab|college basketball)\\b/.test(q)?'NCAAB':/\\b(mls|soccer)\\b/.test(q)?'MLS':/\\b(ucl|uefa|champions league)\\b/.test(q)?'UCL':'NBA';
+ const idx=await podcastRoster(lg);
+ if(idx.status!=='TEAM_INDEX_ONLY')return JSON.stringify(idx);
+ const matching=idx.teams.filter(x=>q.includes(x.name.toLowerCase())||new RegExp('\\\\b'+x.abbr.toLowerCase()+'\\\\b').test(q)).slice(0,2);
+ if(!matching.length)return JSON.stringify({league:lg,status:'TEAM_NOT_SPECIFIED_OR_PLAYER_ONLY',rule:'Do not guess player current team; roster team lookup needed.'});
+ const reports=await Promise.all(matching.map(t=>podcastRoster(lg,t.name)));
+ return JSON.stringify({league:lg,reports,rule:'Only assert membership when an exact player name appears in this fresh provider response; all other assignments unverified.'}).slice(0,14000);
+}
+
 const scoreboardSources={NBA:'basketball/nba',NFL:'football/nfl',MLB:'baseball/mlb',NHL:'hockey/nhl',NCAAF:'football/college-football',NCAAB:'basketball/mens-college-basketball',MLS:'soccer/usa.1',UCL:'soccer/uefa.champions'};
 let publicScoreboardCache={at:0,items:[],errors:[]};
 const loadPublicScoreboards=async()=>{if(Date.now()-publicScoreboardCache.at<60000&&publicScoreboardCache.at)return publicScoreboardCache;const outcomes=await Promise.allSettled(Object.entries(scoreboardSources).map(async([sport,path])=>{const url='https://site.api.espn.com/apis/site/v2/sports/'+path+'/scoreboard';const r=await fetch(url,{headers:{accept:'application/json','user-agent':'Freddys-V10-Research/1.0'},signal:AbortSignal.timeout(7000)});if(!r.ok)throw Error(sport+' HTTP '+r.status);const j=await r.json();return {sport,events:(Array.isArray(j.events)?j.events:[]).slice(0,30).map(e=>({id:String(e.id||''),name:String(e.name||'').slice(0,140),date:e.date||null,status:e.status?.type?.description||null,shortStatus:e.status?.type?.shortDetail||null,competitors:(e.competitions?.[0]?.competitors||[]).map(c=>({team:c.team?.displayName||null,score:c.score||null,homeAway:c.homeAway||null})),source:'ESPN public scoreboard'}))}}));const items=[],errors=[];outcomes.forEach((x,i)=>{if(x.status==='fulfilled')items.push(x.value);else errors.push({sport:Object.keys(scoreboardSources)[i],error:String(x.reason?.message||'Unavailable').slice(0,110)})});publicScoreboardCache={at:Date.now(),items,errors};return publicScoreboardCache};
@@ -310,6 +351,30 @@ const castPortraitIds={Bella:'410bd990-d7ca-4054-bf5b-ce862d249a8a',David:'fa2b8
 const castPortraitSources={"Bella":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_410bd990-d7ca-4054-bf5b-ce862d249a8a-cropped-oN4HLgVd5eT2COmZdxtMwsgZQdDVMA.png","David":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_fa2b8027-f776-4485-820f-a79cf8412b6f-cropped-qtUMonDvmS5os7wvqh7YjMzvpK2FIH.png","Cassidy":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_9bff6b0b-d649-4b28-ae1c-241ec7ebafe3-cropped-XYMeCkKkRbvExJQExd2bbDcGMdePdT.png","Roger":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_2a900f85-6f8e-4070-825e-07ac8a55b7c4-cropped-LK41dgeP8kL8ALR9NgGC4kVIO2FjT9.png","Sarah":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_2891de34-9f0c-4b47-a7f5-091844dda047-cropped-voGwxO4kJP933OJIXuF8uMse9axWLB.png","Adam Stone":"https://newgxnc1uqs0jnqm.public.blob.vercel-storage.com/avatar-previews/PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv/one-shot_PUHzIr1FTdih7EnH0pXlGzOeJp2D6XBv_65aba6fd-25a5-4ac7-a600-667f48ffb368-cropped-xODya2gxxk3AyEepC2xPDUeJpmfuzE.png"};
 const password=process.env.BOARDROOM_PASSWORD;if(!password||password.length<12)throw Error('BOARDROOM_PASSWORD must be at least 12 characters');
 const compare=(a,b)=>{const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)};
+
+const rosterAnamToolState={status:'pending',attached:[],errors:[]};
+async function provisionRosterAnamTool(){
+ if(!process.env.ANAM_API_KEY){rosterAnamToolState.status='NO_ANAM_KEY';return}
+ try{
+  const result=await apiAnam('GET','/tools?page=1&perPage=100');
+  const arr=Array.isArray(result.data)?result.data:Array.isArray(result.tools)?result.tools:Array.isArray(result)?result:null;
+  if(!arr)throw Error('LIST_MISSING');
+  let tool=arr.find(x=>x.name==='freddys_current_rosters_v10'&&x.type==='SERVER_WEBHOOK');
+  if(!tool)tool=await apiAnam('POST','/tools',{name:'freddys_current_rosters_v10',type:'SERVER_WEBHOOK',
+   description:'MANDATORY before discussing current teams, player rosters, transfers and trades across NBA NFL MLB NHL NCAAF NCAAB MLS UCL. Query by league and exact team name. Source is current ESPN public roster but not final league active list. If you only have a player name and no verified current roster source, say current club UNKNOWN, not a historical guess. Always mention as-of time. Do not equate roster listing to injury clearance, bookmaker identity, or a certified bet.',
+   config:{url:'https://v10-voice-boardroom-production.up.railway.app/api/public-roster-review',method:'GET',awaitResponse:true,parameters:{type:'object',properties:{league:{type:'string'},team:{type:'string'}},additionalProperties:false}}});
+  if(!tool?.id)throw Error('TOOL_ID_MISSING');
+  for(const [role,id] of Object.entries(anamPersonaIds)){if(!id)continue;try{
+   const persona=await apiAnam('GET','/personas/'+encodeURIComponent(id));
+   const prev=Array.isArray(persona.toolIds)?persona.toolIds:Array.isArray(persona.tools)?persona.tools.map(t=>t._toolId||t.id).filter(Boolean):null;
+   if(!prev)throw Error('CANNOT_PRESERVE_EXISTING_TOOLS');
+   if(!prev.includes(tool.id))await apiAnam('PUT','/personas/'+encodeURIComponent(id),{toolIds:[...prev,tool.id]});
+   rosterAnamToolState.attached.push(role);
+  }catch(e){rosterAnamToolState.errors.push(role+':'+String(e.message||e).slice(0,100))}}
+  rosterAnamToolState.status=rosterAnamToolState.errors.length?'PARTIAL':'CONNECTED';
+ }catch(e){rosterAnamToolState.status='FAILED';rosterAnamToolState.errors.push(String(e.message||e))}
+ console.log('PODCAST_ROSTER_TOOLS',JSON.stringify(rosterAnamToolState))
+}
 
 const liveScoreToolName='freddys_live_game_scores_v10';
 const liveScoreToolState={status:'pending',toolId:null,attached:[],errors:[],checkedAt:null};
@@ -2532,6 +2597,7 @@ if(req.method==='GET'&&pathname==='/healthz')return respond(res,200,{online:true
 if((req.method==='GET'||req.method==='POST')&&pathname==='/api/public-live-scores'){const feed=await loadPublicScoreboards();console.log('V10_LIVE_SCORE_REQUEST',JSON.stringify({method:req.method,leagues:feed.items.length,errors:feed.errors.length,at:new Date(feed.at).toISOString(),eventCount:feed.items.reduce((n,x)=>n+x.events.length,0)}));const sports=feed.items.map(x=>({sport:x.sport,events:x.events.slice(0,12).map(e=>({name:e.name,date:e.date,status:e.status,shortStatus:e.shortStatus,competitors:e.competitors}))}));return respond(res,200,{source:'ESPN public scoreboard',retrievedAt:new Date(feed.at).toISOString(),available:feed.items.length>0,leaguesResponding:feed.items.length,leagueErrors:feed.errors,sports,oddsAvailable:false,injuryFeedAvailable:false,championModelProbabilityAvailable:false,certifiedPicks:0,limit:'Game scores/schedules only. No authenticated sportsbook odds, player props, injuries or independently verified model probabilities.'})}
 if(req.method==='GET'&&pathname==='/api/cast-portrait'){const name=new URL(req.url,'http://localhost').searchParams.get('member')||'';const id=castPortraitIds[name];if(!id)return respond(res,404,{error:'UNKNOWN_CAST_MEMBER'});try{let upstream=await fetch('https://lab.anam.ai/api/avatars/'+id+'/image/landscape',{signal:AbortSignal.timeout(8500)});let mime=upstream.headers.get('content-type')||'';if(!upstream.ok||!/^image\/(png|jpeg|webp)/.test(mime)){upstream=await fetch(castPortraitSources[name],{signal:AbortSignal.timeout(8500)});mime=upstream.headers.get('content-type')||'';}if(!upstream.ok||!/^image\/(png|webp|jpeg)/.test(mime))return respond(res,502,{error:'CAST_PORTRAIT_NOT_AVAILABLE'});const bytes=Buffer.from(await upstream.arrayBuffer());if(bytes.length>4000000)return respond(res,502,{error:'CAST_PORTRAIT_TOO_LARGE'});res.writeHead(200,{'content-type':mime,'cache-control':'public, max-age=1800','x-content-type-options':'nosniff'});return res.end(bytes)}catch(e){console.warn('V10_CAST_PORTRAIT',name,String(e.message||e).slice(0,100));return respond(res,502,{error:'CAST_PORTRAIT_FETCH_FAILED'})}}
 
+if(req.method==='GET'&&pathname==='/api/public-roster-review'){const p=new URL(req.url,'http://localhost').searchParams;return respond(res,200,await podcastRoster(String(p.get('league')||'NBA').toUpperCase(),String(p.get('team')||'').slice(0,90)))}
 if(req.method==='GET'&&pathname==='/api/public-data-health')return respond(res,200,continuousFeedStatus());
 if(req.method==='GET'&&pathname==='/api/public-bookmaker-odds'){
  const p=new URL(req.url,'http://localhost').searchParams;
@@ -2607,13 +2673,14 @@ if(req.url==='/api/converse'&&req.method==='POST'){
  if(!people[request.speaker]||typeof request.question!=='string'||request.question.length>3000)return respond(res,400,{error:'INVALID_REQUEST'});
  const began=Date.now(),role=people[request.speaker][1];
  const greeting=/Freddy just called your name|say hello and confirm that you can respond/i.test(request.question) || /^(hello|hi|hey|yo|whats up|are you there)[!?. ]*$/i.test(request.question.trim());
- let live='No sports data requested for this greeting.',slate='No daily slate required.',model='Research evidence was not requested.',source='No market-source audit required.';
+ let roster='Roster source not requested.',live='No sports data requested for this greeting.',slate='No daily slate required.',model='Research evidence was not requested.',source='No market-source audit required.';
  if(!greeting){
   const results=await Promise.allSettled([liveScoreboardContext(),minimalDailyForModels(),modelBoardFor(),refreshV10Sources()]);
   live=results[0].status==='fulfilled'?results[0].value:'Score feed unavailable; do not infer scores';
   slate=results[1].status==='fulfilled'?results[1].value:'Daily slate unavailable';
   model=results[2].status==='fulfilled'?JSON.stringify(results[2].value).slice(0,2300):'Research data unavailable';
   source=results[3].status==='fulfilled'?JSON.stringify(results[3].value).slice(0,1300):'Source workflow status unavailable';
+  if(/\\b(roster|team|traded|trade|signed|plays for|play for|player|hornets|timberwolves|knicks)\\b/i.test(request.question))roster=await podcastRosterForSpeech(request.question);
  }
 
  let bookContext='No bookmaker quote requested.';
@@ -2636,7 +2703,7 @@ if(req.url==='/api/converse'&&req.method==='POST'){
   }catch(e){bookContext='Bookmaker feed temporarily unavailable. No live DK/FD lines may be quoted; HOLD.'}
  }
 
- const instructions='You are '+request.speaker+', '+role+', on the sports debate show “YOU TALKING TO ME” PODCAST, hosted by Freddy and powered by Freddy’s Picks AI V10. Preserve your exact analyst specialty and personality. Converse WITH Freddy and the other analysts, not at them: offer an evidence-based sports take, reply to prior speakers and respectfully debate a point when appropriate. Do not pretend you heard remarks not supplied in the question. Reply naturally to Freddy. Answer his exact question clearly in 1–4 conversational sentences. Do not invent odds, injury facts, verified Champion-001 probabilities, certified Sharp Edge bets or player prop markets. If discussing bets without authenticated prices and model-derived EV say HOLD. For a greeting, say a short friendly greeting and ask what to analyze. For sports questions use time-stamped source data only, and distinguish real ESPN scores/schedules from sportsbook odds. '+(greeting?'No sports data requested.':'SOURCE EVIDENCE: LIVE '+String(live).slice(0,4600)+' DAILY '+String(slate).slice(0,3300)+' RESEARCH '+model+' WORKFLOW STATUS '+source+' BOOKMAKER_EVIDENCE '+bookContext+' CHAMPION_001 is frozen; SOURCE BOOK ODDS are not certified model EV. Compare only identical selection/line, never invent unobserved DK or FD prices.');
+ const instructions='You are '+request.speaker+', '+role+', on the sports debate show “YOU TALKING TO ME” PODCAST, hosted by Freddy and powered by Freddy’s Picks AI V10. Preserve your exact analyst specialty and personality. Converse WITH Freddy and the other analysts, not at them: offer an evidence-based sports take, reply to prior speakers and respectfully debate a point when appropriate. Do not pretend you heard remarks not supplied in the question. Reply naturally to Freddy. Answer his exact question clearly in 1–4 conversational sentences. Do not invent odds, injury facts, verified Champion-001 probabilities, certified Sharp Edge bets or player prop markets. If discussing bets without authenticated prices and model-derived EV say HOLD. For a greeting, say a short friendly greeting and ask what to analyze. For sports questions use time-stamped source data only, and distinguish real ESPN scores/schedules from sportsbook odds. '+(greeting?'No sports data requested.':'ROSTER IDENTITY: Never assert current team membership without a retrieved current source showing the player on that team. Otherwise say unknown. ROSTER '+roster+' SOURCE EVIDENCE: LIVE '+String(live).slice(0,4600)+' DAILY '+String(slate).slice(0,3300)+' RESEARCH '+model+' WORKFLOW STATUS '+source+' BOOKMAKER_EVIDENCE '+bookContext+' CHAMPION_001 is frozen; SOURCE BOOK ODDS are not certified model EV. Compare only identical selection/line, never invent unobserved DK or FD prices.');
  const payload={model:process.env.OPENAI_MODEL||'gpt-4o-mini',max_tokens:170,messages:[{role:'system',content:instructions},{role:'user',content:request.question}]};
  let upstream;
  try{upstream=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+process.env.OPENAI_API_KEY,'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(22000)})}
@@ -2655,7 +2722,7 @@ server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
  console.log('V10_ODDS_PREFLIGHT_MATH_SELFTEST',JSON.stringify({plus150:oddsPreflightMath(150).breakEvenPercent,minus110:oddsPreflightMath(-110).breakEvenPercent,minus200:oddsPreflightMath(-200).breakEvenPercent,source:'USER_REPORTED_ONLY',certifiedEV:0}));
  launchContinuousFeed();
  void refreshV10Sources();
- void provisionLiveAnamTool().then(()=>provisionModelAnamTool()).then(()=>provisionDailyAnamTool()).then(()=>provisionSourceAnamTool()).then(()=>provisionSportsbookAnamTool());
+ void provisionLiveAnamTool().then(()=>provisionModelAnamTool()).then(()=>provisionDailyAnamTool()).then(()=>provisionSourceAnamTool()).then(()=>provisionSportsbookAnamTool()).then(()=>provisionRosterAnamTool());
  void dailySlateLoad().then(async board=>{console.log('V10_DAILY_SLATE_CHECK',JSON.stringify({date:board.dateEastern,leagues:board.leaguesReturned,count:board.gameCount,errors:board.errors}));const test=board.sports.find(x=>x.sport==='NBA')?.games.find(x=>x.teams.length===2);if(test){const form=await selectedGameForm(board.dateEastern,'NBA',test.id);console.log('V10_FORM_SMOKE',JSON.stringify({league:'NBA',gameId:test.id,teams:form.teams.map(x=>({name:x.team,status:x.status,last5:x.last5Record,last10:x.last10Record,error:x.error}))}))}}).catch(e=>console.error('V10_DAILY_SLATE_CHECK_ERROR',String(e.message||e).slice(0,130)));
  const slateRefresh=setInterval(()=>{void dailySlateLoad().catch(e=>console.warn('V10_DAILY_SLATE_REFRESH',String(e.message||e).slice(0,100)))},600000);slateRefresh.unref();
  void modelBoardFor().then(board=>console.log('V10_MODEL_REPORT_CHECK',JSON.stringify({status:board.status,leagues:Object.keys(board.models),errors:board.errors,graded:Object.fromEntries(Object.entries(board.models).map(([k,v])=>[k,v.gradedResearchGames]))}))).catch(e=>console.error('V10_MODEL_REPORT_ERROR',String(e.message||e).slice(0,180)));
