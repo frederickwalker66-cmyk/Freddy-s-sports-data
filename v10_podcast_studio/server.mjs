@@ -654,7 +654,7 @@ el('data-artifacts').onclick=refreshArtifacts;
 const refreshLiveScores=async()=>{const status=el('live-scores-status'),out=el('live-scores-results');status.textContent='Refreshing ESPN public scoreboards…';try{const r=await fetch('/api/live-scoreboards',{headers:{'x-boardroom-password':token},cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||r.status);window.v10ScoreboardSnapshot={retrievedAt:j.retrievedAt,leagues:j.sports?.length||0};status.textContent='ESPN scoreboard · '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding · Not betting odds';el('live-score-quick').textContent='ESPN public game scores/schedules updated '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding. Scores auto-refresh every 60 seconds. No DraftKings live odds, player-prop prices, or certified Champion-001 picks connected.';out.textContent=j.sports.map(s=>s.sport+' · '+s.events.length+' games\\n'+(s.events.length?s.events.map(e=>e.name+' | '+e.shortStatus+' | '+(e.competitors||[]).map(c=>c.team+': '+(c.score||'-')).join(' · ')).join('\\n'):'No events returned')).join('\\n\\n')+'\\n'+j.errors.map(e=>'Unavailable: '+e.sport+' '+e.error).join('\\n')}catch(e){status.textContent='Live scoreboard unavailable: '+e.message;el('live-score-quick').textContent='ESPN scoreboard unavailable: '+e.message+' · Betting feeds remain HOLD';out.textContent='No current scores verified.'}};el('live-scores-refresh').onclick=refreshLiveScores;let scoreboardAutoRefresh=null;const startScoreboardAutoRefresh=()=>{if(scoreboardAutoRefresh)return;scoreboardAutoRefresh=setInterval(()=>{if(token&&!document.hidden)void refreshLiveScores()},60000)};
 const refreshSportsData=async(scope='ALL')=>{const status=el('data-status'),results=el('data-results');status.textContent='Checking read-only certified picks feed…';results.textContent='HOLD · Awaiting verified data';try{const r=await fetch('/api/certified-picks',{headers:{'x-boardroom-password':token}});const d=await r.json();if(!r.ok){status.textContent='Certified model feed unavailable ('+(d.error||r.status)+')';results.textContent='HOLD · 0 certified predictions. Connect a verified read-only Champion-001 feed to populate the board. Research data cannot be substituted for native model probabilities.';return}const payload=d.data;const arr=Array.isArray(payload)?payload:Array.isArray(payload?.picks)?payload.picks:Array.isArray(payload?.predictions)?payload.predictions:null;const filtered=arr?arr.filter(x=>scope==='ALL'||String(x.sport||x.league||'').toUpperCase()===scope):null;status.textContent='Read-only feed received · V10 has NOT independently certified its contents';results.textContent=JSON.stringify(filtered??payload,null,2).slice(0,24000);if(filtered?.length===0)results.textContent='HOLD · No '+scope+' entries in configured feed.'}catch(e){status.textContent='Data connection error';results.textContent='HOLD · '+e.message}};
 for(const [id,scope] of [['data-refresh','ALL'],['data-nba','NBA'],['data-nfl','NFL'],['data-all','ALL']])el(id).onclick=()=>refreshSportsData(scope);
-window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}void refreshSportsData('ALL');try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
+window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','room-voice-names','room-name-send','room-everybody-talk','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}void refreshSportsData('ALL');try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
 window.v10CompleteUnlock=async(secret,d)=>{token=secret;window.__v10AnamPassword=()=>token;await initializeAuthenticatedStudio(d)};
 const clearTalking=()=>{document.querySelectorAll('.person').forEach(p=>p.classList.remove('talking'));cancelAnimationFrame(raf)};
 const browserSpeak=(speaker,message)=>{const synth=window.speechSynthesis;if(!synth||!window.SpeechSynthesisUtterance){say('Browser speech unavailable on this device');return}try{synth.cancel();const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=0.96;utterance.volume=1;const voices=synth.getVoices();const english=voices.filter(v=>v.lang?.toLowerCase().startsWith('en'));if(english.length)utterance.voice=english[Math.max(0,names.indexOf(speaker))%english.length];const active=[...document.querySelectorAll('.person')].find(p=>p.dataset.person===speaker);utterance.onstart=()=>active?.classList.add('talking');utterance.onend=clearTalking;utterance.onerror=()=>{clearTalking();say('Browser speech could not play')};synth.speak(utterance);say('Using device voice fallback for '+speaker)}catch(e){clearTalking();say('Browser speech unavailable: '+e.message)}};el('stop').onclick=()=>{controller?.abort();audio?.pause();clearTalking();window.speechSynthesis?.cancel();say('Interrupted')};
@@ -1006,7 +1006,7 @@ for(const button of document.querySelectorAll('[data-room-action]')){
  }
 }
 el('room-start-conversation').onclick=()=>{void window.v10UnlockStudioSound?.();if(!token)return;const prompt=el('question').value.trim()||'Welcome to Freddy’s Picks AI V10 podcast room. All six analysts introduce yourselves. Discuss today’s verified sports schedule and latest dated research model status; HOLD unverifiable betting markets.';void startPanel(prompt)};
-el('room-start-video').onclick=()=>{if(!token)return;void groupVideoStart.onclick()};el('room-host-mic').onclick=()=>{if(!token){el('room-now-speaking').textContent='SIGN IN TO USE YOUR MICROPHONE';return}el('room-now-speaking').textContent='🎤 LISTENING FOR YOUR QUESTION';el('mic').click();document.getElementById('podcast-room-scene')?.scrollIntoView({behavior:'smooth',block:'nearest'})};
+el('room-start-video').onclick=()=>{if(!token)return;void groupVideoStart.onclick()};el('room-host-mic').onclick=()=>{if(!token){el('room-now-speaking').textContent='SIGN IN TO USE YOUR MICROPHONE';return}el('room-voice-names').click();document.getElementById('podcast-room-scene')?.scrollIntoView({behavior:'smooth',block:'nearest'})};
 groupVideoStart.onclick=async()=>{
  if(!token){el('roundtable-status').textContent='Enter your private studio password first.';return}
  if(podcastRecording||roundtableActive){el('roundtable-status').textContent='A meeting is already active. Stop & save the current video before starting another.';return}
@@ -1026,6 +1026,130 @@ groupVideoStop.onclick=()=>{
  void window.v10StopLiveWall?.();
 };
 el('roundtable').onclick=()=>{void window.v10UnlockStudioSound?.();return startPanel(el('question').value.trim())};el('roundtable-reset').onclick=()=>{stopPanel();episodeHistory.length=0;podcastCaption='';podcastCaptionBy='';el('log').textContent='';el('question').value='';el('roundtable-status').textContent='New episode ready · previous discussion context cleared'};
+
+/* Name-call voice mode. Chrome SpeechRecognition needs a user tap and microphone permission.
+ * Handle one utterance at a time and pause recognition while a persona speaks to prevent feedback. */
+let nameListening=false,nameRecognition=null,nameSpeaking=false,nameMicErrors=0,nameSessionId=0;
+const nameStatus=el('name-command-status'),nameStart=el('room-voice-names'),nameStop=el('room-voice-stop');
+const namedPersonas=[
+ ['adam stone','Adam Stone'],['cassidy','Cassidy'],['bella','Bella'],
+ ['david','David'],['roger','Roger'],['sarah','Sarah'],['adam','Adam Stone']
+];
+const setNameStatus=message=>{nameStatus.textContent=message;el('room-now-speaking').textContent=message};
+const resolveNameCommand=utterance=>{
+ const text=String(utterance||'').trim().slice(0,600);
+ const lower=text.toLowerCase();
+ if(lower.includes('everyone')||lower.includes('everybody')||lower.includes('all six')||lower.includes('whole panel'))
+  return {speaker:'ALL',question:text.replace(/everyone|everybody|all six|whole panel/ig,'').trim()};
+ for(const [alias,speaker] of namedPersonas){
+  const at=lower.indexOf(alias);if(at<0)continue;
+  const left=at?lower[at-1]:' ',right=lower[at+alias.length]||' ';
+  if(' abcdefghijklmnopqrstuvwxyz'.includes(left)&&left!==' '||'abcdefghijklmnopqrstuvwxyz'.includes(right))continue;
+  let question=(text.slice(0,at)+' '+text.slice(at+alias.length)).trim();
+  question=question.replace(/^(hey|hi|yo|hello|ask|tell|talk to|can you|could you|please|go ahead|okay|ok) +/i,'').replace(/^[,.:!? ]+/,'').trim();
+  return {speaker,question,goLive:lower.includes('go live')||lower.includes('live camera')}
+ }
+ return {speaker:selected,question:text};
+};
+const answerOneName=async(speaker,question)=>{
+ stopPanel();highlight(speaker);
+ const actualQuestion=question&&question.trim()?question.trim():'Freddy just called your name. Say hello Freddy, respond naturally like a real podcast teammate, and ask what sports matchup he wants to discuss. One or two short sentences.';
+ const prompt='Freddy is talking directly to '+speaker+' in the shared six-person podcast studio. Please answer this spoken request naturally as '+speaker+', without a formal report. '+actualQuestion;
+ setNameStatus(speaker+' is listening to Freddy…');
+ window.v10SetPanelMode?.(true);
+ controller=new AbortController();
+ try{
+  const response=await fetch('/api/converse',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':token},body:JSON.stringify({speaker,question:prompt}),signal:controller.signal});
+  const data=await response.json();if(!response.ok)throw Error(data.category||data.error||'Analyst unavailable');
+  say('Freddy: '+(question||speaker));say(speaker+': '+data.reply);
+  el('room-transcript').textContent=speaker.toUpperCase()+': '+data.reply;
+  podcastCaptionBy=speaker;podcastCaption=data.reply;
+  setNameStatus('🎙️ '+speaker+' is speaking to Freddy');
+  await speakPanel(speaker,data.reply,controller.signal);
+  setNameStatus(speaker+' finished · call another name or ask a follow-up')
+ }catch(e){
+  if(e.name!=='AbortError')setNameStatus(speaker+' could not answer: '+String(e.message||e).slice(0,140))
+ }finally{window.v10SetPanelMode?.(false)}
+};
+const runNameCommand=async spoken=>{
+ if(!token){setNameStatus('Unlock your private podcast room first');return}
+ const cmd=resolveNameCommand(spoken);
+ if(cmd.speaker==='ALL'){
+  const q=cmd.question||'Freddy is here in the podcast room. Each of the six analysts greet him briefly, then begin a natural sports conversation using the verified game schedule and model evidence.';
+  setNameStatus('All six analysts are joining the podcast conversation…');
+  await startPanel(q);
+  return
+ }
+ if(cmd.goLive){
+  highlight(cmd.speaker);
+  setNameStatus('Connecting the live Anam camera for '+cmd.speaker+'…');
+  if(window.v10ActivateLiveCamera)await window.v10ActivateLiveCamera(cmd.speaker==='Adam Stone'?'Adam':cmd.speaker);
+  else setNameStatus('Anam video control has not finished loading; use the in-room camera button');
+  return
+ }
+ await answerOneName(cmd.speaker,cmd.question)
+};
+window.v10SpeakToName=name=>runNameCommand(name);
+window.v10RunVoiceCommand=runNameCommand;
+const endNameMic=()=>{
+ const mic=nameRecognition;nameRecognition=null;
+ if(mic)try{mic.abort()}catch{}
+};
+const updateMicUI=()=>{
+ nameStart.textContent=nameListening?'🎤 Listening enabled':'🎤 Voice Names';
+ nameStop.disabled=!nameListening
+};
+const listenForName=()=>{
+ if(!nameListening||nameSpeaking||nameRecognition||!token)return;
+ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Recognition){nameListening=false;updateMicUI();setNameStatus('Speech recognition unavailable. Type “Cassidy, ...” and tap Ask by name.');return}
+ const recognizer=new Recognition();nameRecognition=recognizer;
+ recognizer.lang='en-US';recognizer.continuous=false;recognizer.interimResults=false;recognizer.maxAlternatives=1;
+ const session=nameSessionId;let handled=false;
+ recognizer.onresult=event=>{
+  if(!nameListening||session!==nameSessionId||handled)return;
+  handled=true;nameSpeaking=true;
+  const utterance=String(event.results?.[0]?.[0]?.transcript||'').trim();
+  el('room-name-question').value=utterance;
+  setNameStatus('Freddy said: '+utterance);
+  Promise.resolve(runNameCommand(utterance)).catch(e=>setNameStatus('Name command failed: '+String(e.message||e))).finally(()=>{
+   nameSpeaking=false;
+   if(nameListening&&session===nameSessionId)window.setTimeout(listenForName,500)
+  })
+ };
+ recognizer.onerror=event=>{
+  if(session!==nameSessionId)return;
+  const why=String(event.error||'unknown');
+  if(why==='not-allowed'||why==='service-not-allowed'||why==='audio-capture'){
+   nameListening=false;nameSessionId++;updateMicUI();setNameStatus('Microphone permission or capture blocked: '+why+'. Use Ask by name or grant Chrome microphone permission.')
+  }else if(why==='no-speech')setNameStatus('No voice detected. Speak close to your phone, or tap Ask by name.');
+  else {nameMicErrors++;setNameStatus('Microphone: '+why+(nameMicErrors>2?' · Tap Voice Names to retry.':''));if(nameMicErrors>2){nameListening=false;updateMicUI()}}
+ };
+ recognizer.onend=()=>{
+  if(nameRecognition===recognizer)nameRecognition=null;
+  if(nameListening&&!nameSpeaking&&session===nameSessionId)window.setTimeout(listenForName,800)
+ };
+ try{recognizer.start();setNameStatus('🎤 Listening for Freddy · Say Bella, David, Cassidy, Roger, Sarah, Adam or Everybody')}
+ catch(e){nameRecognition=null;nameListening=false;updateMicUI();setNameStatus('Speech recognition could not start: '+String(e.message||e))}
+};
+nameStart.onclick=()=>{
+ if(!token){setNameStatus('Enter your studio password first');return}
+ if(nameListening){nameListening=false;nameSessionId++;endNameMic();updateMicUI();setNameStatus('Voice-name listening paused');return}
+ void window.v10UnlockStudioSound?.();
+ nameMicErrors=0;nameSessionId++;nameListening=true;updateMicUI();listenForName()
+};
+nameStop.onclick=()=>{nameListening=false;nameSessionId++;endNameMic();updateMicUI();setNameStatus('Voice-name mode stopped')};
+el('room-name-send').onclick=()=>{
+ const phrase=el('room-name-question').value.trim();
+ if(!phrase){setNameStatus('Type a name or question first');return}
+ void window.v10UnlockStudioSound?.();
+ const wasListening=nameListening;
+ if(wasListening){nameSpeaking=true;endNameMic()}
+ void runNameCommand(phrase).finally(()=>{nameSpeaking=false;if(wasListening&&nameListening)window.setTimeout(listenForName,500)})
+};
+el('room-name-question').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();el('room-name-send').click()}};
+el('room-everybody-talk').onclick=()=>{void window.v10UnlockStudioSound?.();void runNameCommand('Everybody, what verified games and model evidence should we discuss today?')};
+updateMicUI();
 window.v10HostMic=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){el('roundtable-status').textContent='Browser speech recognition unavailable; type your topic';return}stopPanel();panelMic=new SR();panelMic.lang='en-US';panelMic.interimResults=false;panelMic.onresult=e=>{const q=e.results[0][0].transcript;el('question').value=q;el('roundtable-status').textContent='Host: '+q;void startPanel(q)};panelMic.onerror=e=>{if(e.error!=='aborted')el('roundtable-status').textContent='Microphone: '+e.error};panelMic.start();el('roundtable-status').textContent='Listening to host · speech interrupts current panel'};
 el('mic').onclick=()=>{stopPanel();const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){say('Browser speech recognition unavailable');return}const sr=new SR();sr.lang='en-US';sr.onresult=e=>{el('question').value=e.results[0][0].transcript;el('ask').click()};sr.onerror=e=>say('Mic: '+e.error);sr.start()};
 
