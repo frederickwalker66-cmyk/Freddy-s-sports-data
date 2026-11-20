@@ -28,7 +28,7 @@ def analyze_margin_overlap(legs):
         if leg.get("market") not in ("moneyline", "point_spread"):
             continue
         side = leg.get("team_side")
-        if side is not None and side not in ("home", "away"):
+        if side is not None and (not isinstance(side, str) or side not in ("home", "away")):
             raise ValueError("invalid_team_side")
         if not isinstance(leg.get("event_id"), str) or not leg["event_id"].strip():
             raise ValueError("event_id_required")
