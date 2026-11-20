@@ -108,6 +108,60 @@ const selectedGameForm=async(date,sport,eventId)=>{
    certifiedEV:0,betReady:false,decision:'HOLD'}
 };
 
+
+/* Odds preflight: calculations on user-reported quotes only.
+ * No sportsbook authentication, no independently certified model p, no betting execution. */
+const americanImplied=price=>{
+ if(typeof price!=='number'||!Number.isInteger(price)||Math.abs(price)<100||Math.abs(price)>50000)return null;
+ return price>0?100/(price+100):(-price)/((-price)+100)
+};
+const oddsPreflightMath=(american,opposite)=>{
+ const probability=americanImplied(american),other=opposite==null?null:americanImplied(opposite);
+ if(probability==null||opposite!=null&&other==null)throw Error('INVALID_AMERICAN_ODDS');
+ return {americanOdds:american,breakEvenProbability:probability,breakEvenPercent:Math.round(probability*10000)/100,
+  opposingAmericanOdds:opposite==null?null:opposite,
+  pairedImpliedProbability:other,
+  pairedOverround:other==null?null:probability+other-1,
+  pairedNoVigProbability:other==null?null:probability/(probability+other),
+  sourceClass:'USER_REPORTED_NOT_VERIFIED',isChampion001ModelProbability:false}
+};
+const auditOddsPreflight=async raw=>{
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('INVALID_QUOTE_OBJECT');
+ const date=String(raw.date||''),sport=String(raw.sport||''),gameId=String(raw.gameId||'');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Object.hasOwn(scoreboardSources,sport)||!/^[a-zA-Z0-9_-]{1,36}$/.test(gameId))throw Error('INVALID_GAME_SCOPE');
+ if(Math.abs(Date.parse(date+'T12:00:00Z')-Date.parse(easternDate()+'T12:00:00Z'))/86400000>14)throw Error('OUT_OF_SUPPORTED_DATE_WINDOW');
+ const permitted=['moneyline','spread','total','player_points','player_rebounds','player_assists','player_combo'];
+ const market=String(raw.market||'');
+ if(!permitted.includes(market))throw Error('UNSUPPORTED_MARKET');
+ const selection=String(raw.selection||'').trim();
+ if(!selection||selection.length>110||/[<>{}\r\n]/.test(selection))throw Error('INVALID_SELECTION');
+ const requireLine=market!=='moneyline';
+ let line=null;
+ if(requireLine){if(typeof raw.line!=='number'||!Number.isFinite(raw.line)||Math.abs(raw.line)>1000)throw Error('MISSING_VALID_LINE');line=raw.line}
+ const americanOdds=raw.americanOdds,opposingOdds=raw.opposingOdds??null;
+ const calc=oddsPreflightMath(americanOdds,opposingOdds);
+ const sourceTime=typeof raw.observedAt==='string'&&raw.observedAt?Date.parse(raw.observedAt):NaN;
+ const ageSeconds=Number.isFinite(sourceTime)?Math.round((Date.now()-sourceTime)/1000):null;
+ const freshClaim=ageSeconds!=null&&ageSeconds>=0&&ageSeconds<=120;
+ const slate=await dailySlateLoad(date);
+ const game=slate.sports.find(x=>x.sport===sport)?.games.find(x=>x.id===gameId);
+ if(!game)throw Error('GAME_NOT_IN_VERIFIED_SCHEDULE');
+ const pregame=game.state==='pre'&&Number.isFinite(Date.parse(game.startUTC))&&Date.parse(game.startUTC)>Date.now();
+ return {
+  event:{dateEastern:date,sport,gameId,gameName:game.name,startUTC:game.startUTC,startEastern:game.startEastern,state:game.state,providerStatus:game.status},
+  observation:{market,selection,line,providerClaim:'DraftKings — self-reported; NOT authenticated',observedAt:raw.observedAt||null,ageSeconds,
+   sourceTimeWithin120Seconds: freshClaim,quoteVerifiedAtBook:false,eventIdentityVerifiedWithSportsbook:false,marketIdentityVerified:false,
+   mainLineVerified:false,oppositeSideMarketIdentityVerified:false},
+  arithmetic:{...calc,twoOutcomeMathApplicable:!(market==='moneyline'&&(sport==='MLS'||sport==='UCL')),
+   pairedNoVigProbability:market==='moneyline'&&(sport==='MLS'||sport==='UCL')?null:calc.pairedNoVigProbability,
+   pairedOverround:market==='moneyline'&&(sport==='MLS'||sport==='UCL')?null:calc.pairedOverround,
+   note:'Break-even uses reported American odds. Paired no-vig is illustrative only: both quotes and identical two-way market identity were NOT independently verified.'},
+  safeguards:{pregame,sourceFreshnessClaim:freshClaim,verifiedBookmakerPrice:false,verifiedChampion001ModelProbability:false,verifiedInjuries:false,verifiedPlayerPropSource:false,verifiedCorrelation:false},
+  certifiedModelProbability:null,expectedValue:null,expectedValuePercent:null,certifiedSharpEdge:false,betReady:false,decision:'HOLD',
+  summary:'Freddy, the arithmetic is valid for the user-reported price, but this is not authenticated live DraftKings odds, not a native Champion-001 probability, and not a certified bet. Do not promote to a two- or five-leg ticket.'
+ }
+};
+
 const minimalDailyForModels=async()=>{
  const slate=await dailySlateLoad();
  return JSON.stringify({date:slate.dateEastern,retrievedAt:slate.retrievedAt,leagues:slate.sports.map(x=>({sport:x.sport,events:x.games.map(g=>({id:g.id,name:g.name,when:g.startEastern,status:g.shortStatus})).slice(0,12),count:x.games.length})),errors:slate.errors,allFullEventsAvailableVia:'/api/daily-slate',limit:'Partial context only. Never infer unsupplied games, odds, prediction probabilities or injury facts.'}).slice(0,13500)
@@ -851,6 +905,11 @@ if(req.url==='/api/anam/session-token'&&req.method==='POST'){if(!process.env.ANA
 if(req.url==='/api/avatar-provider'&&req.method==='GET')return respond(res,200,{provider:'LiveAvatar',anamReady:!!(process.env.ANAM_API_KEY&&process.env.ANAM_ADAM_PERSONA_ID),mode:'LITE',configured:!!process.env.LIVEAVATAR_API_KEY,streamingEnabled:false,avatarIdsConfigured:Object.fromEntries(Object.keys(people).map(n=>[n,!!process.env['LIVEAVATAR_AVATAR_'+n.toUpperCase().replace(/[^A-Z0-9]/g,'_')]])),reason:'Real-time streaming requires provider credentials, six approved avatar IDs, and client WebRTC integration'});
 if(req.url==='/api/anam-session'&&req.method==='POST'){const request=await body(req).catch(()=>({}));const analyst=typeof request.analyst==='string'?request.analyst:'Adam';if(!Object.hasOwn(anamPersonaIds,analyst))return respond(res,400,{error:'UNKNOWN_ANALYST'});const selectedPersonaId=anamPersonaIds[analyst];if(!process.env.ANAM_API_KEY||!selectedPersonaId)return respond(res,503,{error:'ANAM_NOT_CONFIGURED'});try{const a=await fetch('https://api.anam.ai/v1/auth/session-token',{method:'POST',headers:{'authorization':'Bearer '+process.env.ANAM_API_KEY,'content-type':'application/json'},body:JSON.stringify({personaConfig:{personaId:selectedPersonaId}}),signal:AbortSignal.timeout(12000)});const j=await a.json().catch(()=>({}));if(!a.ok)return respond(res,502,{error:'ANAM_SESSION_FAILED',providerStatus:a.status});const sessionToken=j.sessionToken||j.session_token;if(!sessionToken)return respond(res,502,{error:'ANAM_TOKEN_MISSING'});return respond(res,200,{sessionToken})}catch{return respond(res,502,{error:'ANAM_UNREACHABLE'})}}
 
+
+if(req.method==='POST'&&pathname==='/api/odds-preflight'){
+ try{return respond(res,200,await auditOddsPreflight(await body(req)))}
+ catch(e){return respond(res,400,{error:'ODDS_PREFLIGHT_REJECTED',reason:String(e.message||e).slice(0,180),decision:'HOLD'})}
+}
 if(req.method==='GET'&&pathname==='/api/game-form'){
  const q=new URL(req.url,'http://localhost').searchParams,date=q.searchParams.get('date')||easternDate(),sport=q.searchParams.get('sport')||'',gameId=q.searchParams.get('gameId')||'';
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Object.hasOwn(scoreboardSources,sport)||!/^[0-9a-z_-]{1,36}$/i.test(gameId))return respond(res,400,{error:'INVALID_GAME_FORM_SCOPE'});
@@ -880,6 +939,7 @@ if(req.url==='/api/converse'&&req.method==='POST'){if(!process.env.OPENAI_API_KE
 if(req.url==='/api/voice'&&req.method==='POST'){if(!process.env.ELEVENLABS_API_KEY)return respond(res,503,{error:'ELEVENLABS_NOT_CONFIGURED'});const d=await body(req);if(!people[d.speaker]||typeof d.text!=='string'||d.text.length>2000)return respond(res,400,{error:'INVALID_REQUEST'});const v=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+people[d.speaker][0],{method:'POST',headers:{'xi-api-key':process.env.ELEVENLABS_API_KEY,'content-type':'application/json',accept:'audio/mpeg'},body:JSON.stringify({text:d.text,model_id:'eleven_multilingual_v2',voice_settings:{...voiceProfiles[d.speaker],use_speaker_boost:true}})});if(!v.ok){console.error('V10_VOICE_PROVIDER_FAILURE',JSON.stringify({status:v.status,speaker:d.speaker}));return respond(res,502,{error:'VOICE_PROVIDER_ERROR',providerStatus:v.status,category:v.status===401?'INVALID_ELEVENLABS_CREDENTIAL':v.status===429?'ELEVENLABS_QUOTA_OR_RATE_LIMIT':'ELEVENLABS_UPSTREAM_FAILURE'});}res.writeHead(200,{'content-type':'audio/mpeg','cache-control':'no-store'});return res.end(Buffer.from(await v.arrayBuffer()))}
 return respond(res,404,{error:'NOT_FOUND'})}catch(e){return respond(res,500,{error:'SERVER_ERROR'})}});
 server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
+ if(Math.abs(oddsPreflightMath(150).breakEvenProbability-0.4)>1e-12||Math.abs(oddsPreflightMath(-110).breakEvenProbability-110/210)>1e-12||Math.abs(oddsPreflightMath(-200).breakEvenProbability-2/3)>1e-12)throw Error('ODDS_PREFLIGHT_MATH_SELFTEST_FAILED');console.log('V10_ODDS_PREFLIGHT_MATH_SELFTEST',JSON.stringify({plus150:oddsPreflightMath(150).breakEvenPercent,minus110:oddsPreflightMath(-110).breakEvenPercent,minus200:oddsPreflightMath(-200).breakEvenPercent,source:'USER_REPORTED_ONLY',certifiedEV:0}));
  void provisionLiveAnamTool().then(()=>provisionModelAnamTool()).then(()=>provisionDailyAnamTool());
  void dailySlateLoad().then(async board=>{console.log('V10_DAILY_SLATE_CHECK',JSON.stringify({date:board.dateEastern,leagues:board.leaguesReturned,count:board.gameCount,errors:board.errors}));const test=board.sports.find(x=>x.sport==='NBA')?.games.find(x=>x.teams.length===2);if(test){const form=await selectedGameForm(board.dateEastern,'NBA',test.id);console.log('V10_FORM_SMOKE',JSON.stringify({league:'NBA',gameId:test.id,teams:form.teams.map(x=>({name:x.team,status:x.status,last5:x.last5Record,last10:x.last10Record,error:x.error}))}))}}).catch(e=>console.error('V10_DAILY_SLATE_CHECK_ERROR',String(e.message||e).slice(0,130)));
  const slateRefresh=setInterval(()=>{void dailySlateLoad().catch(e=>console.warn('V10_DAILY_SLATE_REFRESH',String(e.message||e).slice(0,100)))},600000);slateRefresh.unref();
