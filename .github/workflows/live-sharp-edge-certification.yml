@@ -1,0 +1,38 @@
+name: Sharp Edge — Live Certification Audit (fail closed)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 16-23,0-5 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/certify_sharp_edge.py'
+      - 'scripts/live_certified_predictions.py'
+      - 'tests/test_sharp_edge_certification.py'
+      - 'tests/test_live_certified_predictions.py'
+      - '.github/workflows/live-sharp-edge-certification.yml'
+permissions:
+  contents: read
+concurrency:
+  group: live-sharp-edge-certification
+  cancel-in-progress: false
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run independent evidence gate (no provider calls, no wagers)
+        env:
+          SHARP_MODEL_ATTESTATION_KEY: ${{ secrets.SHARP_MODEL_ATTESTATION_KEY }}
+          SHARP_ODDS_ATTESTATION_KEY: ${{ secrets.SHARP_ODDS_ATTESTATION_KEY }}
+        run: |
+          python -m unittest tests.test_sharp_edge_certification tests.test_live_certified_predictions -v
+          python -m scripts.live_certified_predictions
+          cat validation_output/live_certified_predictions.json
+      - name: Save certification results for downstream dashboards
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-sharp-edge-certification
+          path: validation_output/live_certified_predictions.json
+          retention-days: 7
