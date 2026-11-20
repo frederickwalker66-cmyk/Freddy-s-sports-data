@@ -369,6 +369,26 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      - name: Wait for GitHub artifact API to expose Pages package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Artifact upload can succeed before the run-artifacts API indexes it.
+          # Verify the exact current-run artifact, not one from another run.
+          for attempt in $(seq 1 12); do
+            if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+                --jq '[.artifacts[] | select(.name == "github-pages" and .expired == false)] | length' \
+                2>/dev/null | grep -qx '[1-9][0-9]*'; then
+              echo "GitHub Pages artifact visible in workflow-run API."
+              exit 0
+            fi
+            echo "Artifact metadata not indexed yet (attempt $attempt/12)."
+            sleep 5
+          done
+          echo "::error::Pages artifact is still unavailable from GitHub API."
+          exit 1
       - id: deployment
         name: Deploy verified static site to GitHub Pages
         uses: actions/deploy-pages@v4
