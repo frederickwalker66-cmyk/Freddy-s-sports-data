@@ -23,6 +23,7 @@ from v8_mixed_market_board import mixed_market_board
 from v8_sgo_research import audit_source_archive
 from research.sharp_edge_source_readiness import audit as audit_sharp_edge_source_readiness
 from research.universal_sharp_edge_board import build_universal_board
+from research.sharp_edge_certification_gap import assess as assess_sharp_edge_certification_gap
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -562,6 +563,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
     report["universal_sharp_edge_board"] = universal_board
     (out / "UNIVERSAL_SHARP_EDGE_BOARD.json").write_text(
         json.dumps(universal_board, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    certification_gap = assess_sharp_edge_certification_gap(report)
+    report["sharp_edge_certification_gap"] = certification_gap
+    (out / "SHARP_EDGE_CERTIFICATION_GAP.json").write_text(
+        json.dumps(certification_gap, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if command == "run_audit":
