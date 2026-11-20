@@ -708,7 +708,7 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--yt-gold);outline-of
  <div class="v10-podcast-brand" aria-label="You Talking To Me Podcast"><span class="v10-podcast-quoted">“YOU TALKING TO ME”</span><span class="v10-podcast-word">PODCAST</span><span class="v10-podcast-subtitle">FREDDY + SIX EXPERTS · NEW YORK SPORTS DEBATES · POWERED BY FREDDY’S PICKS AI V10</span></div><div class="yt-live-strip"><span id="yt-live-state" class="yt-live-state"><i class="yt-live-dot"></i><span id="yt-live-text">PRIVATE STUDIO · READY</span></span><span class="yt-live-data" id="yt-data-text">ESPN SPORTS · CONNECTING</span><span class="yt-live-data">NEW YORK · THE 914</span></div><div id="v10-cinematic" class="v10-cinematic"><img src="https://d2ol7oe51mr4n9.cloudfront.net/user_3BDJnFoSlMTlWgomPBXmbowr4TM/01c379c2-18bb-4f22-9c6a-d5f0817aa643.png" class="v10-boardroom-art" loading="eager" alt="Original Freddy's Picks AI V10 boardroom with all six analysts"><div class="v10-cinematic-hotspots"><button class="v10-hotspot" type="button" style="left:2%;top:30%;width:18%;height:42%" data-v10-speaker="Bella" aria-label="Select Bella"></button><button class="v10-hotspot" type="button" style="left:21%;top:30%;width:18%;height:42%" data-v10-speaker="David" aria-label="Select David"></button><button class="v10-hotspot" type="button" style="left:40%;top:30%;width:18%;height:42%" data-v10-speaker="Cassidy" aria-label="Select Cassidy"></button><button class="v10-hotspot" type="button" style="left:59%;top:30%;width:18%;height:42%" data-v10-speaker="Roger" aria-label="Select Roger"></button><button class="v10-hotspot" type="button" style="left:79%;top:16%;width:20%;height:28%" data-v10-speaker="Sarah" aria-label="Select Sarah"></button><button class="v10-hotspot" type="button" style="left:79%;top:45%;width:20%;height:29%" data-v10-speaker="Adam Stone" aria-label="Select Adam Stone"></button><button class="v10-hotspot" type="button" style="left:1.7%;top:86%;width:6.5%;height:13%" data-v10-topic="NBA" aria-label="Select NBA"></button><button class="v10-hotspot" type="button" style="left:9.12%;top:86%;width:6.5%;height:13%" data-v10-topic="NFL" aria-label="Select NFL"></button><button class="v10-hotspot" type="button" style="left:16.54%;top:86%;width:6.5%;height:13%" data-v10-topic="MLB" aria-label="Select MLB"></button><button class="v10-hotspot" type="button" style="left:23.959999999999997%;top:86%;width:6.5%;height:13%" data-v10-topic="NHL" aria-label="Select NHL"></button><button class="v10-hotspot" type="button" style="left:31.38%;top:86%;width:6.5%;height:13%" data-v10-topic="NCAAF" aria-label="Select NCAAF"></button><button class="v10-hotspot" type="button" style="left:38.800000000000004%;top:86%;width:6.5%;height:13%" data-v10-topic="NCAAB" aria-label="Select NCAAB"></button><button class="v10-hotspot" type="button" style="left:46.22%;top:86%;width:6.5%;height:13%" data-v10-topic="MLS" aria-label="Select MLS"></button><button class="v10-hotspot" type="button" style="left:53.64%;top:86%;width:6.5%;height:13%" data-v10-topic="UCL" aria-label="Select UCL"></button><button class="v10-hotspot" type="button" style="left:61.2%;top:86%;width:7.1%;height:13%" data-v10-topic="SHARP EDGE" aria-label="Select SHARP EDGE"></button><button class="v10-hotspot" type="button" style="left:68.8%;top:86%;width:7.1%;height:13%" data-v10-topic="BEST BETS" aria-label="Select BEST BETS"></button><button class="v10-hotspot" type="button" style="left:76.4%;top:86%;width:7.1%;height:13%" data-v10-topic="PLAYER PROPS" aria-label="Select PLAYER PROPS"></button><button class="v10-hotspot" type="button" style="left:84%;top:86%;width:7.1%;height:13%" data-v10-topic="PARLAYS" aria-label="Select PARLAYS"></button><button class="v10-hotspot" type="button" style="left:91.6%;top:86%;width:7.1%;height:13%" data-v10-topic="LIVE DATA" aria-label="Select LIVE DATA"></button></div><div id="v10-live-label" class="v10-live-label" aria-live="polite">● PRIVATE BOARDROOM · SAY AN ANALYST NAME</div></div><section class="yt-crew"><div class="yt-kicker"><b>MEET YOUR SPORTS CREW</b><span>Tap a name to start a conversation</span></div><div class="yt-crew-grid"><button type="button" data-yt-call="Bella"><span class="yt-crew-icon">🎙</span><span class="yt-crew-name">BELLA</span><span class="yt-crew-role">Host & moderator</span></button><button type="button" data-yt-call="David"><span class="yt-crew-icon">📊</span><span class="yt-crew-name">DAVID</span><span class="yt-crew-role">Stats & history</span></button><button type="button" data-yt-call="Cassidy"><span class="yt-crew-icon">🎯</span><span class="yt-crew-name">CASSIDY</span><span class="yt-crew-role">Sharp Edge & EV</span></button><button type="button" data-yt-call="Roger"><span class="yt-crew-icon">🎟</span><span class="yt-crew-name">ROGER</span><span class="yt-crew-role">Props & parlays</span></button><button type="button" data-yt-call="Sarah"><span class="yt-crew-icon">🛡</span><span class="yt-crew-name">SARAH</span><span class="yt-crew-role">Risk & injuries</span></button><button type="button" data-yt-call="Adam Stone"><span class="yt-crew-icon">⚙</span><span class="yt-crew-name">ADAM STONE</span><span class="yt-crew-role">Model & audit</span></button></div></section><div class="yt-fast-controls"><button type="button" id="yt-start-talk">🎙 TALK TO ALL SIX</button><button type="button" id="yt-start-live">📹 LIVE CAMERA</button><button type="button" id="yt-test-mic">🎤 TEST MICROPHONE</button><span id="yt-action-status" role="status">Unlock your private studio to start.</span></div><div id="v10-chair-test" style="margin:7px 0;padding:9px;display:flex;gap:7px;flex-wrap:wrap;align-items:center;background:#0c2345;border:1px solid #5f8ab8;border-radius:9px">
 <label for="v10-chair-select" style="font-size:12px">Live analyst in group picture</label>
 <select id="v10-chair-select" aria-label="Choose analyst to show in group picture" style="min-width:115px;padding:8px;background:#102b4d;color:white;border:1px solid #91b5df;border-radius:6px"><option value="Cassidy">Cassidy</option><option value="Adam">Adam Stone</option><option value="Bella">Bella</option><option value="David">David</option><option value="Roger">Roger</option><option value="Sarah">Sarah</option></select>
-<button type="button" id="v10-chair-test-start" style="padding:9px;background:#dfb36d;color:#071b38;border-radius:7px;font-weight:800">Test moving chair and voice</button>
+<button type="button" id="v10-chair-test-start" style="padding:9px;background:#dfb36d;color:#071b38;border-radius:7px;font-weight:800">Test moving chair and voice</button><button id="v10-live-push-talk" type="button" style="padding:10px 12px;background:#126e63;color:white;border:1px solid #7be9cc;border-radius:8px;font-weight:900">🎤 TAP &amp; SPEAK TO LIVE ANALYST</button><span id="v10-push-talk-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#b8e8dc">Start a live camera, then tap and speak. Chrome sends the recognized words to Anam; this control does not record audio.</span>
 <span id="v10-chair-test-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#e1ecfc">Unlock studio, then test an analyst. Only one live video can run at a time.</span><span id="v10-live-mic-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#ffda93">Microphone status: start a moving analyst and allow Chrome microphone access.</span>
 </div><div id="v10-data-health" role="status" aria-live="polite" style="margin:5px 0 8px;padding:9px 10px;border:1px solid #477bb8;border-radius:9px;background:#081b33;color:#dfedff;font-size:12px;line-height:1.45">Continuous eight-sport refresh monitor · sign in to view timestamps.</div><div id="v10-recovery-controls" aria-label="Boardroom controls" style="display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 10px;padding:8px;border:1px solid #5f8ab8;background:#0c2345;border-radius:10px">
 <button id="v10-enable-mic" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#e9bb70;color:#10233c;font-weight:800">🎙 Enable voice</button>
@@ -1721,14 +1721,18 @@ async function connect(n){
    client.addListener(sdk.AnamEvent.MIC_PERMISSION_GRANTED,()=>showLiveMic('Microphone permitted · connecting '+memberLabel(n)+'…'));
    client.addListener(sdk.AnamEvent.MIC_PERMISSION_DENIED,e=>showLiveMic('Microphone denied: '+String(e||'check Chrome site permissions').slice(0,100)));
    client.addListener(sdk.AnamEvent.INPUT_AUDIO_STREAM_STARTED,()=>showLiveMic('🎤 '+memberLabel(n)+' microphone active · speak naturally.'));
-   client.addListener(sdk.AnamEvent.USER_SPEECH_STARTED,()=>showLiveMic('🎤 '+memberLabel(n)+' hears you speaking…'));
+   client.addListener(sdk.AnamEvent.USER_SPEECH_STARTED,()=>{showLiveMic('🎤 ANAM SERVER DETECTED YOUR VOICE · '+memberLabel(n)+' is processing speech.');const st=document.getElementById('v10-push-talk-status');if(st)st.textContent='Anam received your microphone audio. Waiting for speech transcription.';});if(sdk.AnamEvent.USER_SPEECH_ENDED)client.addListener(sdk.AnamEvent.USER_SPEECH_ENDED,()=>showLiveMic('🎤 Anam detected the end of your speech. Waiting for recognized words…'));
    client.addListener(sdk.AnamEvent.MESSAGE_HISTORY_UPDATED,messages=>{
     if(!Array.isArray(messages))return;
-    const msg=messages[messages.length-1];
-    if(msg?.role!=='user'||!msg.id||heardIds.has(msg.id))return;
-    heardIds.add(msg.id);
-    const spoken=String(msg.content||'').trim();
-    showLiveMic('🎤 Heard: '+spoken.slice(0,120));
+    const msg=[...messages].reverse().find(x=>x?.role==='user');
+    if(!msg)return;
+    const identifier=String(msg.id||'');
+    if(identifier&&heardIds.has(identifier))return;
+    const spoken=typeof msg.content==='string'?msg.content:Array.isArray(msg.content)?msg.content.map(p=>p?.text||'').join(' '):'';
+    if(!String(spoken).trim())return;
+    if(identifier)heardIds.add(identifier);
+    showLiveMic('✅ ANAM RECOGNIZED YOUR WORDS: '+String(spoken).slice(0,130));
+    const st=document.getElementById('v10-push-talk-status');if(st)st.textContent='Anam transcript received: '+String(spoken).slice(0,180);
     const cmd=namedLiveCommand(spoken);
     if(!cmd||cmd.speaker===n)return;
     showLiveMic('Switching camera to '+memberLabel(cmd.speaker)+'…');
@@ -1758,7 +1762,7 @@ async function connect(n){
    if(!mirrored&&typeof target.captureStream==='function')try{mirrored=target.captureStream()}catch{}
    if(mirrored){wv.srcObject=mirrored;wv.muted=true;wv.style.display='block';if(pv)pv.style.display='none';void wv.play().catch(()=>{})}
   }else if(pv)pv.style.display='none';
-  busy.delete(n);setLiveState(n,true,'LIVE · original '+memberLabel(n)+' avatar');
+  busy.delete(n);setLiveState(n,true,'LIVE · original '+memberLabel(n)+' avatar');if(pushToTalkStatus)pushToTalkStatus.textContent='LIVE: '+memberLabel(n)+' · speak naturally, or tap 🎤 TAP & SPEAK to send your recognized question.';
   if(active.size===1)focused=n;
   spotlightHiddenByUser=false;if(focused===n)showBigFace(n);adjustFocus();return true
  }catch(e){
@@ -1780,7 +1784,7 @@ async function disconnect(n){
   if(video){try{video.pause()}catch{}video.srcObject=null;video.style.display='none'}
  }
  if(preview(n))preview(n).style.display='block';
- if(!active.size)showLiveMic('Microphone disconnected · select a chair to talk.');
+ if(!active.size){showLiveMic('Microphone disconnected · select a chair to talk.');if(pushToTalkSession)try{pushToTalkSession.abort()}catch{};if(pushToTalkStatus)pushToTalkStatus.textContent='Camera ended. Start a live analyst before talking.';}
  busy.delete(n);setLiveState(n,false,'PREVIEW · live session ended');
  if(focused===n){focused=active.keys().next().value||'Adam'}
  if(active.size)showBigFace(focused);else hideBigFace();adjustFocus()
@@ -1850,6 +1854,48 @@ if(chairTestButton)chairTestButton.onclick=async()=>{
  }catch(e){
   chairTestStatus.textContent=memberLabel(selected)+' camera or speech failed: '+String(e?.message||e).slice(0,165);
  }finally{chairTestButton.disabled=false}
+};
+
+const pushToTalkButton=document.getElementById('v10-live-push-talk');
+const pushToTalkStatus=document.getElementById('v10-push-talk-status');
+let pushToTalkSession=null;
+if(pushToTalkButton)pushToTalkButton.onclick=()=>{
+ if(pushToTalkSession)return;
+ if(!active.size){pushToTalkStatus.textContent='Start an Anam live camera first, then tap here and speak.';return}
+ const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Recognition){pushToTalkStatus.textContent='Chrome voice transcription not supported here. Type in Ask by name instead.';document.getElementById('room-name-question')?.focus();return}
+ const n=active.has(focused)?focused:[...active.keys()][0],client=active.get(n);
+ if(!client){pushToTalkStatus.textContent='Live camera disconnected. Reconnect and try again.';return}
+ window.v10HandsFreeStop?.();void window.v10UnlockStudioSound?.();unlockLiveAudio();
+ soundEnabled=true;adjustFocus();
+ const mic=new Recognition();pushToTalkSession=mic;pushToTalkButton.disabled=true;
+ mic.lang='en-US';mic.continuous=false;mic.interimResults=false;mic.maxAlternatives=1;
+ let recognized=false;
+ mic.onresult=e=>{
+  recognized=true;
+  const words=String(e.results?.[0]?.[0]?.transcript||'').trim();
+  if(!words){pushToTalkStatus.textContent='No words recognized. Retry or type in Ask by name.';return}
+  pushToTalkStatus.textContent='Chrome heard: '+words.slice(0,130)+' · delivering to '+memberLabel(n)+'…';
+  const current=active.get(n);
+  if(!current||typeof current.sendUserMessage!=='function'){pushToTalkStatus.textContent='Anam text entry unavailable. Use Ask by name instead.';return}
+  try{
+   Promise.resolve(current.sendUserMessage(words)).then(()=>{pushToTalkStatus.textContent='✅ Your question was sent to '+memberLabel(n)+': '+words.slice(0,155)+' · wait for their live answer.'}).catch(err=>{pushToTalkStatus.textContent='Question delivery failed: '+String(err.message||err).slice(0,130)});
+  }catch(err){pushToTalkStatus.textContent='Question delivery failed: '+String(err.message||err).slice(0,130)}
+ };
+ mic.onerror=e=>{
+  const reason=String(e.error||'unknown');recognized=true;
+  pushToTalkStatus.textContent=reason==='not-allowed'||reason==='service-not-allowed'?'Chrome blocked microphone access. Allow it in Site Settings.':reason==='no-speech'?'No voice detected. Try again closer to the microphone.':'Chrome recognition error: '+reason+' · type your question instead.';
+ };
+ mic.onend=()=>{
+  pushToTalkSession=null;pushToTalkButton.disabled=false;
+  if(!recognized)pushToTalkStatus.textContent='No transcript returned. Tap again or use Ask by name.';
+  if(active.has(n)&&typeof client.setInputAudioEnabled==='function')Promise.resolve(client.setInputAudioEnabled(true)).catch(()=>{});
+ };
+ try{
+  mic.start();
+  pushToTalkStatus.textContent='🎤 LISTENING · say your question to '+memberLabel(n)+' now.';
+  if(typeof client.setInputAudioEnabled==='function')Promise.resolve(client.setInputAudioEnabled(false)).catch(()=>{});
+ }catch(err){pushToTalkSession=null;pushToTalkButton.disabled=false;pushToTalkStatus.textContent='Unable to start Chrome speech recognition: '+String(err.message||err).slice(0,115)}
 };
 window.v10TalkLive=async(name,reply)=>{
  const n=name==='Adam Stone'?'Adam':name;
