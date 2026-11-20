@@ -481,7 +481,7 @@ const renderDailySelected=()=>{
   'COMBOS (P/R/A etc.): '+g.review.combos,
   'PREGAME PREDICTION: Champion-001 probability not independently authenticated.',
   'DECISION: HOLD · Insufficient evidence for a certified bet.'
- ].join('\n');
+ ].join('\\n');
  for(const b of el('daily-slate-games').querySelectorAll('[data-daily-index]'))b.classList.toggle('selected',Number(b.dataset.dailyIndex)===dailySelected);
  setDailyConsensus()
 };
