@@ -20,7 +20,7 @@ def test_untrusted_snapshot_never_certifies_take():
                   "candidates": [fixture_candidate()]})
     assert report["replacements"][0]["decision"] == "HOLD"\n    assert report["replacements"][0]["replacement"] is None\n    assert report["candidate_audit"][0]["decision"] == "HOLD"
     assert report["betting_status"] == "HOLD_UNTIL_FULL_TICKET_VERIFIED"
-    assert "NOT_LIVE" in report["source_status"]
+    assert report["source_status"] == "UNTRUSTED_SNAPSHOT_CERTIFICATION_BLOCKED"
 
 
 def test_unverified_snapshot_cannot_replace():
