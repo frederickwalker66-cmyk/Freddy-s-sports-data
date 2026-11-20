@@ -2,7 +2,7 @@
 Input CSV columns: game_id,player,opponent,tipoff_utc,observed_at_utc,
 line,actual_3pm,features_asof_utc,last5_hits,last10_hits,last5_games,last10_games,
 opponent_3pm_allowed_rank,player_3pm_rank,minutes_verified,injury_verified,
-odds_american,odds_timestamp,source,native_probability.
+odds_american,odds_timestamp,source,native_probability,model_asof_utc.
 Only pregame features and quotes are eligible. Never invent missing data.
 """
 import argparse
@@ -41,6 +41,14 @@ def backtest(rows):
             quote=dt(row["odds_timestamp"]) if row.get("odds_timestamp") else None
             if features_asof > observed or observed >= tip or (quote and quote > observed):
                 records.append({"game_id":row.get("game_id"),"player":row.get("player"),"status":"QUARANTINE_FUTURE_INFORMATION"});continue
+            if quote and not row.get("odds_american"):
+                raise ValueError("timestamp without sportsbook odds")
+            if row.get("native_probability") and not row.get("model_asof_utc"):
+                raise ValueError("model probability requires model as-of timestamp")
+            if row.get("model_asof_utc"):
+                model_asof=dt(row["model_asof_utc"])
+                if model_asof > observed or model_asof < features_asof:
+                    raise ValueError("model probability outside feature/prediction window")
             if row.get("odds_american") and not quote:
                 raise ValueError("odds require timestamp")
             if row.get("native_probability") and not row.get("odds_american"):
