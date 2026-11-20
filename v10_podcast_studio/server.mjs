@@ -654,7 +654,7 @@ body{padding:0;background:#040c1c}main{max-width:100%;padding:0 8px 14px}
 <label for="v10-chair-select" style="font-size:12px">Live analyst in group picture</label>
 <select id="v10-chair-select" aria-label="Choose analyst to show in group picture" style="min-width:115px;padding:8px;background:#102b4d;color:white;border:1px solid #91b5df;border-radius:6px"><option value="Cassidy">Cassidy</option><option value="Adam">Adam Stone</option><option value="Bella">Bella</option><option value="David">David</option><option value="Roger">Roger</option><option value="Sarah">Sarah</option></select>
 <button type="button" id="v10-chair-test-start" style="padding:9px;background:#dfb36d;color:#071b38;border-radius:7px;font-weight:800">Test moving chair and voice</button>
-<span id="v10-chair-test-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#e1ecfc">Unlock studio, then test an analyst. Only one live video can run at a time.</span>
+<span id="v10-chair-test-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#e1ecfc">Unlock studio, then test an analyst. Only one live video can run at a time.</span><span id="v10-live-mic-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#ffda93">Microphone status: start a moving analyst and allow Chrome microphone access.</span>
 </div><div id="v10-data-health" role="status" aria-live="polite" style="margin:5px 0 8px;padding:9px 10px;border:1px solid #477bb8;border-radius:9px;background:#081b33;color:#dfedff;font-size:12px;line-height:1.45">Continuous eight-sport refresh monitor · sign in to view timestamps.</div><div id="v10-recovery-controls" aria-label="Boardroom controls" style="display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 10px;padding:8px;border:1px solid #5f8ab8;background:#0c2345;border-radius:10px">
 <button id="v10-enable-mic" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#e9bb70;color:#10233c;font-weight:800">🎙 Enable voice</button>
 <button id="v10-test-persona" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#174a79;color:#fff">Test Cassidy</button>
@@ -1371,6 +1371,7 @@ const listenForName=()=>{
 };
 nameStart.onclick=()=>{
  if(!token){setNameStatus('Enter your studio password first');return}
+ if((window.v10LiveCameraCount?.()||0)>0){setNameStatus('Live Anam microphone is on. Call an analyst name to switch chairs.');return}
  if(nameListening){nameListening=false;nameSessionId++;endNameMic();updateMicUI();setNameStatus('Voice-name listening paused');return}
  void window.v10UnlockStudioSound?.();
  document.body.classList.remove('v10-microphone-help');nameMicErrors=0;nameSessionId++;nameListening=true;updateMicUI();listenForName()
@@ -1397,6 +1398,13 @@ el('mic').onclick=()=>{stopPanel();const SR=window.SpeechRecognition||window.web
 const liveNames=['Adam','Bella','David','Cassidy','Roger','Sarah'];
 const wall=document.getElementById('live-wall-grid');
 const active=new Map(),busy=new Set();
+const showLiveMic=text=>{const node=document.getElementById('v10-live-mic-status');if(node)node.textContent=text};
+const namedLiveCommand=text=>{
+ const m=/^(?:(?:hey|hi|yo|hello|okay|ok|please|switch to|ask|talk to|go to)\s+)*(adam stone|cassidy|bella|david|roger|sarah|adam)\b[\s,:!?-]*(.*)$/i.exec(String(text||'').trim());
+ if(!m)return null;
+ const name=m[1].toLowerCase();
+ return {speaker:name.startsWith('adam')?'Adam':name[0].toUpperCase()+name.slice(1),question:m[2].trim()};
+};
 let sdkPromise=null,planLimit=1,connectingAll=false,focused='Adam',moderatedPanel=false;
 const wallStatus=document.getElementById('live-wall-status'),
  startAll=document.getElementById('live-wall-start'),
@@ -1605,9 +1613,40 @@ async function connect(n){
   const r=await fetch('/api/anam-session',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':pass},body:JSON.stringify({analyst:n})});
   const d=await r.json();if(!r.ok)throw Error((d.error||'Session refused')+(d.providerStatus?' · provider HTTP '+d.providerStatus:''));
   const sdk=await(sdkPromise||=import('https://esm.sh/@anam-ai/js-sdk@latest'));
-  client=sdk.createClient(d.sessionToken,{disableInputAudio:true});
+  // The prior setting disabled all input microphone audio in Anam.
+  client=sdk.createClient(d.sessionToken,{disableInputAudio:false});
+  const heardIds=new Set();
+  if(sdk.AnamEvent&&typeof client.addListener==='function'){
+   client.addListener(sdk.AnamEvent.MIC_PERMISSION_PENDING,()=>showLiveMic('Allow Chrome microphone permission.'));
+   client.addListener(sdk.AnamEvent.MIC_PERMISSION_GRANTED,()=>showLiveMic('Microphone permitted · connecting '+memberLabel(n)+'…'));
+   client.addListener(sdk.AnamEvent.MIC_PERMISSION_DENIED,e=>showLiveMic('Microphone denied: '+String(e||'check Chrome site permissions').slice(0,100)));
+   client.addListener(sdk.AnamEvent.INPUT_AUDIO_STREAM_STARTED,()=>showLiveMic('🎤 '+memberLabel(n)+' microphone active · speak naturally.'));
+   client.addListener(sdk.AnamEvent.USER_SPEECH_STARTED,()=>showLiveMic('🎤 '+memberLabel(n)+' hears you speaking…'));
+   client.addListener(sdk.AnamEvent.MESSAGE_HISTORY_UPDATED,messages=>{
+    if(!Array.isArray(messages))return;
+    const msg=messages[messages.length-1];
+    if(msg?.role!=='user'||!msg.id||heardIds.has(msg.id))return;
+    heardIds.add(msg.id);
+    const spoken=String(msg.content||'').trim();
+    showLiveMic('🎤 Heard: '+spoken.slice(0,120));
+    const cmd=namedLiveCommand(spoken);
+    if(!cmd||cmd.speaker===n)return;
+    showLiveMic('Switching camera to '+memberLabel(cmd.speaker)+'…');
+    void ensureLiveCamera(cmd.speaker).then(()=>{
+     const next=active.get(cmd.speaker);
+     const question=cmd.question.replace(/^(?:go live|live camera|come live|join live)[.!? ]*/i,'').trim();
+     if(question&&next&&typeof next.sendUserMessage==='function')next.sendUserMessage(question);
+    }).catch(e=>showLiveMic('Switch failed: '+String(e?.message||e).slice(0,120)));
+   });
+  }
+  // Avoid competing browser SpeechRecognition and Anam microphone capture on Android.
+  window.v10HandsFreeStop?.();
   target.muted=true;
   await client.streamToVideoElement(target.id);
+  const mic=typeof client.getInputAudioState==='function'?client.getInputAudioState():null;
+  if(mic?.permissionState==='denied')showLiveMic('Mic permission denied · allow access in Chrome, then reconnect.');
+  else if(mic?.isMuted)showLiveMic('Anam mic muted · reconnect to retry.');
+  else showLiveMic('🎤 '+memberLabel(n)+' live microphone '+(mic?.permissionState==='granted'?'connected':'initializing')+'.');
   installLiveBoost(n);
   active.set(n,client);
   target.style.display='block';
@@ -1623,6 +1662,7 @@ async function connect(n){
  }catch(e){
   if(client)try{await client.stopStreaming()}catch{}
   busy.delete(n);active.delete(n);
+  showLiveMic('Camera or microphone failed: '+String(e?.message||e).slice(0,120));
   target.srcObject=null;target.style.display='none';
   setLiveState(n,false,'Camera unavailable: '+String(e.message||e));
   throw e
@@ -1638,6 +1678,7 @@ async function disconnect(n){
   if(video){try{video.pause()}catch{}video.srcObject=null;video.style.display='none'}
  }
  if(preview(n))preview(n).style.display='block';
+ if(!active.size)showLiveMic('Microphone disconnected · select a chair to talk.');
  busy.delete(n);setLiveState(n,false,'PREVIEW · live session ended');
  if(focused===n){focused=active.keys().next().value||'Adam'}
  if(active.size)showBigFace(focused);else hideBigFace();adjustFocus()
