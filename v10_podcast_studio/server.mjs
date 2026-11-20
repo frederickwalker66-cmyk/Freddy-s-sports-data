@@ -461,7 +461,7 @@ const provisionSourceAnamTool=async()=>{
    Never use ESPN moneylines, estimated odds, or a stale price as a verified DK/FD quote.
    Frozen Champion-001 EV certification is independent and remains HOLD. */
 const sportsbookLeagues=['NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL'];
-const sportsbookCache=new Map(),sportsbookCallTimes=[];
+const sportsbookCache=new Map(),sportsbookCallTimes=[],sportsbookDailyQuota={date:'',requests:0};
 const oddsProviderConfigured=()=>!!process.env.SPORTSGAMEODDS_API_KEY;
 const sportsbookOddsPrice=x=>{
  const text=String(x??'').trim();if(!/^[+-]?[0-9]{3,6}$/.test(text))return null;
@@ -527,14 +527,16 @@ const sportsbookLoad=async(league='NBA',cursor='')=>{
  if(!oddsProviderConfigured())return sportsbookEmpty(league,'NOT_CONNECTED','No authenticated licensed sportsbook odds credential is configured on this Railway service. ESPN scores do not contain DK / FanDuel markets.');
  const key=league+':'+cursor,now=Date.now(),cache=sportsbookCache.get(key);
  if(cache?.pending)return cache.pending;
- if(cache?.value&&now-cache.at<65000)return {...cache.value,cacheAgeSeconds:Math.floor((now-cache.at)/1000)};
+ if(cache?.value&&now-cache.at<300000)return {...cache.value,cacheAgeSeconds:Math.floor((now-cache.at)/1000)};
  sportsbookCallTimes.splice(0,sportsbookCallTimes.length,...sportsbookCallTimes.filter(t=>now-t<60000));
- if(sportsbookCallTimes.length>=8)return sportsbookEmpty(league,'RATE_LIMIT_PAUSE','Research API call limit reached. Wait one minute before refreshing. Existing verified lines are not replaced with guesses.');
- sportsbookCallTimes.push(now);
+ if(sportsbookCallTimes.length>=8)return sportsbookEmpty(league,'RATE_LIMIT_PAUSE','Short-term API safety limit reached. Wait one minute.');
+ const today=easternDate();if(sportsbookDailyQuota.date!==today){sportsbookDailyQuota.date=today;sportsbookDailyQuota.requests=0}
+ if(sportsbookDailyQuota.requests>=16)return sportsbookEmpty(league,'DAILY_SOURCE_CAP','The app has reached its default daily 16-call provider budget cap (up to five events per call). Live bookmaker requests are paused until the next Eastern date; this protects metered odds usage.');
+ sportsbookDailyQuota.requests++;sportsbookCallTimes.push(now);
  const pending=(async()=>{
   const url=new URL('https://api.sportsgameodds.com/v2/events');
   url.searchParams.set('leagueID',league);url.searchParams.set('bookmakerID','draftkings,fanduel');
-  url.searchParams.set('oddsAvailable','true');url.searchParams.set('limit','12');url.searchParams.set('includeOpposingOdds','true');
+  url.searchParams.set('oddsAvailable','true');url.searchParams.set('limit','5');url.searchParams.set('includeOpposingOdds','true');
   url.searchParams.set('startsAfter',new Date(now-2*3600e3).toISOString());
   url.searchParams.set('startsBefore',new Date(now+48*3600e3).toISOString());
   if(cursor)url.searchParams.set('cursor',cursor);
@@ -547,7 +549,7 @@ const sportsbookLoad=async(league='NBA',cursor='')=>{
   const checkedAt=new Date().toISOString(),normalized=sportsbookNormalize(data.data,league,checkedAt);
   return {source:'SportsGameOdds v2 · DraftKings / FanDuel',league,checkedAt,status:normalized.quotedSelections>0?'SOURCE_QUOTES_RETURNED':'NO_AVAILABLE_QUOTES',
    providerAuthenticated:true,books:['DraftKings','FanDuel'],...normalized,nextCursor:typeof data.nextCursor==='string'?data.nextCursor:null,
-   allPagesLoaded:!data.nextCursor,cacheTtlSeconds:65,certifiedChampion001Probability:false,certifiedSharpEdgeEV:false,decision:'HOLD',
+   allPagesLoaded:!data.nextCursor,cacheTtlSeconds:300,certifiedChampion001Probability:false,certifiedSharpEdgeEV:false,decision:'HOLD',
    detail:'Bookmaker-reported prices only. CURRENT means timestamp within 120 seconds. RECENT means 2–10 minutes. Missing, stale, unavailable or unmatched lines are not certifiable. A better sportsbook price is not a predictive edge.'};
  })();
  sportsbookCache.set(key,{pending,at:now});
@@ -1159,7 +1161,7 @@ const renderBookmakerBoard=()=>{
  if(!visible)bookmakerUI.results.append(bookmakerNode('p','No '+category+' markets returned for this league on this source page. Other markets or future games may be available; no lines have been invented.'));
  bookmakerUI.summary.textContent='Source checked '+bookmakerCurrentTime(j.checkedAt)+' · '+j.games.length+' event(s) on this page · '+visible+' shown selections · '+(j.quotedSelections||0)+' total DK/FD quotes · '+stale+' stale quote(s) · Champion-001 EV: HOLD';
  bookmakerUI.next.hidden=!j.nextCursor;
- bookmakerUI.next.textContent='VIEW NEXT SOURCE PAGE · 12 EVENTS PER PAGE';
+ bookmakerUI.next.textContent='VIEW NEXT SOURCE PAGE · UP TO 5 EVENTS PER REQUEST';
 };
 const refreshBookmakerOdds=async(cursor='')=>{
  if(bookmakerBusy||!token)return;
@@ -1188,7 +1190,7 @@ bookmakerUI.refresh.onclick=()=>void refreshBookmakerOdds();
 bookmakerUI.league.onchange=()=>{bookmakerBoard=null;bookmakerUI.pill.textContent='REFRESHING';bookmakerUI.results.textContent='Switching to '+bookmakerUI.league.value+'…';void refreshBookmakerOdds()};
 bookmakerUI.filter.onchange=()=>renderBookmakerBoard();
 bookmakerUI.next.onclick=()=>{if(bookmakerBoard?.nextCursor)void refreshBookmakerOdds(bookmakerBoard.nextCursor)};
-const startBookmakerRefresh=()=>{if(bookmakerAutoTimer)return;bookmakerAutoTimer=setInterval(()=>{if(bookmakerConfigured&&token&&!document.hidden)void refreshBookmakerOdds()},90000)};
+const startBookmakerRefresh=()=>{if(bookmakerAutoTimer)return;bookmakerAutoTimer=setInterval(()=>{const box=el('bookmaker-odds'),rect=box?.getBoundingClientRect();if(bookmakerConfigured&&token&&!document.hidden&&rect&&rect.bottom>0&&rect.top<window.innerHeight)void refreshBookmakerOdds()},90000)};
 
 const refreshLiveScores=async()=>{const status=el('live-scores-status'),out=el('live-scores-results');status.textContent='Refreshing ESPN public scoreboards…';try{const r=await fetch('/api/live-scoreboards',{headers:{'x-boardroom-password':token},cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||r.status);window.v10ScoreboardSnapshot={retrievedAt:j.retrievedAt,leagues:j.sports?.length||0};status.textContent='ESPN scoreboard · '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding · Not betting odds';el('live-score-quick').textContent='ESPN public game scores/schedules updated '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding. Scores auto-refresh every 60 seconds. No DraftKings live odds, player-prop prices, or certified Champion-001 picks connected.';out.textContent=j.sports.map(s=>s.sport+' · '+s.events.length+' games\\n'+(s.events.length?s.events.map(e=>e.name+' | '+e.shortStatus+' | '+(e.competitors||[]).map(c=>c.team+': '+(c.score||'-')).join(' · ')).join('\\n'):'No events returned')).join('\\n\\n')+'\\n'+j.errors.map(e=>'Unavailable: '+e.sport+' '+e.error).join('\\n')}catch(e){status.textContent='Live scoreboard unavailable: '+e.message;el('live-score-quick').textContent='ESPN scoreboard unavailable: '+e.message+' · Betting feeds remain HOLD';out.textContent='No current scores verified.'}};el('live-scores-refresh').onclick=refreshLiveScores;let scoreboardAutoRefresh=null;const startScoreboardAutoRefresh=()=>{if(scoreboardAutoRefresh)return;scoreboardAutoRefresh=setInterval(()=>{if(token&&!document.hidden)void refreshLiveScores()},60000)};
 const refreshSportsData=async(scope='ALL')=>{const status=el('data-status'),results=el('data-results');status.textContent='Checking read-only certified picks feed…';results.textContent='HOLD · Awaiting verified data';try{const r=await fetch('/api/certified-picks',{headers:{'x-boardroom-password':token}});const d=await r.json();if(!r.ok){status.textContent='Certified model feed unavailable ('+(d.error||r.status)+')';results.textContent='HOLD · 0 certified predictions. Connect a verified read-only Champion-001 feed to populate the board. Research data cannot be substituted for native model probabilities.';return}const payload=d.data;const arr=Array.isArray(payload)?payload:Array.isArray(payload?.picks)?payload.picks:Array.isArray(payload?.predictions)?payload.predictions:null;const filtered=arr?arr.filter(x=>scope==='ALL'||String(x.sport||x.league||'').toUpperCase()===scope):null;status.textContent='Read-only feed received · V10 has NOT independently certified its contents';results.textContent=JSON.stringify(filtered??payload,null,2).slice(0,24000);if(filtered?.length===0)results.textContent='HOLD · No '+scope+' entries in configured feed.'}catch(e){status.textContent='Data connection error';results.textContent='HOLD · '+e.message}};
