@@ -276,8 +276,15 @@ jobs:
               summary.write(f"- Verified checkout prices: {r['market']['verified_checkout_prices']}\n")
               if not r['games']:
                   summary.write("- **ATTENTION:** Primary games list empty; inspect public_hourly_board and upstream source coverage.\n")
-              if r.get('live_source_status') != 'FRESH_PUBLIC_SCOREBOARD':
-                  summary.write("- **ATTENTION:** Live scoreboard source is not confirmed fresh; no live-data claim.\n")
+              if r.get('live_source_status') != 'SOURCE_OBSERVED':
+                  summary.write("- **ATTENTION:** Dedicated NBA live artifact is stale or absent; public hourly observations may still contain current games.\n")
+              if not r.get('public_hourly_board'):
+                  summary.write("- **ATTENTION:** No public hourly game observations available.\n")
+              else:
+                  counts = {lg: len(v.get('games', [])) for lg, v in r['public_hourly_board'].items() if isinstance(v, dict)}
+                  summary.write(f"- Public hourly games by league: {counts}\n")
+              if r['market'].get('price_evidence_state') != 'RECENT_AGGREGATOR_REFERENCE_ONLY_NO_CHECKOUT':
+                  summary.write(f"- **HOLD:** Market evidence state: {r['market'].get('price_evidence_state', 'UNKNOWN')}\n")
           PY
       - name: Commit research-only dashboard data to main for GitHub Pages
         shell: bash
