@@ -45,7 +45,7 @@ def evaluate(c: ThreePointCandidate) -> dict:
     # Research filter only: independent certified model and data quality gates are required.
     decision = "HOLD"
     if market_ready and evidence_ready and p is not None and ev is not None:
-        decision = "TAKE" if ev > 0 and historical_90 else "PASS"
+        decision = "LEAN" if ev > 0 and historical_90 else "PASS"
     return dict(player=c.player, opponent=c.opponent, line=c.line,
                 last5_rate=rate5, last10_rate=rate10, historical_90=historical_90,
                 defense_top10=defense_match, shooter_top10=shooter_match,
