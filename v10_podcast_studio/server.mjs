@@ -33,14 +33,14 @@ const dailySlateLoad=async(date=easternDate())=>{
    const games=payload.events.map(event=>{
     const id=String(event.id||'').slice(0,36);
     const contest=event.competitions?.[0]||{};
-    const teams=(contest.competitors||[]).map(x=>({team:String(x.team?.displayName||'Unknown').slice(0,110),abbreviation:String(x.team?.abbreviation||'').slice(0,12),score:x.score==null?null:String(x.score).slice(0,12),homeAway:x.homeAway||null,record:x.records?.[0]?.summary||null}));
+    const teams=(contest.competitors||[]).map(x=>({team:String(x.team?.displayName||'Unknown').slice(0,110),abbreviation:String(x.team?.abbreviation||'').slice(0,12),score:x.score==null?null:String(x.score).slice(0,12),homeAway:x.homeAway||null,record:x.records?.[0]?.summary||null,teamId:String(x.team?.id||'').slice(0,24)}));
     const utc=event.date||contest.date||null;
-    const status=String(event.status?.type?.description||'Scheduled').slice(0,90);
-    return{id,sport,name:String(event.name||'').slice(0,180),startUTC:utc,startEastern:easternClock(utc),dateEastern:utc&&Number.isFinite(Date.parse(utc))?easternDate(new Date(utc)):null,status,shortStatus:String(event.status?.type?.shortDetail||'').slice(0,90),completed:!!event.status?.type?.completed,teams,neutralSite:!!contest.neutralSite,
+    const status=String(event.status?.type?.description||'Scheduled').slice(0,90);const state=String(event.status?.type?.state||'pre').slice(0,20);
+    return{id,sport,name:String(event.name||'').slice(0,180),startUTC:utc,startEastern:easternClock(utc),dateEastern:utc&&Number.isFinite(Date.parse(utc))?easternDate(new Date(utc)):null,status,shortStatus:String(event.status?.type?.shortDetail||'').slice(0,90),state,completed:!!event.status?.type?.completed,teams,neutralSite:!!contest.neutralSite,
       review:{reviewed:'SCHEDULE_AND_SCORE_ONLY',moneyline:'HOLD: sportsbook price and certified probability required',spread:'HOLD: line and certified probability required',total:'HOLD: total price and certified probability required',playerProps:'HOLD: verified player/game props, stats and injuries required',combos:'HOLD: correlation and joint probability unverified',calibratedChampionModel:false,betReady:false}};
-   }).filter(x=>x.id&&!seen.has(x.id)&&seen.add(x.id));
+   }).filter(x=>x.id&&x.dateEastern===date&&!seen.has(x.id)&&seen.add(x.id));
    games.sort((a,b)=>(Date.parse(a.startUTC)||0)-(Date.parse(b.startUTC)||0)||a.id.localeCompare(b.id));
-   return {sport,games,returnedCount:payload.events.length,possibleTruncation:payload.events.length>=500,coverage:'ESPN date-filtered scoreboard with limit=500'+((sport==='NCAAF'||sport==='NCAAB')?' and Division I groups=50':''),source:'ESPN public scoreboard'}
+   return {sport,games,returnedCount:payload.events.length,excludedOutsideEasternDate:payload.events.length-games.length,possibleTruncation:payload.events.length>=500,coverage:'ESPN date-filtered scoreboard with limit=500'+((sport==='NCAAF'||sport==='NCAAB')?' and Division I groups=50':''),source:'ESPN public scoreboard'}
   }));
   const sports=[],errors=[];
   results.forEach((r,i)=>{if(r.status==='fulfilled')sports.push(r.value);else errors.push({sport:Object.keys(scoreboardSources)[i],error:String(r.reason?.message||'feed unavailable').slice(0,170)})});
@@ -48,10 +48,10 @@ const dailySlateLoad=async(date=easternDate())=>{
   const board={dateEastern:date,timezone:'America/New_York',retrievedAt:new Date().toISOString(),source:'ESPN public scoreboards: schedules and scores, not sportsbook odds',
     leaguesRequested:8,leaguesReturned:sports.length,gameCount:games.length,sports,errors,
     potentiallyIncomplete:sports.filter(x=>x.possibleTruncation).map(x=>x.sport),verifiedBookmakerPrices:0,certifiedChampionProbabilities:0,
-    perGameReviewComplete:games.length,perGameDecisions:{HOLD:games.length,PLAY:0},
+    perGameScheduleInspected:games.length,individualAnalystDebatesCompleted:0,perGameDecisions:{HOLD:games.length,PLAY:0},
     status:errors.length?'PARTIAL_COVERAGE':'SCHEDULES_RETRIEVED',
     consensus:{twoLeg:{status:'NO_PLAY',certifiedLegs:[],required:2},fiveLeg:{status:'NO_PLAY',certifiedLegs:[],required:5},reason:'No authenticated DraftKings prices, independently certified Champion-001 probabilities, timestamped injury/prop market verification, or parlay joint probability. Never fabricate or force legs.'},
-    note:'ESPN is not a sportsbook, may delay/cap returned event coverage, and does not validate EV. College Division I uses groups=50. This scan audits every event returned, not an assertion that ESPN includes all league fixtures.'};
+    note:'ESPN is not a sportsbook, may delay/cap returned event coverage, and does not validate EV. College Division I uses groups=50. Only fixtures whose scheduled start falls on the selected Eastern date appear. This is a schedule/market-readiness check for every returned game, not independent player-form analysis, verified prices, or a claim that ESPN covers every fixture.'};
   dailySlateCache.set(date,{at:Date.now(),data:board});
   for(const [key,val] of dailySlateCache)if(key!==date&&Date.now()-val.at>3600000)dailySlateCache.delete(key);
   console.log('V10_DAILY_SLATE',JSON.stringify({date,leagues:board.leaguesReturned,games:board.gameCount,errors:board.errors,truncation:board.potentiallyIncomplete}));
