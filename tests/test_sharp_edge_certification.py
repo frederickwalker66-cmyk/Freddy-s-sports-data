@@ -28,7 +28,7 @@ class SharpEdgeCertificationTests(unittest.TestCase):
         self.assertTrue(report["certified"])
 
     def test_negative_ev_passes(self):
-        report = evaluate(self.candidate(price=1.5), model_key="m"*40, odds_key="o"*40)
+        report = evaluate(self.candidate(price=1.5), model_key="m"*40, odds_key="o"*40, approved_model_versions=("challenger-validated-v1",))
         self.assertEqual(report["decision"], "PASS")
 
     def test_tampered_odds_holds(self):
