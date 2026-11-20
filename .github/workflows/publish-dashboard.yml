@@ -267,6 +267,17 @@ jobs:
           assert len(r['public_hourly_board'])==8
           assert all(g['market_reference'] is None or g['market_reference']['direct_checkout_verified'] is False for sport in r['public_hourly_board'].values() for g in sport['games'])
           print("Dashboard public snapshot verified: "+str(p))
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write("\n## Dashboard operational data quality\n")
+              summary.write(f"- Snapshot generated: {r.get('generated_at_utc', 'unknown')}\n")
+              summary.write(f"- Primary games: {len(r['games'])}\n")
+              summary.write(f"- Live source: {r.get('live_source_status', 'unknown')}\n")
+              summary.write(f"- Certified positive-EV selections: {r['market']['certified_positive_ev']}\n")
+              summary.write(f"- Verified checkout prices: {r['market']['verified_checkout_prices']}\n")
+              if not r['games']:
+                  summary.write("- **ATTENTION:** Primary games list empty; inspect public_hourly_board and upstream source coverage.\n")
+              if r.get('live_source_status') != 'FRESH_PUBLIC_SCOREBOARD':
+                  summary.write("- **ATTENTION:** Live scoreboard source is not confirmed fresh; no live-data claim.\n")
           PY
       - name: Commit research-only dashboard data to main for GitHub Pages
         shell: bash
