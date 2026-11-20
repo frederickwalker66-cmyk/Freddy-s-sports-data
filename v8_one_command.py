@@ -24,6 +24,7 @@ from v8_sgo_research import audit_source_archive
 from research.sharp_edge_source_readiness import audit as audit_sharp_edge_source_readiness
 from research.universal_sharp_edge_board import build_universal_board
 from research.sharp_edge_certification_gap import assess as assess_sharp_edge_certification_gap
+from research.pregame_five_gate import run as run_pregame_five_gate
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -586,6 +587,7 @@ def main(argv=None):
     p.add_argument("--days", type=int, default=None)
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
+    p.add_argument("--pregame-input", help="Optional local pregame five-gate snapshot JSON (untrusted, HOLD-only)")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--sgo-archive-dir", help="Downloaded existing SportsGameOdds run artifacts; no API calls")
     p.add_argument("--season-archive-dir", help="Saved season scoreboard and player boxscore artifacts; no source redating")
@@ -688,6 +690,21 @@ def main(argv=None):
                      calibration_file=args.calibration_file,
                      nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file},
                      season_archive_dir=args.season_archive_dir)
+    if args.pregame_input:
+        pregame_path = Path(args.pregame_input)
+        if not pregame_path.is_file() or pregame_path.is_symlink():
+            raise ValueError("pregame_input_must_be_existing_regular_file")
+        if pregame_path.stat().st_size > 2_000_000:
+            raise ValueError("pregame_input_too_large")
+        snapshot = json.loads(pregame_path.read_text(encoding="utf-8"))
+        pregame = run_pregame_five_gate(snapshot)
+        output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(pregame, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        report["pregame_five_gate"] = pregame
+        main_report_path = Path(args.output_dir) / "ONE_COMMAND_REPORT.json"
+        if main_report_path.is_file():
+            main_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"command": requested_user_command,
                       "leagues": report["requested_leagues"],
                       "research_edges": len(report.get("research_edge_candidates", [])),
