@@ -1273,7 +1273,7 @@ el('v10-test-persona').onclick=async()=>{
  recoveryStatus.textContent='Testing Cassidy: requesting a short analyst reply…';
  const resumed=nameListening;
  if(resumed){nameSpeaking=true;endNameMic()}
- try{await runNameCommand('Cassidy, say hello and confirm that you can respond. Do not give betting picks.');recoveryStatus.textContent='Cassidy test finished. If no audio played, tap Hear reply to hear the last text response.'}
+ try{await runNameCommand('Cassidy');recoveryStatus.textContent='Cassidy test finished. If no audio played, tap Hear reply to hear the last text response.'}
  catch(e){recoveryStatus.textContent='Cassidy test failed: '+String(e.message||e).slice(0,140)}
  finally{nameSpeaking=false;if(resumed&&nameListening)window.setTimeout(listenForName,600)}
 };
@@ -1701,7 +1701,7 @@ if(req.url==='/api/converse'&&req.method==='POST'){
  const request=await body(req);
  if(!people[request.speaker]||typeof request.question!=='string'||request.question.length>3000)return respond(res,400,{error:'INVALID_REQUEST'});
  const began=Date.now(),role=people[request.speaker][1];
- const greeting=/Freddy just called your name|^\\s*(hello|hi|hey|yo|what.s up|are you there)[!?.\\s]*$/i.test(request.question);
+ const greeting=/Freddy just called your name|say hello and confirm that you can respond/i.test(request.question) || /^(hello|hi|hey|yo|whats up|are you there)[!?. ]*$/i.test(request.question.trim());
  let live='No sports data requested for this greeting.',slate='No daily slate required.',model='Research evidence was not requested.',source='No market-source audit required.';
  if(!greeting){
   const results=await Promise.allSettled([liveScoreboardContext(),minimalDailyForModels(),modelBoardFor(),refreshV10Sources()]);
