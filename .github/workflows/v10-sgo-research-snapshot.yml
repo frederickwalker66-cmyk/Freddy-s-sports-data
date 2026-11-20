@@ -61,13 +61,13 @@ jobs:
                   for book in ('draftkings','fanduel'):
                       b=(odd.get('byBookmaker') or {}).get(book)
                       if not isinstance(b,dict) or b.get('available') is not True:continue
-                      books[book]={k:b[k] for k in ('available','odds','spread','overUnder','lastUpdatedAt','deeplink') if k in b}
+                      books[book]={k:b[k] for k in ('available','odds','spread','overUnder','lastUpdatedAt') if k in b}
                   if not books:continue
                   row={k:odd[k] for k in ('oddID','marketName','statID','statEntityID','periodID','betTypeID','sideID','cancelled','ended','bookOddsAvailable') if k in odd}
                   row['byBookmaker']=books
                   if row.get('statEntityID') in ('home','away','all') and row.get('statID')=='points':main.append(row)
                   else:props.append(row)
-              chosen=(main[:35]+props[:115])[:150]
+              chosen=(main[:18]+props[:35])[:53]
               slim={k:ev.get(k) for k in ('eventID','leagueID')}
               slim['teams']={t:{'names':{'long':str((((ev.get('teams') or {}).get(t) or {}).get('names') or {}).get('long') or 'Unknown')[:100]}} for t in ('home','away')}
               status=ev.get('status') or {}
@@ -76,7 +76,7 @@ jobs:
               events.append(slim)
           payload={'schemaVersion':2,'runId':int(os.environ['GITHUB_RUN_ID']),'fetchedAt':now.isoformat(),'league':league,'events':events}
           raw=json.dumps(payload,separators=(',',':'),ensure_ascii=False).encode('utf-8')
-          if len(raw)>280000:raise SystemExit('Source payload unexpectedly large; no unverified data sent')
+          if len(raw)>280000:raise SystemExit('Snapshot exceeded 280KB safety cap after pruning; no unverified data sent')
           # Get a one-use, GitHub-signed OIDC identity for this specific workflow.
           # The source API key is NOT included in the token or in the uploaded market snapshot.
           oidc_url=os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
