@@ -33,6 +33,16 @@ jobs:
           rid=os.environ["HISTORICAL_RUN_ID"]
           assert rid.isascii() and rid.isdigit() and len(rid) <= 20, "Invalid run ID"
           PY
+      - name: Verify source run and artifact provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HISTORICAL_RUN_ID: ${{ inputs.historical_run_id }}
+        run: |
+          set -euo pipefail
+          status="$(gh run view "$HISTORICAL_RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion --jq '.conclusion')"
+          workflow="$(gh run view "$HISTORICAL_RUN_ID" --repo "$GITHUB_REPOSITORY" --json workflowName --jq '.workflowName')"
+          test "$status" = "success"
+          test "$workflow" = "Challenger-001 capped eight-league historical results (research only)"
       - name: Download actual archived NBA player boxes
         env:
           GH_TOKEN: ${{ github.token }}
