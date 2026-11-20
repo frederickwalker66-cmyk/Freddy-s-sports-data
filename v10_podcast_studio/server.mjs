@@ -517,6 +517,10 @@ body{padding:0;background:#040c1c}main{max-width:100%;padding:0 8px 14px}
 .podcast-room-scene>.podcast-room-neon,.podcast-room-scene>.podcast-room-backwall,.podcast-room-scene>.podcast-room-set,.podcast-room-scene>.room-master-audio{display:none!important}
 .podcast-room-scene>.room-name-control{margin:6px 0!important;padding:9px!important}
 .podcast-room-scene>.room-name-control .name-control-actions,.podcast-room-scene>.room-name-control .name-command-hint{display:none!important}
+.v10-microphone-help .podcast-room-scene>.room-name-control .name-control-actions{display:flex!important}
+.v10-microphone-help #room-voice-stop,.v10-microphone-help #room-everybody-talk{display:none!important}
+.v10-microphone-help #room-voice-names{display:block!important;background:#eac07a;color:#08192d;font-size:12px}
+
 .v10-hero.is-unlocked .v10-eyebrow,.v10-hero.is-unlocked h1,.v10-hero.is-unlocked>p:not(#status){display:none!important}
 .v10-hero.is-unlocked{padding:5px 12px!important;margin-bottom:3px!important}
 .v10-hero.is-unlocked #status{font-size:12px!important;margin:0!important}
@@ -1141,7 +1145,7 @@ const listenForName=()=>{
   if(session!==nameSessionId)return;
   const why=String(event.error||'unknown');
   if(why==='not-allowed'||why==='service-not-allowed'||why==='audio-capture'){
-   nameListening=false;nameSessionId++;updateMicUI();setNameStatus('Microphone permission or capture blocked: '+why+'. Use Ask by name or grant Chrome microphone permission.')
+   nameListening=false;nameSessionId++;document.body.classList.add('v10-microphone-help');updateMicUI();setNameStatus('Microphone permission required. Tap Enable microphone once, or type an analyst name below.')
   }else if(why==='no-speech')setNameStatus('No voice detected. Speak close to your phone, or tap Ask by name.');
   else {nameMicErrors++;setNameStatus('Microphone: '+why+(nameMicErrors>2?' · Tap Voice Names to retry.':''));if(nameMicErrors>2){nameListening=false;updateMicUI()}}
  };
@@ -1149,14 +1153,14 @@ const listenForName=()=>{
   if(nameRecognition===recognizer)nameRecognition=null;
   if(nameListening&&!nameSpeaking&&session===nameSessionId)window.setTimeout(listenForName,800)
  };
- try{recognizer.start();setNameStatus('🎤 Listening for Freddy · Say Bella, David, Cassidy, Roger, Sarah, Adam or Everybody')}
- catch(e){nameRecognition=null;nameListening=false;updateMicUI();setNameStatus('Speech recognition could not start: '+String(e.message||e))}
+ try{recognizer.start();document.body.classList.remove('v10-microphone-help');setNameStatus('🎤 Listening · Say Bella, David, Cassidy, Roger, Sarah, Adam or Everybody')}
+ catch(e){nameRecognition=null;nameListening=false;document.body.classList.add('v10-microphone-help');updateMicUI();setNameStatus('Chrome may need a microphone tap. Tap Enable microphone once: '+String(e.message||e))}
 };
 nameStart.onclick=()=>{
  if(!token){setNameStatus('Enter your studio password first');return}
  if(nameListening){nameListening=false;nameSessionId++;endNameMic();updateMicUI();setNameStatus('Voice-name listening paused');return}
  void window.v10UnlockStudioSound?.();
- nameMicErrors=0;nameSessionId++;nameListening=true;updateMicUI();listenForName()
+ document.body.classList.remove('v10-microphone-help');nameMicErrors=0;nameSessionId++;nameListening=true;updateMicUI();listenForName()
 };
 nameStop.onclick=()=>{nameListening=false;nameSessionId++;endNameMic();updateMicUI();setNameStatus('Voice-name mode stopped')};
 el('room-name-send').onclick=()=>{
