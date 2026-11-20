@@ -6,7 +6,7 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-20T20:09:06.349570+00:00",
+  "generated_at_utc": "2026-11-20T21:55:28.738990+00:00",
   "graded_research_games": 15,
   "last_synchronization": {
     "due_forecast_rows_checked": 0,
@@ -14,13 +14,13 @@
     "new_ESPN_binary_research_outcomes": 0,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 0,
-    "original_source_receipt_files_saved": 0
+    "new_original_forecasts": 3,
+    "original_source_receipt_files_saved": 11
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
-  "original_saved_forecasts": 29,
-  "pending_48h": 14,
+  "original_saved_forecasts": 32,
+  "pending_48h": 17,
   "published_NFL_ties_excluded": 0,
   "research_model_scorecards_including_insufficient_samples": [
     {
@@ -37,7 +37,7 @@
   ],
   "research_ranked_models_after_50": [],
   "source_research_receipts": {
-    "first_unique_event_forecasts_accepted": 29,
+    "first_unique_event_forecasts_accepted": 32,
     "independently_certified_predictions": 0,
     "league": "nfl",
     "original_completed_github_run_ids": [
@@ -53,12 +53,13 @@
       44224434376,
       44411521007,
       44441013723,
-      44656883772
+      44656883772,
+      44808576597
     ],
     "source_exclusions": {
-      "later_forecast_ignored": 124
+      "later_forecast_ignored": 137
     },
-    "source_forward_rows_loaded": 153
+    "source_forward_rows_loaded": 169
   },
   "sport": "nfl",
   "status": "HOLD_Fewer_than_50_research_forward_grades_per_model",
