@@ -80,15 +80,17 @@ const fetchTeamForm=async(sport,team,cutoffUTC)=>{
    const contest=event.competitions?.[0]||{},teams=contest.competitors||[],self=teams.find(c=>String(c.team?.id||'')===team.teamId),opp=teams.find(c=>String(c.team?.id||'')!==team.teamId);
    const utc=event.date||contest.date||null,when=Date.parse(utc||'');
    if(!self||!opp||!Number.isFinite(when)||when>=Date.parse(cutoffUTC||''))return null;
-   const finished=event.status?.type?.completed===true||event.status?.type?.state==='post';
+   const type=event.status?.type||contest.status?.type||{};
+   const finished=type.completed===true||type.state==='post'||type.name==='STATUS_FINAL'||event.status?.completed===true;
    if(!finished)return null;
-   const selfScore=Number(self.score),oppScore=Number(opp.score);
+   const valueOfScore=c=>c.score&&typeof c.score==='object'?(c.score.value??c.score.displayValue):c.score;
+   const selfScore=Number(valueOfScore(self)),oppScore=Number(valueOfScore(opp));
    const haveScores=self.score!=null&&opp.score!=null&&Number.isFinite(selfScore)&&Number.isFinite(oppScore);
    const outcome=typeof self.winner==='boolean'?(self.winner?'W':haveScores&&selfScore===oppScore?'T':'L'):haveScores?(selfScore>oppScore?'W':selfScore<oppScore?'L':'T'):null;
    if(!outcome)return null;
    return {dateUTC:utc,dateEastern:easternDate(new Date(when)),opponent:String(opp.team?.displayName||'Unknown').slice(0,90),homeAway:String(self.homeAway||'').slice(0,12),result:outcome,teamScore:haveScores?selfScore:null,opponentScore:haveScores?oppScore:null,eventId:String(event.id||'').slice(0,36)}
   }).filter(Boolean).sort((a,b)=>Date.parse(b.dateUTC)-Date.parse(a.dateUTC));
-  if(!games.length)console.log('V10_TEAM_FORM_EMPTY',JSON.stringify({sport,teamId:team.teamId,season,returned:payload.events.length,sample:payload.events.slice(0,2).map(e=>({date:e.date,id:e.id,completed:e.status?.type?.completed,state:e.status?.type?.state,ids:(e.competitions?.[0]?.competitors||[]).map(c=>c.team?.id),scores:(e.competitions?.[0]?.competitors||[]).map(c=>c.score)}))}));
+  if(!games.length)console.log('V10_TEAM_FORM_EMPTY',JSON.stringify({sport,teamId:team.teamId,season,returned:payload.events.length,sample:payload.events.slice(0,2).map(e=>({date:e.date,id:e.id,completed:e.status?.type?.completed??e.competitions?.[0]?.status?.type?.completed,state:e.status?.type?.state??e.competitions?.[0]?.status?.type?.state,statusKeys:Object.keys(e.status||{}),competitionStatusKeys:Object.keys(e.competitions?.[0]?.status||{}),ids:(e.competitions?.[0]?.competitors||[]).map(c=>c.team?.id),scores:(e.competitions?.[0]?.competitors||[]).map(c=>c.score)}))}));
  const count=(arr)=>({games:arr.length,wins:arr.filter(x=>x.result==='W').length,losses:arr.filter(x=>x.result==='L').length,ties:arr.filter(x=>x.result==='T').length});
   const report={team:team.team,teamId:team.teamId,source:'ESPN public team season schedule',fetchedAt:new Date().toISOString(),status:games.length?'AVAILABLE':'NO_COMPLETED_GAMES_RETURNED',
    last5:games.slice(0,5),last10:games.slice(0,10),last5Record:count(games.slice(0,5)),last10Record:count(games.slice(0,10)),
