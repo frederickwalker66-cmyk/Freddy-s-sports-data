@@ -53,6 +53,10 @@ def rolling_features(rows, threshold=1.5):
           "certification":"UNCERTIFIED_RESEARCH_ONLY"})
         history[key[1]].append((t,r["threes_made"]))
     return {"player_game_rows":len(features),"quarantined_rows":len(quarantined),
+            "unique_games":len({x["event_id"] for x in features}),
+            "unique_players":len({x["player_id"] for x in features}),
+            "rows_with_full_last10":sum(x["last10_games"]==10 for x in features),
+            "rows_with_incomplete_last10":sum(x["last10_games"]<10 for x in features),
             "historical_90_rows":sum(x["historical_90"] for x in features),
             "certified_bets":0,"rows":features,"quarantine":quarantined}
 
