@@ -15,12 +15,14 @@ def fixture_candidate(**changes):
     return base
 
 
-def test_adapter_take_only_and_report_hold():
+def test_untrusted_snapshot_never_certifies_take():
     report = run({"original": [{"selection_id": "bad", "decision": "PASS"}],
                   "candidates": [fixture_candidate()]})
-    assert report["replacements"][0]["decision"] == "TAKE"
+    assert report["replacements"][0]["decision"] == "HOLD"
+    assert report["replacements"][0]["replacement"] is None
+    assert report["candidate_audit"][0]["decision"] == "HOLD"
     assert report["betting_status"] == "HOLD_UNTIL_FULL_TICKET_VERIFIED"
-    assert "NOT_LIVE" in report["source_status"]
+    assert report["source_status"] == "UNTRUSTED_SNAPSHOT_CERTIFICATION_BLOCKED"
 
 
 def test_unverified_snapshot_cannot_replace():
@@ -45,3 +47,11 @@ def test_string_verified_flag_rejected():
 def test_no_snapshot_candidates_means_no_replacement():
     report = run({"original": [{"selection_id": "bad", "decision": "PASS"}], "candidates": []})
     assert report["board"][0]["decision"] == "HOLD"
+
+
+def test_self_attested_source_cannot_override_gate():
+    report = run({"original": [{"selection_id": "bad", "decision": "PASS"}],
+                  "candidates": [fixture_candidate(model_verified=True, odds_verified=True)],
+                  "source_status": "AUTHENTICATED", "certified": True})
+    assert report["replacements"][0]["decision"] == "HOLD"
+    assert report["source_status"] == "UNTRUSTED_SNAPSHOT_CERTIFICATION_BLOCKED"

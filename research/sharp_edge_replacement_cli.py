@@ -50,9 +50,13 @@ def run(snapshot):
     if any(not isinstance(x, dict) or "selection_id" not in x or "decision" not in x for x in original):
         raise ValueError("Each original leg needs selection_id and decision")
     candidates = [candidate_from_json(item) for item in snapshot["candidates"]]
-    result = replace_passes(original, candidates)
-    result["candidate_audit"] = [evaluate(c) for c in candidates]
-    result["source_status"] = "SUPPLIED_SNAPSHOT_ONLY_NOT_LIVE_VERIFIED"
+    # JSON flags are caller assertions, not independently authenticated evidence.
+    # Never let an untrusted snapshot promote a candidate to TAKE.
+    untrusted_candidates = [Candidate(**{**c.__dict__, "model_verified": False,
+                                        "odds_verified": False}) for c in candidates]
+    result = replace_passes(original, untrusted_candidates)
+    result["candidate_audit"] = [evaluate(c) for c in untrusted_candidates]
+    result["source_status"] = "UNTRUSTED_SNAPSHOT_CERTIFICATION_BLOCKED"
     result["certification_note"] = ("Input verification flags are assertions from the supplied snapshot; "
                                     "this adapter does not independently authenticate model, sportsbook, or injury data.")
     return result
