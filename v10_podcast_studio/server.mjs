@@ -385,7 +385,7 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
   <label for="daily-slate-date">Eastern date</label><input id="daily-slate-date" type="date" aria-label="Sports slate date">
   <button id="daily-slate-today" type="button">Today</button>
   <button id="daily-slate-refresh" type="button">Refresh all 8 sports</button>
-  <button id="daily-slate-review-all" type="button">Analyze every game, one by one</button>
+  <button id="daily-slate-review-all" type="button">Audit full day's game evidence</button>
  </div>
  <div id="daily-slate-counts" class="daily-slate-counts">Waiting for verified schedules</div>
  <div class="daily-slate-grid">
@@ -556,7 +556,7 @@ const formatDailyForm=data=>{
   for(const g of (t.last5||[]))entries.push('  '+g.dateEastern+' vs '+g.opponent+' · '+g.result+' '+(g.teamScore==null?'score unavailable':g.teamScore+'–'+g.opponentScore));
  }
  entries.push('Research-only form; no betting probabilities, injuries, live quotes or certified positive EV.');
- return entries.join('\n')
+ return entries.join('\\n')
 };
 const displayDailyForm=()=>{
  const game=dailyGames[dailySelected],root=el('daily-game-form-result'),st=el('daily-game-form-status');
@@ -661,15 +661,17 @@ const auditEntireDailySlate=async()=>{
     await new Promise(resolve=>setTimeout(resolve,0));
    }
   }
-  el('daily-slate-counts').textContent+=' · Completed schedule and bet-readiness review for all '+dailyGames.length+' returned games. '+missingSchedule+' games have missing core schedule fields. Zero certified sportsbook selections.';
+  el('daily-slate-counts').textContent+=' · Completed source completeness and market-readiness checks for all '+dailyGames.length+' returned games. Individual team-form and expert discussions require separate review. '+missingSchedule+' games have missing core schedule fields. Zero certified sportsbook selections.';
   setDailyConsensus();
  }finally{dailyScanActive=false;el('daily-slate-review-all').disabled=false}
 };
-const discussSelectedDailyGame=()=>{
+const discussSelectedDailyGame=async()=>{
  if(!token){el('daily-slate-health').textContent='Sign in to join a conversation';return}
  const g=dailyGames[dailySelected];if(!g){el('daily-slate-health').textContent='No game selected';return}
  dailyReviewed.add(g.sport+':'+g.id);renderDailySelected();
- const question='Freddy wants the full six-analyst panel to discuss one scheduled game: '+g.sport+' '+g.name+' (event '+g.id+'), '+g.startEastern+', verified ESPN status '+g.shortStatus+', teams/scores '+g.teams.map(x=>x.team+' '+(x.score??'N/A')).join(' vs ')+'. One analyst at a time: Bella coordination; David schedule, form and missing last-5/10; Cassidy strict price/probability/EV certification; Roger cautious moneyline, spread, total, props/combo/parlay review; Sarah correlation, bankroll and injuries; Adam source audit. Speak to Freddy like a friend, respond to one another naturally, and ask clarifying follow-ups where useful. We have NO verified DraftKings market prices or native Champion-001 probabilities. Do not invent a pick, a percentage or sportsbook quotation; HOLD until verifiable.';
+ const form=await loadSelectedDailyForm();
+ const formContext=form?JSON.stringify({fetchedAt:form.verifiedAt,source:form.source,teams:(form.teams||[]).map(t=>({team:t.team,status:t.status,last5Record:t.last5Record,last10Record:t.last10Record,last5:t.last5,error:t.error}))}).slice(0,3400):'Team form was unavailable; do not infer last 5/10 results.';
+ const question='Freddy wants the full six-analyst panel to discuss one scheduled game: '+g.sport+' '+g.name+' (event '+g.id+'), '+g.startEastern+', verified ESPN status '+g.shortStatus+', teams/scores '+g.teams.map(x=>x.team+' '+(x.score??'N/A')).join(' vs ')+'. One analyst at a time: Bella coordination; David schedule, form and missing last-5/10; Cassidy strict price/probability/EV certification; Roger cautious moneyline, spread, total, props/combo/parlay review; Sarah correlation, bankroll and injuries; Adam source audit. Speak to Freddy like a friend, respond to one another naturally, and ask clarifying follow-ups where useful. Historical team form evidence (when available) from ESPN: '+formContext+'. These descriptive last-5/last-10 team results are not model win probabilities, player prop projections or injury status. We have NO verified DraftKings market prices or native Champion-001 probabilities. Do not invent a pick, a percentage or sportsbook quotation; HOLD until verifiable.';
  void startPanel(question)
 };
 const debateDailyParlay=async(legs)=>{
