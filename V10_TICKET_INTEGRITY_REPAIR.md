@@ -7,17 +7,17 @@ bets, infer a win rate from losing tickets, make wagers, or change Champion-001.
 ## Joint winning-margin check
 
 If a same-event ticket includes a team moneyline and a point spread, specify
-which team is the home or away side **using the explicit \`team_side\` field**.
+which team is the home or away side **using the explicit `team_side` field**.
 Do not infer team identity from a free-text selection or a team nickname.
 
-Use the signed handicap for the selected team: away +6.5 is \`line: 6.5\`;
-home -6.5 is \`line: -6.5\`. The input represents exact market **win**
+Use the signed handicap for the selected team: away +6.5 is `line: 6.5`;
+home -6.5 is `line: -6.5`. The input represents exact market **win**
 conditions, not pushes. The audit outputs lower and upper integer home-score
 minus away-score margins and whether those conditions can both win.
 
 Example fictional **research** ticket snippet:
 
-\`\`\`json
+```json
 {
   "legs": [
     {"league": "nba", "event_id": "synthetic:home-away",
@@ -28,15 +28,15 @@ Example fictional **research** ticket snippet:
      "team_side": "away", "line": 6.5}
   ]
 }
-\`\`\`
+```
 
 When these two selections must *both* win, the home team must win by **1–6
 points**. That restriction is **not** a model probability or a claim that the
 combination is automatically bad value. It requires a separately validated
 joint-outcome model and an independently checked combined checkout price.
 
-If \`team_side\` is missing on a moneyline/spread pair, the result is
-\`UNRESOLVED_TEAM_SIDE\`, not a guessed margin or a certified edge.
+If `team_side` is missing on a moneyline/spread pair, the result is
+`UNRESOLVED_TEAM_SIDE`, not a guessed margin or a certified edge.
 
 ## Player prop evidence checks
 
@@ -44,11 +44,11 @@ The Challenger preflight now requires explicit evidence fields for prop
 research, in addition to a verified quote, active status, and a genuinely
 independent model probability:
 
-- \`workload_evidence_verified\`: evidence for minutes/snaps/touches/routes or
+- `workload_evidence_verified`: evidence for minutes/snaps/touches/routes or
   a documented expected-workload projection.
-- \`game_script_review_verified\`: check the effect of leads, blowouts,
+- `game_script_review_verified`: check the effect of leads, blowouts,
   offensive pace, injuries, and role substitutions on opportunities.
-- \`exact_stat_line_calibration_verified\`: future/out-of-sample performance
+- `exact_stat_line_calibration_verified`: future/out-of-sample performance
   for the exact player-stat-and-line probability model.
 
 All three remain **unverified** when absent, which produces blockers. Boolean
@@ -60,12 +60,12 @@ must never be substituted for a calibrated win probability.
 
 Run the repo's offline suite after this patch:
 
-\`\`\`bash
+```bash
 python -m unittest tests.test_ticket_outcome_geometry -v
 python -m unittest tests.test_challenger_ticket_preflight -v
 python -m unittest tests.test_v8_parlay_risk_audit -v
 python -m unittest discover -s tests -v
-\`\`\`
+```
 
 These are **synthetic tests** and prove logical behavior of the gates only.
 They do not certify real live odds, athlete availability, positive expected
