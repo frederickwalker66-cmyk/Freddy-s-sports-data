@@ -22,6 +22,7 @@ from v8_sharp_game_markets import summarize_full_game_markets
 from v8_mixed_market_board import mixed_market_board
 from v8_sgo_research import audit_source_archive
 from research.sharp_edge_source_readiness import audit as audit_sharp_edge_source_readiness
+from research.universal_sharp_edge_board import build_universal_board
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -557,6 +558,10 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
     report["sharp_edge_source_readiness"] = readiness
     (out / "SHARP_EDGE_SOURCE_READINESS.json").write_text(
         json.dumps(readiness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    universal_board = build_universal_board(report)
+    report["universal_sharp_edge_board"] = universal_board
+    (out / "UNIVERSAL_SHARP_EDGE_BOARD.json").write_text(
+        json.dumps(universal_board, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if command == "run_audit":
