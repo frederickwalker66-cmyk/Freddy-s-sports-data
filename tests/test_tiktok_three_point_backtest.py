@@ -27,6 +27,11 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(report["graded_rows"],0)
         self.assertEqual(report["quarantined_rows"],1)
 
+    def test_future_odds_quote_quarantined(self):
+        report=backtest([row(odds_timestamp="2026-11-20T21:00:00Z")])
+        self.assertEqual(report["quarantined_rows"],1)
+        self.assertEqual(report["graded_rows"],0)
+
     def test_future_feature_snapshot_quarantined(self):
         report=backtest([row(features_asof_utc="2026-11-20T21:00:00Z")])
         self.assertEqual(report["quarantined_rows"],1)
