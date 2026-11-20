@@ -1229,14 +1229,14 @@ const answerOneName=async(speaker,question)=>{
  try{
   const response=await fetch('/api/converse',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':token},body:JSON.stringify({speaker,question:prompt}),signal:controller.signal});
   const data=await response.json();if(!response.ok)throw Error(data.category||data.error||'Analyst unavailable');
-  say('Freddy: '+(question||speaker));say(speaker+': '+data.reply);lastAnalystAnswer={speaker,reply:data.reply};
+  say('Freddy: '+(question||speaker));say(speaker+': '+data.reply);lastAnalystAnswer={speaker,reply:data.reply};const summary=el('v10-recovery-status');if(summary)summary.textContent=speaker+' answered: '+String(data.reply).slice(0,240);
   el('room-transcript').textContent=speaker.toUpperCase()+': '+data.reply;
   podcastCaptionBy=speaker;podcastCaption=data.reply;
   setNameStatus('🎙️ '+speaker+' is speaking to Freddy');
   await speakPanel(speaker,data.reply,controller.signal);
   setNameStatus(speaker+' finished · call another name or ask a follow-up')
  }catch(e){
-  if(e.name!=='AbortError')setNameStatus(speaker+' could not answer: '+String(e.message||e).slice(0,140))
+  if(e.name!=='AbortError'){const message=speaker+' could not answer: '+String(e.message||e).slice(0,140);setNameStatus(message);const summary=el('v10-recovery-status');if(summary)summary.textContent=message}
  }finally{window.v10SetPanelMode?.(false)}
 };
 const runNameCommand=async spoken=>{
@@ -1273,7 +1273,7 @@ el('v10-test-persona').onclick=async()=>{
  recoveryStatus.textContent='Testing Cassidy: requesting a short analyst reply…';
  const resumed=nameListening;
  if(resumed){nameSpeaking=true;endNameMic()}
- try{await runNameCommand('Cassidy');recoveryStatus.textContent='Cassidy test finished. If no audio played, tap Hear reply to hear the last text response.'}
+ try{lastAnalystAnswer=null;await runNameCommand('Cassidy');recoveryStatus.textContent=lastAnalystAnswer?.speaker==='Cassidy'?'Cassidy replied: '+lastAnalystAnswer.reply.slice(0,220)+' · Tap Hear reply if audio is silent.':'No Cassidy AI response received. Check the on-screen error and retry once.'}
  catch(e){recoveryStatus.textContent='Cassidy test failed: '+String(e.message||e).slice(0,140)}
  finally{nameSpeaking=false;if(resumed&&nameListening)window.setTimeout(listenForName,600)}
 };
