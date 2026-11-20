@@ -34,7 +34,7 @@ def parse_time(s):
     except (ValueError, AttributeError, TypeError):
         return None
 
-def evaluate(candidate, *, model_key=None, odds_key=None, now=None):
+def evaluate(candidate, *, model_key=None, odds_key=None, approved_model_versions=(), now=None):
     result = {"decision": "HOLD", "certified": False, "reasons": []}
     reasons = result["reasons"]
     if not isinstance(candidate, dict):
@@ -59,6 +59,8 @@ def evaluate(candidate, *, model_key=None, odds_key=None, now=None):
         reasons.append("INVALID_DECIMAL_ODDS")
     if m.get("model_version") is None or m.get("independent_model_validation") is not True:
         reasons.append("MODEL_VALIDATION_NOT_ATTESTED")
+    if m.get("model_version") not in approved_model_versions:
+        reasons.append("MODEL_RELEASE_NOT_IN_INDEPENDENT_APPROVAL_REGISTRY")
     if o.get("sportsbook") not in ("DraftKings", "FanDuel"):
         reasons.append("UNSUPPORTED_BOOK")
     now = now or datetime.now(timezone.utc)
@@ -88,7 +90,8 @@ def main():
     args = parser.parse_args()
     candidate = json.loads(Path(args.input).read_text())
     report = evaluate(candidate, model_key=os.environ.get("SHARP_MODEL_ATTESTATION_KEY"),
-                      odds_key=os.environ.get("SHARP_ODDS_ATTESTATION_KEY"))
+                      odds_key=os.environ.get("SHARP_ODDS_ATTESTATION_KEY"),
+                      approved_model_versions=tuple(x.strip() for x in os.environ.get("SHARP_APPROVED_MODEL_VERSIONS", "").split(",") if x.strip()))
     path = Path(args.output)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2) + "\n")
