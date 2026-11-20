@@ -435,9 +435,55 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
 .podcast-room-scene .room-anam-upgrade{font-size:11px;color:#f0c482;text-decoration:underline}
 .podcast-room-scene .podcast-room-live-actions #room-start-live-all{background:#123e70;border-color:#4b89c8;color:white}
 .podcast-room-scene .podcast-room-live-actions #room-stop-live-all{background:#2a3149;color:#e5ebf6;border-color:#7d8ba8}
+
+.room-live-spotlight{margin:12px 0;border:2px solid #e3b06c;border-radius:17px;overflow:hidden;background:#040b1d;box-shadow:0 0 32px #4089ee7d}
+.room-live-spotlight[hidden]{display:none!important}
+.spotlight-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:11px 14px;background:linear-gradient(110deg,#091b3d,#164d8b);font-weight:900;color:#fff;letter-spacing:.5px}
+.spotlight-heading strong{font-size:clamp(18px,2.6vw,30px)}
+.spotlight-heading span:last-child{font-size:12px;color:#bde4fa}
+.room-spotlight-stage{position:relative;display:flex;align-items:center;justify-content:center;width:100%;min-height:300px;height:min(69vh,690px);background:radial-gradient(circle,#253e60,#030713 78%);overflow:hidden}
+.room-spotlight-stage>video,.room-spotlight-stage>img{display:block;width:100%;height:100%;object-fit:contain;object-position:center center;background:#030917}
+.room-spotlight-stage>video{display:none}
+.room-spotlight-actions{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap;padding:11px;background:#0b2241}
+.room-spotlight-actions button{font-size:13px;font-weight:850;padding:12px 14px;margin:0;border-radius:9px;background:#22548c;border:1px solid #619ddb;color:white;touch-action:manipulation}
+.room-spotlight-actions #room-spotlight-unmute{background:linear-gradient(#d3a15b,#aa762f);color:#0d1931;border-color:#f5d097}
+.room-spotlight-actions label{min-width:145px;max-width:200px;font-size:12px;color:#e7efff;display:flex;flex-direction:column;gap:6px;font-weight:800}
+.room-spotlight-actions input[type=range]{width:100%;accent-color:#e1b675}
+#room-live-audio-status{margin:0;padding:9px 13px;color:#bdd3ef;font-size:12px}
+.room-master-audio{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:11px 0;padding:11px 13px;border:1px solid #628cb9;background:#0c2345;border-radius:11px;color:#edf2fb}
+.room-master-audio strong{font-size:13px;color:#f1c481}
+.room-master-audio label{display:flex;flex-direction:column;gap:5px;min-width:165px;font-size:12px}
+.room-master-audio input[type=range]{width:100%;accent-color:#e9bc79}
+.room-master-audio button{margin:0;background:#204675;color:white;font-size:12px;padding:9px 13px;border:1px solid #628db5}
+.room-master-audio span:last-child{font-size:11px;color:#bbcadb}
+.podcast-room-scene .person .face img,.podcast-room-scene .person .face video{object-fit:contain!important;object-position:center center;background:#051326}
+@media(max-width:590px){.room-spotlight-stage{height:min(63vh,520px);min-height:275px}.spotlight-heading strong{font-size:16px}.room-spotlight-actions{gap:6px}.room-spotlight-actions button{font-size:11px;padding:11px 9px}.room-master-audio{gap:7px}}
 </style></head><body><main><header class="v10-hero"><div class="v10-eyebrow">FREDDY'S PICKS AI · V10</div><h1>🎙️ The 914 Sports Podcast Studio</h1><p>Private sports roundtable · Six analysts · Vertical Shorts recording</p><div class="v10-login"><input id="pass" type="password" placeholder="Enter your private studio password" autocomplete="current-password"><button id="unlock">Enter private studio</button></div><p id="status" aria-live="polite">Studio locked · Enter your existing boardroom password to continue.</p><p id="avatar-readiness" class="muted">Illustrated studio works separately from optional live Anam video.</p></header><section id="anam-panel" style="display:none;background:#111c32;padding:12px;border-radius:12px;margin:12px 0"><strong>Adam Stone · Live Anam Video</strong><p><button id="anam-start">Start selected analyst live video</button> <button id="anam-stop" disabled>End live video</button></p><video id="anam-video" autoplay playsinline style="width:100%;max-width:640px;border-radius:12px;background:#000"></video><p id="anam-status" class="muted">Ready</p></section><section class="podcast-stage"><div class="room-title">🎙️ THE 914 SPORTS ROUNDTABLE · ALL SIX AT ONE TABLE</div><p class="muted" style="padding:8px 12px">Tap any analyst portrait to select them. Type your question in the Host control desk, then tap Ask analyst. Original analyst portraits remain visible even without Anam live video. Cassidy retains her original V10 image and is now registered for Anam live video.</p><p class="muted" id="live-score-quick" aria-live="polite">Checking ESPN game scores and schedules after sign-in. Game scores refresh every 60 seconds while the boardroom is open. Live sportsbook odds and certified model picks are separate feeds.</p><p class="muted" id="analysts-live-data-status" aria-live="polite">Live analyst scoreboard connection status will appear here after sign-in.</p><div id="podcast-room-scene" class="podcast-room-scene" aria-label="Freddy's Picks AI V10 shared podcast room">
  <div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
- <div class="podcast-room-backwall" aria-hidden="true"><div class="room-nyc-logo room-knicks">NEW YORK<br>KNICKS 🏀</div><div class="room-nyc-center"><strong>FREDDY'S<br>PICKS AI</strong><span>DATA · SHARP EDGE · PARLAYS</span></div><div class="room-nyc-logo room-yankees">NY<br>YANKEES ⚾</div></div>
+ 
+<section id="room-live-spotlight" class="room-live-spotlight" hidden aria-label="Enlarged live analyst face">
+ <div class="spotlight-heading"><strong><span class="room-camera-on">●</span> LIVE ON CAMERA · <span id="room-spotlight-person">SELECT AN ANALYST</span></strong><span id="room-spotlight-state">Waiting for Anam video</span></div>
+ <div id="room-spotlight-stage" class="room-spotlight-stage">
+  <img id="room-spotlight-photo" alt="Original cast portrait" src="/api/cast-portrait?member=Adam%20Stone" style="width:100%;height:100%;object-fit:contain">
+  <video id="room-spotlight-video" autoplay muted playsinline style="display:none" aria-label="Enlarged live Anam analyst"></video>
+ </div>
+ <div class="room-spotlight-actions">
+  <button type="button" id="room-spotlight-unmute">🔊 ENABLE LIVE AUDIO</button>
+  <label for="room-live-volume">Live volume <span id="room-live-volume-value">100%</span><input id="room-live-volume" type="range" min="0" max="100" step="5" value="100"></label>
+  <button type="button" id="room-spotlight-fullscreen">⛶ FULL SCREEN</button>
+  <button type="button" id="room-spotlight-close">Return to 6-person room</button>
+ </div>
+ <p id="room-live-audio-status" aria-live="polite">Tap ENABLE LIVE AUDIO to allow sound on your phone. Also check Android media volume and Bluetooth output.</p>
+</section>
+<div id="room-master-audio" class="room-master-audio" aria-label="Studio voice settings">
+ <strong>🔊 STUDIO AUDIO</strong>
+ <label for="room-voice-boost">Analyst voice boost <span id="room-voice-boost-value">140%</span>
+  <input id="room-voice-boost" type="range" min="100" max="180" step="10" value="140">
+ </label>
+ <button id="room-audio-test" type="button">🔈 Test sound</button>
+ <span id="room-voice-status">Voices boosted for the podcast. Audio may require a tap to start in Chrome.</span>
+</div>
+<div class="podcast-room-backwall" aria-hidden="true"><div class="room-nyc-logo room-knicks">NEW YORK<br>KNICKS 🏀</div><div class="room-nyc-center"><strong>FREDDY'S<br>PICKS AI</strong><span>DATA · SHARP EDGE · PARLAYS</span></div><div class="room-nyc-logo room-yankees">NY<br>YANKEES ⚾</div></div>
  <div class="podcast-room-set">
   <div class="room-primary-table">
    <div class="room-subheading">🎙️ AT THE MICROPHONES</div>
