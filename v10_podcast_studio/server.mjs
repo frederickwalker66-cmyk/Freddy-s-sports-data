@@ -465,6 +465,39 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
 .podcast-room-scene .person .face img,.podcast-room-scene .person .face video{max-width:100%;object-position:50% 35%!important}
 @media(max-width:800px){.podcast-room-scene .person .face{height:clamp(160px,30vw,255px)}.podcast-room-scene .room-remote-side .person .face{height:clamp(150px,26vw,225px)}}
 @media(max-width:490px){.podcast-room-scene .person .face{height:clamp(165px,42vw,235px)}.podcast-room-scene .room-remote-side .person .face{height:clamp(150px,36vw,220px)}}
+
+/* Unified, app-like six-person studio. All names and live streams share ONE backdrop. */
+body{padding:0;background:#040c1c}main{max-width:100%;padding:0 8px 14px}
+.v10-hero{border-radius:0 0 17px 17px;position:sticky;top:0;z-index:25;padding:10px 15px!important;background:linear-gradient(105deg,#071328,#193658)!important;backdrop-filter:blur(9px)}
+.podcast-room-scene{padding:10px;margin:7px auto 14px;max-width:1500px;border-radius:16px;border:1px solid #bc956b;background:radial-gradient(ellipse at 50% 20%,#26549a 0%,#071b3a 48%,#050c1a 90%);box-shadow:0 15px 45px #0008}
+.podcast-room-set{display:block;width:100%}
+.room-primary-table{width:100%;box-sizing:border-box;min-height:unset;padding:9px 5px 8px;display:block;background:linear-gradient(#061d3b33,#32251941);border:0;border-radius:10px}
+.podcast-room-scene .room-remote-side,.podcast-room-scene #remote{display:none!important}
+.podcast-room-scene #people{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(2px,.6vw,10px);align-items:end;width:100%;margin:0}
+.podcast-room-scene #people .person{min-width:0;min-height:unset;display:flex;flex-direction:column;gap:2px;justify-content:flex-end;padding:2px 2px 9px;border:0!important;border-radius:0!important;transform:none!important;overflow:visible;background:transparent!important;box-shadow:none!important;outline:0;cursor:pointer}
+.podcast-room-scene #people .person .face{order:0;position:relative;width:100%;height:clamp(128px,16vw,255px);overflow:hidden;background:transparent;border-radius:40% 40% 4px 4px / 12% 12% 4px 4px}
+.podcast-room-scene #people .person .face img,.podcast-room-scene #people .person .face video{width:100%;height:100%;object-fit:cover!important;object-position:50% 30%!important;border-radius:inherit!important;mask-image:linear-gradient(to bottom,#000 0%,#000 82%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 82%,transparent 100%)}
+.podcast-room-scene #people .person strong{order:1;display:block;line-height:1.1;font-size:clamp(12px,1.5vw,21px);padding:7px 1px;text-transform:uppercase;color:white;border:1px solid #5477a6;border-radius:7px;background:#071735c9}
+.podcast-room-scene #people .person .muted{display:none}
+.podcast-room-scene #people .person .live{order:2;position:relative;top:auto;left:auto;display:block;background:none;padding:2px 0;margin:0;white-space:nowrap;font-size:clamp(7px,.8vw,11px)}
+.podcast-room-scene #people .person .room-avatar-live-toggle{order:3;display:block;width:100%;margin:3px 0 0;padding:9px 2px;font-size:clamp(9px,1vw,13px);border-radius:8px}
+.podcast-room-scene #people .person .room-avatar-live-status{order:4;display:block;min-height:15px;font-size:clamp(8px,.85vw,10px);line-height:1.2}
+.podcast-room-scene #people .person.speaking strong,.podcast-room-scene #people .person.talking strong,.podcast-room-scene #people .person.live-video-active strong{border-color:#eeca8a;background:#245b90;box-shadow:0 0 18px #e3ae6688}
+.podcast-room-scene #people .person.live-video-active .face{filter:drop-shadow(0 0 15px #43f0b888)}
+.podcast-room-scene .room-table-edge{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;min-height:42px;margin:0;border-radius:10px;background:linear-gradient(#806046,#30221e);box-shadow:0 10px 20px #0008}
+.room-live-spotlight{max-width:1330px;margin:10px auto}
+.room-name-control{background:linear-gradient(115deg,#08214a,#103767);border:1px solid #79b7e8;border-radius:13px;padding:12px;margin:10px 0;box-shadow:0 3px 18px #0005}
+.name-control-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.name-control-head strong{font-size:clamp(15px,1.8vw,21px);color:#f0c47c}
+.name-control-head span{font-size:12px;color:#c2d8f1}
+.name-control-actions{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0}
+.name-control-actions button,.name-control-text button{margin:0;padding:11px 14px;font-size:12px;font-weight:850;border:1px solid #86b4df;border-radius:9px;color:#f5f9ff;background:#1c5e9c}
+.name-control-actions #room-voice-names{background:#e4ba79;color:#10213b;border-color:#ffdca3}
+.name-control-text{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.name-control-text input{margin:0;padding:11px 13px;flex:1 1 250px;min-width:0;box-sizing:border-box}
+.name-command-hint{margin:6px 0 0;font-size:11px;line-height:1.4;color:#bcd5ee}
+@media(max-width:900px){.podcast-room-scene #people{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 8px}.podcast-room-scene #people .person .face{height:clamp(150px,28vw,275px)}.podcast-room-scene #people .person strong{font-size:clamp(14px,2.6vw,20px)}}
+@media(max-width:480px){main{padding:0 4px 10px}.podcast-room-scene{padding:7px 4px 12px}.podcast-room-scene #people .person .face{height:clamp(130px,36vw,190px)}.podcast-room-scene #people .person strong{font-size:13px}.podcast-room-scene #people .person .room-avatar-live-toggle{font-size:10px}.podcast-room-scene #people .person .room-avatar-live-status{font-size:9px}.room-name-control{padding:9px}.name-control-actions button{flex:1 1 100px;padding:10px 5px}.room-nyc-logo{display:none}}
 </style></head><body><main><header class="v10-hero"><div class="v10-eyebrow">FREDDY'S PICKS AI · V10</div><h1>🎙️ The 914 Sports Podcast Studio</h1><p>Private sports roundtable · Six analysts · Vertical Shorts recording</p><div class="v10-login"><input id="pass" type="password" placeholder="Enter your private studio password" autocomplete="current-password"><button id="unlock">Enter private studio</button></div><p id="status" aria-live="polite">Studio locked · Enter your existing boardroom password to continue.</p><p id="avatar-readiness" class="muted">Illustrated studio works separately from optional live Anam video.</p></header><section id="anam-panel" style="display:none;background:#111c32;padding:12px;border-radius:12px;margin:12px 0"><strong>Adam Stone · Live Anam Video</strong><p><button id="anam-start">Start selected analyst live video</button> <button id="anam-stop" disabled>End live video</button></p><video id="anam-video" autoplay playsinline style="width:100%;max-width:640px;border-radius:12px;background:#000"></video><p id="anam-status" class="muted">Ready</p></section><section class="podcast-stage"><div class="room-title">🎙️ THE 914 SPORTS ROUNDTABLE · ALL SIX AT ONE TABLE</div><p class="muted" style="padding:8px 12px">Tap any analyst portrait to select them. Type your question in the Host control desk, then tap Ask analyst. Original analyst portraits remain visible even without Anam live video. Cassidy retains her original V10 image and is now registered for Anam live video.</p><p class="muted" id="live-score-quick" aria-live="polite">Checking ESPN game scores and schedules after sign-in. Game scores refresh every 60 seconds while the boardroom is open. Live sportsbook odds and certified model picks are separate feeds.</p><p class="muted" id="analysts-live-data-status" aria-live="polite">Live analyst scoreboard connection status will appear here after sign-in.</p><div id="podcast-room-scene" class="podcast-room-scene" aria-label="Freddy's Picks AI V10 shared podcast room">
  <div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
  
