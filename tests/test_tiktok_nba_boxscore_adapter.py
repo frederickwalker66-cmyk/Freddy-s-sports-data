@@ -13,6 +13,10 @@ class AdapterTests(unittest.TestCase):
         rows=[box(i,f"2026-11-{i:02d}T20:00:00Z",2) for i in range(1,12)]
         report=rolling_features(list(reversed(rows)))
         self.assertEqual(report["rows"][0]["last10_games"],0)
+        self.assertEqual(report["unique_games"],11)
+        self.assertEqual(report["unique_players"],1)
+        self.assertEqual(report["rows_with_full_last10"],1)
+        self.assertEqual(report["rows_with_incomplete_last10"],10)
         self.assertEqual(report["rows"][10]["last10_hits"],10)
         self.assertTrue(report["rows"][10]["historical_90"])
         self.assertEqual(report["rows"][10]["decision"],"HOLD")
