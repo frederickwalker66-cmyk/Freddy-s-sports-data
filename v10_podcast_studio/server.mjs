@@ -1400,7 +1400,7 @@ const wall=document.getElementById('live-wall-grid');
 const active=new Map(),busy=new Set();
 const showLiveMic=text=>{const node=document.getElementById('v10-live-mic-status');if(node)node.textContent=text};
 const namedLiveCommand=text=>{
- const m=/^(?:(?:hey|hi|yo|hello|okay|ok|please|switch to|ask|talk to|go to)\s+)*(adam stone|cassidy|bella|david|roger|sarah|adam)\b[\s,:!?-]*(.*)$/i.exec(String(text||'').trim());
+ const m=/^(?:(?:hey|hi|yo|hello|okay|ok|please|switch to|ask|talk to|go to)\\s+)*(adam stone|cassidy|bella|david|roger|sarah|adam)\\b[\\s,:!?-]*(.*)$/i.exec(String(text||'').trim());
  if(!m)return null;
  const name=m[1].toLowerCase();
  return {speaker:name.startsWith('adam')?'Adam':name[0].toUpperCase()+name.slice(1),question:m[2].trim()};
