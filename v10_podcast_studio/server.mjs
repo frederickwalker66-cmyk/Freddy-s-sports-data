@@ -395,7 +395,7 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
   </div>
   <div class="daily-game-audit">
    <strong>One-game analysis · Bella, David, Cassidy, Roger, Sarah & Adam</strong>
-   <div id="daily-game-review" aria-live="polite">Choose a scheduled game. The analysts will distinguish verified facts from markets without prices.</div>
+   <div id="daily-game-review" aria-live="polite">Choose a scheduled game. The analysts will distinguish verified facts from markets without prices.</div><div id="daily-game-form" style="font-size:12px;background:#0b2038;border:1px solid #335b82;border-radius:8px;padding:10px;margin:8px 0" aria-live="polite"><strong>Last 5 / Last 10 form</strong><p id="daily-game-form-status">Select a game and load completed-game form when available from ESPN.</p><div id="daily-game-form-result" style="white-space:pre-wrap;line-height:1.5"></div><button type="button" id="daily-game-form-load">Load last 5 / last 10</button></div>
    <div class="daily-slate-toolbar"><button id="daily-game-previous" type="button">← Previous</button><button id="daily-game-next" type="button">Next game →</button><button id="daily-game-discuss" type="button">🎙️ Six-person game review</button></div>
    <div class="daily-consensus">
     <strong>🏆 TODAY'S BOARDROOM CONSENSUS</strong>
@@ -531,6 +531,7 @@ el('roundtable-export').onclick=()=>{if(!episodeHistory.length){el('roundtable-s
 
 /* Date-scoped eight-league boardroom analyst queue; no fictional bets. */
 let currentSlate=null,dailyGames=[],dailySelected=0,dailyReviewed=new Set(),dailyScanActive=false,dailyPinned=false,dailyRefreshTimer=null;
+const dailyFormCache=new Map(),dailyFormReviewed=new Set();
 const easternTodayClient=()=>{
  const v=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
  return v.year+'-'+v.month+'-'+v.day
@@ -540,8 +541,49 @@ const setDailyConsensus=()=>{
  const status=el('daily-consensus-status');if(!status)return;
  const reviewed=dailyReviewed.size,total=dailyGames.length;
  const certified=0;
- status.textContent='DAILY CONSENSUS · '+reviewed+'/'+total+' games checked · Certified 2-leg: NO PLAY (0/2) · Certified 5-leg: NO PLAY (0/5) · All markets HOLD until independently verified prices, native Champion-001 probabilities, and prop/correlation evidence are available.';
+ status.textContent='DAILY CONSENSUS · '+reviewed+'/'+total+' schedule/market readiness checks · '+[...dailyFormReviewed].filter(k=>k.startsWith(currentSlate?.dateEastern+':')).length+' L5/L10 team-form requests · Certified 2-leg: NO PLAY (0/2) · Certified 5-leg: NO PLAY (0/5) · All markets HOLD until independently verified prices, native Champion-001 probabilities, and prop/correlation evidence are available.';
 };
+
+const formatDailyForm=data=>{
+ if(!data)return 'No completed-game form fetched';
+ const entries=[];
+ for(const t of data.teams||[]){
+  const five=t.last5Record||{},ten=t.last10Record||{};
+  entries.push(t.team+' · '+t.status+' · ESPN retrieved '+(t.fetchedAt||'unknown'));
+  if(t.error)entries.push('  Source error: '+t.error);
+  entries.push('  LAST 5: '+(five.games||0)+' available: '+(five.wins||0)+'W / '+(five.losses||0)+'L / '+(five.ties||0)+'T');
+  entries.push('  LAST 10: '+(ten.games||0)+' available: '+(ten.wins||0)+'W / '+(ten.losses||0)+'L / '+(ten.ties||0)+'T');
+  for(const g of (t.last5||[]))entries.push('  '+g.dateEastern+' vs '+g.opponent+' · '+g.result+' '+(g.teamScore==null?'score unavailable':g.teamScore+'–'+g.opponentScore));
+ }
+ entries.push('Research-only form; no betting probabilities, injuries, live quotes or certified positive EV.');
+ return entries.join('\n')
+};
+const displayDailyForm=()=>{
+ const game=dailyGames[dailySelected],root=el('daily-game-form-result'),st=el('daily-game-form-status');
+ if(!game){root.textContent='';st.textContent='No game selected';el('daily-game-form-load').disabled=true;return}
+ el('daily-game-form-load').disabled=false;
+ const cached=dailyFormCache.get(currentSlate.dateEastern+':'+game.sport+':'+game.id);
+ st.textContent=cached?'Verified ESPN team schedule response · '+cached.verifiedAt:'Last 5/10 unavailable until requested · no assumptions';
+ root.textContent=cached?formatDailyForm(cached):'';
+};
+const loadSelectedDailyForm=async()=>{
+ const game=dailyGames[dailySelected],day=currentSlate?.dateEastern;
+ if(!game||!day||!token)return null;
+ const key=day+':'+game.sport+':'+game.id;
+ if(dailyFormCache.has(key)){displayDailyForm();return dailyFormCache.get(key)}
+ el('daily-game-form-status').textContent='Checking ESPN completed-game team schedules…';
+ el('daily-game-form-load').disabled=true;
+ try{
+  const r=await fetch('/api/game-form?'+new URLSearchParams({date:day,sport:game.sport,gameId:game.id}),{headers:{'x-boardroom-password':token},cache:'no-store'});
+  const v=await r.json();if(!r.ok)throw Error(v.error||'ESPN schedule error');
+  dailyFormCache.set(key,v);dailyFormReviewed.add(key);
+  if(dailyGames[dailySelected]?.id===game.id)displayDailyForm();
+  setDailyConsensus();return v
+ }catch(e){if(dailyGames[dailySelected]?.id===game.id){el('daily-game-form-status').textContent='Last 5/10 provider unavailable: '+e.message;el('daily-game-form-result').textContent='No form-based betting conclusions supported.'}return null}
+ finally{el('daily-game-form-load').disabled=false}
+};
+el('daily-game-form-load').onclick=()=>void loadSelectedDailyForm();
+
 const renderDailySelected=()=>{
  const root=el('daily-game-review');root.textContent='';
  if(!dailyGames.length){root.textContent='No listed games for this date, or the sports feeds failed. Choose another date or refresh.';setDailyConsensus();return}
@@ -562,7 +604,7 @@ const renderDailySelected=()=>{
   'DECISION: HOLD · Insufficient evidence for a certified bet.'
  ].join('\\n');
  for(const b of el('daily-slate-games').querySelectorAll('[data-daily-index]'))b.classList.toggle('selected',Number(b.dataset.dailyIndex)===dailySelected);
- setDailyConsensus()
+ displayDailyForm();setDailyConsensus()
 };
 const renderDailyGames=()=>{
  const box=el('daily-slate-games');box.replaceChildren();
