@@ -1,0 +1,24 @@
+name: V8 Pregame Integration Tests
+on:
+  push:
+    paths:
+      - v8_one_command.py
+      - tests/test_v8_pregame_connection.py
+      - .github/workflows/v8-pregame-integration-tests.yml
+  pull_request:
+    paths:
+      - v8_one_command.py
+      - tests/test_v8_pregame_connection.py
+      - .github/workflows/v8-pregame-integration-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_v8_pregame_connection.py' -v
