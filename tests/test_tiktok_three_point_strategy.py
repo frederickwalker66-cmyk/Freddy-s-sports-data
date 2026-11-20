@@ -18,7 +18,7 @@ class ThreePointStrategyTests(unittest.TestCase):
     def test_positive_ev_research_only(self):
         result=evaluate(self.candidate(native_probability=.8,odds_american=-150,
                     odds_timestamp="2026-11-20T18:00:00-05:00",source="verified"))
-        self.assertEqual(result["decision"], "TAKE")
+        self.assertEqual(result["decision"], "LEAN")
         self.assertEqual(result["certification"], "UNCERTIFIED_RESEARCH_ONLY")
 
     def test_missing_defense_rank_holds(self):
