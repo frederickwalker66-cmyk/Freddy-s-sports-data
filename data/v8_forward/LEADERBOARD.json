@@ -6,10 +6,10 @@
   "certified_v8_probabilities": 0,
   "champion_001_modified": false,
   "database_is_externally_immutable_or_audited": false,
-  "forward_calibration_graded_NBA_games": 59,
+  "forward_calibration_graded_NBA_games": 64,
   "forward_calibration_report_version": "v8-nba-forward-calibration-v1",
   "forward_calibration_status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
-  "generated_at_utc": "2026-11-19T22:43:18.405924+00:00",
+  "generated_at_utc": "2026-11-20T20:09:53.546467+00:00",
   "grade_runway_report": "data/v8_forward/GRADE_RUNWAY.json",
   "independently_verified_checkout_odds": 0,
   "last_graded_batch": {
@@ -20,9 +20,9 @@
     "certified_v8_predictions": 0,
     "champion_001_modified": false,
     "classification_accuracy_provisional": null,
-    "classification_decisions_home_vs_away": 8,
-    "evaluated_at_utc": "2026-11-19T22:43:18.120557+00:00",
-    "forecast_rows_in_scope": 8,
+    "classification_decisions_home_vs_away": 5,
+    "evaluated_at_utc": "2026-11-20T20:09:53.114477+00:00",
+    "forecast_rows_in_scope": 5,
     "forecasts_still_pending_or_unmatched": 0,
     "independent_publisher_or_GitHub_signatures_verified": false,
     "independently_verified_executable_DraftKings_odds": 0,
@@ -35,11 +35,11 @@
     "original_champion_001_executable_authenticated": false,
     "original_champion_001_shadows_certified": 0,
     "outcome_status_counts": {
-      "GRADED_ESPN_PUBLISHED_FINAL_RESEARCH_ONLY": 8
+      "GRADED_ESPN_PUBLISHED_FINAL_RESEARCH_ONLY": 5
     },
     "probability_research_Brier": null,
     "probability_research_log_loss": null,
-    "real_forward_research_forecasts_graded": 8,
+    "real_forward_research_forecasts_graded": 5,
     "status": "PROVISIONAL_FORWARD_RESEARCH_RESULTS_NOT_CERTIFIED",
     "version": "v8-NBA-forward-outcome-grader-v1",
     "warning": "Only the FIRST archived genuine pretipoff V8 Elo research probability per ESPN game is graded; no research probability is backfilled from the final. Results are public ESPN scores observed >=48h after the original start, not official league settlement or independent model validation. No Champion-001 certified shadows, live DraftKings odds, profitable EV or bets."
@@ -47,16 +47,16 @@
   "mature_grading_completeness_pct": 100.0,
   "matured_ungraded_source_dates_deferred_due_to_budget": 0,
   "nba_forecasts_due_without_published_grade": 0,
-  "nba_forecasts_pending_48h": 21,
-  "nba_forward_forecasts_graded_research_only": 59,
+  "nba_forecasts_pending_48h": 25,
+  "nba_forward_forecasts_graded_research_only": 64,
   "nba_graded_minimum_required_for_research_ranking": 50,
   "nba_original_forecasts_quarantined": 0,
-  "nba_unique_original_forecasts_archived": 80,
+  "nba_unique_original_forecasts_archived": 89,
   "new_forecast_sync": {
-    "existing_or_later_forecasts_ignored": 27,
+    "existing_or_later_forecasts_ignored": 31,
     "mature_outcome_source_days_checked": 1,
-    "new_ESPN_published_outcomes_recorded": 8,
-    "new_forecasts_inserted": 4,
+    "new_ESPN_published_outcomes_recorded": 5,
+    "new_forecasts_inserted": 9,
     "new_identity_or_earliest_timestamp_conflicts_quarantined": 0,
     "original_receipt_files_added": 7
   },
@@ -64,24 +64,25 @@
   "ranking_status": "PROVISIONAL_RESEARCH_RANKING_NOT_CERTIFIED",
   "raw_archive_receipt": {
     "excluded_archive_or_duplicate_reasons": {
-      "excluded_untrusted_run_ValueError": 31,
+      "excluded_untrusted_run_ValueError": 30,
       "later_duplicate_forecast_not_regraded": 5
     },
-    "raw_forward_rows_seen": 36,
+    "raw_forward_rows_seen": 45,
     "source_github_run_ids": [
       43779541740,
       44007728096,
       44224175952,
-      44440801253
+      44440801253,
+      44656802595
     ],
-    "unique_earliest_forecasts": 31
+    "unique_earliest_forecasts": 40
   },
   "research_model_scorecards_including_small_samples": [
     {
-      "graded_forward_research_games": 59,
-      "home_vs_away_classification_accuracy": 0.644068,
-      "mean_Brier_lower_is_better": 0.22195744,
-      "mean_log_loss_lower_is_better": 0.63595138,
+      "graded_forward_research_games": 64,
+      "home_vs_away_classification_accuracy": 0.625,
+      "mean_Brier_lower_is_better": 0.2270594,
+      "mean_log_loss_lower_is_better": 0.64621448,
       "minimum_games_for_published_performance_metrics": 50,
       "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
       "neutral_half_Brier_not_sportsbook": 0.25,
@@ -90,15 +91,15 @@
       "ranking_eligible": true,
       "research_only_not_certified": true,
       "sport": "nba",
-      "win_direction_decisions": 59
+      "win_direction_decisions": 64
     }
   ],
   "research_only_ranked_models": [
     {
-      "graded_forward_research_games": 59,
-      "home_vs_away_classification_accuracy": 0.644068,
-      "mean_Brier_lower_is_better": 0.22195744,
-      "mean_log_loss_lower_is_better": 0.63595138,
+      "graded_forward_research_games": 64,
+      "home_vs_away_classification_accuracy": 0.625,
+      "mean_Brier_lower_is_better": 0.2270594,
+      "mean_log_loss_lower_is_better": 0.64621448,
       "minimum_games_for_published_performance_metrics": 50,
       "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
       "neutral_half_Brier_not_sportsbook": 0.25,
@@ -107,7 +108,7 @@
       "ranking_eligible": true,
       "research_only_not_certified": true,
       "sport": "nba",
-      "win_direction_decisions": 59
+      "win_direction_decisions": 64
     }
   ],
   "version": "v8-durable-forward-NBA-research-scoreboard-v1",
