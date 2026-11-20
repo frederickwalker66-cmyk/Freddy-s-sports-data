@@ -456,6 +456,115 @@ const provisionSourceAnamTool=async()=>{
  }catch(e){sourceAnamToolState.status='failed';sourceAnamToolState.errors.push(String(e.message||e).slice(0,160));console.warn('V10_SOURCE_ANAM_TOOL_ERROR',JSON.stringify(sourceAnamToolState.errors))}
 };
 
+
+/* SPORTSBOOK MARKET RESEARCH — authenticated, read-only SportsGameOdds source.
+   Never use ESPN moneylines, estimated odds, or a stale price as a verified DK/FD quote.
+   Frozen Champion-001 EV certification is independent and remains HOLD. */
+const sportsbookLeagues=['NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL'];
+const sportsbookCache=new Map(),sportsbookCallTimes=[];
+const oddsProviderConfigured=()=>!!process.env.SPORTSGAMEODDS_API_KEY;
+const sportsbookOddsPrice=x=>{
+ const text=String(x??'').trim();if(!/^[+-]?[0-9]{3,6}$/.test(text))return null;
+ const n=Number(text);return Number.isInteger(n)&&Math.abs(n)>=100&&Math.abs(n)<100000?(n>0?'+':'')+n:null;
+};
+const sportsbookPriceDecimal=x=>{const n=Number(x);return n>0?1+n/100:n<-0?1+100/Math.abs(n):null};
+const sportsbookSafeLink=(href,book)=>{
+ if(typeof href!=='string'||href.length>1500)return null;
+ try{const u=new URL(href);const valid=book==='draftkings'?'sportsbook.draftkings.com':'sportsbook.fanduel.com';return u.protocol==='https:'&&u.hostname===valid?u.href:null}catch{return null}
+};
+const sportsbookQuote=(market,book,now)=>{
+ const entry=market?.byBookmaker?.[book];if(!entry||entry.available!==true)return null;
+ const price=sportsbookOddsPrice(entry.odds);if(!price)return null;
+ const line=market.betTypeID==='sp'?entry.spread:market.betTypeID==='ou'?entry.overUnder:null;
+ const update=typeof entry.lastUpdatedAt==='string'&&Number.isFinite(Date.parse(entry.lastUpdatedAt))?entry.lastUpdatedAt:null;
+ const ageSeconds=update?Math.floor((now-Date.parse(update))/1000):null;
+ const recency=ageSeconds===null?'UNKNOWN':ageSeconds< -30?'FUTURE_TIMESTAMP':ageSeconds<=120?'CURRENT':ageSeconds<=600?'RECENT':'STALE';
+ return {book,price,line:line===null||line===undefined?null:String(line),updatedAt:update,ageSeconds,recency,open:entry.available===true,link:sportsbookSafeLink(entry.deeplink,book)};
+};
+const sportsbookNormalize=(events,league,at)=>{
+ const now=Date.parse(at),games=[];let quoteCount=0,rawMarketCount=0,marketRowsReturned=0,availableMarkets=0;
+ for(const event of events.slice(0,16)){
+  const odds=event?.odds&&typeof event.odds==='object'?Object.values(event.odds):[];
+  rawMarketCount+=odds.length;
+  const normal=[];
+  for(const market of odds){
+   if(!market||market.cancelled||market.ended||market.bookOddsAvailable===false)continue;
+   const dk=sportsbookQuote(market,'draftkings',now),fd=sportsbookQuote(market,'fanduel',now);
+   if(!dk&&!fd)continue;
+   const betType=String(market.betTypeID||'').toLowerCase();
+   const statEntity=String(market.statEntityID||'').toLowerCase(),period=String(market.periodID||'').toLowerCase();
+   const category=betType==='ml'&&period==='game'?'moneyline':betType==='sp'&&period==='game'?'spread':betType==='ou'&&period==='game'&&statEntity==='all'?'game total':['home','away','all'].includes(statEntity)?'other game/team market':'player prop / combo';
+   const sameLine=!!(dk&&fd)&&dk.line===fd.line;
+   const bothCurrent=!!(dk&&fd)&&['CURRENT','RECENT'].includes(dk.recency)&&['CURRENT','RECENT'].includes(fd.recency);
+   const better=sameLine&&bothCurrent?(sportsbookPriceDecimal(dk.price)>sportsbookPriceDecimal(fd.price)?'DraftKings':sportsbookPriceDecimal(fd.price)>sportsbookPriceDecimal(dk.price)?'FanDuel':'Tie'):null;
+   const side=String(market.sideID||'').toLowerCase();
+   const team=side==='home'?event.teams?.home?.names?.long:side==='away'?event.teams?.away?.names?.long:null;
+   const pick=team||side||'market selection';
+   normal.push({marketId:String(market.oddID||'').slice(0,150),market:String(market.marketName||'Unknown market').slice(0,140),category,selection:String(pick).slice(0,95),period:String(market.periodID||'').slice(0,20),
+     draftkings:dk,fanduel:fd,comparable:sameLine&&bothCurrent,betterPriceAtSameLine:better,
+     marketDecision:'HOLD_UNTIL_MODEL_PROBABILITY_VERIFIED'});
+   quoteCount+=Number(!!dk)+Number(!!fd);
+   availableMarkets++;
+  }
+  const order={'moneyline':0,'spread':1,'game total':2,'player prop / combo':3,'other game/team market':4};
+  normal.sort((a,b)=>(order[a.category]??9)-(order[b.category]??9)||a.market.localeCompare(b.market));
+  const maxRows=150;marketRowsReturned+=Math.min(maxRows,normal.length);
+  games.push({eventId:String(event.eventID||'').slice(0,80),league:String(event.leagueID||league).slice(0,40),
+   home:String(event.teams?.home?.names?.long||'Home team unknown').slice(0,100),away:String(event.teams?.away?.names?.long||'Away team unknown').slice(0,100),
+   startAt:event.status?.startsAt||null,live:event.status?.live===true,started:event.status?.started===true,
+   completed:event.status?.ended===true||event.status?.completed===true,
+   availableMarketCount:normal.length,marketsTruncated:normal.length>maxRows,
+   eventLinks:{draftkings:sportsbookSafeLink(event.links?.bookmakers?.draftkings,'draftkings'),fanduel:sportsbookSafeLink(event.links?.bookmakers?.fanduel,'fanduel')},markets:normal.slice(0,maxRows)});
+ }
+ return {games,marketsReturned:marketRowsReturned,rawMarketCount,availableMarkets,quotedSelections:quoteCount};
+};
+const sportsbookEmpty=(league,reason,detail)=>({source:'SportsGameOdds v2 · DraftKings / FanDuel',league,checkedAt:new Date().toISOString(),status:reason,providerAuthenticated:false,
+  books:['DraftKings','FanDuel'],games:[],marketsReturned:0,quotedSelections:0,nextCursor:null,allPagesLoaded:false,certifiedChampion001Probability:false,certifiedSharpEdgeEV:false,
+  decision:'HOLD',detail,setupRequired:reason==='NOT_CONNECTED'?'Add SPORTSGAMEODDS_API_KEY as a sealed Railway variable after obtaining authorized SportsGameOdds access.':null});
+const sportsbookLoad=async(league='NBA',cursor='')=>{
+ if(!sportsbookLeagues.includes(league))return sportsbookEmpty('NBA','INVALID_LEAGUE','Supported leagues: '+sportsbookLeagues.join(', '));
+ if(cursor&&(!/^[A-Za-z0-9_\-+=/]{8,1024}$/.test(cursor)))return sportsbookEmpty(league,'INVALID_CURSOR','Invalid provider pagination cursor');
+ if(!oddsProviderConfigured())return sportsbookEmpty(league,'NOT_CONNECTED','No authenticated licensed sportsbook odds credential is configured on this Railway service. ESPN scores do not contain DK / FanDuel markets.');
+ const key=league+':'+cursor,now=Date.now(),cache=sportsbookCache.get(key);
+ if(cache?.pending)return cache.pending;
+ if(cache?.value&&now-cache.at<65000)return {...cache.value,cacheAgeSeconds:Math.floor((now-cache.at)/1000)};
+ sportsbookCallTimes.splice(0,sportsbookCallTimes.length,...sportsbookCallTimes.filter(t=>now-t<60000));
+ if(sportsbookCallTimes.length>=8)return sportsbookEmpty(league,'RATE_LIMIT_PAUSE','Research API call limit reached. Wait one minute before refreshing. Existing verified lines are not replaced with guesses.');
+ sportsbookCallTimes.push(now);
+ const pending=(async()=>{
+  const url=new URL('https://api.sportsgameodds.com/v2/events');
+  url.searchParams.set('leagueID',league);url.searchParams.set('bookmakerID','draftkings,fanduel');
+  url.searchParams.set('oddsAvailable','true');url.searchParams.set('limit','12');url.searchParams.set('includeOpposingOdds','true');
+  url.searchParams.set('startsAfter',new Date(now-2*3600e3).toISOString());
+  url.searchParams.set('startsBefore',new Date(now+48*3600e3).toISOString());
+  if(cursor)url.searchParams.set('cursor',cursor);
+  let response;
+  try{response=await fetch(url,{headers:{'x-api-key':process.env.SPORTSGAMEODDS_API_KEY,accept:'application/json','user-agent':'Freddys-Picks-V10-Research/1.0'},signal:AbortSignal.timeout(14000)})}
+  catch(e){return sportsbookEmpty(league,'PROVIDER_UNREACHABLE','SportsGameOdds connection timed out or failed; no lines can be verified.')}
+  if(!response.ok)return sportsbookEmpty(league,response.status===401||response.status===403?'CREDENTIAL_OR_ENTITLEMENT_ERROR':response.status===429?'PROVIDER_QUOTA_EXCEEDED':'PROVIDER_ERROR','Provider HTTP '+response.status+'; live markets unavailable (no fallback prices).');
+  let data;try{data=await response.json()}catch{return sportsbookEmpty(league,'INVALID_PROVIDER_JSON','Bookmaker response could not be decoded') }
+  if(data?.success!==true||!Array.isArray(data.data))return sportsbookEmpty(league,'INVALID_PROVIDER_RESPONSE','Provider response missing a verified data array.');
+  const checkedAt=new Date().toISOString(),normalized=sportsbookNormalize(data.data,league,checkedAt);
+  return {source:'SportsGameOdds v2 · DraftKings / FanDuel',league,checkedAt,status:normalized.quotedSelections>0?'SOURCE_QUOTES_RETURNED':'NO_AVAILABLE_QUOTES',
+   providerAuthenticated:true,books:['DraftKings','FanDuel'],...normalized,nextCursor:typeof data.nextCursor==='string'?data.nextCursor:null,
+   allPagesLoaded:!data.nextCursor,cacheTtlSeconds:65,certifiedChampion001Probability:false,certifiedSharpEdgeEV:false,decision:'HOLD',
+   detail:'Bookmaker-reported prices only. CURRENT means timestamp within 120 seconds. RECENT means 2–10 minutes. Missing, stale, unavailable or unmatched lines are not certifiable. A better sportsbook price is not a predictive edge.'};
+ })();
+ sportsbookCache.set(key,{pending,at:now});
+ const value=await pending;sportsbookCache.set(key,{at:Date.now(),value});return value;
+};
+// Offline fixture exercises normalization only; this fixture is never exposed as live prices.
+const sportsbookSelfTest=()=>{
+ const t=new Date().toISOString();
+ const fixture=[{eventID:'FIXTURE_ONLY',leagueID:'NBA',status:{startsAt:t},teams:{home:{names:{long:'HOME TEST'}},away:{names:{long:'AWAY TEST'}}},odds:{
+  a:{oddID:'points-home-game-ml-home',marketName:'Moneyline',betTypeID:'ml',statEntityID:'home',periodID:'game',sideID:'home',byBookmaker:{draftkings:{available:true,odds:'-110',lastUpdatedAt:t},fanduel:{available:true,odds:'-105',lastUpdatedAt:t}}},
+  b:{oddID:'points-home-game-sp-home',marketName:'Spread',betTypeID:'sp',statEntityID:'home',periodID:'game',sideID:'home',byBookmaker:{draftkings:{available:true,odds:'-110',spread:'-4.5',lastUpdatedAt:t},fanduel:{available:true,odds:'-115',spread:'-5.5',lastUpdatedAt:t}}}
+ }}];
+ const out=sportsbookNormalize(fixture,'NBA',t);
+ if(out.games[0].markets.length!==2||out.games[0].markets[0].betterPriceAtSameLine!=='FanDuel'||out.games[0].markets[1].comparable!==false)throw Error('SPORTSBOOK_NORMALIZER_SELFTEST_FAILED');
+ return {passed:true,fixture:'SYNTHETIC_TEST_ONLY',marketRows:2,badSpreadComparisonBlocked:true,certifiedEV:0};
+};
+
 // Reflect the deployed build in installed web-app update checks without exposing secrets.
 const appVersion=String(process.env.RAILWAY_GIT_COMMIT_SHA||process.env.GITHUB_SHA||('v10-start-'+Date.now().toString(36))).replace(/[^a-zA-Z0-9._-]/g,'').slice(0,80);
 const respond=(res,status,data,headers={})=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...headers});res.end(JSON.stringify(data))};
