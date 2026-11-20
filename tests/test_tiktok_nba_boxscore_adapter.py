@@ -37,10 +37,31 @@ class ESPNThreePointLabelTests(unittest.TestCase):
         self.assertEqual(_three_made("3-8"),3)
         self.assertIsNone(_three_made("9-8"))
 
-    def test_alternate_label_is_supported_by_parser(self):
-        import inspect
+    def _summary(self, label, value):
+        def athlete(pid, stat):
+            return {"athlete":{"id":pid,"displayName":"Fixture"},
+                    "stats":["24","10","4","3",stat,"1","0","18"],
+                    "didNotPlay":False}
+        def group(tid, pid, stat):
+            return {"team":{"id":tid},"statistics":[{
+                "names":["MIN","PTS","REB","AST",label,"STL","BLK","FG"],
+                "athletes":[athlete(pid,stat)]}]}
+        return {"header":{"id":"100","competitions":[{
+            "id":"100","date":"2026-11-01T23:00:00Z",
+            "status":{"type":{"completed":True}},
+            "competitors":[{"team":{"id":"1"}},{"team":{"id":"2"}}]}]},
+            "boxscore":{"players":[group("1","123",value),group("2","456","1-4")]}}
+
+    def test_alternate_label_parses_fixture(self):
         from challenger_nba_player_boxes import parse_summary
-        source=inspect.getsource(parse_summary)
-        self.assertIn('"3PM-A"',source)
-        self.assertIn('"3PT"',source)
-        self.assertIn("conflicting three-point stat labels",source)
+        rows=parse_summary(self._summary("3PM-A","3-8"),"100","2026-11-02T00:00:00Z")
+        self.assertEqual(rows[0]["threes_made"],3)
+
+    def test_conflicting_labels_are_rejected(self):
+        from challenger_nba_player_boxes import parse_summary
+        data=self._summary("3PT","3-8")
+        category=data["boxscore"]["players"][0]["statistics"][0]
+        category["names"].append("3PM-A")
+        category["athletes"][0]["stats"].append("2-8")
+        with self.assertRaisesRegex(ValueError,"conflicting three-point stat labels"):
+            parse_summary(data,"100","2026-11-02T00:00:00Z")
