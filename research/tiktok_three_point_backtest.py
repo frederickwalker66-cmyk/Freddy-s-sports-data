@@ -1,6 +1,6 @@
 """Offline, point-in-time backtest for NBA three-point prop strategy.
 Input CSV columns: game_id,player,opponent,tipoff_utc,observed_at_utc,
-line,actual_3pm,last5_hits,last10_hits,last5_games,last10_games,
+line,actual_3pm,features_asof_utc,last5_hits,last10_hits,last5_games,last10_games,
 opponent_3pm_allowed_rank,player_3pm_rank,minutes_verified,injury_verified,
 odds_american,odds_timestamp,source,native_probability.
 Only pregame features and quotes are eligible. Never invent missing data.
@@ -37,8 +37,9 @@ def backtest(rows):
         try:
             tip=dt(row["tipoff_utc"])
             observed=dt(row["observed_at_utc"])
+            features_asof=dt(row["features_asof_utc"])
             quote=dt(row["odds_timestamp"]) if row.get("odds_timestamp") else None
-            if observed >= tip or (quote and quote >= tip):
+            if features_asof > observed or observed >= tip or (quote and quote >= tip):
                 records.append({"game_id":row.get("game_id"),"player":row.get("player"),"status":"QUARANTINE_POST_TIP"});continue
             if row.get("odds_american") and not quote:
                 raise ValueError("odds require timestamp")
