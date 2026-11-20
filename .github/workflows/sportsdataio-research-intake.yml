@@ -1,6 +1,12 @@
 name: SportsDataIO research evidence intake
 on:
   workflow_dispatch:
+    inputs:
+      include_mls:
+        description: 'Also test MLS entitlement (may fail HTTP 401; disabled by default)'
+        type: boolean
+        required: false
+        default: false
   push:
     branches: [main]
     paths:
@@ -19,13 +25,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   intake:
-    # Scheduled runs contain only six entitled leagues. Manual dispatch may
-    # test MLS and must report a genuine 401 or other provider failure, not a
-    # misleading green job whose collection steps were skipped.
+    # Standard manual and scheduled runs use six currently working leagues.
+    # Explicit include_mls tests entitlement and reports genuine provider failures.
     strategy:
       fail-fast: false
       matrix:
-        league: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["nba","nfl","mlb","nhl","ncaaf","ncaab","mls"]' || '["nba","nfl","mlb","nhl","ncaaf","ncaab"]') }}
+        league: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.include_mls && '["nba","nfl","mlb","nhl","ncaaf","ncaab","mls"]' || '["nba","nfl","mlb","nhl","ncaaf","ncaab"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
