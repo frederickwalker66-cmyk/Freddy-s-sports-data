@@ -60,6 +60,50 @@ const dailySlateLoad=async(date=easternDate())=>{
  dailySlateCache.set(date,{at:Date.now(),pending:task,data:existing?.data});
  try{return await task}catch(e){dailySlateCache.delete(date);throw e}
 };
+
+/* Non-predictive team form, requested on demand. ESPN may not cover all events or seasons.
+   Never infer a betting probability from win/loss form or historical trend alone. */
+const teamFormCache=new Map();
+const fetchTeamForm=async(sport,team,cutoffUTC)=>{
+ const cacheKey=sport+':'+team.teamId+':'+String(cutoffUTC).slice(0,10);
+ const cached=teamFormCache.get(cacheKey);
+ if(cached&&Date.now()-cached.at<900000)return cached.report;
+ if(!/^[a-z0-9_-]{1,24}$/i.test(team.teamId||''))return {team:team.team,source:'ESPN team schedule',status:'TEAM_ID_UNAVAILABLE',last5:[],last10:[]};
+ const url='https://site.api.espn.com/apis/site/v2/sports/'+scoreboardSources[sport]+'/teams/'+encodeURIComponent(team.teamId)+'/schedule?limit=250';
+ try{
+  const resp=await fetch(url,{headers:{accept:'application/json','user-agent':'Freddys-V10-FormReview/1.0'},signal:AbortSignal.timeout(9500)});
+  if(!resp.ok)throw Error('ESPN team schedule HTTP '+resp.status);
+  const payload=await resp.json();
+  if(!Array.isArray(payload.events))throw Error('No array of team schedule events');
+  const games=payload.events.map(event=>{
+   const contest=event.competitions?.[0]||{},teams=contest.competitors||[],self=teams.find(c=>String(c.team?.id||'')===team.teamId),opp=teams.find(c=>String(c.team?.id||'')!==team.teamId);
+   const utc=event.date||contest.date||null,when=Date.parse(utc||'');
+   if(!self||!opp||!Number.isFinite(when)||when>=Date.parse(cutoffUTC||''))return null;
+   const finished=event.status?.type?.completed===true||event.status?.type?.state==='post';
+   if(!finished)return null;
+   const selfScore=Number(self.score),oppScore=Number(opp.score);
+   const haveScores=self.score!=null&&opp.score!=null&&Number.isFinite(selfScore)&&Number.isFinite(oppScore);
+   const outcome=typeof self.winner==='boolean'?(self.winner?'W':haveScores&&selfScore===oppScore?'T':'L'):haveScores?(selfScore>oppScore?'W':selfScore<oppScore?'L':'T'):null;
+   if(!outcome)return null;
+   return {dateUTC:utc,dateEastern:easternDate(new Date(when)),opponent:String(opp.team?.displayName||'Unknown').slice(0,90),homeAway:String(self.homeAway||'').slice(0,12),result:outcome,teamScore:haveScores?selfScore:null,opponentScore:haveScores?oppScore:null,eventId:String(event.id||'').slice(0,36)}
+  }).filter(Boolean).sort((a,b)=>Date.parse(b.dateUTC)-Date.parse(a.dateUTC));
+  const count=(arr)=>({games:arr.length,wins:arr.filter(x=>x.result==='W').length,losses:arr.filter(x=>x.result==='L').length,ties:arr.filter(x=>x.result==='T').length});
+  const report={team:team.team,teamId:team.teamId,source:'ESPN public team season schedule',fetchedAt:new Date().toISOString(),status:games.length?'AVAILABLE':'NO_COMPLETED_GAMES_RETURNED',
+   last5:games.slice(0,5),last10:games.slice(0,10),last5Record:count(games.slice(0,5)),last10Record:count(games.slice(0,10)),
+   sourceCoverage:'Only completed events returned by ESPN for this team before the selected game. Other seasons or providers may not be represented.'};
+  teamFormCache.set(cacheKey,{at:Date.now(),report});return report;
+ }catch(e){return {team:team.team,teamId:team.teamId,source:'ESPN public team season schedule',fetchedAt:new Date().toISOString(),status:'UNAVAILABLE',error:String(e.message||e).slice(0,130),last5:[],last10:[]}}
+};
+const selectedGameForm=async(date,sport,eventId)=>{
+ const slate=await dailySlateLoad(date);
+ const selected=slate.sports.find(x=>x.sport===sport)?.games.find(x=>x.id===eventId);
+ if(!selected)throw Error('SCHEDULED_GAME_NOT_FOUND');
+ const reports=await Promise.all(selected.teams.slice(0,2).map(team=>fetchTeamForm(sport,team,selected.startUTC)));
+ return {source:'ESPN public team schedules',verifiedAt:new Date().toISOString(),dateEastern:date,sport,gameId:eventId,gameName:selected.name,
+   teams:reports,confidenceNote:'These are descriptive completed-game records, NOT an independently calibrated probability. Injuries, player props, bookmaker lines, and Champion-001 probabilities are unavailable.',
+   certifiedEV:0,betReady:false,decision:'HOLD'}
+};
+
 const minimalDailyForModels=async()=>{
  const slate=await dailySlateLoad();
  return JSON.stringify({date:slate.dateEastern,retrievedAt:slate.retrievedAt,leagues:slate.sports.map(x=>({sport:x.sport,events:x.games.map(g=>({id:g.id,name:g.name,when:g.startEastern,status:g.shortStatus})).slice(0,12),count:x.games.length})),errors:slate.errors,allFullEventsAvailableVia:'/api/daily-slate',limit:'Partial context only. Never infer unsupplied games, odds, prediction probabilities or injury facts.'}).slice(0,13500)
@@ -759,6 +803,12 @@ if(req.url==='/api/anam/session-token'&&req.method==='POST'){if(!process.env.ANA
 if(req.url==='/api/avatar-provider'&&req.method==='GET')return respond(res,200,{provider:'LiveAvatar',anamReady:!!(process.env.ANAM_API_KEY&&process.env.ANAM_ADAM_PERSONA_ID),mode:'LITE',configured:!!process.env.LIVEAVATAR_API_KEY,streamingEnabled:false,avatarIdsConfigured:Object.fromEntries(Object.keys(people).map(n=>[n,!!process.env['LIVEAVATAR_AVATAR_'+n.toUpperCase().replace(/[^A-Z0-9]/g,'_')]])),reason:'Real-time streaming requires provider credentials, six approved avatar IDs, and client WebRTC integration'});
 if(req.url==='/api/anam-session'&&req.method==='POST'){const request=await body(req).catch(()=>({}));const analyst=typeof request.analyst==='string'?request.analyst:'Adam';if(!Object.hasOwn(anamPersonaIds,analyst))return respond(res,400,{error:'UNKNOWN_ANALYST'});const selectedPersonaId=anamPersonaIds[analyst];if(!process.env.ANAM_API_KEY||!selectedPersonaId)return respond(res,503,{error:'ANAM_NOT_CONFIGURED'});try{const a=await fetch('https://api.anam.ai/v1/auth/session-token',{method:'POST',headers:{'authorization':'Bearer '+process.env.ANAM_API_KEY,'content-type':'application/json'},body:JSON.stringify({personaConfig:{personaId:selectedPersonaId}}),signal:AbortSignal.timeout(12000)});const j=await a.json().catch(()=>({}));if(!a.ok)return respond(res,502,{error:'ANAM_SESSION_FAILED',providerStatus:a.status});const sessionToken=j.sessionToken||j.session_token;if(!sessionToken)return respond(res,502,{error:'ANAM_TOKEN_MISSING'});return respond(res,200,{sessionToken})}catch{return respond(res,502,{error:'ANAM_UNREACHABLE'})}}
 
+if(req.method==='GET'&&pathname==='/api/game-form'){
+ const q=new URL(req.url,'http://localhost').searchParams,date=q.searchParams.get('date')||easternDate(),sport=q.searchParams.get('sport')||'',gameId=q.searchParams.get('gameId')||'';
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Object.hasOwn(scoreboardSources,sport)||!/^[0-9a-z_-]{1,36}$/i.test(gameId))return respond(res,400,{error:'INVALID_GAME_FORM_SCOPE'});
+ try{return respond(res,200,await selectedGameForm(date,sport,gameId))}
+ catch(e){return respond(res,502,{error:'FORM_FETCH_UNAVAILABLE',details:String(e.message||e).slice(0,140)})}
+}
 if(req.method==='GET'&&pathname==='/api/daily-slate'){const requested=new URL(req.url,'http://localhost').searchParams.get('date')||easternDate();if(!/^\d{4}-\d{2}-\d{2}$/.test(requested))return respond(res,400,{error:'INVALID_DATE'});if(Math.abs((Date.parse(requested+'T12:00:00Z')-Date.parse(easternDate()+'T12:00:00Z'))/86400000)>14)return respond(res,400,{error:'DATE_OUTSIDE_SUPPORTED_WINDOW'});try{return respond(res,200,await dailySlateLoad(requested))}catch(e){return respond(res,502,{error:'DAILY_SLATE_UNAVAILABLE',message:String(e.message||e).slice(0,130)})}}
 if(req.method==='GET'&&pathname==='/api/model-research'){const report=await modelBoardFor();return respond(res,200,report)}
 if(req.method==='GET'&&pathname==='/api/anam-concurrency'){
