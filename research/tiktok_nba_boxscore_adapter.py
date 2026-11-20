@@ -58,6 +58,14 @@ def rolling_features(rows, threshold=1.5):
             "rows_with_full_last10":sum(x["last10_games"]==10 for x in features),
             "rows_with_incomplete_last10":sum(x["last10_games"]<10 for x in features),
             "historical_90_rows":sum(x["historical_90"] for x in features),
+            "historical_90_outcome_wins":sum(x["historical_90"] and x["actual_3pm"]>threshold for x in features),
+            "historical_90_outcome_losses":sum(x["historical_90"] and x["actual_3pm"]<=threshold for x in features),
+            "historical_90_empirical_hit_rate":(
+                sum(x["historical_90"] and x["actual_3pm"]>threshold for x in features)
+                / sum(x["historical_90"] for x in features)
+                if any(x["historical_90"] for x in features) else None
+            ),
+            "performance_scope":"retrospective_boxscore_only_no_pregame_odds_or_independent_verification",
             "certified_bets":0,"rows":features,"quarantine":quarantined}
 
 def main():
