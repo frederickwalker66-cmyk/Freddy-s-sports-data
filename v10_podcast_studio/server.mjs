@@ -763,9 +763,21 @@ const highlight=n=>{selected=n;document.querySelectorAll('.person').forEach(p=>p
 renderParticipants();
 const restorePanelMembers=()=>{const activeCount=window.v10LiveCameraCount?.()||0;if(activeCount>0){el('room-scene-capacity').textContent='Live video running · stop cameras before repairing cast layout';return false;}renderParticipants();const ok=names.every(n=>document.querySelector('.person[data-person="'+n+'"]'));el('room-scene-capacity').textContent=ok?'Full original panel restored: Bella · David · Cassidy · Roger · Sarah · Adam Stone':'Roster repair incomplete · refresh this page';return !!ok;};
 el('restore-panel-members').onclick=restorePanelMembers;
-let anamClient=null;
-el('anam-start').onclick=async()=>{el('anam-start').disabled=true;el('anam-status').textContent='Connecting to Anam…';try{const r=await fetch('/api/anam/session-token',{method:'POST',headers:{'x-boardroom-password':token}});if(!r.ok)throw Error('Session authorization failed ('+r.status+')');const d=await r.json();const sdk=await import('https://esm.sh/@anam-ai/js-sdk');anamClient=sdk.createClient(d.sessionToken);await anamClient.streamToVideoElement('anam-video');el('anam-stop').disabled=false;el('anam-status').textContent='Adam Stone live video connected'}catch(e){el('anam-status').textContent='Could not connect: '+e.message;el('anam-start').disabled=false;try{await anamClient?.stopStreaming()}catch{}anamClient=null}};
-el('anam-stop').onclick=async()=>{el('anam-stop').disabled=true;try{await anamClient?.stopStreaming()}catch{}anamClient=null;el('anam-start').disabled=false;el('anam-status').textContent='Call ended'};
+// Reuse the shared Anam stream; this legacy button must not consume another session.
+el('anam-start').onclick=async()=>{
+ el('anam-start').disabled=true;el('anam-status').textContent='Switching main camera to Adam Stone…';
+ try{
+  if(!window.v10EnsureLiveCamera)throw Error('Camera controls are loading');
+  await window.v10EnsureLiveCamera('Adam Stone');
+  el('anam-status').textContent='Adam Stone live in the main boardroom; call another name to switch.';
+  el('anam-stop').disabled=false
+ }catch(e){el('anam-status').textContent='Camera unavailable: '+String(e.message||e).slice(0,140)}
+ finally{el('anam-start').disabled=false}
+};
+el('anam-stop').onclick=async()=>{
+ el('anam-stop').disabled=true;await window.v10StopLiveWall?.();
+ el('anam-status').textContent='Boardroom live camera ended'
+};
 window.addEventListener('pagehide',()=>{void anamClient?.stopStreaming()});
 
 
@@ -1604,20 +1616,15 @@ async function disconnect(n){
 }
 async function toggleMember(n){
  if(busy.has(n))return;
- soundEnabled=liveVolume>0;
- unlockLiveAudio();void window.v10UnlockStudioSound?.();
+ soundEnabled=liveVolume>0;unlockLiveAudio();void window.v10UnlockStudioSound?.();
  const button=roomSeat(n)?.querySelector('.room-avatar-live-toggle');
  if(button)button.disabled=true;
  try{
-  if(active.has(n))await disconnect(n);
-  else{
-   await refreshCapacity();
-   if(active.size>=planLimit){
-    const prior=active.keys().next().value;
-    if(prior){wallStatus.textContent='Switching live camera from '+memberLabel(prior)+' to '+memberLabel(n)+'…';await disconnect(prior)}
-   }
-   await connect(n);focusLive(n)
-  }
+  if(active.has(n)){
+   // Serialize manual stop with pending name-triggered camera transitions.
+   const stopTask=liveSwitchQueue.then(async()=>{if(active.has(n))await disconnect(n)});
+   liveSwitchQueue=stopTask.catch(()=>{});await stopTask;
+  }else await ensureLiveCamera(n);
  }catch(e){setLiveState(n,false,'Unable to connect: '+String(e.message||e))}
  finally{if(button)button.disabled=false;updateCapacityUI()}
 }
@@ -1632,15 +1639,22 @@ const ensureLiveCamera=name=>{
  const task=liveSwitchQueue.then(async()=>{
   if(active.has(n)){focusLive(n);return true}
   await refreshCapacity();
+  // One live session on Anam Free: close any previous stream before requesting a new one.
   for(const previous of [...active.keys()]){
-   wallStatus.textContent='Switching live video from '+memberLabel(previous)+' to '+memberLabel(n)+'…';
+   wallStatus.textContent='Switching camera from '+memberLabel(previous)+' to '+memberLabel(n)+'…';
    await disconnect(previous);
   }
-  soundEnabled=liveVolume>0;
-  unlockLiveAudio();
-  await connect(n);
-  focusLive(n);
-  return true
+  soundEnabled=liveVolume>0;unlockLiveAudio();
+  for(let attempt=0;attempt<3;attempt++){
+   try{await connect(n);focusLive(n);return true}
+   catch(e){
+    const transient=/provider HTTP 429|concurren|capacity|session limit/i.test(String(e?.message||e));
+    if(!transient||attempt===2)throw e;
+    wallStatus.textContent='Releasing the previous Anam camera before switching to '+memberLabel(n)+'…';
+    await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));
+   }
+  }
+  return false
  });
  liveSwitchQueue=task.catch(()=>{});
  return task
@@ -1680,7 +1694,23 @@ if(roomStopAll)roomStopAll.onclick=()=>void stopAllCameras();
 document.getElementById('live-host-mic').onclick=()=>window.v10HostMic?.();
 updateCapacityUI();displayLiveSound();
 window.addEventListener('pagehide',()=>{for(const client of active.values())void client.stopStreaming()});
-</script><script type="module">let client=null;const start=document.getElementById('adam-live-start'),stop=document.getElementById('adam-live-stop'),status=document.getElementById('adam-live-status');start.addEventListener('click',async()=>{start.disabled=true;status.textContent='Requesting private Anam session…';try{const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Unlock boardroom first');const r=await fetch('/api/anam-session',{method:'POST',headers:{'x-boardroom-password':pass,'content-type':'application/json'},body:JSON.stringify({analyst:document.getElementById('anam-analyst').value})});const d=await r.json();if(!r.ok)throw Error(d.error||'Anam session unavailable');const sdk=await import('https://esm.sh/@anam-ai/js-sdk@latest');client=sdk.createClient(d.sessionToken);await client.streamToVideoElement('adam-live-video');stop.disabled=false;status.textContent=document.getElementById('anam-analyst').selectedOptions[0].text+' live · Anam session active (Anam voice)';}catch(e){status.textContent='Live session unavailable: '+e.message;start.disabled=false;}});stop.addEventListener('click',async()=>{try{await client?.stopStreaming()}finally{client=null;stop.disabled=true;start.disabled=false;status.textContent='Live session ended';}});</script></body></html>`;
+</script><script type="module">
+const start=document.getElementById('adam-live-start'),stop=document.getElementById('adam-live-stop'),status=document.getElementById('adam-live-status');
+start.addEventListener('click',async()=>{
+ start.disabled=true;status.textContent='Switching the shared boardroom camera…';
+ try{
+  const selected=document.getElementById('anam-analyst').value;
+  if(!window.v10EnsureLiveCamera)throw Error('Camera controls have not loaded');
+  await window.v10EnsureLiveCamera(selected);
+  status.textContent=(selected==='Adam'?'Adam Stone':selected)+' live in the main boardroom · spoken names switch the same camera';
+  stop.disabled=false
+ }catch(e){status.textContent='Live camera unavailable: '+String(e.message||e).slice(0,135)}
+ finally{start.disabled=false}
+});
+stop.addEventListener('click',async()=>{
+ stop.disabled=true;await window.v10StopLiveWall?.();status.textContent='Shared live camera ended'
+});
+</script></body></html>`;
 const bootMarker="const btn=document.getElementById('unlock'),input=document.getElementById('pass'),status=document.getElementById('status');let busy=false;";
 const mainScriptTag=[...html.matchAll(/<script>[\s\S]*?<\/script>/g)].map(m=>m[0]).find(t=>t.includes('window.v10CompleteUnlock=async'));if(!mainScriptTag)throw Error('V10 main script not found');const mainScriptSource=mainScriptTag.slice('<script>'.length,-'</script>'.length);new Script(mainScriptSource,{filename:'studio-runtime.js'});const pageHtml=html; // Inline verified runtime executes synchronously before user unlock; no external defer race on Android.
 const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url||'/', 'http://localhost').pathname;console.log('V10_REQUEST',req.method,pathname);if(req.method==='GET'&&pathname==='/studio-runtime.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});return res.end(mainScriptSource)}
