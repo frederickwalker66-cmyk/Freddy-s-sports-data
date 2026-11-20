@@ -258,6 +258,29 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
 .podcast-room-live-actions span{font-size:11px;color:#b9c9da}
 @media(max-width:800px){.podcast-room-set{grid-template-columns:1fr}.podcast-room-scene .person .face{height:clamp(110px,23vw,195px)}.podcast-room-scene .v10-remote-roster{grid-template-columns:repeat(2,minmax(0,1fr))}.podcast-room-scene .room-remote-side .person .face{height:clamp(100px,26vw,190px)}.room-sport-shortcuts{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:490px){.podcast-room-scene{padding:8px}.podcast-room-scene #people{grid-template-columns:repeat(2,minmax(0,1fr))}.podcast-room-scene .person .face{height:132px}.podcast-room-scene .room-remote-side .person .face{height:122px}.room-now-speaking strong{font-size:12px}.room-sport-shortcuts{grid-template-columns:repeat(4,minmax(0,1fr))}.room-table-edge b{font-size:10px}.podcast-room-neon span{letter-spacing:.5px}}
+
+.daily-slate-board{background:linear-gradient(145deg,#0d1a32,#132b47);border:1px solid #b18b5c;border-radius:14px;margin:15px 0;padding:13px;color:#e7eefb}
+.daily-slate-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.daily-slate-top strong{color:#eec381;font-size:17px}
+.daily-slate-top span{font-size:12px;color:#bbd2ea}
+.daily-slate-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0}
+.daily-slate-toolbar label{font-size:12px}.daily-slate-toolbar input{width:155px;max-width:100%;padding:7px;font-size:13px}
+.daily-slate-toolbar button{font-weight:750;font-size:12px;padding:9px;background:#184879;border:1px solid #5b90cb;margin:0}
+.daily-slate-toolbar button:hover,.daily-slate-toolbar button:focus-visible{background:#2963a0}
+.daily-slate-counts{font-size:12px;color:#d2dbeb;line-height:1.6;padding:8px;background:#102541;border-radius:8px}
+.daily-slate-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,1.2fr);gap:10px;margin-top:11px}
+.daily-slate-schedule,.daily-game-audit{background:#08162ba8;border:1px solid #355678;border-radius:10px;padding:10px;min-width:0}
+.daily-slate-schedule strong,.daily-game-audit>strong{font-size:12px;color:#f0c985}
+.daily-slate-games{max-height:360px;overflow-y:auto;margin-top:8px;padding:4px 2px}
+.daily-slate-games button{display:block;width:100%;text-align:left;font-size:12px;background:#142a46;color:#e4edf7;margin:3px 0;padding:8px;border:1px solid #2b527e;border-radius:6px}
+.daily-slate-games button.selected,.daily-slate-games button:focus-visible{border-color:#e9bc79;background:#245077}
+.daily-slate-games .league-name{color:#f0c985;margin-top:10px;font-size:12px;font-weight:900;letter-spacing:1px}
+#daily-game-review{white-space:pre-wrap;font-size:12px;line-height:1.55;overflow-wrap:anywhere;margin:8px 0;padding:9px;background:#11253e;border-radius:8px;min-height:150px}
+.daily-consensus{border-top:1px solid #476887;padding-top:10px;margin-top:7px}
+.daily-consensus strong{color:#f4c976}
+.daily-consensus p{font-size:12px;line-height:1.6}
+.daily-slate-warning{color:#cfdae9}
+@media(max-width:800px){.daily-slate-grid{grid-template-columns:1fr}.daily-slate-games{max-height:245px}}
 </style></head><body><main><header class="v10-hero"><div class="v10-eyebrow">FREDDY'S PICKS AI · V10</div><h1>🎙️ The 914 Sports Podcast Studio</h1><p>Private sports roundtable · Six analysts · Vertical Shorts recording</p><div class="v10-login"><input id="pass" type="password" placeholder="Enter your private studio password" autocomplete="current-password"><button id="unlock">Enter private studio</button></div><p id="status" aria-live="polite">Studio locked · Enter your existing boardroom password to continue.</p><p id="avatar-readiness" class="muted">Illustrated studio works separately from optional live Anam video.</p></header><section id="anam-panel" style="display:none;background:#111c32;padding:12px;border-radius:12px;margin:12px 0"><strong>Adam Stone · Live Anam Video</strong><p><button id="anam-start">Start selected analyst live video</button> <button id="anam-stop" disabled>End live video</button></p><video id="anam-video" autoplay playsinline style="width:100%;max-width:640px;border-radius:12px;background:#000"></video><p id="anam-status" class="muted">Ready</p></section><section class="podcast-stage"><div class="room-title">🎙️ THE 914 SPORTS ROUNDTABLE · ALL SIX AT ONE TABLE</div><p class="muted" style="padding:8px 12px">Tap any analyst portrait to select them. Type your question in the Host control desk, then tap Ask analyst. Original analyst portraits remain visible even without Anam live video. Cassidy retains her original V10 image and is now registered for Anam live video.</p><p class="muted" id="live-score-quick" aria-live="polite">Checking ESPN game scores and schedules after sign-in. Game scores refresh every 60 seconds while the boardroom is open. Live sportsbook odds and certified model picks are separate feeds.</p><p class="muted" id="analysts-live-data-status" aria-live="polite">Live analyst scoreboard connection status will appear here after sign-in.</p><div id="podcast-room-scene" class="podcast-room-scene" aria-label="Freddy's Picks AI V10 shared podcast room">
  <div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
  <div class="podcast-room-backwall" aria-hidden="true"><div class="room-nyc-logo room-knicks">NEW YORK<br>KNICKS 🏀</div><div class="room-nyc-center"><strong>FREDDY'S<br>PICKS AI</strong><span>DATA · SHARP EDGE · PARLAYS</span></div><div class="room-nyc-logo room-yankees">NY<br>YANKEES ⚾</div></div>
@@ -276,7 +299,38 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
  <div id="room-sport-shortcuts" class="room-sport-shortcuts" aria-label="Sports discussion topics">
   <button type="button" data-room-action="NBA">🏀 NBA</button><button type="button" data-room-action="NFL">🏈 NFL</button><button type="button" data-room-action="MLB">⚾ MLB</button><button type="button" data-room-action="NHL">🏒 NHL</button><button type="button" data-room-action="NCAAF">🎓 NCAAF</button><button type="button" data-room-action="NCAAB">🏀 NCAAB</button><button type="button" data-room-action="MLS">⚽ MLS</button><button type="button" data-room-action="UCL">🏆 UCL</button><button type="button" data-room-action="SHARP EDGE">🎯 SHARP EDGE</button><button type="button" data-room-action="PLAYER PROPS">📊 PROPS</button><button type="button" data-room-action="PARLAYS">🎟️ PARLAYS</button><button type="button" data-room-action="LIVE DATA">📡 LIVE DATA</button>
  </div>
- <div class="podcast-room-live-actions">
+ 
+<section id="daily-slate-board" class="daily-slate-board" aria-label="Daily eight-sport schedule and game review">
+ <div class="daily-slate-top"><strong>📅 FREDDY’S DAILY GAME-BY-GAME AUDIT</strong><span id="daily-slate-health">Sign in to load the eight-sport daily slate</span></div>
+ <div class="daily-slate-toolbar">
+  <label for="daily-slate-date">Eastern date</label><input id="daily-slate-date" type="date" aria-label="Sports slate date">
+  <button id="daily-slate-today" type="button">Today</button>
+  <button id="daily-slate-refresh" type="button">Refresh all 8 sports</button>
+  <button id="daily-slate-review-all" type="button">Analyze every game, one by one</button>
+ </div>
+ <div id="daily-slate-counts" class="daily-slate-counts">Waiting for verified schedules</div>
+ <div class="daily-slate-grid">
+  <div class="daily-slate-schedule">
+   <strong>All returned games · select any matchup</strong>
+   <div id="daily-slate-games" class="daily-slate-games" role="list" aria-label="All games for selected date">Enter your studio password to load games.</div>
+  </div>
+  <div class="daily-game-audit">
+   <strong>One-game analysis · Bella, David, Cassidy, Roger, Sarah & Adam</strong>
+   <div id="daily-game-review" aria-live="polite">Choose a scheduled game. The analysts will distinguish verified facts from markets without prices.</div>
+   <div class="daily-slate-toolbar"><button id="daily-game-previous" type="button">← Previous</button><button id="daily-game-next" type="button">Next game →</button><button id="daily-game-discuss" type="button">🎙️ Six-person game review</button></div>
+   <div class="daily-consensus">
+    <strong>🏆 TODAY'S BOARDROOM CONSENSUS</strong>
+    <p id="daily-consensus-status">Awaiting today's full-slate review. No verified betting selection is authorized.</p>
+    <div class="daily-slate-toolbar">
+     <button type="button" id="daily-consensus-two">Debate 2-leg parlay</button>
+     <button type="button" id="daily-consensus-five">Debate today's 5-leg parlay</button>
+    </div>
+    <p class="daily-slate-warning">Moneylines · spreads · totals · points/rebounds/assists · combinations · parlays. Without independently verified prices, native model probabilities and correlated-leg assessment, the correct conclusion is HOLD / NO PLAY—not five invented picks.</p>
+   </div>
+  </div>
+ </div>
+</section>
+<div class="podcast-room-live-actions">
   <button id="room-start-conversation" type="button" disabled>🎙️ Talk to all six in this room</button><button id="room-host-mic" type="button" disabled>🎤 Speak to the room</button>
   <button id="room-start-video" type="button" disabled>🎬 Record this room</button>
   <span id="room-video-notice">All six appear together; only actual connected Anam streams are animated.</span>
