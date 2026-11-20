@@ -8,6 +8,7 @@ identifiers and timestamps for later independent validation.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from nba_transaction_conflict_guard import known_transaction_conflict
 from datetime import datetime
 import math
 
@@ -51,6 +52,7 @@ def create_player_props_board(games, archive_pairs):
     if len(index) != len(games):
         raise ValueError("NBA_duplicate_espn_game_id")
     records, seen = [], set()
+    transaction_conflicts = Counter()
     for pair in archive_pairs:
         if not isinstance(pair, dict):
             raise ValueError("untrusted_market_pair")
@@ -102,6 +104,9 @@ def create_player_props_board(games, archive_pairs):
             raise ValueError("duplicate_source_prop_market")
         seen.add(key)
         g = index[eid]
+        if known_transaction_conflict(name, g['home_team'], g['away_team'], g['start_utc']):
+            transaction_conflicts[name.strip()] += 1
+            continue  # Quarantine obsolete team association; do not show as a prop.
         family = STATS.get(market, (market.removeprefix("player_"), 100))[0]
         over, under = sides
         records.append({
@@ -188,6 +193,7 @@ def create_player_props_board(games, archive_pairs):
         "prop_family_readiness": prop_family_readiness,
         "prop_market_coverage_by_game": game_prop_coverage,
         "paired_source_prop_market_count": len(records),
+        "known_transaction_team_conflicts_quarantined": dict(sorted(transaction_conflicts.items())),
         "paired_prop_counts_by_stat": dict(sorted(stats.items())),
         "paired_prop_counts_by_event_id": {
             key: dict(sorted(val.items())) for key, val in sorted(per_game.items())},
@@ -247,6 +253,9 @@ def render_player_props(board, *, preview=False):
         "**These are archived sportsbook-provider labels, NOT live executable "
         "prices or confirmed player availability.**",
         "**Model prop p% / model edge pp / EV ROI%:** N/A / N/A / N/A.",
+        f"**Official-transaction mismatch prop rows quarantined:** "
+        f"{sum(board.get('known_transaction_team_conflicts_quarantined', {}).values())}. "
+        "Other unverified team assignments still require authoritative roster reconciliation.",
         "",
         "**Stat coverage:** " + (", ".join(
             f"{name}: {n}" for name, n in board["paired_prop_counts_by_stat"].items()
