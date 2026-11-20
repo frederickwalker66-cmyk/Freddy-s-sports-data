@@ -21,6 +21,7 @@ from v8_nba_prop_source_readiness import inspect_nba_prop_capture, render_nba_pr
 from v8_sharp_game_markets import summarize_full_game_markets
 from v8_mixed_market_board import mixed_market_board
 from v8_sgo_research import audit_source_archive
+from research.sharp_edge_source_readiness import audit as audit_sharp_edge_source_readiness
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -542,6 +543,20 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         json.dumps(dashboard, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out / "PROBABILITY_SHARP_EDGE_DASHBOARD.md").write_text(
         render_dashboard(dashboard), encoding="utf-8")
+    # Source readiness is a diagnostic, never an odds or model-certification bridge.
+    # The existing SGO archive summary is aggregate research, not authenticated
+    # individual sportsbook/Champion-001 market receipts. Do not fabricate rows.
+    sgo_summary = report.get("sportsgameodds_archive_research")
+    if sgo_summary is None and sgo_archive_dir is not None:
+        sgo_summary = audit_source_archive(sgo_archive_dir, now=now)
+        report["sportsgameodds_archive_research"] = sgo_summary
+    readiness = audit_sharp_edge_source_readiness({"markets": []}, now=now)
+    readiness["sgo_archive_summary_available"] = sgo_summary is not None
+    readiness["archive_market_receipts_authenticated"] = 0
+    readiness["integration_status"] = "ARCHIVE_SUMMARY_ONLY_NO_VERIFIED_MARKET_ROWS"
+    report["sharp_edge_source_readiness"] = readiness
+    (out / "SHARP_EDGE_SOURCE_READINESS.json").write_text(
+        json.dumps(readiness, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if command == "run_audit":
