@@ -8,6 +8,7 @@ Only pregame features and quotes are eligible. Never invent missing data.
 import argparse
 import csv
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from research.tiktok_three_point_strategy import ThreePointCandidate, evaluate
@@ -25,13 +26,24 @@ def optional_float(s):
 
 def backtest(rows):
     records=[]
+    seen=set()
     for row in rows:
+        identity=(row.get("game_id"),row.get("player"),row.get("line"))
+        if not all(identity) or identity in seen:
+            records.append({"game_id":row.get("game_id"),"player":row.get("player"),
+                            "status":"QUARANTINE_DUPLICATE_OR_MISSING_IDENTITY"})
+            continue
+        seen.add(identity)
         try:
             tip=dt(row["tipoff_utc"])
             observed=dt(row["observed_at_utc"])
             quote=dt(row["odds_timestamp"]) if row.get("odds_timestamp") else None
             if observed >= tip or (quote and quote >= tip):
                 records.append({"game_id":row.get("game_id"),"player":row.get("player"),"status":"QUARANTINE_POST_TIP"});continue
+            if row.get("odds_american") and not quote:
+                raise ValueError("odds require timestamp")
+            if row.get("native_probability") and not row.get("odds_american"):
+                raise ValueError("model probability lacks sportsbook price")
             c=ThreePointCandidate(
                 player=row["player"],opponent=row["opponent"],line=float(row["line"]),
                 last5_hits=int(row["last5_hits"]),last10_hits=int(row["last10_hits"]),
@@ -54,10 +66,22 @@ def backtest(rows):
                             "status":"QUARANTINE_INVALID_DATA","reason":str(exc)})
     graded=[r for r in records if r["status"]=="RESEARCH_GRADED"]
     eligible=[r for r in graded if r["historical_90"] and r["defense_top10"] and r["shooter_top10"]]
-    return {"total_rows":len(records),"graded_rows":len(graded),
+    wins=sum(r["won"] for r in eligible)
+    n=len(eligible)
+    # Wilson 95% interval; descriptive only, not an out-of-sample guarantee.
+    z=1.96
+    if n:
+        phat=wins/n
+        denominator=1+z*z/n
+        center=(phat+z*z/(2*n))/denominator
+        half=z*math.sqrt(phat*(1-phat)/n+z*z/(4*n*n))/denominator
+        interval=[max(0,center-half),min(1,center+half)]
+    else:
+        interval=None
+    return {"eligible_hit_rate_wilson_95_interval":interval,"total_rows":len(records),"graded_rows":len(graded),
             "quarantined_rows":len(records)-len(graded),
             "strategy_eligible_rows":len(eligible),
-            "eligible_wins":sum(r["won"] for r in eligible),
+            "eligible_wins":wins,"eligible_losses":n-wins,
             "eligible_empirical_hit_rate":sum(r["won"] for r in eligible)/len(eligible) if eligible else None,
             "certified_bets":0,"records":records}
 
