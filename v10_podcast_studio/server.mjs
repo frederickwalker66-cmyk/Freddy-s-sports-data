@@ -686,7 +686,7 @@ const renderDailySelected=()=>{
   'DECISION: HOLD · Insufficient evidence for a certified bet.'
  ].join('\\n');
  for(const b of el('daily-slate-games').querySelectorAll('[data-daily-index]'))b.classList.toggle('selected',Number(b.dataset.dailyIndex)===dailySelected);
- displayDailyForm();setDailyConsensus()
+ displayDailyForm();clearQuoteOnGameChange();setDailyConsensus()
 };
 const renderDailyGames=()=>{
  const box=el('daily-slate-games');box.replaceChildren();
@@ -781,6 +781,56 @@ const beginDailyRefresh=()=>{
   if(!dailyPinned&&today!==el('daily-slate-date').value){el('daily-slate-date').value=today;dailyReviewed=new Set();currentSlate=null}
   void loadDailySlate(true)
  },300000)
+};
+
+
+let quoteObservedAt=null,quoteDisplayAt=null,latestQuoteAudit=null,lastQuoteGameKey='';
+const quoteBox=el('quote-preflight-result'),quoteWhen=el('quote-timestamp');
+el('quote-checked-now').onclick=()=>{
+ const now=new Date();
+ quoteDisplayAt=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now).replace(' ','T');
+ quoteWhen.value=quoteDisplayAt;quoteObservedAt=now.toISOString();
+ quoteBox.textContent='Freddy, your self-reported Eastern observation time is recorded. This does not authenticate the sportsbook price.';
+};
+quoteWhen.oninput=()=>{if(quoteWhen.value!==quoteDisplayAt){quoteObservedAt=null;quoteDisplayAt=null}};
+const clearQuoteOnGameChange=()=>{
+ const g=dailyGames[dailySelected],key=g?g.sport+':'+g.id:'';
+ if(key!==lastQuoteGameKey){lastQuoteGameKey=key;latestQuoteAudit=null;el('quote-discuss').disabled=true;quoteBox.textContent=g?'Selected '+g.name+' · Report a price to check break-even arithmetic and evidence gaps.':'Select a game before auditing a price.'}
+};
+el('quote-preflight').onclick=async()=>{
+ if(!token){quoteBox.textContent='Sign in first';return}
+ const g=dailyGames[dailySelected],market=el('quote-market').value,selection=el('quote-selection').value.trim(),odds=el('quote-odds').value.trim(),line=el('quote-line').value.trim(),opposite=el('quote-opposing-odds').value.trim();
+ if(!g||!currentSlate){quoteBox.textContent='Select a scheduled game first';return}
+ if(!selection||!odds||(market!=='moneyline'&&!line)){quoteBox.textContent='Enter a pick, quoted American price, and the line for non-moneyline markets.';return}
+ const q={date:currentSlate.dateEastern,sport:g.sport,gameId:g.id,market,selection,americanOdds:Number(odds),observedAt:quoteDisplayAt===quoteWhen.value?quoteObservedAt:null};
+ if(market!=='moneyline')q.line=Number(line);
+ if(opposite)q.opposingOdds=Number(opposite);
+ el('quote-preflight').disabled=true;el('quote-discuss').disabled=true;
+ quoteBox.textContent='Checking the reported market against the verified fixture…';
+ try{
+  const resp=await fetch('/api/odds-preflight',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':token},body:JSON.stringify(q),cache:'no-store'});
+  const d=await resp.json();if(!resp.ok)throw Error(d.reason||d.error||'Audit failed');
+  latestQuoteAudit=d;
+  const a=d.arithmetic;
+  quoteBox.textContent=[
+   'GAME: '+d.event.gameName+' · '+d.event.startEastern,
+   'USER-REPORTED PICK: '+d.observation.selection+' · '+d.observation.market+' · '+a.americanOdds,
+   'BREAK-EVEN: '+a.breakEvenPercent.toFixed(2)+'% (market arithmetic, NOT model probability)',
+   'ILLUSTRATIVE NO-VIG: '+(a.pairedNoVigProbability==null?'not applicable / unverified':(a.pairedNoVigProbability*100).toFixed(2)+'% (unverified sides)'),
+   'REPORTED AGE: '+(d.observation.ageSeconds??'unknown')+' seconds',
+   'DRAFTKINGS CHECKOUT: UNVERIFIED',
+   'CHAMPION-001 WIN PROBABILITY: UNAVAILABLE',
+   'CERTIFIED SHARP EDGE / EV: UNAVAILABLE',
+   'FINAL DECISION: HOLD · NO BET PROMOTED'
+  ].join(String.fromCharCode(10));
+  el('quote-discuss').disabled=false
+ }catch(e){latestQuoteAudit=null;quoteBox.textContent='HOLD · '+String(e.message||e)}
+ finally{el('quote-preflight').disabled=false}
+};
+el('quote-discuss').onclick=()=>{
+ const d=latestQuoteAudit;if(!d||!token)return;
+ const topic='Freddy wants all six of you to discuss his USER-REPORTED '+d.observation.market+' '+d.observation.selection+' in '+d.event.gameName+' at American odds '+d.arithmetic.americanOdds+'. Break-even is '+d.arithmetic.breakEvenPercent+'%, but this is not the Champion-001 prediction or a verified DraftKings checkout. Bella moderates, David reviews actual matchup form, Cassidy evaluates missing EV evidence, Roger considers parlay eligibility, Sarah reviews correlation and downside, and Adam audits sources. Talk naturally with Freddy and each other. The responsible outcome is HOLD / NO PLAY until independent certification.';
+ void startPanel(topic)
 };
 
 const roomActionPrompts={
