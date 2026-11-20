@@ -5,6 +5,7 @@ injuries/odds, place wagers, or modify Champion-001. Missing evidence fails clos
 """
 from collections import Counter, defaultdict
 from math import isfinite
+from ticket_outcome_geometry import analyze_margin_overlap
 
 
 VALID_RESULTS = {"win", "loss", "push", "void", "pending"}
@@ -73,6 +74,12 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
         is_prop = leg.get("is_player_prop") is True
         if is_prop and leg.get("availability_verified") is not True:
             reasons.append("player_availability_or_role_unverified")
+        if is_prop and leg.get("workload_evidence_verified") is not True:
+            reasons.append("prop_minutes_snaps_or_expected_workload_unverified")
+        if is_prop and leg.get("game_script_review_verified") is not True:
+            reasons.append("prop_game_script_sensitivity_not_reviewed")
+        if is_prop and leg.get("exact_stat_line_calibration_verified") is not True:
+            reasons.append("exact_prop_market_forward_calibration_unverified")
         if is_prop:
             player = leg.get("player_name")
             if isinstance(player, str) and player.strip() and isinstance(event, str) and event.strip():
@@ -120,6 +127,12 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
             "model_ev_per_unit_if_verified": ev,
             "reasons": reasons,
         })
+    margin_diagnostic = analyze_margin_overlap([
+        {"league": leg.get("league"), "event_id": leg.get("event_id"),
+         "market": leg.get("market_type"), "line": leg.get("line"),
+         "team_side": leg.get("team_side")}
+        for leg in legs
+    ])
     shared_events = sorted(k for k, v in event_counts.items() if v > 1)
     repeated_players = [
         {"event_id": event, "player_name_as_supplied_casefold": player,
@@ -139,6 +152,7 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
     if previously_rejected:
         risk_flags.append("previously_passed_or_held_leg_included")
     blockers = list(risk_flags)
+    blockers.extend(margin_diagnostic["margin_overlap_warning_codes"])
     if shared_events and not (joint_probability is not None and joint_probability_verified is True):
         blockers.append("shared_event_exposure_requires_joint_model")
     if quoted_parlay_odds is None:
@@ -169,6 +183,7 @@ def audit_slip(legs, quoted_parlay_odds=None, joint_probability=None,
         "decision": "PASS" if blockers or combined_ev is None or combined_ev <= 0 else "RESEARCH_REVIEW_ONLY",
         "legs": rows,
         "same_event_ids": shared_events,
+        "same_event_moneyline_spread_margin_review": margin_diagnostic["margin_overlap_groups"],
         "same_player_prop_groups": repeated_players,
         "leg_numbers_with_prior_PASS_HOLD_REJECT": previously_rejected,
         "ticket_structural_risk_flags": risk_flags,
