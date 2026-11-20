@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 
 def parse_time(s):
@@ -14,7 +15,7 @@ def parse_time(s):
     return d.astimezone(timezone.utc)
 
 def rolling_features(rows, threshold=1.5):
-    if threshold < 0: raise ValueError("invalid threshold")
+    if not math.isfinite(threshold) or threshold < 0: raise ValueError("invalid threshold")
     seen=set(); valid=[]; quarantined=[]
     for r in rows:
         try:
@@ -26,6 +27,11 @@ def rolling_features(rows, threshold=1.5):
             t=parse_time(r["event_start_utc"])
             if r.get("did_not_play") is not False or type(r.get("threes_made")) is not int or r["threes_made"]<0:
                 raise ValueError("DNP or missing 3PM")
+            if r.get("minutes") is not None and (
+                type(r["minutes"]) not in (int,float) or not math.isfinite(r["minutes"])
+                or r["minutes"] < 0 or r["minutes"] > 70
+            ):
+                raise ValueError("invalid minutes")
             if r.get("independently_verified_player_stats") is not False or r.get("qualified_for_player_prop_training") is not False:
                 raise ValueError("unexpected qualification flags")
             valid.append((t,key,r))
