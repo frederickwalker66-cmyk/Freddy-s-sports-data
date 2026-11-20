@@ -29,3 +29,18 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(rolling_features([a,b])["rows"][1]["last10_games"],0)
 
 if __name__=="__main__":unittest.main()
+
+
+class ESPNThreePointLabelTests(unittest.TestCase):
+    def test_three_point_made_attempted_parsing(self):
+        from challenger_nba_player_boxes import _three_made
+        self.assertEqual(_three_made("3-8"),3)
+        self.assertIsNone(_three_made("9-8"))
+
+    def test_alternate_label_is_supported_by_parser(self):
+        import inspect
+        from challenger_nba_player_boxes import parse_summary
+        source=inspect.getsource(parse_summary)
+        self.assertIn('"3PM-A"',source)
+        self.assertIn('"3PT"',source)
+        self.assertIn("conflicting three-point stat labels",source)
