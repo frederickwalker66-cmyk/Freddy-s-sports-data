@@ -1,0 +1,26 @@
+name: TikTok 3PT Research Tests
+on:
+  push:
+    branches: [feature/tiktok-three-point-strategy-20261120]
+    paths:
+      - 'research/tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_strategy.py'
+      - '.github/workflows/tiktok-three-point-research-tests.yml'
+  pull_request:
+    paths:
+      - 'research/tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_strategy.py'
+      - '.github/workflows/tiktok-three-point-research-tests.yml'
+  workflow_dispatch:
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run isolated 3PT research tests
+        run: python -m unittest discover -s tests -p 'test_tiktok_three_point_strategy.py' -v
