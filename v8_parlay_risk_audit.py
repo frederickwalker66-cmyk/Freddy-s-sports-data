@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import json
 import math
 from pathlib import Path
+from ticket_outcome_geometry import analyze_margin_overlap
 
 ALLOWED_LEAGUES = frozenset((
     "nba", "nfl", "nhl", "mlb", "ncaaf", "ncaab", "mls", "uefa_champions_league",
@@ -192,7 +193,11 @@ def audit_ticket(ticket):
         structural_risks.append("same_player_multiple_props_require_joint_distribution")
     if prior_pass_or_hold_legs:
         structural_risks.append("previously_PASS_HOLD_REJECT_legs_included")
+    # Pure logic check: a winner plus the opposite spread can demand a narrow
+    # integer victory margin; unknown team sides are never guessed from names.
+    margin_diagnostic = analyze_margin_overlap(legs)
     warnings = list(structural_risks)
+    warnings.extend(margin_diagnostic["margin_overlap_warning_codes"])
     if same_game:
         warnings.append("same_game_legs_are_correlated_do_not_multiply_independent_probabilities")
     if same_player:
@@ -215,6 +220,8 @@ def audit_ticket(ticket):
         "payout_price_math": payout,
         "same_event_groups": same_game,
         "same_player_groups": same_player,
+        "same_game_margin_overlap": margin_diagnostic["margin_overlap_groups"],
+        "same_game_margin_warning_codes": margin_diagnostic["margin_overlap_warning_codes"],
         "correlation_risk_flagged": bool(same_game),
         "structural_risk_flags": structural_risks,
         "prior_pass_hold_reject_leg_numbers": prior_pass_or_hold_legs,
@@ -248,6 +255,7 @@ def audit_ticket(ticket):
             "independent calibrated pregame probability for the exact joint parlay settlement",
             "verified independent outcomes for every settled leg",
             "matched same-settlement authenticated entry and closing prices before computing CLV",
+            "validate signed point spreads and explicit home/away team_side before comparing same-game market outcomes",
             "examine ticket construction: repeated players, directional concentration, "
             "prior PASS/HOLD legs and 4+ leg accumulators; no guaranteed improvement",
         ],
