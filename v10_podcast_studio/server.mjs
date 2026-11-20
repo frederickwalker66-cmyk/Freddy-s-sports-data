@@ -1046,7 +1046,7 @@ const resolveNameCommand=utterance=>{
   const left=at?lower[at-1]:' ',right=lower[at+alias.length]||' ';
   if(' abcdefghijklmnopqrstuvwxyz'.includes(left)&&left!==' '||'abcdefghijklmnopqrstuvwxyz'.includes(right))continue;
   let question=(text.slice(0,at)+' '+text.slice(at+alias.length)).trim();
-  question=question.replace(/^(hey|hi|yo|hello|ask|tell|talk to|can you|could you|please|go ahead|okay|ok) +/i,'').replace(/^[,.:!? ]+/,'').trim();
+  question=question.replace(/^(hey|hi|yo|hello|ask|talk to|can you|could you|please|go ahead|okay|ok)[,!? ]*/i,'').replace(/^[,.:!? ]+/,'').trim();
   return {speaker,question,goLive:lower.includes('go live')||lower.includes('live camera')}
  }
  return {speaker:selected,question:text};
