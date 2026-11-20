@@ -1090,6 +1090,106 @@ const refreshRuns=async()=>{el('data-status').textContent='Checking recent GitHu
 el('data-runs').onclick=refreshRuns;
 const refreshArtifacts=async()=>{el('data-status').textContent='Checking GitHub Actions artifact metadata…';try{const r=await fetch('/api/research-artifacts',{headers:{'x-boardroom-password':token}});const d=await r.json();if(!r.ok){el('data-status').textContent='GitHub artifact metadata unavailable ('+(d.providerStatus||d.error)+')';el('data-results').textContent='HOLD · No research artifacts imported; certified picks remain zero.';return}el('data-status').textContent='GitHub Actions · '+d.artifacts.length+' recent artifact records · metadata only · 0 certified predictions';el('data-results').textContent=d.artifacts.length?JSON.stringify(d.artifacts,null,2):'No artifacts found. HOLD · No certified picks.'}catch(e){el('data-status').textContent='GitHub connection failed';el('data-results').textContent='HOLD · '+e.message}};
 el('data-artifacts').onclick=refreshArtifacts;
+
+/* LIVE DK vs FD sportsbook market board. Always treat unknown/stale lines as HOLD. */
+const bookmakerUI={
+ league:el('bookmaker-league'),filter:el('bookmaker-market-filter'),refresh:el('bookmaker-refresh'),
+ status:el('bookmaker-status'),summary:el('bookmaker-summary'),results:el('bookmaker-results'),
+ pill:el('bookmaker-connection-pill'),next:el('bookmaker-next')
+};
+let bookmakerBoard=null,bookmakerBusy=false,bookmakerConfigured=false,bookmakerAutoTimer=null;
+const bookmakerNode=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=String(text);return node};
+const bookmakerCurrentTime=t=>{
+ if(!t||!Number.isFinite(Date.parse(t)))return 'Timestamp unavailable';
+ return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(t));
+};
+const bookmakerQuoteCell=q=>{
+ const td=bookmakerNode('td');
+ if(!q){td.append(bookmakerNode('span','No open quote'));return td}
+ const price=bookmakerNode('span',q.price+(q.line===null?'':' · '+q.line));price.className='book-quote';td.append(price);
+ const age=bookmakerNode('span',q.recency+' · '+(q.ageSeconds===null?'time unknown':Math.max(0,q.ageSeconds)+'s ago'));age.className='book-sub '+(q.recency==='CURRENT'||q.recency==='RECENT'?'book-fresh':'book-stale');td.append(age);
+ if(q.link){
+  const a=bookmakerNode('a','View source');
+  a.href=q.link;a.target='_blank';a.rel='noopener noreferrer';
+  a.style.display='block';a.style.marginTop='4px';td.append(a);
+ }
+ return td;
+};
+const renderBookmakerBoard=()=>{
+ const j=bookmakerBoard;if(!j)return;
+ bookmakerUI.results.replaceChildren();
+ bookmakerUI.pill.textContent=j.status==='SOURCE_QUOTES_RETURNED'?'BOOK PRICES RECEIVED':j.status==='NOT_CONNECTED'?'FEED NOT CONNECTED':j.status==='NO_AVAILABLE_QUOTES'?'NO OPEN QUOTES':j.status.replaceAll('_',' ');
+ bookmakerUI.pill.dataset.online=j.status==='SOURCE_QUOTES_RETURNED'?'true':'false';
+ if(j.status!=='SOURCE_QUOTES_RETURNED'){
+  const p=bookmakerNode('p',j.detail||'No authenticated sportsbook observations returned. All markets HOLD.');
+  p.style.padding='14px';bookmakerUI.results.append(p);
+  if(j.setupRequired){const setup=bookmakerNode('p',j.setupRequired);setup.style.color='#ffdd9e';bookmakerUI.results.append(setup)}
+  bookmakerUI.summary.textContent='0 verified source lines · DraftKings and FanDuel both HOLD · Champion-001 EV HOLD';
+  bookmakerUI.next.hidden=true;return;
+ }
+ const category=bookmakerUI.filter.value;
+ let visible=0,stale=0;
+ for(const game of j.games||[]){
+  const rows=(game.markets||[]).filter(m=>category==='ALL'||m.category===category);
+  if(!rows.length)continue;
+  const card=bookmakerNode('section');card.className='yttm-odds-game';
+  const title=bookmakerNode('h3',game.away+' @ '+game.home);title.append(bookmakerNode('small',bookmakerCurrentTime(game.startAt)+' · '+(game.live?'IN PLAY':game.started?'STARTED':'PREGAME')+' · '+game.availableMarketCount+' available market selections on provider page'));
+  card.append(title);
+  const scroll=bookmakerNode('div');scroll.className='yttm-odds-scroll';
+  const table=bookmakerNode('table');table.className='yttm-odds-table';table.setAttribute('aria-label',game.away+' at '+game.home+' odds comparison');
+  const head=bookmakerNode('thead'),tr=bookmakerNode('tr');
+  for(const label of ['SELECTION','DRAFTKINGS','FANDUEL','PRICE COMPARISON'])tr.append(bookmakerNode('th',label));
+  head.append(tr);table.append(head);
+  const tbody=bookmakerNode('tbody');
+  for(const m of rows){
+   const tr=bookmakerNode('tr'),sel=bookmakerNode('td',m.market+' · '+m.selection);
+   sel.append(bookmakerNode('span',m.category+' · '+(m.period||'full game')));sel.lastChild.className='book-sub';
+   tr.append(sel,bookmakerQuoteCell(m.draftkings),bookmakerQuoteCell(m.fanduel));
+   const decision=bookmakerNode('td');
+   const verdict=bookmakerNode('span',m.betterPriceAtSameLine?('Best same-line price: '+m.betterPriceAtSameLine):'Different line, stale or missing book');
+   verdict.className=m.betterPriceAtSameLine?'book-better':'book-sub';
+   decision.append(verdict);const hold=bookmakerNode('span','Sharp Edge: HOLD');hold.className='book-sub book-stale';decision.append(hold);tr.append(decision);
+   tbody.append(tr);visible++;
+   for(const q of [m.draftkings,m.fanduel])if(q&&q.recency==='STALE')stale++;
+  }
+  table.append(tbody);scroll.append(table);card.append(scroll);
+  if(game.marketsTruncated){const foot=bookmakerNode('p','This event has additional market selections not displayed on this page. Full-source markets may require more API access.');foot.className='yttm-odds-footnote';card.append(foot)}
+  bookmakerUI.results.append(card);
+ }
+ if(!visible)bookmakerUI.results.append(bookmakerNode('p','No '+category+' markets returned for this league on this source page. Other markets or future games may be available; no lines have been invented.'));
+ bookmakerUI.summary.textContent='Source checked '+bookmakerCurrentTime(j.checkedAt)+' · '+j.games.length+' event(s) on this page · '+visible+' shown selections · '+(j.quotedSelections||0)+' total DK/FD quotes · '+stale+' stale quote(s) · Champion-001 EV: HOLD';
+ bookmakerUI.next.hidden=!j.nextCursor;
+ bookmakerUI.next.textContent='VIEW NEXT SOURCE PAGE · 12 EVENTS PER PAGE';
+};
+const refreshBookmakerOdds=async(cursor='')=>{
+ if(bookmakerBusy||!token)return;
+ bookmakerBusy=true;bookmakerUI.refresh.disabled=true;bookmakerUI.next.disabled=true;
+ bookmakerUI.status.textContent='Checking source-authenticated DraftKings and FanDuel prices for '+bookmakerUI.league.value+'…';
+ try{
+  const query=new URLSearchParams({league:bookmakerUI.league.value});
+  if(cursor)query.set('cursor',cursor);
+  const r=await fetch('/api/bookmaker-odds?'+query.toString(),{headers:{'x-boardroom-password':token},cache:'no-store'});
+  const data=await r.json();if(!r.ok)throw Error(data.error||('HTTP '+r.status));
+  bookmakerBoard=data;window.v10BookmakerResearchStatus={status:data.status,league:data.league,checkedAt:data.checkedAt,authenticated:data.providerAuthenticated,marketsReturned:data.marketsReturned};
+  renderBookmakerBoard();
+  bookmakerUI.status.textContent=data.status==='SOURCE_QUOTES_RETURNED'
+   ?'Source-authenticated DK / FanDuel prices received at '+bookmakerCurrentTime(data.checkedAt)+'. Updates within 2 minutes marked CURRENT. All model EV remains HOLD.'
+   :data.status==='NOT_CONNECTED'
+   ?'Sportsbook feed NOT CONNECTED: no SportsGameOdds key configured on Railway. Analysts can research schedules but cannot quote verified DK/FD markets yet.'
+   :data.status==='NO_AVAILABLE_QUOTES'
+   ?'Authenticated provider returned no open DK / FanDuel quotes for this league and period. Check another league or time.'
+   :data.status.replaceAll('_',' ')+' · '+(data.detail||'No verified odds returned.')+' · HOLD';
+ }catch(err){
+  bookmakerBoard={status:'PROVIDER_ERROR',detail:String(err.message||err),games:[]};renderBookmakerBoard();
+  bookmakerUI.status.textContent='Odds board unavailable: '+String(err.message||err).slice(0,140)+' · All prices HOLD';
+ }finally{bookmakerBusy=false;bookmakerUI.refresh.disabled=false;bookmakerUI.next.disabled=false}
+};
+bookmakerUI.refresh.onclick=()=>void refreshBookmakerOdds();
+bookmakerUI.league.onchange=()=>{bookmakerBoard=null;bookmakerUI.pill.textContent='REFRESHING';bookmakerUI.results.textContent='Switching to '+bookmakerUI.league.value+'…';void refreshBookmakerOdds()};
+bookmakerUI.filter.onchange=()=>renderBookmakerBoard();
+bookmakerUI.next.onclick=()=>{if(bookmakerBoard?.nextCursor)void refreshBookmakerOdds(bookmakerBoard.nextCursor)};
+const startBookmakerRefresh=()=>{if(bookmakerAutoTimer)return;bookmakerAutoTimer=setInterval(()=>{if(bookmakerConfigured&&token&&!document.hidden)void refreshBookmakerOdds()},90000)};
+
 const refreshLiveScores=async()=>{const status=el('live-scores-status'),out=el('live-scores-results');status.textContent='Refreshing ESPN public scoreboards…';try{const r=await fetch('/api/live-scoreboards',{headers:{'x-boardroom-password':token},cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||r.status);window.v10ScoreboardSnapshot={retrievedAt:j.retrievedAt,leagues:j.sports?.length||0};status.textContent='ESPN scoreboard · '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding · Not betting odds';el('live-score-quick').textContent='ESPN public game scores/schedules updated '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding. Scores auto-refresh every 60 seconds. No DraftKings live odds, player-prop prices, or certified Champion-001 picks connected.';out.textContent=j.sports.map(s=>s.sport+' · '+s.events.length+' games\\n'+(s.events.length?s.events.map(e=>e.name+' | '+e.shortStatus+' | '+(e.competitors||[]).map(c=>c.team+': '+(c.score||'-')).join(' · ')).join('\\n'):'No events returned')).join('\\n\\n')+'\\n'+j.errors.map(e=>'Unavailable: '+e.sport+' '+e.error).join('\\n')}catch(e){status.textContent='Live scoreboard unavailable: '+e.message;el('live-score-quick').textContent='ESPN scoreboard unavailable: '+e.message+' · Betting feeds remain HOLD';out.textContent='No current scores verified.'}};el('live-scores-refresh').onclick=refreshLiveScores;let scoreboardAutoRefresh=null;const startScoreboardAutoRefresh=()=>{if(scoreboardAutoRefresh)return;scoreboardAutoRefresh=setInterval(()=>{if(token&&!document.hidden)void refreshLiveScores()},60000)};
 const refreshSportsData=async(scope='ALL')=>{const status=el('data-status'),results=el('data-results');status.textContent='Checking read-only certified picks feed…';results.textContent='HOLD · Awaiting verified data';try{const r=await fetch('/api/certified-picks',{headers:{'x-boardroom-password':token}});const d=await r.json();if(!r.ok){status.textContent='Certified model feed unavailable ('+(d.error||r.status)+')';results.textContent='HOLD · 0 certified predictions. Connect a verified read-only Champion-001 feed to populate the board. Research data cannot be substituted for native model probabilities.';return}const payload=d.data;const arr=Array.isArray(payload)?payload:Array.isArray(payload?.picks)?payload.picks:Array.isArray(payload?.predictions)?payload.predictions:null;const filtered=arr?arr.filter(x=>scope==='ALL'||String(x.sport||x.league||'').toUpperCase()===scope):null;status.textContent='Read-only feed received · V10 has NOT independently certified its contents';results.textContent=JSON.stringify(filtered??payload,null,2).slice(0,24000);if(filtered?.length===0)results.textContent='HOLD · No '+scope+' entries in configured feed.'}catch(e){status.textContent='Data connection error';results.textContent='HOLD · '+e.message}};
 for(const [id,scope] of [['data-refresh','ALL'],['data-nba','NBA'],['data-nfl','NFL'],['data-all','ALL']])el(id).onclick=()=>refreshSportsData(scope);
@@ -1120,7 +1220,7 @@ const refreshContinuousHealth=async()=>{
 let continuousHealthTimer=null;
 const startContinuousHealth=()=>{if(continuousHealthTimer)return;void refreshContinuousHealth();void refreshSourceHealth();continuousHealthTimer=setInterval(()=>{void refreshContinuousHealth();void refreshSourceHealth()},30000)};
 
-window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{if(el('people').querySelectorAll('.person').length!==6)restorePanelMembers();void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','room-voice-names','room-name-send','room-everybody-talk','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;startContinuousHealth();void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}if(d.sportsFeedConfigured)void refreshSportsData('ALL');else{el('data-status').textContent='Certified picks feed not configured · research and schedules remain available';el('data-results').textContent='HOLD · Native Champion-001 probabilities unavailable. No automated request will be made until the feed is configured.';}try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
+window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{if(el('people').querySelectorAll('.person').length!==6)restorePanelMembers();void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','room-voice-names','room-name-send','room-everybody-talk','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;startContinuousHealth();bookmakerConfigured=d.bookmakerOdds?.configured===true;void refreshBookmakerOdds();startBookmakerRefresh();void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}if(d.sportsFeedConfigured)void refreshSportsData('ALL');else{el('data-status').textContent='Certified picks feed not configured · research and schedules remain available';el('data-results').textContent='HOLD · Native Champion-001 probabilities unavailable. No automated request will be made until the feed is configured.';}try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
 window.v10CompleteUnlock=async(secret,d)=>{token=secret;window.__v10AnamPassword=()=>token;await initializeAuthenticatedStudio(d);void window.v10HandsFreeStart?.()};
 const clearTalking=()=>{document.querySelectorAll('.person').forEach(p=>p.classList.remove('talking'));cancelAnimationFrame(raf)};
 const browserSpeak=(speaker,message)=>{const synth=window.speechSynthesis;if(!synth||!window.SpeechSynthesisUtterance){say('Browser speech unavailable on this device');return}try{synth.cancel();const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=0.96;utterance.volume=1;const voices=synth.getVoices();const english=voices.filter(v=>v.lang?.toLowerCase().startsWith('en'));if(english.length)utterance.voice=english[Math.max(0,names.indexOf(speaker))%english.length];const active=[...document.querySelectorAll('.person')].find(p=>p.dataset.person===speaker);utterance.onstart=()=>active?.classList.add('talking');utterance.onend=clearTalking;utterance.onerror=()=>{clearTalking();say('Browser speech could not play')};synth.speak(utterance);say('Using device voice fallback for '+speaker)}catch(e){clearTalking();say('Browser speech unavailable: '+e.message)}};el('stop').onclick=()=>{controller?.abort();audio?.pause();clearTalking();window.speechSynthesis?.cancel();say('Interrupted')};
