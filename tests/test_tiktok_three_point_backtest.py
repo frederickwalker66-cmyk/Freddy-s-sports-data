@@ -4,6 +4,7 @@ from research.tiktok_three_point_backtest import backtest
 def row(**kw):
     r=dict(game_id="g1",player="Test Player",opponent="Test Opponent",
         tipoff_utc="2026-11-20T23:00:00Z",observed_at_utc="2026-11-20T20:00:00Z",
+        features_asof_utc="2026-11-20T19:00:00Z",
         line="1.5",actual_3pm="2",last5_hits="5",last10_hits="9",
         last5_games="5",last10_games="10",opponent_3pm_allowed_rank="3",
         player_3pm_rank="4",minutes_verified="true",injury_verified="true",
@@ -24,6 +25,14 @@ class BacktestTests(unittest.TestCase):
     def test_post_tip_observation_quarantined(self):
         report=backtest([row(observed_at_utc="2026-11-20T23:01:00Z")])
         self.assertEqual(report["graded_rows"],0)
+        self.assertEqual(report["quarantined_rows"],1)
+
+    def test_future_feature_snapshot_quarantined(self):
+        report=backtest([row(features_asof_utc="2026-11-20T21:00:00Z")])
+        self.assertEqual(report["quarantined_rows"],1)
+
+    def test_missing_feature_snapshot_quarantined(self):
+        report=backtest([row(features_asof_utc="")])
         self.assertEqual(report["quarantined_rows"],1)
 
     def test_post_tip_quote_quarantined(self):
