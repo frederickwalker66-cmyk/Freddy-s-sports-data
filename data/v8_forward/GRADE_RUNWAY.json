@@ -19,7 +19,7 @@
   "next_priority": "COLLECT_MORE_UNCHANGED_PRETIPOFF_FORECASTS_AND_WAIT_FOR_MATURITY",
   "no_missing_predictions_backfilled": true,
   "no_sportsbook_prices_inferred": true,
-  "observed_at_utc": "2026-11-20T20:09:53.546467+00:00",
+  "observed_at_utc": "2026-11-20T22:17:40.544405+00:00",
   "oldest_mature_ungraded_hours_after_48h_gate": null,
   "original_champion_001_modified": false,
   "original_pregame_lead_p10_minutes": 375.67,
@@ -27,7 +27,7 @@
   "predictive_accuracy_or_roi_computed": false,
   "quarantined_conflicting_forecasts": 0,
   "report_type": "v8_durable_nba_forward_grading_runway_v1",
-  "source_scoreboard_days_checked_last_batch": 1,
+  "source_scoreboard_days_checked_last_batch": 0,
   "total_saved_original_forecasts": 89,
   "wagers_placed": 0
 }
