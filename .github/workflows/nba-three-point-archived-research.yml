@@ -1,0 +1,70 @@
+name: NBA 3PT Archived Boxscore Research (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      historical_run_id:
+        description: "Successful Challenger historical-backfill run ID containing NBA player-boxscore artifact"
+        required: true
+        type: string
+      line:
+        description: "Three-pointers-made over line (research only)"
+        required: true
+        default: "1.5"
+        type: choice
+        options: ["0.5", "1.5", "2.5", "3.5"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  historical-three-point-features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate run ID
+        env:
+          HISTORICAL_RUN_ID: ${{ inputs.historical_run_id }}
+        run: |
+          python - <<'PY'
+          import os
+          rid=os.environ["HISTORICAL_RUN_ID"]
+          assert rid.isascii() and rid.isdigit() and len(rid) <= 20, "Invalid run ID"
+          PY
+      - name: Download actual archived NBA player boxes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HISTORICAL_RUN_ID: ${{ inputs.historical_run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p nba_3pt_historical
+          gh run download "$HISTORICAL_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "challenger-nba-player-boxscore-research-$HISTORICAL_RUN_ID" \
+            --dir nba_3pt_historical
+          test -s nba_3pt_historical/nba_player_boxes_research.jsonl
+      - name: Compute strictly prior-game 3PM features
+        run: |
+          python -m research.tiktok_nba_boxscore_adapter \
+            --boxes nba_3pt_historical/nba_player_boxes_research.jsonl \
+            --line "${{ inputs.line }}" \
+            --output nba_3pt_historical/three_point_features.json
+      - name: Enforce research-only report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("nba_3pt_historical/three_point_features.json").read_text())
+          assert r["certified_bets"] == 0
+          assert all(x["decision"]=="HOLD" and x["certification"]=="UNCERTIFIED_RESEARCH_ONLY" for x in r["rows"])
+          print(json.dumps({k:v for k,v in r.items() if k not in ("rows","quarantine")},sort_keys=True))
+          PY
+      - name: Upload inspected historical feature evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-three-point-historical-features-${{ github.run_id }}
+          path: nba_3pt_historical/
+          retention-days: 30
+          if-no-files-found: warn
