@@ -1,0 +1,24 @@
+name: Sharp Edge Source Contract Tests
+on:
+  push:
+    paths:
+      - research/sharp_edge_source_contract.py
+      - tests/test_sharp_edge_source_contract.py
+      - .github/workflows/sharp-edge-source-contract-tests.yml
+  pull_request:
+    paths:
+      - research/sharp_edge_source_contract.py
+      - tests/test_sharp_edge_source_contract.py
+      - .github/workflows/sharp-edge-source-contract-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_sharp_edge_source_contract.py' -v
