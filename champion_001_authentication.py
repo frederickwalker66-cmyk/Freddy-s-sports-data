@@ -22,15 +22,21 @@ def inspect(model_path=None, proof_path=None):
         "champion_001_modified": False,
         "result": "blocked_missing_original_champion_artifact_or_independent_proof",
     }
-    if not model_path or not proof_path:
+    report["missing_evidence"] = []
+    if not model_path or not Path(model_path).is_file():
+        report["missing_evidence"].append("original_champion_model_artifact")
+    if not proof_path or not Path(proof_path).is_file():
+        report["missing_evidence"].append("independently_custodied_proof_manifest")
+    if report["missing_evidence"]:
         return report
     model, proof = Path(model_path), Path(proof_path)
-    if not model.is_file() or not proof.is_file():
-        return report
     data = model.read_bytes()
     try:
         manifest = json.loads(proof.read_text(encoding="utf-8"))
     except (ValueError, OSError):
+        report["result"] = "blocked_invalid_proof_manifest"
+        return report
+    if not isinstance(manifest, dict):
         report["result"] = "blocked_invalid_proof_manifest"
         return report
     actual = hashlib.sha256(data).hexdigest()
@@ -40,6 +46,10 @@ def inspect(model_path=None, proof_path=None):
         return report
     report["sha256_matches_supplied_manifest"] = True
     report["artifact_size_bytes"] = len(data)
+    report["missing_evidence"] = [
+        "independent_original_provenance_attestation",
+        "independently_reproduced_reference_outputs",
+    ]
     report["result"] = "blocked_independent_original_provenance_and_reproducibility_not_verified"
     # Never set these to true from a self-authored JSON manifest.
     return report
