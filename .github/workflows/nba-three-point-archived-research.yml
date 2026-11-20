@@ -43,7 +43,7 @@ jobs:
           workflow="$(gh run view "$HISTORICAL_RUN_ID" --repo "$GITHUB_REPOSITORY" --json workflowName --jq '.workflowName')"
           test "$status" = "success"
           test "$workflow" = "Challenger-001 capped eight-league historical results (research only)"
-          source_repo="$(gh run view "$HISTORICAL_RUN_ID" --repo "$GITHUB_REPOSITORY" --json headRepository --jq '.headRepository.nameWithOwner')"
+          source_repo="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$HISTORICAL_RUN_ID" --jq '.repository.full_name')"
           test "$source_repo" = "$GITHUB_REPOSITORY"
       - name: Download actual archived NBA player boxes
         env:
