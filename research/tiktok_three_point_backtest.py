@@ -66,6 +66,8 @@ def backtest(rows):
                             "status":"QUARANTINE_INVALID_DATA","reason":str(exc)})
     graded=[r for r in records if r["status"]=="RESEARCH_GRADED"]
     eligible=[r for r in graded if r["historical_90"] and r["defense_top10"] and r["shooter_top10"]]
+    priced=[r for r in eligible if r["implied_probability"] is not None]
+    modeled=[r for r in priced if r["native_probability"] is not None]
     wins=sum(r["won"] for r in eligible)
     n=len(eligible)
     # Wilson 95% interval; descriptive only, not an out-of-sample guarantee.
@@ -82,6 +84,8 @@ def backtest(rows):
             "quarantined_rows":len(records)-len(graded),
             "strategy_eligible_rows":len(eligible),
             "eligible_wins":wins,"eligible_losses":n-wins,
+            "eligible_with_timestamped_odds":len(priced),
+            "eligible_with_native_model_probability":len(modeled),
             "eligible_empirical_hit_rate":sum(r["won"] for r in eligible)/len(eligible) if eligible else None,
             "certified_bets":0,"records":records}
 
