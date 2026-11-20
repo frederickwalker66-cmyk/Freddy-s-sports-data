@@ -39,6 +39,18 @@ class ThreePointStrategyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             evaluate(self.candidate(last10_hits=11))
 
+    def test_invalid_nba_rank(self):
+        with self.assertRaises(ValueError):
+            evaluate(self.candidate(opponent_3pm_allowed_rank=31))
+
+    def test_invalid_line(self):
+        with self.assertRaises(ValueError):
+            evaluate(self.candidate(line=float("nan")))
+
+    def test_invalid_dfs_ownership(self):
+        with self.assertRaises(ValueError):
+            evaluate(self.candidate(dfs_ownership_percent=101))
+
     def test_parlay_illustrative(self):
         self.assertAlmostEqual(parlay_independent_probability([.9,.9,.9]),.729)
         self.assertIsNone(parlay_independent_probability([.9,None]))
