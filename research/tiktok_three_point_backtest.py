@@ -39,8 +39,8 @@ def backtest(rows):
             observed=dt(row["observed_at_utc"])
             features_asof=dt(row["features_asof_utc"])
             quote=dt(row["odds_timestamp"]) if row.get("odds_timestamp") else None
-            if features_asof > observed or observed >= tip or (quote and quote >= tip):
-                records.append({"game_id":row.get("game_id"),"player":row.get("player"),"status":"QUARANTINE_POST_TIP"});continue
+            if features_asof > observed or observed >= tip or (quote and quote > observed):
+                records.append({"game_id":row.get("game_id"),"player":row.get("player"),"status":"QUARANTINE_FUTURE_INFORMATION"});continue
             if row.get("odds_american") and not quote:
                 raise ValueError("odds require timestamp")
             if row.get("native_probability") and not row.get("odds_american"):
