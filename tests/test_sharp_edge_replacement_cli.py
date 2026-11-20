@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-import pytest
+import unittest
 from research.sharp_edge_replacement_cli import run, candidate_from_json
 
 NOW = datetime(2026, 11, 20, 19, 0, tzinfo=timezone.utc)
@@ -33,12 +33,12 @@ def test_unverified_snapshot_cannot_replace():
 def test_missing_verification_field_fails_closed():
     item = fixture_candidate()
     del item["calibrated"]
-    with pytest.raises(ValueError):
+    with unittest.TestCase().assertRaises(ValueError):
         candidate_from_json(item)
 
 
 def test_string_verified_flag_rejected():
-    with pytest.raises(ValueError):
+    with unittest.TestCase().assertRaises(ValueError):
         candidate_from_json(fixture_candidate(model_verified="true"))
 
 
