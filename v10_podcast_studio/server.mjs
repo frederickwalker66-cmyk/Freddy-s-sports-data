@@ -458,6 +458,13 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
 .room-master-audio span:last-child{font-size:11px;color:#bbcadb}
 .podcast-room-scene .person .face img,.podcast-room-scene .person .face video{object-fit:contain!important;object-position:center center;background:#051326}
 @media(max-width:590px){.room-spotlight-stage{height:min(63vh,520px);min-height:275px}.spotlight-heading strong{font-size:16px}.room-spotlight-actions{gap:6px}.room-spotlight-actions button{font-size:11px;padding:11px 9px}.room-master-audio{gap:7px}}
+
+/* Larger six-seat previews so full animated faces remain recognizable around the table. */
+.podcast-room-scene .person .face{height:clamp(170px,16vw,250px);overflow:hidden;background:#07172d}
+.podcast-room-scene .room-remote-side .person .face{height:clamp(145px,13vw,225px)}
+.podcast-room-scene .person .face img,.podcast-room-scene .person .face video{max-width:100%;object-position:50% 35%!important}
+@media(max-width:800px){.podcast-room-scene .person .face{height:clamp(160px,30vw,255px)}.podcast-room-scene .room-remote-side .person .face{height:clamp(150px,26vw,225px)}}
+@media(max-width:490px){.podcast-room-scene .person .face{height:clamp(165px,42vw,235px)}.podcast-room-scene .room-remote-side .person .face{height:clamp(150px,36vw,220px)}}
 </style></head><body><main><header class="v10-hero"><div class="v10-eyebrow">FREDDY'S PICKS AI · V10</div><h1>🎙️ The 914 Sports Podcast Studio</h1><p>Private sports roundtable · Six analysts · Vertical Shorts recording</p><div class="v10-login"><input id="pass" type="password" placeholder="Enter your private studio password" autocomplete="current-password"><button id="unlock">Enter private studio</button></div><p id="status" aria-live="polite">Studio locked · Enter your existing boardroom password to continue.</p><p id="avatar-readiness" class="muted">Illustrated studio works separately from optional live Anam video.</p></header><section id="anam-panel" style="display:none;background:#111c32;padding:12px;border-radius:12px;margin:12px 0"><strong>Adam Stone · Live Anam Video</strong><p><button id="anam-start">Start selected analyst live video</button> <button id="anam-stop" disabled>End live video</button></p><video id="anam-video" autoplay playsinline style="width:100%;max-width:640px;border-radius:12px;background:#000"></video><p id="anam-status" class="muted">Ready</p></section><section class="podcast-stage"><div class="room-title">🎙️ THE 914 SPORTS ROUNDTABLE · ALL SIX AT ONE TABLE</div><p class="muted" style="padding:8px 12px">Tap any analyst portrait to select them. Type your question in the Host control desk, then tap Ask analyst. Original analyst portraits remain visible even without Anam live video. Cassidy retains her original V10 image and is now registered for Anam live video.</p><p class="muted" id="live-score-quick" aria-live="polite">Checking ESPN game scores and schedules after sign-in. Game scores refresh every 60 seconds while the boardroom is open. Live sportsbook odds and certified model picks are separate feeds.</p><p class="muted" id="analysts-live-data-status" aria-live="polite">Live analyst scoreboard connection status will appear here after sign-in.</p><div id="podcast-room-scene" class="podcast-room-scene" aria-label="Freddy's Picks AI V10 shared podcast room">
  <div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
  
@@ -1201,7 +1208,7 @@ async function connect(n){
   }else if(pv)pv.style.display='none';
   busy.delete(n);setLiveState(n,true,'LIVE · original '+memberLabel(n)+' avatar');
   if(active.size===1)focused=n;
-  spotlightHiddenByUser=false;showBigFace(n);adjustFocus();return true
+  spotlightHiddenByUser=false;if(focused===n)showBigFace(n);adjustFocus();return true
  }catch(e){
   if(client)try{await client.stopStreaming()}catch{}
   busy.delete(n);active.delete(n);
