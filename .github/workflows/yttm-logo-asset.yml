@@ -1,0 +1,38 @@
+name: Archive Official Podcast Logo
+on:
+  push:
+    branches: [v10-sports-podcast-studio]
+    paths: ['.github/workflows/yttm-logo-asset.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v10-sports-podcast-studio
+      - name: Save exact generated logo thumbnail as a durable repository asset
+        env:
+          LOGO_URL: "https://media.canva.com/v2/image-resize/format:PNG/height:200/quality:100/uri:ifs%3A%2F%2FM%2Ff4918f2f-b412-4388-8dae-45860791af6c/watermark:F/width:200?csig=AAAAAAAAAAAAAAAAAAAAAMTrHcAyfy6Mr0xIeTkPCTZ5DZwBXWICMyaqVyf3JhzK5htFAu&exp=1795209984&osig=AAAAAAAAAAAAAAAAAAAAADwUojAf0ISuY7I24UT2PBUsV6e6zEuQkd5rjK5htFAu&signer=media-rpc&token=AAIAAU0AJGY0OTE4ZjJmLWI0MTItNDM4OC04ZGFlLTQ1ODYwNzkxYWY2YwAAAAABofraeADmzy0zx1-6L5mS3vYS62x9CqVEwapsRb253tl-7aUP9w&x-canva-quality=thumbnail"
+        run: |
+          mkdir -p v10_podcast_studio/public
+          curl -fLSs --retry 3 --connect-timeout 10 --max-time 90 "$LOGO_URL" -o v10_podcast_studio/public/you-talking-to-me-podcast-logo.png
+          python3 - <<'PY'
+          from pathlib import Path
+          f=Path('v10_podcast_studio/public/you-talking-to-me-podcast-logo.png')
+          raw=f.read_bytes()
+          if not raw.startswith(b'\x89PNG\r\n\x1a\n') or len(raw)<3000:
+              raise SystemExit('Logo download is not a valid PNG')
+          print('Archived PNG logo bytes',len(raw))
+          PY
+      - name: Commit the archived image without changing app logic
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add v10_podcast_studio/public/you-talking-to-me-podcast-logo.png
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add durable YOU TALKING TO ME podcast logo'
+            git push origin HEAD:v10-sports-podcast-studio
+          fi
