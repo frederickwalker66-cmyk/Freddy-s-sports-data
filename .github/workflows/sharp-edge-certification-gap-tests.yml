@@ -1,0 +1,26 @@
+name: Sharp Edge Certification Gap Tests
+on:
+  push:
+    paths:
+      - v8_one_command.py
+      - research/sharp_edge_certification_gap.py
+      - tests/test_sharp_edge_certification_gap.py
+      - .github/workflows/sharp-edge-certification-gap-tests.yml
+  pull_request:
+    paths:
+      - v8_one_command.py
+      - research/sharp_edge_certification_gap.py
+      - tests/test_sharp_edge_certification_gap.py
+      - .github/workflows/sharp-edge-certification-gap-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_sharp_edge_certification_gap.py' -v
