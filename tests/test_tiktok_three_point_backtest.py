@@ -18,6 +18,8 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(report["graded_rows"],1)
         self.assertEqual(report["eligible_wins"],1)
         self.assertEqual(report["certified_bets"],0)
+        self.assertEqual(report["eligible_with_timestamped_odds"],1)
+        self.assertEqual(report["eligible_with_native_model_probability"],0)
 
     def test_post_tip_observation_quarantined(self):
         report=backtest([row(observed_at_utc="2026-11-20T23:01:00Z")])
