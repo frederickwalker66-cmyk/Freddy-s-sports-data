@@ -2680,7 +2680,7 @@ if(req.url==='/api/converse'&&req.method==='POST'){
   slate=results[1].status==='fulfilled'?results[1].value:'Daily slate unavailable';
   model=results[2].status==='fulfilled'?JSON.stringify(results[2].value).slice(0,2300):'Research data unavailable';
   source=results[3].status==='fulfilled'?JSON.stringify(results[3].value).slice(0,1300):'Source workflow status unavailable';
-  if(/\b(roster|team|traded|trade|signed|plays for|play for|player|hornets|timberwolves|knicks)\\b/i.test(request.question))roster=await podcastRosterForSpeech(request.question);
+  if(/\b(roster|team|traded|trade|signed|plays for|play for|player|hornets|timberwolves|knicks)\b/i.test(request.question))roster=await podcastRosterForSpeech(request.question);
  }
 
  let bookContext='No bookmaker quote requested.';
