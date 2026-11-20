@@ -657,7 +657,7 @@ body{padding:0;background:#040c1c}main{max-width:100%;padding:0 8px 14px}
 <span id="v10-chair-test-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#e1ecfc">Unlock studio, then test an analyst. Only one live video can run at a time.</span><span id="v10-live-mic-status" role="status" aria-live="polite" style="flex-basis:100%;font-size:12px;color:#ffda93">Microphone status: start a moving analyst and allow Chrome microphone access.</span>
 </div><div id="v10-data-health" role="status" aria-live="polite" style="margin:5px 0 8px;padding:9px 10px;border:1px solid #477bb8;border-radius:9px;background:#081b33;color:#dfedff;font-size:12px;line-height:1.45">Continuous eight-sport refresh monitor · sign in to view timestamps.</div><div id="v10-recovery-controls" aria-label="Boardroom controls" style="display:flex;gap:7px;flex-wrap:wrap;margin:7px 0 10px;padding:8px;border:1px solid #5f8ab8;background:#0c2345;border-radius:10px">
 <button id="v10-enable-mic" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#e9bb70;color:#10233c;font-weight:800">🎙 Enable voice</button>
-<button id="v10-test-persona" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#174a79;color:#fff">Test Cassidy</button>
+<button id="v10-mic-test" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#146353;color:#fff;font-weight:800">🎤 Test microphone</button>\n<button id="v10-test-persona" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#174a79;color:#fff">Test Cassidy</button>
 <button id="v10-replay-reply" type="button" style="flex:1 1 110px;margin:0;padding:9px;background:#174a79;color:#fff">🔊 Hear reply</button>
 <span id="v10-recovery-status" role="status" style="flex-basis:100%;font-size:12px;color:#d4e6fc">Unlock studio first. Voice commands can require one microphone permission tap on Android Chrome.</span>
 </div><div id="v10-source-health" role="status" aria-live="polite" style="margin:4px 0 8px;padding:8px 10px;background:#0a2138;border:1px solid #54749b;border-radius:8px;color:#e5d3b1;font-size:11px">Source checks: reading existing odds, injury and model collector workflows · No certified betting prices</div><div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
@@ -790,7 +790,7 @@ el('anam-stop').onclick=async()=>{
  el('anam-stop').disabled=true;await window.v10StopLiveWall?.();
  el('anam-status').textContent='Boardroom live camera ended'
 };
-window.addEventListener('pagehide',()=>{void anamClient?.stopStreaming()});
+// Live Anam sessions are cleaned up by the active camera module on pagehide.
 
 
 
@@ -856,7 +856,7 @@ const refreshContinuousHealth=async()=>{
 let continuousHealthTimer=null;
 const startContinuousHealth=()=>{if(continuousHealthTimer)return;void refreshContinuousHealth();void refreshSourceHealth();continuousHealthTimer=setInterval(()=>{void refreshContinuousHealth();void refreshSourceHealth()},30000)};
 
-window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{if(el('people').querySelectorAll('.person').length!==6)restorePanelMembers();void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','room-voice-names','room-name-send','room-everybody-talk','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;startContinuousHealth();void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}void refreshSportsData('ALL');try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
+window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{if(el('people').querySelectorAll('.person').length!==6)restorePanelMembers();void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','room-voice-names','room-name-send','room-everybody-talk','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('room-start-live-all').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;startContinuousHealth();void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';const roomBtn=document.querySelector('.room-avatar-live-toggle[data-live-persona="'+analyst+'"]');if(roomBtn){roomBtn.disabled=true;roomBtn.title='This persona is not yet configured';}if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}if(d.sportsFeedConfigured)void refreshSportsData('ALL');else{el('data-status').textContent='Certified picks feed not configured · research and schedules remain available';el('data-results').textContent='HOLD · Native Champion-001 probabilities unavailable. No automated request will be made until the feed is configured.';}try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
 window.v10CompleteUnlock=async(secret,d)=>{token=secret;window.__v10AnamPassword=()=>token;await initializeAuthenticatedStudio(d);void window.v10HandsFreeStart?.()};
 const clearTalking=()=>{document.querySelectorAll('.person').forEach(p=>p.classList.remove('talking'));cancelAnimationFrame(raf)};
 const browserSpeak=(speaker,message)=>{const synth=window.speechSynthesis;if(!synth||!window.SpeechSynthesisUtterance){say('Browser speech unavailable on this device');return}try{synth.cancel();const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=0.96;utterance.volume=1;const voices=synth.getVoices();const english=voices.filter(v=>v.lang?.toLowerCase().startsWith('en'));if(english.length)utterance.voice=english[Math.max(0,names.indexOf(speaker))%english.length];const active=[...document.querySelectorAll('.person')].find(p=>p.dataset.person===speaker);utterance.onstart=()=>active?.classList.add('talking');utterance.onend=clearTalking;utterance.onerror=()=>{clearTalking();say('Browser speech could not play')};synth.speak(utterance);say('Using device voice fallback for '+speaker)}catch(e){clearTalking();say('Browser speech unavailable: '+e.message)}};el('stop').onclick=()=>{controller?.abort();audio?.pause();clearTalking();window.speechSynthesis?.cancel();say('Interrupted')};
@@ -1600,6 +1600,50 @@ async function refreshCapacity(){
  const data=await r.json();if(!r.ok)throw Error(data.error||'Anam capacity unavailable');
  planLimit=Math.max(1,Math.min(6,Number(data.limit)||1));updateCapacityUI();return planLimit
 }
+/* Local microphone diagnostics. Invoked directly by a click before any network/session awaits
+   so Chrome on Android can request user permission. Nothing is recorded or uploaded. */
+let micPermissionPending=null;
+const probeBrowserMic=async(measure=false)=>{
+ if(!navigator.mediaDevices?.getUserMedia)throw Error('Microphone unavailable. Open the HTTPS boardroom in Android Chrome.');
+ let stream=null,ctx=null;
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false});
+  const track=stream.getAudioTracks()[0];
+  if(!track||track.readyState!=='live'||!track.enabled)throw Error('No active microphone audio track was returned.');
+  if(!measure)return {trackActive:true,level:null};
+  const Audio=window.AudioContext||window.webkitAudioContext;
+  if(!Audio)return {trackActive:true,level:null};
+  ctx=new Audio();await ctx.resume();
+  const source=ctx.createMediaStreamSource(stream),analyser=ctx.createAnalyser();analyser.fftSize=1024;source.connect(analyser);
+  const bytes=new Uint8Array(analyser.fftSize);let peak=0;
+  for(let i=0;i<24;i++){
+   analyser.getByteTimeDomainData(bytes);
+   let sum=0;for(let j=0;j<bytes.length;j++){const x=(bytes[j]-128)/128;sum+=x*x}
+   peak=Math.max(peak,Math.sqrt(sum/bytes.length));
+   await new Promise(resolve=>setTimeout(resolve,125));
+  }
+  return {trackActive:true,peakLevel:Math.round(peak*10000)/100,levelDetected:peak>=0.012};
+ }finally{stream?.getTracks().forEach(track=>track.stop());if(ctx)void ctx.close().catch(()=>{})}
+};
+const ensureMicPermission=()=>{
+ if(!micPermissionPending)micPermissionPending=probeBrowserMic(false).finally(()=>{micPermissionPending=null});
+ return micPermissionPending
+};
+const micCheckButton=document.getElementById('v10-mic-test');
+if(micCheckButton)micCheckButton.onclick=async()=>{
+ if(micCheckButton.disabled)return;
+ micCheckButton.disabled=true;showLiveMic('Checking microphone: speak out loud for three seconds. Browser audio stays on this device.');
+ try{
+  const result=await probeBrowserMic(true);
+  showLiveMic(result.levelDetected===true
+    ?'Microphone permission GRANTED and voice level detected ('+result.peakLevel+'%). Now start an Anam live camera and ask a question; this test does not prove Anam received it.'
+    :result.levelDetected===false
+    ?'Microphone permission GRANTED but little speech level detected. Raise your voice, unmute the phone microphone, and retry. Level test does not prove Anam received audio.'
+    :'Microphone permission GRANTED with active audio track; level meter unavailable. Start an Anam camera and check Heard: transcript.');
+ }catch(e){showLiveMic('Microphone BLOCKED: '+String(e.name||'error')+' · '+String(e.message||e).slice(0,140)+'. Allow microphone access for this site in Chrome, then retry.')}
+ finally{micCheckButton.disabled=false}
+};
+
 async function connect(n){
  if(active.has(n))return true;
  if(busy.has(n))return false;
@@ -1643,10 +1687,12 @@ async function connect(n){
   window.v10HandsFreeStop?.();
   target.muted=true;
   await client.streamToVideoElement(target.id);
+  if(typeof client.setInputAudioEnabled==='function')await client.setInputAudioEnabled(true);
+  else if(typeof client.unmuteInputAudio==='function')await client.unmuteInputAudio();
   const mic=typeof client.getInputAudioState==='function'?client.getInputAudioState():null;
   if(mic?.permissionState==='denied')showLiveMic('Mic permission denied · allow access in Chrome, then reconnect.');
   else if(mic?.isMuted)showLiveMic('Anam mic muted · reconnect to retry.');
-  else showLiveMic('🎤 '+memberLabel(n)+' live microphone '+(mic?.permissionState==='granted'?'connected':'initializing')+'.');
+  else showLiveMic('🎤 '+memberLabel(n)+' audio track '+(mic?.permissionState==='granted'?'permission granted':'status unknown')+' · speak now; wait for a Heard: confirmation to verify recognition.');
   installLiveBoost(n);
   active.set(n,client);
   target.style.display='block';
@@ -1705,7 +1751,10 @@ let liveSwitchQueue=Promise.resolve();
 const ensureLiveCamera=name=>{
  const n=name==='Adam Stone'?'Adam':name;
  if(!liveNames.includes(n))return Promise.reject(Error('Unknown analyst '+name));
+ if(active.size===0)window.v10HandsFreeStop?.();
+ const micReady=active.size===0?ensureMicPermission():Promise.resolve();
  const task=liveSwitchQueue.then(async()=>{
+  await micReady;
   if(active.has(n)){focusLive(n);return true}
   await refreshCapacity();
   // One live session on Anam Free: close any previous stream before requesting a new one.
@@ -1759,7 +1808,9 @@ window.v10TalkLive=async(name,reply)=>{
 async function startAvailable(){
  if(connectingAll)return {limit:planLimit,connected:active.size};
  connectingAll=true;startAll.disabled=true;if(roomStartAll)roomStartAll.disabled=true;
+ const permission=active.size===0?ensureMicPermission():Promise.resolve();
  try{
+  await permission;
   await refreshCapacity();
   for(const name of liveNames){
    if(active.size>=planLimit)break;
