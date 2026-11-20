@@ -1,0 +1,40 @@
+{
+  "automated_wagers": 0,
+  "bet_ready": false,
+  "certified_positive_ev_bets": 0,
+  "certified_v8_predictions": 0,
+  "champion_001_modified": false,
+  "forecast_probabilities_recorded_before_start": 3,
+  "forecast_target_is_true_DraftKings_moneyline": false,
+  "github_run_id_self_reported": "44656883772",
+  "history_collection_started_at_utc": "2026-11-20T01:53:59.294262+00:00",
+  "history_minimum_binary_games": 50,
+  "hold_reasons": {},
+  "independently_verified_executable_DraftKings_quotes": 0,
+  "league": "nhl",
+  "matured_binary_games": 234,
+  "matured_games": 234,
+  "matured_ties_excluded": 0,
+  "model_version": "v8-nhl-elo-forward-v0-k16-ha35",
+  "original_champion_001_certified_predictions": 0,
+  "published_history_retrieved": 239,
+  "recorded_at_utc": "2026-11-20T01:54:07.535686+00:00",
+  "schedule_future_events_identified": 3,
+  "source_days_attempted": 35,
+  "source_days_failed": 0,
+  "source_days_ok": 35,
+  "source_original_schedules_saved": [
+    {
+      "completed_source_response_at_utc": "2026-11-20T01:54:07.473355+00:00",
+      "file": "nhl_original_future_schedule_20261119.json",
+      "sha256": "d26d42b81fc9292b3eaa9e45b25ae4cad9a62de8655b6c35db987d0bebf33e03"
+    },
+    {
+      "completed_source_response_at_utc": "2026-11-20T01:54:07.535428+00:00",
+      "file": "nhl_original_future_schedule_20261120.json",
+      "sha256": "84246408531354f13cf794430f17273ca043eda9b5112d7910c8fe4a3e147de8"
+    }
+  ],
+  "stage": "v8_nfl_nhl_forward_original_source_research_only",
+  "warning": "Original schedule bytes and capture times are local/GitHub receipts, not independent authentication. ESPN historical finals were retrieved at the actual scan time and earlier outcomes are assumed mature after 48h. NFL tie outcomes are excluded: binary forecast conditions on no tie and MUST NOT be marketed as an actionable NFL moneyline price. NHL overtime/shootout settlement is also unaudited. These are not Champion-001 predictions or independently certified positive EV."
+}
