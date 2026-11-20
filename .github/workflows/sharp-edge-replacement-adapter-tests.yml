@@ -1,0 +1,31 @@
+name: Sharp Edge Replacement Adapter Tests
+
+on:
+  push:
+    paths:
+      - 'research/sharp_edge_replacement_cli.py'
+      - 'tests/test_sharp_edge_replacement_cli.py'
+      - '.github/workflows/sharp-edge-replacement-adapter-tests.yml'
+  pull_request:
+    paths:
+      - 'research/sharp_edge_replacement_cli.py'
+      - 'tests/test_sharp_edge_replacement_cli.py'
+      - '.github/workflows/sharp-edge-replacement-adapter-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test runner
+        run: python -m pip install pytest
+      - name: Test replacement engine and adapter
+        run: python -m pytest -q tests/test_sharp_edge_replacements.py tests/test_sharp_edge_replacement_cli.py
