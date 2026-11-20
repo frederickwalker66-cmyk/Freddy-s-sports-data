@@ -1951,7 +1951,60 @@ stop.addEventListener('click',async()=>{
  if(navigator.onLine===false)show('Offline: reconnect to access live studio features.',false);
  else void check();
 })();
-</script></body></html>`;
+</script><script>
+(function(){
+ "use strict";
+ const byId=id=>document.getElementById(id);
+ const unlocked=()=>document.querySelector(".v10-hero")?.classList.contains("is-unlocked")===true;
+ const status=byId("yt-action-status");
+ const nav=byId("yt-mobile-nav");
+ function askToUnlock(){
+  if(status)status.textContent="Enter the private studio password above before using this control.";
+  const password=byId("pass");password?.scrollIntoView({behavior:"smooth",block:"center"});password?.focus();
+ }
+ function perform(id){
+  if(!unlocked()){askToUnlock();return}
+  const action=byId(id);
+  if(!action||action.disabled){if(status)status.textContent="That studio feature is unavailable or still connecting. Check its status below.";return}
+  action.click();
+ }
+ byId("yt-start-talk")?.addEventListener("click",()=>perform("room-start-conversation"));
+ byId("yt-start-live")?.addEventListener("click",()=>perform("room-start-live-all"));
+ byId("yt-test-mic")?.addEventListener("click",()=>perform("v10-mic-test"));
+ const areas={studio:"podcast-room-scene",talk:"room-voice-command",games:"daily-slate-board",data:"model-research-display"};
+ nav?.querySelectorAll("[data-yt-tab]").forEach(b=>b.addEventListener("click",()=>{
+  const name=b.dataset.ytTab;
+  const target=byId(areas[name]);if(!target)return;
+  nav.querySelectorAll("[data-yt-tab]").forEach(x=>{x.classList.toggle("is-active",x===b);if(x===b)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current")});
+  target.scrollIntoView({behavior:"smooth",block:"start"});
+ }));
+ document.querySelectorAll("[data-yt-call]").forEach(b=>b.addEventListener("click",()=>{
+  if(!unlocked()){askToUnlock();return}
+  const name=b.dataset.ytCall;
+  if(typeof window.v10SpeakToName!=="function"){if(status)status.textContent="The analyst connection is loading. Try again.";return}
+  if(status)status.textContent="Calling "+name+" · allow microphone access if Chrome requests it.";
+  Promise.resolve(window.v10SpeakToName(name)).catch(e=>{if(status)status.textContent=name+" connection failed: "+String(e.message||e).slice(0,100)});
+ }));
+ const chair=byId("v10-chair-test"),voice=byId("room-voice-command");
+ if(chair&&voice)chair.before(voice);
+ function refresh(){
+  if(document.hidden)return;
+  const count=Number(window.v10LiveCameraCount?.()||0);
+  const state=byId("yt-live-state");
+  state?.classList.toggle("is-camera-live",count>0);
+  const live=byId("yt-live-text");
+  if(live)live.textContent=count?count+" REAL ANAM CAMERA"+(count===1?"":"S")+" ACTIVE":"PRIVATE STUDIO · "+(unlocked()?"READY TO TALK":"UNLOCK TO ENTER");
+  const data=byId("yt-data-text"),h=window.v10ContinuousDataStatus;
+  if(data&&h?.scores){
+   const sc=h.scores;data.textContent="ESPN · "+(sc.leaguesReturned??0)+"/8 SPORTS · "+(sc.ageSeconds==null?"AGE UNKNOWN":sc.ageSeconds+"s OLD")+(sc.errors?.length?" · PARTIAL COVERAGE":"");
+  }else if(data)data.textContent=unlocked()?"ESPN SPORTS · VERIFYING":"ESPN SPORTS · UNLOCK TO VIEW";
+  if(status&&unlocked()&&status.textContent==="Unlock your private studio to start.")status.textContent="You're in. Call an analyst, start the panel, or connect one live camera.";
+ }
+ document.addEventListener("focusin",event=>{if(event.target?.matches("input,textarea,select"))document.body.classList.add("yt-typing")});
+ document.addEventListener("focusout",()=>setTimeout(()=>{if(!document.activeElement?.matches("input,textarea,select"))document.body.classList.remove("yt-typing")},80));
+ window.addEventListener("pageshow",refresh);
+ setInterval(refresh,1700);refresh();
+})();</script></body></html>`;
 const bootMarker="const btn=document.getElementById('unlock'),input=document.getElementById('pass'),status=document.getElementById('status');let busy=false;";
 const mainScriptTag=[...html.matchAll(/<script>[\s\S]*?<\/script>/g)].map(m=>m[0]).find(t=>t.includes('window.v10CompleteUnlock=async'));if(!mainScriptTag)throw Error('V10 main script not found');const mainScriptSource=mainScriptTag.slice('<script>'.length,-'</script>'.length);new Script(mainScriptSource,{filename:'studio-runtime.js'});const pageHtml=html.replace('</head>','<meta name="v10-app-version" content="'+appVersion+'"></head>'); // HTML and API expose the same deployed revision; browsers fetch fresh HTML on open.
 const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url||'/', 'http://localhost').pathname;console.log('V10_REQUEST',req.method,pathname);if(req.method==='GET'&&pathname==='/studio-runtime.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});return res.end(mainScriptSource)}
