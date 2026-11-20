@@ -1,0 +1,94 @@
+name: V10 Sportsbook Source Research — Signed DraftKings/FanDuel Snapshots
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        type: choice
+        description: 'Read-only league (one capped page)'
+        default: NBA
+        options: [NBA, NFL, MLB, NHL, NCAAF, NCAAB, MLS, UCL]
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v10-sgo-research-snapshot.yml']
+  schedule:
+    # Two source observations per day; NOT continuous live odds streaming.
+    - cron: '33 12,23 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: v10-sgo-snapshot-collector
+  cancel-in-progress: false
+jobs:
+  collect-and-send-signed-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY || secrets.SPORTSGAMEODDS_KEY || secrets.SPORTS_GAME_ODDS_API_KEY || secrets.SPORTSGAMEODDS || secrets.SPORTS_GAME_ODDS || secrets.SPORTSGAMESODD || secrets.SPORTSGAMESODDS || secrets.SPORTS_GAMES_ODD || secrets.SPORTS_GAMES_ODDS || secrets.SPORTSGAMEODD || secrets.SPORTS_GAME_ODD }}
+      V10_RESEARCH_PUSH_SECRET: ${{ secrets.V10_RESEARCH_PUSH_SECRET }}
+      SGO_LEAGUE: ${{ github.event_name == 'workflow_dispatch' && inputs.league || 'NBA' }}
+    steps:
+      - name: Verify secret presence and collect one capped provider page without printing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, hashlib, hmac, json, os, time, urllib.error, urllib.parse, urllib.request
+          provider_key=os.environ.get('SPORTSGAMEODDS_API_KEY','')
+          signing_key=os.environ.get('V10_RESEARCH_PUSH_SECRET','')
+          league=os.environ.get('SGO_LEAGUE','NBA')
+          if league not in ('NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL'): raise SystemExit('Unsupported league')
+          if not provider_key: raise SystemExit('Existing SportsGameOdds GitHub repository secret is missing; NO provider call made')
+          if len(signing_key)<32: raise SystemExit('V10_RESEARCH_PUSH_SECRET is not configured; NO provider call made')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          params={'leagueID':league,'bookmakerID':'draftkings,fanduel','oddsAvailable':'true','limit':'5','includeAltLines':'false',
+                  'startsAfter':(now-datetime.timedelta(hours=2)).isoformat(),'startsBefore':(now+datetime.timedelta(hours=48)).isoformat()}
+          url='https://api.sportsgameodds.com/v2/events?'+urllib.parse.urlencode(params)
+          req=urllib.request.Request(url,headers={'x-api-key':provider_key,'Accept':'application/json','User-Agent':'Freddys-V10-Signed-Research/1.0'})
+          try:
+              with urllib.request.urlopen(req,timeout=25) as response:
+                  response_data=json.load(response)
+          except urllib.error.HTTPError as exc:
+              raise SystemExit('SportsGameOdds returned HTTP '+str(exc.code)+'; no odds are certified') from None
+          if response_data.get('success') is not True or not isinstance(response_data.get('data'),list):
+              raise SystemExit('SportsGameOdds response missing successful event array')
+          events=[]
+          for ev in response_data['data'][:5]:
+              if not isinstance(ev,dict): continue
+              all_odds=ev.get('odds') or {}
+              if not isinstance(all_odds,dict): all_odds={}
+              main=[];props=[]
+              for odd in all_odds.values():
+                  if not isinstance(odd,dict):continue
+                  books={}
+                  for book in ('draftkings','fanduel'):
+                      b=(odd.get('byBookmaker') or {}).get(book)
+                      if not isinstance(b,dict) or b.get('available') is not True:continue
+                      books[book]={k:b[k] for k in ('available','odds','spread','overUnder','lastUpdatedAt','deeplink') if k in b}
+                  if not books:continue
+                  row={k:odd[k] for k in ('oddID','marketName','statID','statEntityID','periodID','betTypeID','sideID','cancelled','ended','bookOddsAvailable') if k in odd}
+                  row['byBookmaker']=books
+                  if row.get('statEntityID') in ('home','away','all') and row.get('statID')=='points':main.append(row)
+                  else:props.append(row)
+              chosen=(main[:35]+props[:115])[:150]
+              slim={k:ev.get(k) for k in ('eventID','leagueID')}
+              slim['teams']={t:{'names':{'long':str((((ev.get('teams') or {}).get(t) or {}).get('names') or {}).get('long') or 'Unknown')[:100]}} for t in ('home','away')}
+              status=ev.get('status') or {}
+              slim['status']={k:status.get(k) for k in ('startsAt','live','started','ended','completed')}
+              slim['odds']={r.get('oddID') or 'market_'+str(i):r for i,r in enumerate(chosen)}
+              events.append(slim)
+          payload={'schemaVersion':2,'runId':int(os.environ['GITHUB_RUN_ID']),'fetchedAt':now.isoformat(),'league':league,'events':events}
+          raw=json.dumps(payload,separators=(',',':'),ensure_ascii=False).encode('utf-8')
+          if len(raw)>280000:raise SystemExit('Source payload unexpectedly large; no unverified data sent')
+          stamp=str(int(time.time()*1000))
+          sig='sha256='+hmac.new(signing_key.encode(),stamp.encode()+b'.'+raw,hashlib.sha256).hexdigest()
+          endpoint='https://v10-voice-boardroom-production.up.railway.app/api/sportsbook-quote-push'
+          push=urllib.request.Request(endpoint,data=raw,method='POST',headers={'Content-Type':'application/json','X-Research-Timestamp':stamp,'X-Research-Signature':sig})
+          try:
+              with urllib.request.urlopen(push,timeout=18) as response:
+                  ack=json.load(response)
+                  if response.status!=200 or ack.get('received') is not True:raise SystemExit('Signed research delivery not confirmed')
+          except urllib.error.HTTPError as exc:
+              raise SystemExit('Signed V10 research delivery failed HTTP '+str(exc.code)+'; check shared research signing secret') from None
+          print('Source research delivered: league',league,'events',ack.get('events'),'quoted selections',ack.get('quotedSelections'),'receivedAt',ack.get('receivedAt'))
+          print('GitHub provider key and signing secret remained private; frozen Champion probabilities unchanged; certified EV = zero.')
+          PY
