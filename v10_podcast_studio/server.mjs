@@ -620,6 +620,11 @@ body{padding:0;background:#040c1c}main{max-width:100%;padding:0 8px 14px}
 
 .v10-cinematic{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#071127;border:1px solid #d4a95c;border-radius:10px}
 .v10-boardroom-art{display:block;width:100%;height:100%;object-fit:contain}
+/* Place the only active video on the correct face within the original group image. */
+.v10-chair-video-layer{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.v10-chair-video{position:absolute;display:none;object-fit:cover;object-position:50% 28%;background:#07152d;border-radius:38% 38% 15% 15% / 18% 18% 12% 12%;-webkit-mask-image:radial-gradient(ellipse 73% 70% at 50% 47%,#000 58%,transparent 100%);mask-image:radial-gradient(ellipse 73% 70% at 50% 47%,#000 58%,transparent 100%);transform:translateZ(0)}
+.v10-cinematic-hotspots{z-index:3}
+.v10-live-label{z-index:4}
 .v10-cinematic-hotspots{position:absolute;inset:0}
 .v10-hotspot{position:absolute;display:block!important;margin:0!important;padding:0!important;min-height:0!important;min-width:0!important;opacity:0;background:transparent!important;border:0!important;cursor:pointer}
 .v10-hotspot:focus-visible{opacity:1;outline:3px solid #efc77b;background:#f9d67e22!important}
@@ -1394,7 +1399,19 @@ const wallStatus=document.getElementById('live-wall-status'),
  roomStartAll=document.getElementById('room-start-live-all'),
  roomStopAll=document.getElementById('room-stop-live-all');
 const memberLabel=n=>n==='Adam'?'Adam Stone':n;
-const roomVideo=n=>document.getElementById('room-video-'+n);
+// Stream onto the group image rather than the legacy portrait tiles further down the page.
+const cinematic=document.getElementById('v10-cinematic');
+const chairLayer=document.createElement('div');chairLayer.className='v10-chair-video-layer';chairLayer.id='v10-chair-video-layer';
+const chairPositions={
+ Bella:{left:'2%',top:'29%',width:'18%',height:'44%'},
+ David:{left:'21%',top:'29%',width:'18%',height:'44%'},
+ Cassidy:{left:'40%',top:'29%',width:'18%',height:'44%'},
+ Roger:{left:'59%',top:'29%',width:'18%',height:'44%'},
+ Sarah:{left:'79%',top:'15%',width:'20%',height:'30%'},
+ Adam:{left:'79%',top:'45%',width:'20%',height:'31%'}
+};
+if(cinematic){cinematic.insertBefore(chairLayer,cinematic.querySelector('.v10-cinematic-hotspots'));for(const [name,position] of Object.entries(chairPositions)){const video=document.createElement('video');video.id='v10-chair-video-'+name;video.className='v10-chair-video';video.autoplay=true;video.muted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('aria-label',memberLabel(name)+' moving live video in group photo');Object.assign(video.style,position);chairLayer.appendChild(video)}}
+const roomVideo=n=>document.getElementById('v10-chair-video-'+n)||document.getElementById('room-video-'+n);
 const preview=n=>document.getElementById('live-preview-'+n);
 const wallVideo=n=>document.getElementById('live-'+n);
 const roomSeat=n=>document.querySelector('.person[data-person="'+memberLabel(n)+'"]');
@@ -1408,7 +1425,7 @@ const spotlight=document.getElementById('room-live-spotlight'),
  liveSoundStatus=document.getElementById('room-live-audio-status'),
  liveVolumeInput=document.getElementById('room-live-volume'),
  liveVolumeValue=document.getElementById('room-live-volume-value');
-let liveVolume=1.5,soundEnabled=false,spotlightHiddenByUser=false,liveAudioContext=null;
+let liveVolume=1.5,soundEnabled=false,spotlightHiddenByUser=true,liveAudioContext=null;
 const liveBoostNodes=new Map();
 const unlockLiveAudio=()=>{
  try{
@@ -1529,6 +1546,8 @@ function setLiveState(n,isLive,message){
  const wallState=document.getElementById('live-status-'+n);if(wallState)wallState.textContent=message||(isLive?'LIVE · Anam video connected':'Portrait preview · not streaming');
  const wallButton=document.getElementById('live-toggle-'+n);
  if(wallButton){wallButton.textContent=isLive?'End live: '+n:'Go live: '+n;wallButton.disabled=busy.has(n)}
+ const groupLabel=document.getElementById('v10-live-label'),onCamera=[...active.keys()][0];
+ if(groupLabel)groupLabel.textContent=onCamera?'● '+memberLabel(onCamera).toUpperCase()+' LIVE · IN THE GROUP PHOTO':'● PRIVATE BOARDROOM · SAY AN ANALYST NAME';
  updateCapacityUI()
 }
 function adjustFocus(){
@@ -1595,7 +1614,7 @@ async function connect(n){
   }else if(pv)pv.style.display='none';
   busy.delete(n);setLiveState(n,true,'LIVE · original '+memberLabel(n)+' avatar');
   if(active.size===1)focused=n;
-  spotlightHiddenByUser=false;if(focused===n)showBigFace(n);adjustFocus();return true
+  spotlightHiddenByUser=true;hideBigFace();adjustFocus();return true
  }catch(e){
   if(client)try{await client.stopStreaming()}catch{}
   busy.delete(n);active.delete(n);
