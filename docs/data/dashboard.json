@@ -65,11 +65,80 @@
     "schema": "freddys-fresh-market-display-v1",
     "source": "Existing SharpAPI artifact; DraftKings-labelled aggregator only"
   },
-  "games": [],
-  "generated_at_utc": "2026-11-20T01:28:50.783489+00:00",
+  "games": [
+    {
+      "away": "Golden State Warriors",
+      "away_score": 39,
+      "clock": "3:48",
+      "home": "Memphis Grizzlies",
+      "home_score": 52,
+      "id": "401910019",
+      "pace_away": 92.7,
+      "pace_home": 123.6,
+      "pace_status": "IN_GAME_UNCALIBRATED_PACE_ESTIMATE",
+      "pace_total": 216.2,
+      "period": 2,
+      "pregame_home_probability_pct": 62.6,
+      "pregame_home_probability_time_utc": "2026-11-19T20:47:45.291802+00:00",
+      "start_et": "2026-11-19T20:00:00-05:00",
+      "status": "in"
+    },
+    {
+      "away": "Portland Trail Blazers",
+      "away_score": 42,
+      "clock": "5:33",
+      "home": "Milwaukee Bucks",
+      "home_score": 42,
+      "id": "401910020",
+      "pace_away": 109.3,
+      "pace_home": 109.3,
+      "pace_status": "IN_GAME_UNCALIBRATED_PACE_ESTIMATE",
+      "pace_total": 218.5,
+      "period": 2,
+      "pregame_home_probability_pct": 37.4,
+      "pregame_home_probability_time_utc": "2026-11-19T20:47:45.291802+00:00",
+      "start_et": "2026-11-19T20:00:00-05:00",
+      "status": "in"
+    },
+    {
+      "away": "New York Knicks",
+      "away_score": 56,
+      "clock": "3:09",
+      "home": "Minnesota Timberwolves",
+      "home_score": 45,
+      "id": "401910021",
+      "pace_away": 128.9,
+      "pace_home": 103.6,
+      "pace_status": "IN_GAME_UNCALIBRATED_PACE_ESTIMATE",
+      "pace_total": 232.5,
+      "period": 2,
+      "pregame_home_probability_pct": 64.2,
+      "pregame_home_probability_time_utc": "2026-11-19T20:47:45.291802+00:00",
+      "start_et": "2026-11-19T20:00:00-05:00",
+      "status": "in"
+    },
+    {
+      "away": "LA Clippers",
+      "away_score": 49,
+      "clock": "2:44",
+      "home": "San Antonio Spurs",
+      "home_score": 51,
+      "id": "401910022",
+      "pace_away": 110.6,
+      "pace_home": 115.1,
+      "pace_status": "IN_GAME_UNCALIBRATED_PACE_ESTIMATE",
+      "pace_total": 225.7,
+      "period": 2,
+      "pregame_home_probability_pct": 73.8,
+      "pregame_home_probability_time_utc": "2026-11-19T20:47:45.291802+00:00",
+      "start_et": "2026-11-19T20:00:00-05:00",
+      "status": "in"
+    }
+  ],
+  "generated_at_utc": "2026-11-20T02:00:41.159381+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -80,7 +149,7 @@
       "team_last5": 30
     },
     "mls": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -91,7 +160,7 @@
       "team_last5": 30
     },
     "nba": {
-      "age_minutes": 281.0,
+      "age_minutes": 312.8,
       "as_of_utc": "2026-11-19T20:47:50.863838+00:00",
       "forecasts": 4,
       "player_last10": 280,
@@ -102,7 +171,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -113,7 +182,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -124,7 +193,7 @@
       "team_last5": 138
     },
     "nfl": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 0,
@@ -135,7 +204,7 @@
       "team_last5": 32
     },
     "nhl": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 13,
       "player_last10": 617,
@@ -146,7 +215,7 @@
       "team_last5": 32
     },
     "uefa_champions_league": {
-      "age_minutes": 4565.2,
+      "age_minutes": 4597.0,
       "as_of_utc": "2026-11-16T21:23:41.301213+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -157,18 +226,18 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": null,
-  "live_observed_at_utc": null,
+  "live_age_minutes_at_publication": 0.9,
+  "live_observed_at_utc": "2026-11-20T01:59:49.706318+00:00",
   "live_scoreboard_not_continuous": true,
-  "live_source_status": "AWAITING_FRESH_PUBLIC_SCOREBOARD",
+  "live_source_status": "SOURCE_OBSERVED",
   "market": {
     "archived_quotes": 5614,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 281.0,
+    "model_age_minutes_at_publication": 312.8,
     "odds_age_minutes_at_model_run": 1011.7,
-    "odds_age_minutes_at_publication": 1292.7,
-    "odds_receipt_utc": "2026-11-19T03:56:11.011107+00:00",
+    "odds_age_minutes_at_publication": 189.3,
+    "odds_receipt_utc": "2026-11-19T22:51:23.348387+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
     "paired_prop_markets": null,
@@ -182,7 +251,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -196,7 +265,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -210,9 +279,9 @@
       "archived_quotes": 5614,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 281.0,
-      "odds_age_minutes_at_publication": 1292.7,
-      "odds_receipt_utc": "2026-11-19T03:56:11.011107+00:00",
+      "model_age_minutes_at_publication": 312.8,
+      "odds_age_minutes_at_publication": 189.3,
+      "odds_receipt_utc": "2026-11-19T22:51:23.348387+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
       "paired_prop_markets": null,
@@ -224,7 +293,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -238,7 +307,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -252,8 +321,8 @@
       "archived_quotes": 7295,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 4565.2,
-      "odds_age_minutes_at_publication": 5697.1,
+      "model_age_minutes_at_publication": 4597.0,
+      "odds_age_minutes_at_publication": 5728.9,
       "odds_receipt_utc": "2026-11-16T02:31:46.327174+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -266,7 +335,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -280,7 +349,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 4565.2,
+      "model_age_minutes_at_publication": 4597.0,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -304,7 +373,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-20T01:28:48.205637+00:00",
+      "observed_at_utc": "2026-11-20T02:00:37.881652+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -315,11 +384,11 @@
           "away": "FC Cincinnati",
           "away_abbr": "CIN",
           "away_record": null,
-          "away_score": 1,
+          "away_score": 2,
           "broadcasts": [
             "Apple TV"
           ],
-          "clock": "45'+3'",
+          "clock": "59'",
           "home": "Orlando City SC",
           "home_abbr": "ORL",
           "home_record": null,
@@ -336,12 +405,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.697844+00:00",
+            "source_observed_at_utc": "2026-11-20T02:00:38.618578+00:00",
             "spread_details": "ORL +135",
             "total": 3.5,
             "under_price": null
           },
-          "period": 1.0,
+          "period": 2.0,
           "reference_history": [
             {
               "checkout_verified": false,
@@ -376,7 +445,7 @@
           ],
           "start_et": "2026-11-19T19:30:00-05:00",
           "status": "in",
-          "status_detail": "45'+3'",
+          "status_detail": "59'",
           "venue": "Inter&Co Stadium"
         },
         {
@@ -404,7 +473,7 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.697844+00:00",
+            "source_observed_at_utc": "2026-11-20T02:00:38.618578+00:00",
             "spread_details": "SEA -105",
             "total": 2.5,
             "under_price": null
@@ -469,7 +538,7 @@
         }
       ],
       "line_reference_count": 2,
-      "observed_at_utc": "2026-11-20T01:28:48.697844+00:00",
+      "observed_at_utc": "2026-11-20T02:00:38.618578+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -480,95 +549,95 @@
           "away": "Golden State Warriors",
           "away_abbr": "GS",
           "away_record": "8-7",
-          "away_score": 18,
+          "away_score": 39,
           "broadcasts": [
             "DAZN MEM"
           ],
-          "clock": "2:56",
+          "clock": "3:48",
           "home": "Memphis Grizzlies",
           "home_abbr": "MEM",
           "home_record": "11-4",
-          "home_score": 27,
+          "home_score": 52,
           "id": "401910019",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "2:56 - 1st",
+          "status_detail": "3:48 - 2nd",
           "venue": "FedExForum"
         },
         {
           "away": "Portland Trail Blazers",
           "away_abbr": "POR",
           "away_record": "9-5",
-          "away_score": 17,
+          "away_score": 42,
           "broadcasts": [
             "KUNP 16",
             "BlazerVision",
             "MyMi",
             "Bucks App"
           ],
-          "clock": "3:16",
+          "clock": "5:26",
           "home": "Milwaukee Bucks",
           "home_abbr": "MIL",
           "home_record": "1-14",
-          "home_score": 19,
+          "home_score": 44,
           "id": "401910020",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "3:16 - 1st",
+          "status_detail": "5:26 - 2nd",
           "venue": "Fiserv Forum"
         },
         {
           "away": "New York Knicks",
           "away_abbr": "NY",
           "away_record": "8-6",
-          "away_score": 25,
+          "away_score": 56,
           "broadcasts": [
             "NBA TV",
             "DAZN MIN"
           ],
-          "clock": "2:47",
+          "clock": "2:24",
           "home": "Minnesota Timberwolves",
           "home_abbr": "MIN",
           "home_record": "11-4",
-          "home_score": 25,
+          "home_score": 45,
           "id": "401910021",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "2:47 - 1st",
+          "status_detail": "2:24 - 2nd",
           "venue": "Target Center"
         },
         {
           "away": "LA Clippers",
           "away_abbr": "LAC",
           "away_record": "4-9",
-          "away_score": 18,
+          "away_score": 49,
           "broadcasts": [
             "DAZN SAS",
             "KTLA",
             "ClipperVision"
           ],
-          "clock": "2:52",
+          "clock": "2:44",
           "home": "San Antonio Spurs",
           "home_abbr": "SA",
           "home_record": "12-3",
-          "home_score": 21,
+          "home_score": 51,
           "id": "401910022",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "2:52 - 1st",
+          "status_detail": "2:44 - 2nd",
           "venue": "Frost Bank Center"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-20T01:28:48.032954+00:00",
+      "observed_at_utc": "2026-11-20T02:00:37.578586+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -600,42 +669,42 @@
           "away": "Southern Utah Thunderbirds",
           "away_abbr": "SUU",
           "away_record": "3-2",
-          "away_score": 31,
+          "away_score": 37,
           "broadcasts": [
             "SECN+"
           ],
-          "clock": "7:37",
+          "clock": "0:00",
           "home": "Texas Longhorns",
           "home_abbr": "TEX",
           "home_record": "4-0",
-          "home_score": 22,
+          "home_score": 40,
           "id": "401906867",
           "market_reference": null,
           "period": 1.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "7:37 - 1st",
+          "status_detail": "Halftime",
           "venue": "Moody Center"
         },
         {
           "away": "Stetson Hatters",
           "away_abbr": "STET",
           "away_record": "1-4",
-          "away_score": 25,
+          "away_score": 37,
           "broadcasts": [
             "ACC Network"
           ],
-          "clock": "8:05",
+          "clock": "0:00",
           "home": "Louisville Cardinals",
           "home_abbr": "LOU",
           "home_record": "2-1",
-          "home_score": 21,
+          "home_score": 42,
           "id": "401918950",
           "market_reference": null,
           "period": 1.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "8:05 - 1st",
+          "status_detail": "Halftime",
           "venue": "KFC Yum! Center"
         },
         {
@@ -662,25 +731,13 @@
             "moneyline_away": null,
             "moneyline_home": null,
             "over_price": null,
-            "provider": "Draft Kings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.520483+00:00",
+            "provider": "DraftKings",
+            "source_observed_at_utc": "2026-11-20T02:00:38.396776+00:00",
             "spread_details": "HOU -3.5",
             "total": 151.5,
             "under_price": null
           },
           "period": 0.0,
-          "reference_history": [
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:09:30.451702+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "HOU -3.5",
-              "total": 151.5
-            }
-          ],
           "start_et": "2026-11-19T23:00:00-05:00",
           "status": "pre",
           "status_detail": "11/19 - 11:00 PM EST",
@@ -710,25 +767,13 @@
             "moneyline_away": null,
             "moneyline_home": null,
             "over_price": null,
-            "provider": "Draft Kings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.520483+00:00",
+            "provider": "DraftKings",
+            "source_observed_at_utc": "2026-11-20T02:00:38.396776+00:00",
             "spread_details": "USC -28.5",
             "total": 158.5,
             "under_price": null
           },
           "period": 0.0,
-          "reference_history": [
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:09:30.451702+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "USC -28.5",
-              "total": 158.5
-            }
-          ],
           "start_et": "2026-11-19T23:00:00-05:00",
           "status": "pre",
           "status_detail": "11/19 - 11:00 PM EST",
@@ -736,7 +781,7 @@
         }
       ],
       "line_reference_count": 2,
-      "observed_at_utc": "2026-11-20T01:28:48.520483+00:00",
+      "observed_at_utc": "2026-11-20T02:00:38.396776+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -751,22 +796,22 @@
           "broadcasts": [
             "ESPN"
           ],
-          "clock": "7:42",
+          "clock": "0:00",
           "home": "Temple Owls",
           "home_abbr": "TEM",
           "home_record": "2-8",
-          "home_score": 7,
+          "home_score": 10,
           "id": "401862830",
           "market_reference": null,
           "period": 2.0,
           "start_et": "2026-11-19T19:30:00-05:00",
           "status": "in",
-          "status_detail": "7:42 - 2nd",
+          "status_detail": "Halftime",
           "venue": "Lincoln Financial Field"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-20T01:28:48.344175+00:00",
+      "observed_at_utc": "2026-11-20T02:00:38.180179+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -781,22 +826,22 @@
           "broadcasts": [
             "Prime Video"
           ],
-          "clock": "10:43",
+          "clock": "15:00",
           "home": "Houston Texans",
           "home_abbr": "HOU",
           "home_record": "3-6",
-          "home_score": 0,
+          "home_score": 7,
           "id": "401873066",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T20:15:00-05:00",
           "status": "in",
-          "status_detail": "10:43 - 1st",
+          "status_detail": "15:00 - 2nd",
           "venue": "Reliant Stadium"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-20T01:28:48.116755+00:00",
+      "observed_at_utc": "2026-11-20T02:00:37.765978+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -807,12 +852,12 @@
           "away": "Los Angeles Kings",
           "away_abbr": "LA",
           "away_record": "6-11-2",
-          "away_score": 2,
+          "away_score": 3,
           "broadcasts": [
             "ESPN+",
             "ABTV"
           ],
-          "clock": "9:06",
+          "clock": "0:00",
           "home": "Toronto Maple Leafs",
           "home_abbr": "TOR",
           "home_record": "8-13-2",
@@ -822,43 +867,43 @@
           "period": 2.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "9:06 - 2nd",
+          "status_detail": "End of 2nd",
           "venue": "Scotiabank Arena"
         },
         {
           "away": "Philadelphia Flyers",
           "away_abbr": "PHI",
           "away_record": "7-11-6",
-          "away_score": 1,
+          "away_score": 2,
           "broadcasts": [
             "ESPN+",
             "NBC Sports Phil"
           ],
-          "clock": "6:56",
+          "clock": "20:00",
           "home": "Ottawa Senators",
           "home_abbr": "OTT",
           "home_record": "14-6-2",
           "home_score": 3,
           "id": "401892743",
           "market_reference": null,
-          "period": 2.0,
+          "period": 3.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "6:56 - 2nd",
+          "status_detail": "20:00 - 3rd",
           "venue": "Canadian Tire Centre"
         },
         {
           "away": "St. Louis Blues",
           "away_abbr": "STL",
           "away_record": "10-9-2",
-          "away_score": 2,
+          "away_score": 3,
           "broadcasts": [
             "ESPN+",
             "Blues App",
             "BN+",
             "ABC32"
           ],
-          "clock": "9:39",
+          "clock": "0:00",
           "home": "Pittsburgh Penguins",
           "home_abbr": "PIT",
           "home_record": "7-11-2",
@@ -868,20 +913,20 @@
           "period": 2.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "9:39 - 2nd",
+          "status_detail": "End of 2nd",
           "venue": "PPG Paints Arena"
         },
         {
           "away": "Buffalo Sabres",
           "away_abbr": "BUF",
           "away_record": "8-9-4",
-          "away_score": 4,
+          "away_score": 5,
           "broadcasts": [
             "ESPN+",
             "MNMT",
             "MSGB"
           ],
-          "clock": "10:05",
+          "clock": "0:00",
           "home": "Washington Capitals",
           "home_abbr": "WSH",
           "home_record": "10-9-0",
@@ -891,7 +936,7 @@
           "period": 2.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "10:05 - 2nd",
+          "status_detail": "End of 2nd",
           "venue": "Capital One Arena"
         },
         {
@@ -903,17 +948,17 @@
             "ESPN+",
             "CARNHL"
           ],
-          "clock": "6:29",
+          "clock": "20:00",
           "home": "Carolina Hurricanes",
           "home_abbr": "CAR",
           "home_record": "16-3-2",
           "home_score": 0,
           "id": "401892747",
           "market_reference": null,
-          "period": 2.0,
+          "period": 3.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "6:29 - 2nd",
+          "status_detail": "20:00 - 3rd",
           "venue": "Lenovo Center"
         },
         {
@@ -925,17 +970,17 @@
             "ESPN+",
             "MSGSN"
           ],
-          "clock": "7:51",
+          "clock": "19:22",
           "home": "Winnipeg Jets",
           "home_abbr": "WPG",
           "home_record": "10-9-3",
           "home_score": 3,
           "id": "401892749",
           "market_reference": null,
-          "period": 2.0,
+          "period": 3.0,
           "start_et": "2026-11-19T19:00:00-05:00",
           "status": "in",
-          "status_detail": "7:51 - 2nd",
+          "status_detail": "19:22 - 3rd",
           "venue": "Canada Life Centre"
         },
         {
@@ -948,30 +993,30 @@
             "ESPN+",
             "Hulu"
           ],
-          "clock": "0:00",
+          "clock": "5:18",
           "home": "Tampa Bay Lightning",
           "home_abbr": "TB",
           "home_record": "14-5-2",
-          "home_score": 0,
+          "home_score": 1,
           "id": "401892744",
           "market_reference": null,
-          "period": 1.0,
+          "period": 2.0,
           "start_et": "2026-11-19T19:30:00-05:00",
           "status": "in",
-          "status_detail": "End of 1st",
+          "status_detail": "5:18 - 2nd",
           "venue": "Benchmark International Arena"
         },
         {
           "away": "Columbus Blue Jackets",
           "away_abbr": "CBJ",
           "away_record": "7-12-0",
-          "away_score": 1,
+          "away_score": 2,
           "broadcasts": [
             "ESPN+",
             "CHSN",
             "CBJNHL"
           ],
-          "clock": "9:42",
+          "clock": "0:00",
           "home": "Chicago Blackhawks",
           "home_abbr": "CHI",
           "home_record": "6-13-2",
@@ -981,7 +1026,7 @@
           "period": 1.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "9:42 - 1st",
+          "status_detail": "End of 1st",
           "venue": "United Center"
         },
         {
@@ -993,17 +1038,17 @@
             "ESPN+",
             "MINNHL"
           ],
-          "clock": "10:21",
+          "clock": "0:00",
           "home": "Calgary Flames",
           "home_abbr": "CGY",
           "home_record": "10-11-1",
-          "home_score": 0,
+          "home_score": 1,
           "id": "401892750",
           "market_reference": null,
           "period": 1.0,
           "start_et": "2026-11-19T20:00:00-05:00",
           "status": "in",
-          "status_detail": "10:21 - 1st",
+          "status_detail": "End of 1st",
           "venue": "Scotiabank Saddledome"
         },
         {
@@ -1033,46 +1078,13 @@
             "moneyline_away": null,
             "moneyline_home": null,
             "over_price": null,
-            "provider": "Draft Kings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
-            "spread_details": "COL -142",
+            "provider": "DraftKings",
+            "source_observed_at_utc": "2026-11-20T02:00:38.069131+00:00",
+            "spread_details": "COL -130",
             "total": 6.5,
             "under_price": null
           },
           "period": 0.0,
-          "reference_change": {
-            "current_line": "COL -142",
-            "current_observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
-            "current_total": 6.5,
-            "previous_line": "COL -130",
-            "previous_observed_at_utc": "2026-11-20T01:09:30.267131+00:00",
-            "previous_total": 6.5,
-            "provider": "Draft Kings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
-          "reference_history": [
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:09:30.267131+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "COL -130",
-              "total": 6.5
-            },
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "COL -142",
-              "total": 6.5
-            }
-          ],
           "start_et": "2026-11-19T21:00:00-05:00",
           "status": "pre",
           "status_detail": "11/19 - 9:00 PM EST",
@@ -1104,25 +1116,13 @@
             "moneyline_away": null,
             "moneyline_home": null,
             "over_price": null,
-            "provider": "Draft Kings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
+            "provider": "DraftKings",
+            "source_observed_at_utc": "2026-11-20T02:00:38.069131+00:00",
             "spread_details": "SEA -170",
             "total": 6.5,
             "under_price": null
           },
           "period": 0.0,
-          "reference_history": [
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:09:30.267131+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "SEA -170",
-              "total": 6.5
-            }
-          ],
           "start_et": "2026-11-19T21:40:00-05:00",
           "status": "pre",
           "status_detail": "11/19 - 9:40 PM EST",
@@ -1154,25 +1154,13 @@
             "moneyline_away": null,
             "moneyline_home": null,
             "over_price": null,
-            "provider": "Draft Kings",
-            "source_observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
+            "provider": "DraftKings",
+            "source_observed_at_utc": "2026-11-20T02:00:38.069131+00:00",
             "spread_details": "VGK -125",
             "total": 5.5,
             "under_price": null
           },
           "period": 0.0,
-          "reference_history": [
-            {
-              "checkout_verified": false,
-              "moneyline_away": null,
-              "moneyline_home": null,
-              "observed_at_utc": "2026-11-20T01:09:30.267131+00:00",
-              "provider": "Draft Kings",
-              "sharp_action_verified": false,
-              "spread_details": "VGK -125",
-              "total": 5.5
-            }
-          ],
           "start_et": "2026-11-19T22:00:00-05:00",
           "status": "pre",
           "status_detail": "11/19 - 10:00 PM EST",
@@ -1180,7 +1168,7 @@
         }
       ],
       "line_reference_count": 3,
-      "observed_at_utc": "2026-11-20T01:28:48.258145+00:00",
+      "observed_at_utc": "2026-11-20T02:00:38.069131+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1188,7 +1176,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-20T01:28:48.874645+00:00",
+      "observed_at_utc": "2026-11-20T02:00:38.866028+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     }
@@ -1335,7 +1323,7 @@
   },
   "sources": {
     "github": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data",
-    "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44505455636",
+    "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44657550448",
     "run_all": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/43958296059",
     "run_nba": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44612004210",
     "schedule": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/44653753537"
