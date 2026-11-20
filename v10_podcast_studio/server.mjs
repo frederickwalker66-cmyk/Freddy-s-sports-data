@@ -418,6 +418,14 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
 .daily-consensus p{font-size:12px;line-height:1.6}
 .daily-slate-warning{color:#cfdae9}
 @media(max-width:800px){.daily-slate-grid{grid-template-columns:1fr}.daily-slate-games{max-height:245px}}
+
+.odds-evidence-inbox{margin:13px 0 10px;padding:12px;border:1px solid #bb9767;border-radius:12px;background:linear-gradient(145deg,#0c233b,#111c2f)}
+.odds-evidence-inbox strong{color:#f0c582}.odds-evidence-inbox p{font-size:12px;line-height:1.5;color:#bccfe3}
+.odds-inbox-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.odds-inbox-fields label{font-size:12px;color:#bbd1e7;display:flex;flex-direction:column;gap:4px;min-width:0}
+.odds-inbox-fields input,.odds-inbox-fields select{width:100%;min-width:0;box-sizing:border-box;margin:0;padding:8px;font-size:13px;background:#102744;color:white;border:1px solid #54749c;border-radius:7px}
+#quote-preflight-result{font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;background:#06162a;padding:10px;border:1px solid #43648c;border-radius:9px}
+@media(max-width:560px){.odds-inbox-fields{grid-template-columns:1fr}}
 </style></head><body><main><header class="v10-hero"><div class="v10-eyebrow">FREDDY'S PICKS AI · V10</div><h1>🎙️ The 914 Sports Podcast Studio</h1><p>Private sports roundtable · Six analysts · Vertical Shorts recording</p><div class="v10-login"><input id="pass" type="password" placeholder="Enter your private studio password" autocomplete="current-password"><button id="unlock">Enter private studio</button></div><p id="status" aria-live="polite">Studio locked · Enter your existing boardroom password to continue.</p><p id="avatar-readiness" class="muted">Illustrated studio works separately from optional live Anam video.</p></header><section id="anam-panel" style="display:none;background:#111c32;padding:12px;border-radius:12px;margin:12px 0"><strong>Adam Stone · Live Anam Video</strong><p><button id="anam-start">Start selected analyst live video</button> <button id="anam-stop" disabled>End live video</button></p><video id="anam-video" autoplay playsinline style="width:100%;max-width:640px;border-radius:12px;background:#000"></video><p id="anam-status" class="muted">Ready</p></section><section class="podcast-stage"><div class="room-title">🎙️ THE 914 SPORTS ROUNDTABLE · ALL SIX AT ONE TABLE</div><p class="muted" style="padding:8px 12px">Tap any analyst portrait to select them. Type your question in the Host control desk, then tap Ask analyst. Original analyst portraits remain visible even without Anam live video. Cassidy retains her original V10 image and is now registered for Anam live video.</p><p class="muted" id="live-score-quick" aria-live="polite">Checking ESPN game scores and schedules after sign-in. Game scores refresh every 60 seconds while the boardroom is open. Live sportsbook odds and certified model picks are separate feeds.</p><p class="muted" id="analysts-live-data-status" aria-live="polite">Live analyst scoreboard connection status will appear here after sign-in.</p><div id="podcast-room-scene" class="podcast-room-scene" aria-label="Freddy's Picks AI V10 shared podcast room">
  <div class="podcast-room-neon"><strong>FREDDY'S PICKS AI <em>V10</em></strong><span>LIVE BOARDROOM · NEW YORK SPORTS PODCAST</span></div>
  <div class="podcast-room-backwall" aria-hidden="true"><div class="room-nyc-logo room-knicks">NEW YORK<br>KNICKS 🏀</div><div class="room-nyc-center"><strong>FREDDY'S<br>PICKS AI</strong><span>DATA · SHARP EDGE · PARLAYS</span></div><div class="room-nyc-logo room-yankees">NY<br>YANKEES ⚾</div></div>
@@ -455,7 +463,23 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
    <strong>One-game analysis · Bella, David, Cassidy, Roger, Sarah & Adam</strong>
    <div id="daily-game-review" aria-live="polite">Choose a scheduled game. The analysts will distinguish verified facts from markets without prices.</div><div id="daily-game-form" style="font-size:12px;background:#0b2038;border:1px solid #335b82;border-radius:8px;padding:10px;margin:8px 0" aria-live="polite"><strong>Last 5 / Last 10 form</strong><p id="daily-game-form-status">Select a game and load completed-game form when available from ESPN.</p><div id="daily-game-form-result" style="white-space:pre-wrap;line-height:1.5"></div><button type="button" id="daily-game-form-load">Load last 5 / last 10</button></div>
    <div class="daily-slate-toolbar"><button id="daily-game-previous" type="button">← Previous</button><button id="daily-game-next" type="button">Next game →</button><button id="daily-game-discuss" type="button">🎙️ Six-person game review</button></div>
-   <div class="daily-consensus">
+   
+<section class="odds-evidence-inbox" aria-label="Source-locked sportsbook quote preflight">
+ <strong>📊 SHARP EDGE · MARKET PREFLIGHT</strong>
+ <p>Enter a price you observed yourself. This calculates break-even probability, not a certified prediction. No odds are fetched from DraftKings or submitted as bets.</p>
+ <div class="odds-inbox-fields">
+  <label>Market <select id="quote-market"><option value="moneyline">Moneyline</option><option value="spread">Spread</option><option value="total">Game total O/U</option><option value="player_points">Player points</option><option value="player_rebounds">Player rebounds</option><option value="player_assists">Player assists</option><option value="player_combo">Player combo PR/PA/RA/PRA</option></select></label>
+  <label>Pick/side <input id="quote-selection" maxlength="110" placeholder="e.g. Atlanta ML / Over 225.5"></label>
+  <label>Line <input id="quote-line" type="number" step="0.5" placeholder="e.g. 225.5"></label>
+  <label>American odds <input id="quote-odds" type="number" step="1" placeholder="e.g. -110 or +145"></label>
+  <label>Other side odds (optional) <input id="quote-opposing-odds" type="number" step="1" placeholder="-110"></label>
+  <label>Your observed time (ET) <input id="quote-timestamp" type="datetime-local"></label>
+ </div>
+ <div class="daily-slate-toolbar"><button type="button" id="quote-checked-now">Set time I personally checked</button><button type="button" id="quote-preflight">Audit this quote</button><button type="button" id="quote-discuss" disabled>Discuss with all six</button></div>
+ <div id="quote-preflight-result" aria-live="polite">Select a matchup above, enter a price, and run the evidence gate. Certified Champion-001 EV is unavailable, so no wager will be promoted.</div>
+ <p class="daily-slate-warning">User-reported quotes are not verified bookmaker checkout prices. No-vig estimates require verified opposing market identity. Odds-implied probability is not the model's predicted probability.</p>
+</section>
+<div class="daily-consensus">
     <strong>🏆 TODAY'S BOARDROOM CONSENSUS</strong>
     <p id="daily-consensus-status">Awaiting today's full-slate review. No verified betting selection is authorized.</p>
     <div class="daily-slate-toolbar">
