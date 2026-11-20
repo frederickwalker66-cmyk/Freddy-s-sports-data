@@ -469,7 +469,7 @@ const html=`<!doctype html><html><head><meta name="viewport" content="width=devi
  </div>
  <div class="room-spotlight-actions">
   <button type="button" id="room-spotlight-unmute">🔊 ENABLE LIVE AUDIO</button>
-  <label for="room-live-volume">Live volume <span id="room-live-volume-value">100%</span><input id="room-live-volume" type="range" min="0" max="100" step="5" value="100"></label>
+  <label for="room-live-volume">Live volume / boost <span id="room-live-volume-value">150%</span><input id="room-live-volume" type="range" min="0" max="200" step="10" value="150"></label>
   <button type="button" id="room-spotlight-fullscreen">⛶ FULL SCREEN</button>
   <button type="button" id="room-spotlight-close">Return to 6-person room</button>
  </div>
