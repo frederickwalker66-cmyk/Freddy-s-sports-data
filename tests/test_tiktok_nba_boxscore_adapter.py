@@ -80,3 +80,18 @@ class ESPNThreePointLabelTests(unittest.TestCase):
         category["athletes"][0]["stats"].append("2-8")
         with self.assertRaisesRegex(ValueError,"conflicting three-point stat labels"):
             parse_summary(data,"100","2026-11-02T00:00:00Z")
+
+class ESPNEventChronologyTests(unittest.TestCase):
+    def test_missing_event_start_is_rejected(self):
+        from challenger_nba_player_boxes import parse_summary
+        fixture=ESPNThreePointLabelTests()._summary("3PT","2-5")
+        del fixture["header"]["competitions"][0]["date"]
+        with self.assertRaisesRegex(ValueError,"missing timezone-aware NBA event start"):
+            parse_summary(fixture,"100","2026-11-02T00:00:00Z")
+
+    def test_naive_event_start_is_rejected(self):
+        from challenger_nba_player_boxes import parse_summary
+        fixture=ESPNThreePointLabelTests()._summary("3PT","2-5")
+        fixture["header"]["competitions"][0]["date"]="2026-11-01T23:00:00"
+        with self.assertRaisesRegex(ValueError,"missing timezone-aware NBA event start"):
+            parse_summary(fixture,"100","2026-11-02T00:00:00Z")
