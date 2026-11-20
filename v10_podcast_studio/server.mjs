@@ -953,6 +953,81 @@ const roomVideo=n=>document.getElementById('room-video-'+n);
 const preview=n=>document.getElementById('live-preview-'+n);
 const wallVideo=n=>document.getElementById('live-'+n);
 const roomSeat=n=>document.querySelector('.person[data-person="'+memberLabel(n)+'"]');
+
+const spotlight=document.getElementById('room-live-spotlight'),
+ spotlightVideo=document.getElementById('room-spotlight-video'),
+ spotlightPhoto=document.getElementById('room-spotlight-photo'),
+ spotlightPerson=document.getElementById('room-spotlight-person'),
+ spotlightState=document.getElementById('room-spotlight-state'),
+ liveSoundButton=document.getElementById('room-spotlight-unmute'),
+ liveSoundStatus=document.getElementById('room-live-audio-status'),
+ liveVolumeInput=document.getElementById('room-live-volume'),
+ liveVolumeValue=document.getElementById('room-live-volume-value');
+let liveVolume=1,soundEnabled=false,spotlightHiddenByUser=false;
+const defaultPhoto=n=>'/api/cast-portrait?member='+encodeURIComponent(memberLabel(n));
+const showBigFace=n=>{
+ if(!active.has(n)||spotlightHiddenByUser)return;
+ const source=roomVideo(n)||wallVideo(n);
+ spotlight.hidden=false;
+ spotlightPerson.textContent=memberLabel(n).toUpperCase();
+ spotlightPhoto.alt=memberLabel(n)+' original cast portrait';
+ spotlightPhoto.src=defaultPhoto(n);
+ spotlightState.textContent='LIVE CAMERA CONNECTED · FULL-FACE VIEW';
+ let stream=source?.srcObject||null;
+ if(!stream&&source&&typeof source.captureStream==='function')try{stream=source.captureStream()}catch{}
+ if(stream&&typeof stream.getVideoTracks==='function'&&stream.getVideoTracks().length){
+  spotlightVideo.srcObject=stream;spotlightVideo.muted=true;spotlightVideo.volume=0;
+  spotlightVideo.style.display='block';spotlightPhoto.style.display='none';
+  void spotlightVideo.play().catch(()=>{
+   spotlightVideo.style.display='none';spotlightPhoto.style.display='block';
+   spotlightState.textContent='Live stream active in analyst seat; video enlargement blocked by browser'
+  })
+ }else{
+  spotlightVideo.style.display='none';spotlightPhoto.style.display='block';
+  spotlightState.textContent='Live session started · waiting for video frames'
+ }
+};
+const hideBigFace=()=>{
+ spotlight.hidden=true;spotlightVideo.pause();spotlightVideo.srcObject=null;
+ spotlightVideo.style.display='none';spotlightPhoto.style.display='block'
+};
+const displayLiveSound=()=>{
+ const video=roomVideo(focused)||wallVideo(focused);
+ const isPlaying=!!active.has(focused);
+ const hasAudio=!!video?.srcObject?.getAudioTracks?.().length;
+ liveSoundButton.textContent=soundEnabled?'🔇 MUTE LIVE AUDIO':'🔊 ENABLE LIVE AUDIO';
+ liveVolumeValue.textContent=Math.round(liveVolume*100)+'%';
+ if(!isPlaying)liveSoundStatus.textContent='Start a live analyst, then use ENABLE LIVE AUDIO. Check your phone media volume and connected Bluetooth device.';
+ else if(moderatedPanel)liveSoundStatus.textContent='Live Anam audio is temporarily muted during the six-person ElevenLabs roundtable to prevent overlapping voices.';
+ else if(!soundEnabled)liveSoundStatus.textContent='Live video connected, sound muted. Tap ENABLE LIVE AUDIO to hear the analyst.';
+ else if(!hasAudio)liveSoundStatus.textContent='Audio enabled at maximum player volume. The live video has not exposed an audio track yet; check the Anam session and microphone permission.';
+ else liveSoundStatus.textContent=memberLabel(focused)+' live audio enabled · '+Math.round(liveVolume*100)+'% in the browser. Turn up Android media volume if needed.';
+};
+liveVolumeInput.oninput=()=>{
+ liveVolume=Math.max(0,Math.min(1,Number(liveVolumeInput.value)/100));
+ if(liveVolume===0)soundEnabled=false;
+ else if(active.size)soundEnabled=true;
+ adjustFocus();displayLiveSound()
+};
+liveSoundButton.onclick=()=>{
+ soundEnabled=!soundEnabled;
+ const v=roomVideo(focused)||wallVideo(focused);
+ if(v){v.volume=liveVolume;v.muted=!soundEnabled}
+ adjustFocus();displayLiveSound()
+};
+document.getElementById('room-spotlight-close').onclick=()=>{
+ spotlightHiddenByUser=true;hideBigFace()
+};
+document.getElementById('room-spotlight-fullscreen').onclick=async()=>{
+ const node=document.getElementById('room-spotlight-stage');
+ try{
+  if(document.fullscreenElement){await document.exitFullscreen();return}
+  if(node.requestFullscreen){await node.requestFullscreen();return}
+  const v=spotlightVideo;if(typeof v.webkitEnterFullscreen==='function')v.webkitEnterFullscreen();
+  else spotlightState.textContent='Use your phone landscape orientation for the largest video'
+ }catch(e){spotlightState.textContent='Full screen unavailable here. Rotate your phone to landscape.'}
+};
+
 const captureLimit=()=>active.size+' of 6 cameras LIVE · Anam concurrency limit '+planLimit+(planLimit<6?' · Upgrade to 6+ for all simultaneous streams':'');
 function updateCapacityUI(){
  const text=captureLimit();
@@ -978,18 +1053,24 @@ function setLiveState(n,isLive,message){
 }
 function adjustFocus(){
  for(const name of liveNames){
-  const v=roomVideo(name);
+  const v=roomVideo(name)||wallVideo(name);
   if(v&&active.has(name)){
-   v.muted=moderatedPanel||focused!==name;
-   if(!v.paused&&v.readyState>=2)continue;
-   void v.play().catch(()=>{const st=document.getElementById('room-live-status-'+name);if(st&&focused===name)st.textContent='Video connected · tap camera to allow sound'})
+   v.volume=liveVolume;
+   v.muted=!soundEnabled||moderatedPanel||focused!==name;
+   void v.play().catch(()=>{
+    const st=document.getElementById('room-live-status-'+name);
+    if(st&&focused===name)st.textContent='Connected but playback blocked · tap ENABLE LIVE AUDIO'
+   })
   }
  }
+ spotlightVideo.muted=true;
+ displayLiveSound()
 }
 const focusLive=n=>{
  const key=n==='Adam Stone'?'Adam':n;
  if(!liveNames.includes(key))return;
  focused=key;
+ if(active.has(key))showBigFace(key);
  adjustFocus()
 };
 window.v10FocusLiveAnalyst=focusLive;
@@ -1027,7 +1108,7 @@ async function connect(n){
   }else if(pv)pv.style.display='none';
   busy.delete(n);setLiveState(n,true,'LIVE · original '+memberLabel(n)+' avatar');
   if(active.size===1)focused=n;
-  adjustFocus();return true
+  spotlightHiddenByUser=false;showBigFace(n);adjustFocus();return true
  }catch(e){
   if(client)try{await client.stopStreaming()}catch{}
   busy.delete(n);active.delete(n);
@@ -1046,10 +1127,12 @@ async function disconnect(n){
  }
  if(preview(n))preview(n).style.display='block';
  busy.delete(n);setLiveState(n,false,'PREVIEW · live session ended');
- if(focused===n){focused=active.keys().next().value||'Adam';adjustFocus()}
+ if(focused===n){focused=active.keys().next().value||'Adam'}
+ if(active.size)showBigFace(focused);else hideBigFace();adjustFocus()
 }
 async function toggleMember(n){
  if(busy.has(n))return;
+ soundEnabled=liveVolume>0;
  const button=roomSeat(n)?.querySelector('.room-avatar-live-toggle');
  if(button)button.disabled=true;
  try{
@@ -1065,8 +1148,8 @@ async function toggleMember(n){
  }catch(e){setLiveState(n,false,'Unable to connect: '+String(e.message||e))}
  finally{if(button)button.disabled=false;updateCapacityUI()}
 }
-const rebindSeats=()=>{for(const n of liveNames){const rb=roomSeat(n)?.querySelector('.room-avatar-live-toggle');if(rb)rb.onclick=e=>{e.stopPropagation();void toggleMember(n)};if(active.has(n))setLiveState(n,true,'LIVE · '+memberLabel(n)+' camera')}};
-for(const n of liveNames){const wb=document.getElementById('live-toggle-'+n);if(wb)wb.onclick=()=>void toggleMember(n)}
+const rebindSeats=()=>{for(const n of liveNames){const rb=roomSeat(n)?.querySelector('.room-avatar-live-toggle');if(rb)rb.onclick=e=>{e.stopPropagation();soundEnabled=liveVolume>0;void toggleMember(n)};if(active.has(n))setLiveState(n,true,'LIVE · '+memberLabel(n)+' camera')}};
+for(const n of liveNames){const wb=document.getElementById('live-toggle-'+n);if(wb)wb.onclick=()=>{soundEnabled=liveVolume>0;void toggleMember(n)}}
 window.v10RebindLiveSeatControls=rebindSeats;rebindSeats();
 async function startAvailable(){
  if(connectingAll)return {limit:planLimit,connected:active.size};
@@ -1086,11 +1169,11 @@ async function stopAllCameras(){for(const name of liveNames)if(active.has(name))
 window.v10StartLiveWall=startAvailable;window.v10StopLiveWall=stopAllCameras;
 window.v10ReadLiveCapacity=refreshCapacity;
 window.v10ActivateLiveCamera=toggleMember;window.v10LiveCameraCount=()=>active.size;
-startAll.onclick=startAvailable;stopAll.onclick=()=>void stopAllCameras();
-if(roomStartAll)roomStartAll.onclick=()=>void startAvailable();
+startAll.onclick=()=>{soundEnabled=liveVolume>0;void startAvailable()};stopAll.onclick=()=>void stopAllCameras();
+if(roomStartAll)roomStartAll.onclick=()=>{soundEnabled=liveVolume>0;void startAvailable()};
 if(roomStopAll)roomStopAll.onclick=()=>void stopAllCameras();
 document.getElementById('live-host-mic').onclick=()=>window.v10HostMic?.();
-updateCapacityUI();
+updateCapacityUI();displayLiveSound();
 window.addEventListener('pagehide',()=>{for(const client of active.values())void client.stopStreaming()});
 </script><script type="module">let client=null;const start=document.getElementById('adam-live-start'),stop=document.getElementById('adam-live-stop'),status=document.getElementById('adam-live-status');start.addEventListener('click',async()=>{start.disabled=true;status.textContent='Requesting private Anam session…';try{const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Unlock boardroom first');const r=await fetch('/api/anam-session',{method:'POST',headers:{'x-boardroom-password':pass,'content-type':'application/json'},body:JSON.stringify({analyst:document.getElementById('anam-analyst').value})});const d=await r.json();if(!r.ok)throw Error(d.error||'Anam session unavailable');const sdk=await import('https://esm.sh/@anam-ai/js-sdk@latest');client=sdk.createClient(d.sessionToken);await client.streamToVideoElement('adam-live-video');stop.disabled=false;status.textContent=document.getElementById('anam-analyst').selectedOptions[0].text+' live · Anam session active (Anam voice)';}catch(e){status.textContent='Live session unavailable: '+e.message;start.disabled=false;}});stop.addEventListener('click',async()=>{try{await client?.stopStreaming()}finally{client=null;stop.disabled=true;start.disabled=false;status.textContent='Live session ended';}});</script></body></html>`;
 const bootMarker="const btn=document.getElementById('unlock'),input=document.getElementById('pass'),status=document.getElementById('status');let busy=false;";
