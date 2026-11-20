@@ -34,10 +34,10 @@ async function podcastRoster(league='NBA',team=''){
 }
 async function podcastRosterForSpeech(question){
  const q=String(question||'').toLowerCase();
- const lg=/\\b(nfl|football)\\b/.test(q)?'NFL':/\\b(mlb|baseball)\\b/.test(q)?'MLB':/\\b(nhl|hockey)\\b/.test(q)?'NHL':/\\b(ncaaf|college football)\\b/.test(q)?'NCAAF':/\\b(ncaab|college basketball)\\b/.test(q)?'NCAAB':/\\b(mls|soccer)\\b/.test(q)?'MLS':/\\b(ucl|uefa|champions league)\\b/.test(q)?'UCL':'NBA';
+ const lg=/\b(nfl|football)\\b/.test(q)?'NFL':/\b(mlb|baseball)\\b/.test(q)?'MLB':/\b(nhl|hockey)\\b/.test(q)?'NHL':/\b(ncaaf|college football)\\b/.test(q)?'NCAAF':/\b(ncaab|college basketball)\\b/.test(q)?'NCAAB':/\b(mls|soccer)\\b/.test(q)?'MLS':/\b(ucl|uefa|champions league)\\b/.test(q)?'UCL':'NBA';
  const idx=await podcastRoster(lg);
  if(idx.status!=='TEAM_INDEX_ONLY')return JSON.stringify(idx);
- const matching=idx.teams.filter(x=>q.includes(x.name.toLowerCase())||new RegExp('\\\\b'+x.abbr.toLowerCase()+'\\\\b').test(q)).slice(0,2);
+ const matching=idx.teams.filter(x=>q.includes(x.name.toLowerCase())||new RegExp('\\b'+x.abbr.toLowerCase()+'\\b').test(q)).slice(0,2);
  if(!matching.length)return JSON.stringify({league:lg,status:'TEAM_NOT_SPECIFIED_OR_PLAYER_ONLY',rule:'Do not guess player current team; roster team lookup needed.'});
  const reports=await Promise.all(matching.map(t=>podcastRoster(lg,t.name)));
  return JSON.stringify({league:lg,reports,rule:'Only assert membership when an exact player name appears in this fresh provider response; all other assignments unverified.'}).slice(0,14000);
@@ -2680,7 +2680,7 @@ if(req.url==='/api/converse'&&req.method==='POST'){
   slate=results[1].status==='fulfilled'?results[1].value:'Daily slate unavailable';
   model=results[2].status==='fulfilled'?JSON.stringify(results[2].value).slice(0,2300):'Research data unavailable';
   source=results[3].status==='fulfilled'?JSON.stringify(results[3].value).slice(0,1300):'Source workflow status unavailable';
-  if(/\\b(roster|team|traded|trade|signed|plays for|play for|player|hornets|timberwolves|knicks)\\b/i.test(request.question))roster=await podcastRosterForSpeech(request.question);
+  if(/\b(roster|team|traded|trade|signed|plays for|play for|player|hornets|timberwolves|knicks)\\b/i.test(request.question))roster=await podcastRosterForSpeech(request.question);
  }
 
  let bookContext='No bookmaker quote requested.';
