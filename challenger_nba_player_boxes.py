@@ -81,6 +81,8 @@ def parse_summary(data, event_id, fetched_at):
     if not isinstance(groups, list) or len(groups)!=2:
         raise ValueError("missing both teams' player boxscore")
     event_start_utc = _event_start(comp)
+    if event_start_utc is None:
+        raise ValueError("missing timezone-aware NBA event start")
     rows=[]
     for group in groups:
         tid = str((group.get("team") or {}).get("id"))
@@ -199,6 +201,7 @@ def collect(database, limit=MAX_GAMES, fetcher=fetch_summary, now=None):
                 "DNP contradicts positive minutes",
                 "key numeric NBA statistics unavailable",
                 "no player rows for team", "summary exceeds permitted size",
+                "missing timezone-aware NBA event start",
                 "conflicting three-point stat labels",
             }:
                 detail = type(exc).__name__
