@@ -18,7 +18,9 @@ def fixture_candidate(**changes):
 def test_untrusted_snapshot_never_certifies_take():
     report = run({"original": [{"selection_id": "bad", "decision": "PASS"}],
                   "candidates": [fixture_candidate()]})
-    assert report["replacements"][0]["decision"] == "HOLD"\n    assert report["replacements"][0]["replacement"] is None\n    assert report["candidate_audit"][0]["decision"] == "HOLD"
+    assert report["replacements"][0]["decision"] == "HOLD"
+    assert report["replacements"][0]["replacement"] is None
+    assert report["candidate_audit"][0]["decision"] == "HOLD"
     assert report["betting_status"] == "HOLD_UNTIL_FULL_TICKET_VERIFIED"
     assert report["source_status"] == "UNTRUSTED_SNAPSHOT_CERTIFICATION_BLOCKED"
 
