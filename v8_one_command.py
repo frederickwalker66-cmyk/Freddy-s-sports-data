@@ -556,7 +556,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
     readiness["integration_status"] = "ARCHIVE_SUMMARY_ONLY_NO_VERIFIED_MARKET_ROWS"
     report["sharp_edge_source_readiness"] = readiness
     (out / "SHARP_EDGE_SOURCE_READINESS.json").write_text(
-        json.dumps(readiness, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+        json.dumps(readiness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (out / "ONE_COMMAND_REPORT.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if command == "run_audit":
