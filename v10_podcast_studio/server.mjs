@@ -139,7 +139,7 @@ const provisionModelAnamTool=async()=>{
    if(!id)continue;
    try{
     const persona=await apiAnam('GET','/personas/'+encodeURIComponent(id));
-    const old=Array.isArray(persona.toolIds)?persona.toolIds:null;
+    const old=Array.isArray(persona.toolIds)?persona.toolIds:Array.isArray(persona.tools)?persona.tools.map(x=>x._toolId||x.id).filter(Boolean):null;
     if(!old)throw Error('Cannot preserve existing tool IDs');
     if(!old.includes(tool.id))await apiAnam('PUT','/personas/'+encodeURIComponent(id),{toolIds:[...old,tool.id]});
     modelToolState.attached.push(role);
