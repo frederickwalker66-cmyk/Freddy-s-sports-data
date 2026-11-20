@@ -74,6 +74,48 @@ jobs:
         run: python collector.py --dry-run --leagues "$SHARPAPI_LEAGUES" --max-pages 4
       - name: Collect research odds
         run: python collector.py --output-dir snapshots --max-pages 4 --leagues "$SHARPAPI_LEAGUES"
+      - name: Report collection coverage and missing-market blockers (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summaries = sorted(Path("snapshots").glob("sharpapi_dk_*.summary.json"))
+          if len(summaries) != 1:
+              raise SystemExit("Expected exactly one collection summary; source coverage UNKNOWN")
+          report = json.loads(summaries[0].read_text(encoding="utf-8"))
+          pages = report.get("pages", [])
+          total = report.get("pregame_odds_quotes", 0)
+          by_market = {}
+          for item in pages:
+              key = f"{item.get('league', 'unknown')}/{item.get('market', 'unknown')}"
+              by_market[key] = {
+                  "accepted_quotes": item.get("quotes_recorded", 0),
+                  "pages": item.get("pages", 0),
+                  "truncated": bool(item.get("truncated", False)),
+              }
+          gaps = [key for key, value in by_market.items() if value["accepted_quotes"] == 0]
+          coverage = {
+              "status": "HOLD_NO_ACCEPTED_QUOTES" if total == 0 else "RESEARCH_ONLY_UNCERTIFIED",
+              "accepted_pregame_quotes": total,
+              "api_calls": report.get("api_calls"),
+              "markets": by_market,
+              "zero_quote_markets": gaps,
+              "live_checkout_authenticated": False,
+              "champion_forecasts_authenticated": False,
+              "certified_takes": 0,
+              "stake_usd": 0,
+          }
+          Path("snapshots/source_coverage_diagnostic.json").write_text(
+              json.dumps(coverage, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+          )
+          print(json.dumps(coverage, indent=2, sort_keys=True))
+          if total == 0:
+              print("::warning::Collector returned zero accepted pregame quotes; downstream Sharp Edge must HOLD.")
+          elif gaps:
+              print("::warning::Some league/market pairs have zero accepted quotes; no market readiness implied.")
+          PY
       - name: Archive immediate prospective capture before downstream audits
         shell: bash
         run: |
