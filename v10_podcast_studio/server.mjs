@@ -1014,7 +1014,40 @@ const spotlight=document.getElementById('room-live-spotlight'),
  liveSoundStatus=document.getElementById('room-live-audio-status'),
  liveVolumeInput=document.getElementById('room-live-volume'),
  liveVolumeValue=document.getElementById('room-live-volume-value');
-let liveVolume=1,soundEnabled=false,spotlightHiddenByUser=false;
+let liveVolume=1.5,soundEnabled=false,spotlightHiddenByUser=false,liveAudioContext=null;
+const liveBoostNodes=new Map();
+const unlockLiveAudio=()=>{
+ try{
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx)return null;
+  if(!liveAudioContext||liveAudioContext.state==='closed')liveAudioContext=new Ctx();
+  void liveAudioContext.resume().catch(()=>{
+   liveSoundStatus.textContent='Android paused live audio. Tap ENABLE LIVE AUDIO again to resume sound.'
+  });
+  return liveAudioContext
+ }catch(e){return null}
+};
+const installLiveBoost=n=>{
+ if(liveBoostNodes.has(n))return true;
+ const v=roomVideo(n)||wallVideo(n);
+ const audioTracks=v?.srcObject?.getAudioTracks?.()||[];
+ if(!audioTracks.length||typeof MediaStream==='undefined')return false;
+ const ctx=unlockLiveAudio();if(!ctx)return false;
+ try{
+  const audioStream=new MediaStream(audioTracks);
+  const source=ctx.createMediaStreamSource(audioStream),gain=ctx.createGain(),limiter=ctx.createDynamicsCompressor();
+  gain.gain.value=0;limiter.threshold.value=-17;limiter.knee.value=18;limiter.ratio.value=8;
+  limiter.attack.value=0.004;limiter.release.value=0.18;
+  source.connect(gain);gain.connect(limiter);limiter.connect(ctx.destination);
+  liveBoostNodes.set(n,{source,gain,limiter});
+  v.muted=true;return true
+ }catch(e){liveSoundStatus.textContent='Live voice booster unavailable; browser will use normal speaker audio.';return false}
+};
+const stopLiveBoost=n=>{
+ const nodes=liveBoostNodes.get(n);if(!nodes)return;
+ try{nodes.gain.gain.value=0;nodes.source.disconnect();nodes.gain.disconnect();nodes.limiter.disconnect()}catch{}
+ liveBoostNodes.delete(n)
+};
 const defaultPhoto=n=>'/api/cast-portrait?member='+encodeURIComponent(memberLabel(n));
 const showBigFace=n=>{
  if(!active.has(n)||spotlightHiddenByUser)return;
@@ -1051,19 +1084,21 @@ const displayLiveSound=()=>{
  if(!isPlaying)liveSoundStatus.textContent='Start a live analyst, then use ENABLE LIVE AUDIO. Check your phone media volume and connected Bluetooth device.';
  else if(moderatedPanel)liveSoundStatus.textContent='Live Anam audio is temporarily muted during the six-person ElevenLabs roundtable to prevent overlapping voices.';
  else if(!soundEnabled)liveSoundStatus.textContent='Live video connected, sound muted. Tap ENABLE LIVE AUDIO to hear the analyst.';
- else if(!hasAudio)liveSoundStatus.textContent='Audio enabled at maximum player volume. The live video has not exposed an audio track yet; check the Anam session and microphone permission.';
- else liveSoundStatus.textContent=memberLabel(focused)+' live audio enabled · '+Math.round(liveVolume*100)+'% in the browser. Turn up Android media volume if needed.';
+ else if(!hasAudio)liveSoundStatus.textContent='Live video connected but its media element has no incoming audio track. Check Anam voice configuration and browser permissions.';
+ else liveSoundStatus.textContent=memberLabel(focused)+(liveBoostNodes.has(focused)?' live audio boosted to ':' live audio at browser volume ')+Math.round(liveVolume*100)+'% · Raise Android media volume or check Bluetooth if still quiet.';
 };
 liveVolumeInput.oninput=()=>{
- liveVolume=Math.max(0,Math.min(1,Number(liveVolumeInput.value)/100));
+ liveVolume=Math.max(0,Math.min(2,Number(liveVolumeInput.value)/100));
  if(liveVolume===0)soundEnabled=false;
  else if(active.size)soundEnabled=true;
  adjustFocus();displayLiveSound()
 };
 liveSoundButton.onclick=()=>{
+ void window.v10UnlockStudioSound?.();
+ unlockLiveAudio();
  soundEnabled=!soundEnabled;
  const v=roomVideo(focused)||wallVideo(focused);
- if(v){v.volume=liveVolume;v.muted=!soundEnabled}
+ if(v&&!liveBoostNodes.has(focused)){v.volume=Math.min(1,liveVolume);v.muted=!soundEnabled}
  adjustFocus();displayLiveSound()
 };
 document.getElementById('room-spotlight-close').onclick=()=>{
@@ -1106,8 +1141,14 @@ function adjustFocus(){
  for(const name of liveNames){
   const v=roomVideo(name)||wallVideo(name);
   if(v&&active.has(name)){
-   v.volume=liveVolume;
-   v.muted=!soundEnabled||moderatedPanel||focused!==name;
+   const boost=liveBoostNodes.get(name);
+   if(boost){
+    boost.gain.gain.value=soundEnabled&&!moderatedPanel&&focused===name?liveVolume:0;
+    v.muted=true
+   }else{
+    v.muted=!soundEnabled||moderatedPanel||focused!==name;
+    v.volume=Math.min(1,liveVolume)
+   }
    void v.play().catch(()=>{
     const st=document.getElementById('room-live-status-'+name);
     if(st&&focused===name)st.textContent='Connected but playback blocked · tap ENABLE LIVE AUDIO'
@@ -1149,6 +1190,7 @@ async function connect(n){
   client=sdk.createClient(d.sessionToken);
   target.muted=true;
   await client.streamToVideoElement(target.id);
+  installLiveBoost(n);
   active.set(n,client);
   target.style.display='block';
   const wv=wallVideo(n),pv=preview(n);
@@ -1172,6 +1214,7 @@ async function disconnect(n){
  if(busy.has(n))return;
  busy.add(n);
  const client=active.get(n);active.delete(n);
+ stopLiveBoost(n);
  try{await client?.stopStreaming()}catch{}
  for(const video of [roomVideo(n),wallVideo(n)]){
   if(video){try{video.pause()}catch{}video.srcObject=null;video.style.display='none'}
@@ -1184,6 +1227,7 @@ async function disconnect(n){
 async function toggleMember(n){
  if(busy.has(n))return;
  soundEnabled=liveVolume>0;
+ unlockLiveAudio();void window.v10UnlockStudioSound?.();
  const button=roomSeat(n)?.querySelector('.room-avatar-live-toggle');
  if(button)button.disabled=true;
  try{
@@ -1220,8 +1264,8 @@ async function stopAllCameras(){for(const name of liveNames)if(active.has(name))
 window.v10StartLiveWall=startAvailable;window.v10StopLiveWall=stopAllCameras;
 window.v10ReadLiveCapacity=refreshCapacity;
 window.v10ActivateLiveCamera=toggleMember;window.v10LiveCameraCount=()=>active.size;
-startAll.onclick=()=>{soundEnabled=liveVolume>0;void startAvailable()};stopAll.onclick=()=>void stopAllCameras();
-if(roomStartAll)roomStartAll.onclick=()=>{soundEnabled=liveVolume>0;void startAvailable()};
+startAll.onclick=()=>{soundEnabled=liveVolume>0;unlockLiveAudio();void startAvailable()};stopAll.onclick=()=>void stopAllCameras();
+if(roomStartAll)roomStartAll.onclick=()=>{soundEnabled=liveVolume>0;unlockLiveAudio();void window.v10UnlockStudioSound?.();void startAvailable()};
 if(roomStopAll)roomStopAll.onclick=()=>void stopAllCameras();
 document.getElementById('live-host-mic').onclick=()=>window.v10HostMic?.();
 updateCapacityUI();displayLiveSound();
