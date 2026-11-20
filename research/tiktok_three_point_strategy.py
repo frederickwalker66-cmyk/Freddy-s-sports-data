@@ -1,6 +1,6 @@
 """Research-only TikTok strategy filters. No changes to frozen Champion-001."""
 from dataclasses import dataclass
-from math import prod
+from math import prod, isfinite
 from typing import Optional
 
 @dataclass(frozen=True)
@@ -30,6 +30,15 @@ def implied_probability(odds: int) -> float:
 def evaluate(c: ThreePointCandidate) -> dict:
     if not (0 <= c.last5_hits <= c.last5_games <= 5 and 0 <= c.last10_hits <= c.last10_games <= 10):
         raise ValueError("Invalid historical hit counts")
+    if not isfinite(c.line) or c.line < 0:
+        raise ValueError("Invalid prop line")
+    for rank in (c.opponent_3pm_allowed_rank, c.player_3pm_rank):
+        if rank is not None and (type(rank) is not int or not 1 <= rank <= 30):
+            raise ValueError("Invalid NBA rank")
+    if c.dfs_ownership_percent is not None and (
+        not isfinite(c.dfs_ownership_percent) or not 0 <= c.dfs_ownership_percent <= 100
+    ):
+        raise ValueError("Invalid DFS ownership")
     if c.native_probability is not None and not 0 <= c.native_probability <= 1:
         raise ValueError("Invalid model probability")
     rate5 = c.last5_hits / c.last5_games if c.last5_games else None
