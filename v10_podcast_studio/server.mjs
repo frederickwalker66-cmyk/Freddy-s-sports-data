@@ -1221,10 +1221,16 @@ const resolveNameCommand=utterance=>{
 };
 const answerOneName=async(speaker,question)=>{
  stopPanel();highlight(speaker);
+ // One active Anam stream on Free; calling a new name closes the previous video first.
+ let liveReady=false,liveFailure='';
+ if(window.v10EnsureLiveCamera){
+  try{liveReady=await window.v10EnsureLiveCamera(speaker)}
+  catch(e){liveFailure=String(e.message||e).slice(0,140)}
+ }
  const actualQuestion=question&&question.trim()?question.trim():'Freddy just called your name. Say hello Freddy, respond naturally like a real podcast teammate, and ask what sports matchup he wants to discuss. One or two short sentences.';
  const prompt='Freddy is talking directly to '+speaker+' in the shared six-person podcast studio. Please answer this spoken request naturally as '+speaker+', without a formal report. '+actualQuestion;
  setNameStatus(speaker+' is listening to Freddy…');
- window.v10SetPanelMode?.(true);
+ if(!liveReady)window.v10SetPanelMode?.(true);
  controller=new AbortController();
  try{
   const response=await fetch('/api/converse',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':token},body:JSON.stringify({speaker,question:prompt}),signal:controller.signal});
@@ -1233,8 +1239,16 @@ const answerOneName=async(speaker,question)=>{
   el('room-transcript').textContent=speaker.toUpperCase()+': '+data.reply;
   podcastCaptionBy=speaker;podcastCaption=data.reply;
   setNameStatus('🎙️ '+speaker+' is speaking to Freddy');
+  if(liveReady&&window.v10TalkLive){
+   try{
+    await window.v10TalkLive(speaker,data.reply);
+    setNameStatus('📹 '+speaker+' live video replied · call another name to switch camera');
+    return
+   }catch(e){liveFailure=String(e.message||e).slice(0,140)}
+  }
+  window.v10SetPanelMode?.(true);
   await speakPanel(speaker,data.reply,controller.signal);
-  setNameStatus(speaker+' finished · call another name or ask a follow-up')
+  setNameStatus(speaker+' finished · '+(liveFailure?'live video unavailable ('+liveFailure+'); voice fallback used':'call another name or ask a follow-up'))
  }catch(e){
   if(e.name!=='AbortError'){const message=speaker+' could not answer: '+String(e.message||e).slice(0,140);setNameStatus(message);const summary=el('v10-recovery-status');if(summary)summary.textContent=message}
  }finally{window.v10SetPanelMode?.(false)}
@@ -1252,7 +1266,7 @@ const runNameCommand=async spoken=>{
  if(cmd.goLive){
   highlight(cmd.speaker);
   setNameStatus('Connecting the live Anam camera for '+cmd.speaker+'…');
-  if(window.v10ActivateLiveCamera)await window.v10ActivateLiveCamera(cmd.speaker==='Adam Stone'?'Adam':cmd.speaker);
+  if(window.v10EnsureLiveCamera)await window.v10EnsureLiveCamera(cmd.speaker);
   else setNameStatus('Anam video control has not finished loading; use the in-room camera button');
   return
  }
@@ -1480,13 +1494,13 @@ document.getElementById('room-spotlight-fullscreen').onclick=async()=>{
 
 const captureLimit=()=>active.size+' of 6 cameras LIVE · Anam concurrency limit '+planLimit+(planLimit<6?' · Upgrade to 6+ for all simultaneous streams':'');
 function updateCapacityUI(){
- const text=captureLimit();
+ const text=captureLimit()+(planLimit===1?' · Say Bella, David, Cassidy, Roger, Sarah, or Adam to switch the moving video.':'');
  wallStatus.textContent=text;
  const cap=document.getElementById('room-scene-capacity');
  if(cap)cap.textContent=text;
  stopAll.disabled=active.size===0;
  if(roomStopAll)roomStopAll.disabled=active.size===0;
- if(roomStartAll)roomStartAll.textContent=planLimit>=6?'📹 Start all six live cameras':'📹 Start '+planLimit+' live camera'+(planLimit===1?'':'s')+' · six seats';
+ if(roomStartAll)roomStartAll.textContent=planLimit>=6?'📹 Start all six live cameras':planLimit===1?'📹 Start one live camera · call names to switch':'📹 Start '+planLimit+' live cameras';
 }
 function setLiveState(n,isLive,message){
  const seat=roomSeat(n);
@@ -1551,7 +1565,7 @@ async function connect(n){
   const r=await fetch('/api/anam-session',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':pass},body:JSON.stringify({analyst:n})});
   const d=await r.json();if(!r.ok)throw Error((d.error||'Session refused')+(d.providerStatus?' · provider HTTP '+d.providerStatus:''));
   const sdk=await(sdkPromise||=import('https://esm.sh/@anam-ai/js-sdk@latest'));
-  client=sdk.createClient(d.sessionToken);
+  client=sdk.createClient(d.sessionToken,{disableInputAudio:true});
   target.muted=true;
   await client.streamToVideoElement(target.id);
   installLiveBoost(n);
@@ -1610,6 +1624,38 @@ async function toggleMember(n){
 const rebindSeats=()=>{for(const n of liveNames){const rb=roomSeat(n)?.querySelector('.room-avatar-live-toggle');if(rb)rb.onclick=e=>{e.stopPropagation();soundEnabled=liveVolume>0;void toggleMember(n)};if(active.has(n))setLiveState(n,true,'LIVE · '+memberLabel(n)+' camera')}};
 for(const n of liveNames){const wb=document.getElementById('live-toggle-'+n);if(wb)wb.onclick=()=>{soundEnabled=liveVolume>0;void toggleMember(n)}}
 window.v10RebindLiveSeatControls=rebindSeats;rebindSeats();
+// Serialize automatic swaps so repeated voice commands never consume multiple slots.
+let liveSwitchQueue=Promise.resolve();
+const ensureLiveCamera=name=>{
+ const n=name==='Adam Stone'?'Adam':name;
+ if(!liveNames.includes(n))return Promise.reject(Error('Unknown analyst '+name));
+ const task=liveSwitchQueue.then(async()=>{
+  if(active.has(n)){focusLive(n);return true}
+  await refreshCapacity();
+  for(const previous of [...active.keys()]){
+   wallStatus.textContent='Switching live video from '+memberLabel(previous)+' to '+memberLabel(n)+'…';
+   await disconnect(previous);
+  }
+  soundEnabled=liveVolume>0;
+  unlockLiveAudio();
+  await connect(n);
+  focusLive(n);
+  return true
+ });
+ liveSwitchQueue=task.catch(()=>{});
+ return task
+};
+window.v10EnsureLiveCamera=ensureLiveCamera;
+window.v10TalkLive=async(name,reply)=>{
+ const n=name==='Adam Stone'?'Adam':name;
+ const client=active.get(n);
+ if(!client||typeof client.talk!=='function'||!client.isStreaming?.())throw Error('Live camera is not connected');
+ soundEnabled=liveVolume>0;
+ focusLive(n);
+ adjustFocus();
+ await client.talk(String(reply||'').slice(0,4000));
+ return true
+};
 async function startAvailable(){
  if(connectingAll)return {limit:planLimit,connected:active.size};
  connectingAll=true;startAll.disabled=true;if(roomStartAll)roomStartAll.disabled=true;
