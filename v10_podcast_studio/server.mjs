@@ -565,6 +565,45 @@ const sportsbookSelfTest=()=>{
  return {passed:true,fixture:'SYNTHETIC_TEST_ONLY',marketRows:2,badSpreadComparisonBlocked:true,certifiedEV:0};
 };
 
+
+const sportsbookAnamToolName='freddys_live_draftkings_fanduel_odds_v10';
+const sportsbookAnamToolState={status:'pending',toolId:null,attached:[],errors:[]};
+const provisionSportsbookAnamTool=async()=>{
+ if(!process.env.ANAM_API_KEY){sportsbookAnamToolState.status='no-anam-key';return}
+ sportsbookAnamToolState.status='checking';sportsbookAnamToolState.errors=[];sportsbookAnamToolState.attached=[];
+ try{
+  const list=await apiAnam('GET','/tools?page=1&perPage=100');
+  const available=Array.isArray(list.data)?list.data:Array.isArray(list.tools)?list.tools:Array.isArray(list)?list:null;
+  if(!available)throw Error('Unexpected Anam tools listing');
+  let tool=available.find(x=>x.name===sportsbookAnamToolName&&x.type==='SERVER_WEBHOOK');
+  if(!tool)tool=await apiAnam('POST','/tools',{
+   name:sportsbookAnamToolName,type:'SERVER_WEBHOOK',
+   description:'MANDATORY for Freddy questions about CURRENT DraftKings, FanDuel, moneyline prices, spreads, game totals, player props, PRA/PR/PA/RA, sportsbook comparison, line movement or game betting markets. Set league to the explicitly discussed NBA NFL MLB NHL NCAAF NCAAB MLS UCL. Returns only source-reported odds from a licensed SportsGameOdds feed IF this studio has a configured API credential; otherwise explicitly state NOT CONNECTED and HOLD. Mention price, exact line, selection, sportsbook and update timestamp. Distinguish better same-line payouts from a true model EV edge, never fabricate prices, and never call a bet certified without frozen Champion-001 probability and independent verification. Never use ESPN scores as bookmaker prices.',
+   config:{url:'https://v10-voice-boardroom-production.up.railway.app/api/public-bookmaker-odds',
+     method:'GET',awaitResponse:true,parameters:{type:'object',properties:{league:{type:'string',enum:sportsbookLeagues,description:'League identifier; specify the league being discussed'}},additionalProperties:false}}
+  });
+  if(!tool?.id)throw Error('Sportsbook Anam tool did not return an ID');
+  sportsbookAnamToolState.toolId=tool.id;
+  for(const [name,id] of Object.entries(anamPersonaIds)){
+   if(!id)continue;
+   try{
+    const persona=await apiAnam('GET','/personas/'+encodeURIComponent(id));
+    const old=Array.isArray(persona.toolIds)?persona.toolIds:Array.isArray(persona.tools)?persona.tools.map(x=>x._toolId||x.id).filter(Boolean):null;
+    if(!old)throw Error('Cannot verify existing persona tools, leaving unchanged');
+    if(!old.includes(tool.id))await apiAnam('PUT','/personas/'+encodeURIComponent(id),{toolIds:[...old,tool.id]});
+    sportsbookAnamToolState.attached.push(name)
+   }catch(e){sportsbookAnamToolState.errors.push(name+': '+String(e.message||e).slice(0,120))}
+  }
+  sportsbookAnamToolState.status=sportsbookAnamToolState.errors.length?'partial':'connected';
+  console.log('V10_SPORTSBOOK_ANAM_TOOL_SETUP',JSON.stringify({status:sportsbookAnamToolState.status,toolId:sportsbookAnamToolState.toolId,
+    connected:sportsbookAnamToolState.attached,errors:sportsbookAnamToolState.errors,oddsCredentialConfigured:oddsProviderConfigured()}))
+ }catch(e){
+  sportsbookAnamToolState.status='failed';
+  sportsbookAnamToolState.errors.push(String(e.message||e).slice(0,180));
+  console.error('V10_SPORTSBOOK_ANAM_TOOL_ERROR',JSON.stringify(sportsbookAnamToolState.errors))
+ }
+};
+
 // Reflect the deployed build in installed web-app update checks without exposing secrets.
 const appVersion=String(process.env.RAILWAY_GIT_COMMIT_SHA||process.env.GITHUB_SHA||('v10-start-'+Date.now().toString(36))).replace(/[^a-zA-Z0-9._-]/g,'').slice(0,80);
 const respond=(res,status,data,headers={})=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...headers});res.end(JSON.stringify(data))};
@@ -2353,7 +2392,7 @@ server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
  console.log('V10_ODDS_PREFLIGHT_MATH_SELFTEST',JSON.stringify({plus150:oddsPreflightMath(150).breakEvenPercent,minus110:oddsPreflightMath(-110).breakEvenPercent,minus200:oddsPreflightMath(-200).breakEvenPercent,source:'USER_REPORTED_ONLY',certifiedEV:0}));
  launchContinuousFeed();
  void refreshV10Sources();
- void provisionLiveAnamTool().then(()=>provisionModelAnamTool()).then(()=>provisionDailyAnamTool()).then(()=>provisionSourceAnamTool());
+ void provisionLiveAnamTool().then(()=>provisionModelAnamTool()).then(()=>provisionDailyAnamTool()).then(()=>provisionSourceAnamTool()).then(()=>provisionSportsbookAnamTool());
  void dailySlateLoad().then(async board=>{console.log('V10_DAILY_SLATE_CHECK',JSON.stringify({date:board.dateEastern,leagues:board.leaguesReturned,count:board.gameCount,errors:board.errors}));const test=board.sports.find(x=>x.sport==='NBA')?.games.find(x=>x.teams.length===2);if(test){const form=await selectedGameForm(board.dateEastern,'NBA',test.id);console.log('V10_FORM_SMOKE',JSON.stringify({league:'NBA',gameId:test.id,teams:form.teams.map(x=>({name:x.team,status:x.status,last5:x.last5Record,last10:x.last10Record,error:x.error}))}))}}).catch(e=>console.error('V10_DAILY_SLATE_CHECK_ERROR',String(e.message||e).slice(0,130)));
  const slateRefresh=setInterval(()=>{void dailySlateLoad().catch(e=>console.warn('V10_DAILY_SLATE_REFRESH',String(e.message||e).slice(0,100)))},600000);slateRefresh.unref();
  void modelBoardFor().then(board=>console.log('V10_MODEL_REPORT_CHECK',JSON.stringify({status:board.status,leagues:Object.keys(board.models),errors:board.errors,graded:Object.fromEntries(Object.entries(board.models).map(([k,v])=>[k,v.gradedResearchGames]))}))).catch(e=>console.error('V10_MODEL_REPORT_ERROR',String(e.message||e).slice(0,180)));
