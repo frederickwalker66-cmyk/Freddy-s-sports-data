@@ -17,6 +17,8 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(report["unique_players"],1)
         self.assertEqual(report["rows_with_full_last10"],1)
         self.assertEqual(report["rows_with_incomplete_last10"],10)
+        self.assertEqual(report["historical_90_outcome_wins"]+report["historical_90_outcome_losses"],report["historical_90_rows"])
+        self.assertEqual(report["performance_scope"],"retrospective_boxscore_only_no_pregame_odds_or_independent_verification")
         self.assertEqual(report["rows"][10]["last10_hits"],10)
         self.assertTrue(report["rows"][10]["historical_90"])
         self.assertEqual(report["rows"][10]["decision"],"HOLD")
