@@ -5,6 +5,66 @@ const analystContext=(speaker)=>{const snap=globalThis.v10ResearchSnapshot;const
 const scoreboardSources={NBA:'basketball/nba',NFL:'football/nfl',MLB:'baseball/mlb',NHL:'hockey/nhl',NCAAF:'football/college-football',NCAAB:'basketball/mens-college-basketball',MLS:'soccer/usa.1',UCL:'soccer/uefa.champions'};
 let publicScoreboardCache={at:0,items:[],errors:[]};
 const loadPublicScoreboards=async()=>{if(Date.now()-publicScoreboardCache.at<60000&&publicScoreboardCache.at)return publicScoreboardCache;const outcomes=await Promise.allSettled(Object.entries(scoreboardSources).map(async([sport,path])=>{const url='https://site.api.espn.com/apis/site/v2/sports/'+path+'/scoreboard';const r=await fetch(url,{headers:{accept:'application/json','user-agent':'Freddys-V10-Research/1.0'},signal:AbortSignal.timeout(7000)});if(!r.ok)throw Error(sport+' HTTP '+r.status);const j=await r.json();return {sport,events:(Array.isArray(j.events)?j.events:[]).slice(0,30).map(e=>({id:String(e.id||''),name:String(e.name||'').slice(0,140),date:e.date||null,status:e.status?.type?.description||null,shortStatus:e.status?.type?.shortDetail||null,competitors:(e.competitions?.[0]?.competitors||[]).map(c=>({team:c.team?.displayName||null,score:c.score||null,homeAway:c.homeAway||null})),source:'ESPN public scoreboard'}))}}));const items=[],errors=[];outcomes.forEach((x,i)=>{if(x.status==='fulfilled')items.push(x.value);else errors.push({sport:Object.keys(scoreboardSources)[i],error:String(x.reason?.message||'Unavailable').slice(0,110)})});publicScoreboardCache={at:Date.now(),items,errors};return publicScoreboardCache};
+
+/* ET date-scoped daily slate. ESPN is a public scores/schedule provider, NOT a bookmaker.
+ * Preserve every returned event (no 30-game cap); NCAA group 50 = Division I. */
+const easternDate=(d=new Date())=>{
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+ return parts.year+'-'+parts.month+'-'+parts.day
+};
+const easternClock=date=>{if(!date||!Number.isFinite(Date.parse(date)))return 'Time unavailable';return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(date))};
+let dailySlateCache=new Map();
+const dailySlateLoad=async(date=easternDate())=>{
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date+'T12:00:00Z')))throw Error('INVALID_SLATE_DATE');
+ const existing=dailySlateCache.get(date);
+ if(existing&&Date.now()-existing.at<300000)return existing.data;
+ if(existing?.pending)return existing.pending;
+ const safeDate=date.replaceAll('-','');
+ const task=(async()=>{
+  const results=await Promise.allSettled(Object.entries(scoreboardSources).map(async([sport,path])=>{
+   const url=new URL('https://site.api.espn.com/apis/site/v2/sports/'+path+'/scoreboard');
+   url.searchParams.set('dates',safeDate);url.searchParams.set('limit','500');
+   if(sport==='NCAAF'||sport==='NCAAB')url.searchParams.set('groups','50');
+   const resp=await fetch(url,{headers:{accept:'application/json','user-agent':'Freddys-V10-DailySlate/1.0'},signal:AbortSignal.timeout(12000)});
+   if(!resp.ok)throw Error(sport+' provider HTTP '+resp.status);
+   const payload=await resp.json();
+   if(!Array.isArray(payload.events))throw Error(sport+' invalid events format');
+   const seen=new Set();
+   const games=payload.events.map(event=>{
+    const id=String(event.id||'').slice(0,36);
+    const contest=event.competitions?.[0]||{};
+    const teams=(contest.competitors||[]).map(x=>({team:String(x.team?.displayName||'Unknown').slice(0,110),abbreviation:String(x.team?.abbreviation||'').slice(0,12),score:x.score==null?null:String(x.score).slice(0,12),homeAway:x.homeAway||null,record:x.records?.[0]?.summary||null}));
+    const utc=event.date||contest.date||null;
+    const status=String(event.status?.type?.description||'Scheduled').slice(0,90);
+    return{id,sport,name:String(event.name||'').slice(0,180),startUTC:utc,startEastern:easternClock(utc),dateEastern:utc&&Number.isFinite(Date.parse(utc))?easternDate(new Date(utc)):null,status,shortStatus:String(event.status?.type?.shortDetail||'').slice(0,90),completed:!!event.status?.type?.completed,teams,neutralSite:!!contest.neutralSite,
+      review:{reviewed:'SCHEDULE_AND_SCORE_ONLY',moneyline:'HOLD: sportsbook price and certified probability required',spread:'HOLD: line and certified probability required',total:'HOLD: total price and certified probability required',playerProps:'HOLD: verified player/game props, stats and injuries required',combos:'HOLD: correlation and joint probability unverified',calibratedChampionModel:false,betReady:false}};
+   }).filter(x=>x.id&&!seen.has(x.id)&&seen.add(x.id));
+   games.sort((a,b)=>(Date.parse(a.startUTC)||0)-(Date.parse(b.startUTC)||0)||a.id.localeCompare(b.id));
+   return {sport,games,returnedCount:payload.events.length,possibleTruncation:payload.events.length>=500,coverage:'ESPN date-filtered scoreboard with limit=500'+((sport==='NCAAF'||sport==='NCAAB')?' and Division I groups=50':''),source:'ESPN public scoreboard'}
+  }));
+  const sports=[],errors=[];
+  results.forEach((r,i)=>{if(r.status==='fulfilled')sports.push(r.value);else errors.push({sport:Object.keys(scoreboardSources)[i],error:String(r.reason?.message||'feed unavailable').slice(0,170)})});
+  const games=sports.flatMap(x=>x.games).sort((a,b)=>(Date.parse(a.startUTC)||0)-(Date.parse(b.startUTC)||0)||a.sport.localeCompare(b.sport));
+  const board={dateEastern:date,timezone:'America/New_York',retrievedAt:new Date().toISOString(),source:'ESPN public scoreboards: schedules and scores, not sportsbook odds',
+    leaguesRequested:8,leaguesReturned:sports.length,gameCount:games.length,sports,errors,
+    potentiallyIncomplete:sports.filter(x=>x.possibleTruncation).map(x=>x.sport),verifiedBookmakerPrices:0,certifiedChampionProbabilities:0,
+    perGameReviewComplete:games.length,perGameDecisions:{HOLD:games.length,PLAY:0},
+    status:errors.length?'PARTIAL_COVERAGE':'SCHEDULES_RETRIEVED',
+    consensus:{twoLeg:{status:'NO_PLAY',certifiedLegs:[],required:2},fiveLeg:{status:'NO_PLAY',certifiedLegs:[],required:5},reason:'No authenticated DraftKings prices, independently certified Champion-001 probabilities, timestamped injury/prop market verification, or parlay joint probability. Never fabricate or force legs.'},
+    note:'ESPN is not a sportsbook, may delay/cap returned event coverage, and does not validate EV. College Division I uses groups=50. This scan audits every event returned, not an assertion that ESPN includes all league fixtures.'};
+  dailySlateCache.set(date,{at:Date.now(),data:board});
+  for(const [key,val] of dailySlateCache)if(key!==date&&Date.now()-val.at>3600000)dailySlateCache.delete(key);
+  console.log('V10_DAILY_SLATE',JSON.stringify({date,leagues:board.leaguesReturned,games:board.gameCount,errors:board.errors,truncation:board.potentiallyIncomplete}));
+  return board
+ })();
+ dailySlateCache.set(date,{at:Date.now(),pending:task,data:existing?.data});
+ try{return await task}catch(e){dailySlateCache.delete(date);throw e}
+};
+const minimalDailyForModels=async()=>{
+ const slate=await dailySlateLoad();
+ return JSON.stringify({date:slate.dateEastern,retrievedAt:slate.retrievedAt,leagues:slate.sports.map(x=>({sport:x.sport,events:x.games.map(g=>({id:g.id,name:g.name,when:g.startEastern,status:g.shortStatus})).slice(0,12),count:x.games.length})),errors:slate.errors,allFullEventsAvailableVia:'/api/daily-slate',limit:'Partial context only. Never infer unsupplied games, odds, prediction probabilities or injury facts.'}).slice(0,13500)
+};
+
 const liveScoreboardContext=async()=>{const feed=await loadPublicScoreboards();return JSON.stringify({retrievedAt:new Date(feed.at).toISOString(),source:'ESPN public scoreboard; informational, not a sportsbook feed',events:feed.items.map(x=>({sport:x.sport,events:x.events.slice(0,12)})),errors:feed.errors,notAvailable:['DraftKings sportsbook odds','player prop prices','injury verification','Champion-001 native model probabilities','certified Sharp Edge']}).slice(0,14000)};
 
 const modelResearchPaths={
@@ -464,11 +524,13 @@ if((req.method==='GET'||req.method==='POST')&&pathname==='/api/public-live-score
 if(req.method==='GET'&&pathname==='/api/cast-portrait'){const name=new URL(req.url,'http://localhost').searchParams.get('member')||'';const id=castPortraitIds[name];if(!id)return respond(res,404,{error:'UNKNOWN_CAST_MEMBER'});try{let upstream=await fetch('https://lab.anam.ai/api/avatars/'+id+'/image/landscape',{signal:AbortSignal.timeout(8500)});let mime=upstream.headers.get('content-type')||'';if(!upstream.ok||!/^image\/(png|jpeg|webp)/.test(mime)){upstream=await fetch(castPortraitSources[name],{signal:AbortSignal.timeout(8500)});mime=upstream.headers.get('content-type')||'';}if(!upstream.ok||!/^image\/(png|webp|jpeg)/.test(mime))return respond(res,502,{error:'CAST_PORTRAIT_NOT_AVAILABLE'});const bytes=Buffer.from(await upstream.arrayBuffer());if(bytes.length>4000000)return respond(res,502,{error:'CAST_PORTRAIT_TOO_LARGE'});res.writeHead(200,{'content-type':mime,'cache-control':'public, max-age=1800','x-content-type-options':'nosniff'});return res.end(bytes)}catch(e){console.warn('V10_CAST_PORTRAIT',name,String(e.message||e).slice(0,100));return respond(res,502,{error:'CAST_PORTRAIT_FETCH_FAILED'})}}
 
 if(req.method==='GET'&&pathname==='/api/public-model-research'){const report=await modelBoardFor();return respond(res,200,report)}
+if(req.method==='GET'&&pathname==='/api/public-daily-slate'){const requested=new URL(req.url,'http://localhost').searchParams.get('date')||easternDate();if(requested!==easternDate())return respond(res,400,{error:'ONLY_TODAY_PUBLIC_TOOL_SUPPORTED'});try{const board=await dailySlateLoad(requested);return respond(res,200,board)}catch(e){return respond(res,502,{error:'DAILY_SLATE_FETCH_FAILED',message:String(e.message||e).slice(0,130)})}}
 if(!compare(String(req.headers['x-boardroom-password']||''),password))return respond(res,401,{error:'UNAUTHORIZED'});
 if(req.url==='/api/anam/session-token'&&req.method==='POST'){if(!process.env.ANAM_API_KEY||!process.env.ANAM_ADAM_PERSONA_ID)return respond(res,503,{error:'ANAM_NOT_CONFIGURED'});try{const upstream=await fetch('https://api.anam.ai/v1/auth/session-token',{method:'POST',headers:{authorization:'Bearer '+process.env.ANAM_API_KEY,'content-type':'application/json'},body:JSON.stringify({personaConfig:{personaId:process.env.ANAM_ADAM_PERSONA_ID}})});if(!upstream.ok){let detail={};try{const raw=await upstream.text();const parsed=JSON.parse(raw);detail={code:String(parsed?.error?.code||parsed?.code||''),message:String(parsed?.error?.message||parsed?.message||'').slice(0,160)}}catch{}console.error('ANAM_SESSION_PROVIDER_FAILURE',JSON.stringify({status:upstream.status,code:detail.code,message:detail.message}));return respond(res,502,{error:'ANAM_SESSION_UNAVAILABLE',providerStatus:upstream.status,providerCode:detail.code||undefined})}const data=await upstream.json();if(!data.sessionToken)return respond(res,502,{error:'ANAM_SESSION_TOKEN_MISSING'});return respond(res,200,{sessionToken:data.sessionToken})}catch{return respond(res,502,{error:'ANAM_NETWORK_ERROR'})}}
 if(req.url==='/api/avatar-provider'&&req.method==='GET')return respond(res,200,{provider:'LiveAvatar',anamReady:!!(process.env.ANAM_API_KEY&&process.env.ANAM_ADAM_PERSONA_ID),mode:'LITE',configured:!!process.env.LIVEAVATAR_API_KEY,streamingEnabled:false,avatarIdsConfigured:Object.fromEntries(Object.keys(people).map(n=>[n,!!process.env['LIVEAVATAR_AVATAR_'+n.toUpperCase().replace(/[^A-Z0-9]/g,'_')]])),reason:'Real-time streaming requires provider credentials, six approved avatar IDs, and client WebRTC integration'});
 if(req.url==='/api/anam-session'&&req.method==='POST'){const request=await body(req).catch(()=>({}));const analyst=typeof request.analyst==='string'?request.analyst:'Adam';if(!Object.hasOwn(anamPersonaIds,analyst))return respond(res,400,{error:'UNKNOWN_ANALYST'});const selectedPersonaId=anamPersonaIds[analyst];if(!process.env.ANAM_API_KEY||!selectedPersonaId)return respond(res,503,{error:'ANAM_NOT_CONFIGURED'});try{const a=await fetch('https://api.anam.ai/v1/auth/session-token',{method:'POST',headers:{'authorization':'Bearer '+process.env.ANAM_API_KEY,'content-type':'application/json'},body:JSON.stringify({personaConfig:{personaId:selectedPersonaId}}),signal:AbortSignal.timeout(12000)});const j=await a.json().catch(()=>({}));if(!a.ok)return respond(res,502,{error:'ANAM_SESSION_FAILED',providerStatus:a.status});const sessionToken=j.sessionToken||j.session_token;if(!sessionToken)return respond(res,502,{error:'ANAM_TOKEN_MISSING'});return respond(res,200,{sessionToken})}catch{return respond(res,502,{error:'ANAM_UNREACHABLE'})}}
 
+if(req.method==='GET'&&pathname==='/api/daily-slate'){const requested=new URL(req.url,'http://localhost').searchParams.get('date')||easternDate();if(!/^\d{4}-\d{2}-\d{2}$/.test(requested))return respond(res,400,{error:'INVALID_DATE'});if(Math.abs((Date.parse(requested+'T12:00:00Z')-Date.parse(easternDate()+'T12:00:00Z'))/86400000)>14)return respond(res,400,{error:'DATE_OUTSIDE_SUPPORTED_WINDOW'});try{return respond(res,200,await dailySlateLoad(requested))}catch(e){return respond(res,502,{error:'DAILY_SLATE_UNAVAILABLE',message:String(e.message||e).slice(0,130)})}}
 if(req.method==='GET'&&pathname==='/api/model-research'){const report=await modelBoardFor();return respond(res,200,report)}
 if(req.method==='GET'&&pathname==='/api/anam-concurrency'){
  if(!process.env.ANAM_API_KEY)return respond(res,503,{error:'ANAM_UNCONFIGURED'});
@@ -492,6 +554,8 @@ if(req.url==='/api/voice'&&req.method==='POST'){if(!process.env.ELEVENLABS_API_K
 return respond(res,404,{error:'NOT_FOUND'})}catch(e){return respond(res,500,{error:'SERVER_ERROR'})}});
 server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
  void provisionLiveAnamTool().then(()=>provisionModelAnamTool());
+ void dailySlateLoad().then(board=>console.log('V10_DAILY_SLATE_CHECK',JSON.stringify({date:board.dateEastern,leagues:board.leaguesReturned,count:board.gameCount,errors:board.errors}))).catch(e=>console.error('V10_DAILY_SLATE_CHECK_ERROR',String(e.message||e).slice(0,130)));
+ const slateRefresh=setInterval(()=>{void dailySlateLoad().catch(e=>console.warn('V10_DAILY_SLATE_REFRESH',String(e.message||e).slice(0,100)))},600000);slateRefresh.unref();
  void modelBoardFor().then(board=>console.log('V10_MODEL_REPORT_CHECK',JSON.stringify({status:board.status,leagues:Object.keys(board.models),errors:board.errors,graded:Object.fromEntries(Object.entries(board.models).map(([k,v])=>[k,v.gradedResearchGames]))}))).catch(e=>console.error('V10_MODEL_REPORT_ERROR',String(e.message||e).slice(0,180)));
  void loadPublicScoreboards().then(feed=>console.log('V10_LIVE_ESPN_CHECK',JSON.stringify({leagues:feed.items.length,events:feed.items.map(x=>({sport:x.sport,count:x.events.length})),errors:feed.errors}))).catch(e=>console.error('V10_LIVE_ESPN_CHECK_ERROR',String(e.message||e).slice(0,160)));
  void Promise.all(Object.keys(castPortraitIds).map(async member=>{
