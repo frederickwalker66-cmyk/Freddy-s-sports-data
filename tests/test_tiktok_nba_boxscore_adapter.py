@@ -23,6 +23,15 @@ class AdapterTests(unittest.TestCase):
         r=box(1,"2026-11-01T20:00:00Z",2)
         r["did_not_play"]=True
         self.assertEqual(rolling_features([r])["player_game_rows"],0)
+    def test_nan_threshold_rejected(self):
+        with self.assertRaises(ValueError):
+            rolling_features([],float("nan"))
+
+    def test_invalid_minutes_quarantined(self):
+        r=box(1,"2026-11-01T20:00:00Z",2)
+        r["minutes"]=float("inf")
+        self.assertEqual(rolling_features([r])["quarantined_rows"],1)
+
     def test_same_time_no_lookahead(self):
         a=box(1,"2026-11-01T20:00:00Z",2)
         b=box(2,"2026-11-01T20:00:00Z",2)
