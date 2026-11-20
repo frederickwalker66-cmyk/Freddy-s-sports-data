@@ -263,16 +263,78 @@ el('mic').onclick=()=>{stopPanel();const SR=window.SpeechRecognition||window.web
 
 }catch(v10InitError){const diagnostic=document.getElementById('avatar-readiness');if(diagnostic)diagnostic.textContent='Studio initialization error: '+String(v10InitError&&v10InitError.message||v10InitError).slice(0,200);const status=document.getElementById('status');if(status)status.textContent='Studio script failed: '+String(v10InitError&&v10InitError.message||v10InitError).slice(0,140);window.v10RuntimeInitError=String(v10InitError&&v10InitError.message||v10InitError);console.error('V10_STUDIO_INIT_ERROR',v10InitError)}
 </script><script type="module">
-const liveNames=['Adam','Bella','David','Cassidy','Roger','Sarah'];const wall=document.getElementById('live-wall-grid');const active=new Map();let sdkPromise=null;let hostRecognition=null;
-wall.innerHTML=liveNames.map(n=>'<div class="live-tile"><strong>'+n+'</strong><video id="live-'+n+'" autoplay playsinline></video><p class="muted" id="live-status-'+n+'">Offline</p><button type="button" id="live-toggle-'+n+'">Connect '+n+'</button></div>').join('')+'<div class="live-tile"><strong>Freddy · Host</strong><div style="min-height:100px;display:grid;place-items:center;font-size:44px">🎙️</div><p class="muted">Your microphone · browser permission required</p></div>';
-const wallStatus=document.getElementById('live-wall-status'),startAll=document.getElementById('live-wall-start'),stopAll=document.getElementById('live-wall-stop');
-async function connect(n){if(active.has(n))return;if(active.size>0)throw Error('Your Anam account supports one live session at a time. Disconnect the active analyst first.');const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Unlock the studio first');document.getElementById('live-status-'+n).textContent='Connecting…';const r=await fetch('/api/anam-session',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':pass},body:JSON.stringify({analyst:n})});const d=await r.json();if(!r.ok)throw Error(d.error||'Session failed');const sdk=await(sdkPromise||=import('https://esm.sh/@anam-ai/js-sdk@latest'));const client=sdk.createClient(d.sessionToken);try{await client.streamToVideoElement('live-'+n);active.set(n,client);document.getElementById('live-status-'+n).textContent='Live video';document.getElementById('live-toggle-'+n).textContent='Disconnect '+n;stopAll.disabled=false}catch(e){try{await client.stopStreaming()}catch{}throw e}}
-async function disconnect(n){const c=active.get(n);active.delete(n);try{await c?.stopStreaming()}catch{}document.getElementById('live-status-'+n).textContent='Offline';document.getElementById('live-toggle-'+n).textContent='Connect '+n;stopAll.disabled=active.size===0}
-for(const n of liveNames)document.getElementById('live-toggle-'+n).onclick=async()=>{const b=document.getElementById('live-toggle-'+n);b.disabled=true;try{if(active.has(n))await disconnect(n);else await connect(n)}catch(e){document.getElementById('live-status-'+n).textContent='Unavailable: '+e.message}finally{b.disabled=false}};
-startAll.onclick=async()=>{startAll.disabled=true;const n=liveNames.find(x=>!active.has(x));if(active.size){wallStatus.textContent='One live Anam session is already running. Disconnect it before switching analysts.';startAll.disabled=false;return}try{await connect(n||'Adam');wallStatus.textContent=(n||'Adam')+' connected · one-live-avatar account limit'}catch(e){wallStatus.textContent='Live connection unavailable: '+e.message}finally{startAll.disabled=false}};
-stopAll.onclick=async()=>{await Promise.all(liveNames.map(disconnect));wallStatus.textContent='All live avatars disconnected'};
-document.getElementById('live-host-mic').onclick=()=>{window.v10HostMic?.()};
-window.addEventListener('pagehide',()=>{for(const c of active.values())void c.stopStreaming()});
+
+const liveNames=['Adam','Bella','David','Cassidy','Roger','Sarah'];
+const wall=document.getElementById('live-wall-grid'),active=new Map();
+let sdkPromise=null,planLimit=1,connecting=false;
+const wallStatus=document.getElementById('live-wall-status'),
+startAll=document.getElementById('live-wall-start'),stopAll=document.getElementById('live-wall-stop');
+const memberLabel=n=>n==='Adam'?'Adam Stone':n;
+wall.innerHTML=liveNames.map(n=>'<div class="live-tile" data-analyst="'+n+'"><strong>'+memberLabel(n)+'</strong><div style="position:relative"><img id="live-preview-'+n+'" src="/api/cast-portrait?member='+encodeURIComponent(memberLabel(n))+'" alt="'+memberLabel(n)+' original avatar preview" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px"><video id="live-'+n+'" autoplay playsinline style="display:none"></video></div><p class="muted" id="live-status-'+n+'">Portrait preview · not streaming</p><button type="button" id="live-toggle-'+n+'">Go live: '+n+'</button></div>').join('')+'<div class="live-tile"><strong>Freddy · Host</strong><div style="min-height:100px;display:grid;place-items:center;font-size:44px">🎙️</div><p class="muted">Host microphone · browser permission required</p></div>';
+const capMsg=()=>active.size+' of 6 live video streams · Anam account permits '+planLimit+' simultaneously'+(planLimit<6?' · Six simultaneous requires a higher concurrency plan':'');
+async function refreshCapacity(){
+ const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Sign in to check Anam capacity');
+ const resp=await fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':pass},cache:'no-store'});
+ const data=await resp.json();if(!resp.ok)throw Error(data.error||'Anam capacity unavailable');
+ planLimit=Math.max(1,Math.min(6,Number(data.limit)||1));
+ wallStatus.textContent=capMsg();return planLimit
+}
+async function connect(n){
+ if(active.has(n))return;
+ if(active.size>=planLimit)throw Error('Anam plan supports '+planLimit+' concurrent streams; disconnect one or change the plan');
+ const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Unlock the studio first');
+ const status=document.getElementById('live-status-'+n);
+ status.textContent='Connecting live Anam avatar…';
+ const r=await fetch('/api/anam-session',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':pass},body:JSON.stringify({analyst:n})});
+ const data=await r.json();if(!r.ok)throw Error((data.error||'Session failed')+(data.providerStatus?' (HTTP '+data.providerStatus+')':''));
+ const sdk=await(sdkPromise||=import('https://esm.sh/@anam-ai/js-sdk@latest'));
+ const client=sdk.createClient(data.sessionToken);
+ try{
+  await client.streamToVideoElement('live-'+n);
+  active.set(n,client);
+  document.getElementById('live-preview-'+n).style.display='none';
+  document.getElementById('live-'+n).style.display='block';
+  document.getElementById('live-toggle-'+n).textContent='End live: '+n;
+  status.textContent='LIVE · Anam animated video';stopAll.disabled=false;wallStatus.textContent=capMsg()
+ }catch(e){try{await client.stopStreaming()}catch{}throw e}
+}
+async function disconnect(n){
+ const client=active.get(n);active.delete(n);
+ try{await client?.stopStreaming()}catch{}
+ const video=document.getElementById('live-'+n);if(video){video.srcObject=null;video.style.display='none'}
+ const preview=document.getElementById('live-preview-'+n);if(preview)preview.style.display='block';
+ document.getElementById('live-status-'+n).textContent='Portrait preview · not streaming';
+ document.getElementById('live-toggle-'+n).textContent='Go live: '+n;
+ stopAll.disabled=active.size===0;wallStatus.textContent=capMsg()
+}
+for(const n of liveNames){
+ document.getElementById('live-toggle-'+n).onclick=async()=>{
+  const b=document.getElementById('live-toggle-'+n);b.disabled=true;
+  try{if(active.has(n))await disconnect(n);else{await refreshCapacity();await connect(n)}}
+  catch(e){document.getElementById('live-status-'+n).textContent='Unable to connect: '+e.message;wallStatus.textContent=capMsg()}
+  finally{b.disabled=false}
+ }
+}
+async function startAvailable(){
+ if(connecting)return {limit:planLimit,connected:active.size};
+ connecting=true;startAll.disabled=true;
+ try{
+  await refreshCapacity();
+  for(const name of liveNames){
+   if(active.size>=planLimit)break;
+   if(active.has(name))continue;
+   try{await connect(name)}catch(e){document.getElementById('live-status-'+name).textContent='Unavailable: '+e.message;break}
+  }
+  wallStatus.textContent=capMsg();
+  return {limit:planLimit,connected:active.size}
+ }catch(e){wallStatus.textContent='Anam live capacity check failed: '+e.message;return {limit:planLimit,connected:active.size,error:e.message}}
+ finally{connecting=false;startAll.disabled=false}
+}
+window.v10StartLiveWall=startAvailable;window.v10ReadLiveCapacity=refreshCapacity;
+startAll.onclick=startAvailable;
+stopAll.onclick=async()=>{await Promise.all(liveNames.map(disconnect));wallStatus.textContent=capMsg()};
+document.getElementById('live-host-mic').onclick=()=>window.v10HostMic?.();
+window.addEventListener('pagehide',()=>{for(const client of active.values())void client.stopStreaming()});
 </script><script type="module">let client=null;const start=document.getElementById('adam-live-start'),stop=document.getElementById('adam-live-stop'),status=document.getElementById('adam-live-status');start.addEventListener('click',async()=>{start.disabled=true;status.textContent='Requesting private Anam session…';try{const pass=window.__v10AnamPassword?.();if(!pass)throw Error('Unlock boardroom first');const r=await fetch('/api/anam-session',{method:'POST',headers:{'x-boardroom-password':pass,'content-type':'application/json'},body:JSON.stringify({analyst:document.getElementById('anam-analyst').value})});const d=await r.json();if(!r.ok)throw Error(d.error||'Anam session unavailable');const sdk=await import('https://esm.sh/@anam-ai/js-sdk@latest');client=sdk.createClient(d.sessionToken);await client.streamToVideoElement('adam-live-video');stop.disabled=false;status.textContent=document.getElementById('anam-analyst').selectedOptions[0].text+' live · Anam session active (Anam voice)';}catch(e){status.textContent='Live session unavailable: '+e.message;start.disabled=false;}});stop.addEventListener('click',async()=>{try{await client?.stopStreaming()}finally{client=null;stop.disabled=true;start.disabled=false;status.textContent='Live session ended';}});</script></body></html>`;
 const bootMarker="const btn=document.getElementById('unlock'),input=document.getElementById('pass'),status=document.getElementById('status');let busy=false;";
 const mainScriptTag=[...html.matchAll(/<script>[\s\S]*?<\/script>/g)].map(m=>m[0]).find(t=>t.includes('window.v10CompleteUnlock=async'));if(!mainScriptTag)throw Error('V10 main script not found');const mainScriptSource=mainScriptTag.slice('<script>'.length,-'</script>'.length);new Script(mainScriptSource,{filename:'studio-runtime.js'});const pageHtml=html; // Inline verified runtime executes synchronously before user unlock; no external defer race on Android.
