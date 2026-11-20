@@ -56,6 +56,23 @@ jobs:
             --name "challenger-nba-player-boxscore-research-$HISTORICAL_RUN_ID" \
             --dir nba_3pt_historical
           test -s nba_3pt_historical/nba_player_boxes_research.jsonl
+          test -s nba_3pt_historical/nba_player_boxscore_report.json
+      - name: Validate original collector coverage and research flags
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("nba_3pt_historical")
+          report=json.loads((p/"nba_player_boxscore_report.json").read_text())
+          assert report["game_requests_attempted"] <= 5
+          assert report["qualified_player_prop_training_rows"] == 0
+          assert report["qualified_game_winner_training_rows"] == 0
+          assert report["champion_001_modified"] is False
+          rows=[json.loads(line) for line in (p/"nba_player_boxes_research.jsonl").read_text().splitlines() if line.strip()]
+          assert rows, "No actual player-game rows were collected"
+          assert all(row.get("qualified_for_player_prop_training") is False for row in rows)
+          print("Archived player-game rows:",len(rows))
+          PY
       - name: Compute strictly prior-game 3PM features
         run: |
           python -m research.tiktok_nba_boxscore_adapter \
