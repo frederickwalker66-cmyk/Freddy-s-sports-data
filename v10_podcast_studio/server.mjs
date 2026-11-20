@@ -69,7 +69,8 @@ const fetchTeamForm=async(sport,team,cutoffUTC)=>{
  const cached=teamFormCache.get(cacheKey);
  if(cached&&Date.now()-cached.at<900000)return cached.report;
  if(!/^[a-z0-9_-]{1,24}$/i.test(team.teamId||''))return {team:team.team,source:'ESPN team schedule',status:'TEAM_ID_UNAVAILABLE',last5:[],last10:[]};
- const url='https://site.api.espn.com/apis/site/v2/sports/'+scoreboardSources[sport]+'/teams/'+encodeURIComponent(team.teamId)+'/schedule?limit=250';
+ const gameDateEastern=easternDate(new Date(cutoffUTC));const year=Number(gameDateEastern.slice(0,4)),month=Number(gameDateEastern.slice(5,7));const season=year+(['NBA','NHL','NCAAB','UCL'].includes(sport)&&month>=7?1:0);
+ const url='https://site.api.espn.com/apis/site/v2/sports/'+scoreboardSources[sport]+'/teams/'+encodeURIComponent(team.teamId)+'/schedule?limit=250&season='+season;
  try{
   const resp=await fetch(url,{headers:{accept:'application/json','user-agent':'Freddys-V10-FormReview/1.0'},signal:AbortSignal.timeout(9500)});
   if(!resp.ok)throw Error('ESPN team schedule HTTP '+resp.status);
@@ -87,7 +88,8 @@ const fetchTeamForm=async(sport,team,cutoffUTC)=>{
    if(!outcome)return null;
    return {dateUTC:utc,dateEastern:easternDate(new Date(when)),opponent:String(opp.team?.displayName||'Unknown').slice(0,90),homeAway:String(self.homeAway||'').slice(0,12),result:outcome,teamScore:haveScores?selfScore:null,opponentScore:haveScores?oppScore:null,eventId:String(event.id||'').slice(0,36)}
   }).filter(Boolean).sort((a,b)=>Date.parse(b.dateUTC)-Date.parse(a.dateUTC));
-  const count=(arr)=>({games:arr.length,wins:arr.filter(x=>x.result==='W').length,losses:arr.filter(x=>x.result==='L').length,ties:arr.filter(x=>x.result==='T').length});
+  if(!games.length)console.log('V10_TEAM_FORM_EMPTY',JSON.stringify({sport,teamId:team.teamId,season,returned:payload.events.length,sample:payload.events.slice(0,2).map(e=>({date:e.date,id:e.id,completed:e.status?.type?.completed,state:e.status?.type?.state,ids:(e.competitions?.[0]?.competitors||[]).map(c=>c.team?.id),scores:(e.competitions?.[0]?.competitors||[]).map(c=>c.score)}))}));
+ const count=(arr)=>({games:arr.length,wins:arr.filter(x=>x.result==='W').length,losses:arr.filter(x=>x.result==='L').length,ties:arr.filter(x=>x.result==='T').length});
   const report={team:team.team,teamId:team.teamId,source:'ESPN public team season schedule',fetchedAt:new Date().toISOString(),status:games.length?'AVAILABLE':'NO_COMPLETED_GAMES_RETURNED',
    last5:games.slice(0,5),last10:games.slice(0,10),last5Record:count(games.slice(0,5)),last10Record:count(games.slice(0,10)),
    sourceCoverage:'Only completed events returned by ESPN for this team before the selected game. Other seasons or providers may not be represented.'};
