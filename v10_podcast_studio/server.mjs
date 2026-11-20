@@ -395,7 +395,7 @@ el('data-artifacts').onclick=refreshArtifacts;
 const refreshLiveScores=async()=>{const status=el('live-scores-status'),out=el('live-scores-results');status.textContent='Refreshing ESPN public scoreboards…';try{const r=await fetch('/api/live-scoreboards',{headers:{'x-boardroom-password':token},cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.error||r.status);window.v10ScoreboardSnapshot={retrievedAt:j.retrievedAt,leagues:j.sports?.length||0};status.textContent='ESPN scoreboard · '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding · Not betting odds';el('live-score-quick').textContent='ESPN public game scores/schedules updated '+j.retrievedAt+' · '+j.sports.length+'/8 leagues responding. Scores auto-refresh every 60 seconds. No DraftKings live odds, player-prop prices, or certified Champion-001 picks connected.';out.textContent=j.sports.map(s=>s.sport+' · '+s.events.length+' games\\n'+(s.events.length?s.events.map(e=>e.name+' | '+e.shortStatus+' | '+(e.competitors||[]).map(c=>c.team+': '+(c.score||'-')).join(' · ')).join('\\n'):'No events returned')).join('\\n\\n')+'\\n'+j.errors.map(e=>'Unavailable: '+e.sport+' '+e.error).join('\\n')}catch(e){status.textContent='Live scoreboard unavailable: '+e.message;el('live-score-quick').textContent='ESPN scoreboard unavailable: '+e.message+' · Betting feeds remain HOLD';out.textContent='No current scores verified.'}};el('live-scores-refresh').onclick=refreshLiveScores;let scoreboardAutoRefresh=null;const startScoreboardAutoRefresh=()=>{if(scoreboardAutoRefresh)return;scoreboardAutoRefresh=setInterval(()=>{if(token&&!document.hidden)void refreshLiveScores()},60000)};
 const refreshSportsData=async(scope='ALL')=>{const status=el('data-status'),results=el('data-results');status.textContent='Checking read-only certified picks feed…';results.textContent='HOLD · Awaiting verified data';try{const r=await fetch('/api/certified-picks',{headers:{'x-boardroom-password':token}});const d=await r.json();if(!r.ok){status.textContent='Certified model feed unavailable ('+(d.error||r.status)+')';results.textContent='HOLD · 0 certified predictions. Connect a verified read-only Champion-001 feed to populate the board. Research data cannot be substituted for native model probabilities.';return}const payload=d.data;const arr=Array.isArray(payload)?payload:Array.isArray(payload?.picks)?payload.picks:Array.isArray(payload?.predictions)?payload.predictions:null;const filtered=arr?arr.filter(x=>scope==='ALL'||String(x.sport||x.league||'').toUpperCase()===scope):null;status.textContent='Read-only feed received · V10 has NOT independently certified its contents';results.textContent=JSON.stringify(filtered??payload,null,2).slice(0,24000);if(filtered?.length===0)results.textContent='HOLD · No '+scope+' entries in configured feed.'}catch(e){status.textContent='Data connection error';results.textContent='HOLD · '+e.message}};
 for(const [id,scope] of [['data-refresh','ALL'],['data-nba','NBA'],['data-nfl','NFL'],['data-all','ALL']])el(id).onclick=()=>refreshSportsData(scope);
-window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}void refreshSportsData('ALL');try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
+window.v10MainScriptLoaded=true;const initializeAuthenticatedStudio=async(d)=>{void fetch('/api/anam-concurrency',{headers:{'x-boardroom-password':token},cache:'no-store'}).then(async r=>{const info=await r.json();const line=r.ok?'ANAM LIVE VIDEO: '+info.limit+' of 6 simultaneous sessions permitted on this account'+(info.limit<6?' · Other analyst seats use original previews until the plan is upgraded':' · All six video streams can be started'): 'Anam live capacity not verified: '+(info.error||r.status);el('live-capacity-on-stage').textContent=line;el('room-scene-capacity').textContent=line}).catch(e=>{el('live-capacity-on-stage').textContent='Anam live capacity not verified · no simultaneous six-video claim'});try{startWardrobeMeeting()}catch(e){console.warn('Wardrobe initialization',e)}el('anam-panel').style.display='none';el('status').textContent='Unlocked · AI '+(d.aiConfigured?'configured':'missing')+' · ElevenLabs '+(d.elevenLabsConfigured?'connected':'missing');const liveFeed=d.liveAnamScores||{};el('analysts-live-data-status').textContent=liveFeed.status==='connected'?'LIVE GAME DATA CONNECTED TO ALL SIX ANALYSTS · ESPN game scores and schedules · DraftKings odds, player props and certified picks still unverified':liveFeed.status==='partial'?'Live data connection incomplete: '+(liveFeed.connectedAnalysts||[]).join(', ')+' connected. Retry after setup.':'ESPN scoreboard available in Research; direct Anam analyst connection '+(liveFeed.status||'not confirmed')+'.';try{const rr=await fetch('/api/diagnostics',{headers:{'x-boardroom-password':token}});if(rr.ok){const dd=await rr.json();el('avatar-readiness').textContent='Diagnostics · AI '+(dd.ai.configured?'configured':'missing')+' · Voice '+(dd.voice.configured?'configured':'missing')+' · Anam '+(dd.anam.configured?'configured':'missing')+' · Certified picks '+(dd.certifiedPicks.configured?'feed configured':'HOLD: feed missing')}}catch(e){}for(const id of ['ask','roundtable','group-video-start','room-start-conversation','room-host-mic','room-start-video','record-start','record-video-start','record-shorts-start','mic'])el(id).disabled=!d.aiConfigured;el('live-wall-start').disabled=!d.anamConfigured;el('adam-live-start').disabled=!d.anamConfigured;el('live-host-mic').disabled=false;for(const id of ['data-refresh','data-nba','data-nfl','data-all','data-artifacts','data-runs','data-snapshot'])el(id).disabled=false;void updateModelBoard();void refreshLiveScores();startScoreboardAutoRefresh();void loadDailySlate();beginDailyRefresh();for(const [analyst,ready] of Object.entries(d.anamAnalysts||{})){const b=el('live-toggle-'+analyst),status=el('live-status-'+analyst);if(b&&!ready){b.disabled=true;b.textContent='Live persona pending';if(status)status.textContent=analyst==='Cassidy'?'Original portrait preserved · Live approval pending':'Live persona not connected'}}void refreshSportsData('ALL');try{const a=await fetch('/api/avatar-provider',{headers:{'x-boardroom-password':token}});if(a.ok){const p=await a.json();el('avatar-readiness').textContent='Anam live selector: '+(p.anamReady?'configured':'not configured')+' · Linked: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>ready).map(([name])=>name).join(', ')+' · Missing live personas: '+Object.entries(d.anamAnalysts||{}).filter(([name,ready])=>!ready).map(([name])=>name).join(', ')}}catch(e){el('avatar-readiness').textContent='Optional live avatar status unavailable; illustrated preview remains available'}};
 window.v10CompleteUnlock=async(secret,d)=>{token=secret;window.__v10AnamPassword=()=>token;await initializeAuthenticatedStudio(d)};
 const clearTalking=()=>{document.querySelectorAll('.person').forEach(p=>p.classList.remove('talking'));cancelAnimationFrame(raf)};
 const browserSpeak=(speaker,message)=>{const synth=window.speechSynthesis;if(!synth||!window.SpeechSynthesisUtterance){say('Browser speech unavailable on this device');return}try{synth.cancel();const utterance=new SpeechSynthesisUtterance(message);utterance.lang='en-US';utterance.rate=0.96;const voices=synth.getVoices();const english=voices.filter(v=>v.lang?.toLowerCase().startsWith('en'));if(english.length)utterance.voice=english[Math.max(0,names.indexOf(speaker))%english.length];const active=[...document.querySelectorAll('.person')].find(p=>p.dataset.person===speaker);utterance.onstart=()=>active?.classList.add('talking');utterance.onend=clearTalking;utterance.onerror=()=>{clearTalking();say('Browser speech could not play')};synth.speak(utterance);say('Using device voice fallback for '+speaker)}catch(e){clearTalking();say('Browser speech unavailable: '+e.message)}};el('stop').onclick=()=>{controller?.abort();audio?.pause();clearTalking();window.speechSynthesis?.cancel();say('Interrupted')};
@@ -448,6 +448,135 @@ const speakPanel=async(speaker,reply,signal)=>{setPanelSpeaker(speaker);const v=
 const startPanel=async(q)=>{if(!q)return;stopPanel();roundtableActive=true;const session=panelSession;el('roundtable').disabled=true;el('roundtable-status').textContent='Panel discussion in progress · host can interrupt';say('You to the panel: '+q);podcastCaptionBy='Freddy';podcastCaption=q;el('room-transcript').textContent='HOST QUESTION: '+q;const remarks=[];episodeHistory.push({speaker:'Freddy',reply:q});if(episodeHistory.length>24)episodeHistory.splice(0,episodeHistory.length-24);for(const speaker of names){if(!roundtableActive||session!==panelSession)break;highlight(speaker);controller=new AbortController();el('roundtable-status').textContent='Speaking: '+speaker+' · Stop discussion to interrupt';try{const context=episodeHistory.slice(-9,-1).map(x=>x.speaker+': '+x.reply).join('\\n').slice(0,2500);const question='Host topic: '+q+'\\nEarlier panel remarks:\\n'+(context||'None yet')+'\\nRespond to the host and previous analysts naturally in under 65 words. No invented live odds or certified bets.';const r=await fetch('/api/converse',{method:'POST',headers:{'content-type':'application/json','x-boardroom-password':token},body:JSON.stringify({speaker,question}),signal:controller.signal});const d=await r.json();if(!r.ok)throw Error(d.category||d.error||'Analyst unavailable');if(session!==panelSession)break;podcastCaptionBy=speaker;podcastCaption=d.reply;el('room-transcript').textContent=speaker.toUpperCase()+': '+d.reply;remarks.push({speaker,reply:d.reply});episodeHistory.push({speaker,reply:d.reply});if(episodeHistory.length>24)episodeHistory.shift();say(speaker+': '+d.reply);await speakPanel(speaker,d.reply,controller.signal)}catch(e){if(e.name!=='AbortError')say(speaker+' unavailable: '+e.message)}}if(session===panelSession){roundtableActive=false;setPanelSpeaker(null);el('roundtable').disabled=false;podcastCaption='';el('roundtable-status').textContent='Discussion complete · ask another topic or use host mic'}};
 el('roundtable-export').onclick=()=>{if(!episodeHistory.length){el('roundtable-status').textContent='No episode transcript to export yet';return}const lines=['Freddy’s Picks AI V10 · Podcast Episode Transcript','Exported: '+new Date().toISOString(),'Research and betting claims are not independently certified.','',...episodeHistory.map((x,i)=>(i+1)+'. '+x.speaker+': '+x.reply)];const blob=new Blob([lines.join('\\n\\n')],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='freddys-v10-podcast-'+new Date().toISOString().slice(0,10)+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);el('roundtable-status').textContent='Transcript download requested · saved locally by your browser'};
 
+
+
+/* Date-scoped eight-league boardroom analyst queue; no fictional bets. */
+let currentSlate=null,dailyGames=[],dailySelected=0,dailyReviewed=new Set(),dailyScanActive=false,dailyPinned=false,dailyRefreshTimer=null;
+const easternTodayClient=()=>{
+ const v=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+ return v.year+'-'+v.month+'-'+v.day
+};
+const escapeSlateText=v=>String(v==null?'':v).slice(0,160);
+const setDailyConsensus=()=>{
+ const status=el('daily-consensus-status');if(!status)return;
+ const reviewed=dailyReviewed.size,total=dailyGames.length;
+ const certified=0;
+ status.textContent='DAILY CONSENSUS · '+reviewed+'/'+total+' games checked · Certified 2-leg: NO PLAY (0/2) · Certified 5-leg: NO PLAY (0/5) · All markets HOLD until independently verified prices, native Champion-001 probabilities, and prop/correlation evidence are available.';
+};
+const renderDailySelected=()=>{
+ const root=el('daily-game-review');root.textContent='';
+ if(!dailyGames.length){root.textContent='No listed games for this date, or the sports feeds failed. Choose another date or refresh.';setDailyConsensus();return}
+ const g=dailyGames[dailySelected];if(!g){root.textContent='Game not selected';return}
+ const teams=g.teams.map(x=>x.team+(x.score==null?'':' ('+x.score+')')+' ['+(x.homeAway||'')+']').join(' vs ');
+ const dataAge=currentSlate?.retrievedAt||'unknown';
+ root.textContent=[
+  'GAME '+(dailySelected+1)+' OF '+dailyGames.length+' · '+g.sport,
+  g.name||teams, 'New York time: '+g.startEastern, 'Game status: '+(g.shortStatus||g.status),
+  'Teams / scores: '+(teams||'Not provided'),
+  'ESPN retrieved: '+dataAge,
+  'MONEYLINE: '+g.review.moneyline,
+  'SPREAD: '+g.review.spread,
+  'TOTAL O/U: '+g.review.total,
+  'PLAYER PROPS: '+g.review.playerProps,
+  'COMBOS (P/R/A etc.): '+g.review.combos,
+  'PREGAME PREDICTION: Champion-001 probability not independently authenticated.',
+  'DECISION: HOLD · Insufficient evidence for a certified bet.'
+ ].join('\n');
+ for(const b of el('daily-slate-games').querySelectorAll('[data-daily-index]'))b.classList.toggle('selected',Number(b.dataset.dailyIndex)===dailySelected);
+ setDailyConsensus()
+};
+const renderDailyGames=()=>{
+ const box=el('daily-slate-games');box.replaceChildren();
+ if(!currentSlate)return;
+ if(!dailyGames.length){box.textContent='No events returned for this date. Results depend on provider schedule coverage.';return}
+ const bySport=new Map();
+ dailyGames.forEach((g,i)=>{if(!bySport.has(g.sport))bySport.set(g.sport,[]);bySport.get(g.sport).push({g,i})});
+ for(const sport of ['NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL']){
+  const games=bySport.get(sport)||[];
+  const name=document.createElement('div');name.className='league-name';name.textContent=sport+' · '+games.length+' scheduled/reported';box.appendChild(name);
+  for(const {g,i} of games){
+   const b=document.createElement('button');b.type='button';b.dataset.dailyIndex=String(i);
+   b.textContent=(i+1)+'. '+escapeSlateText(g.name)+' · '+escapeSlateText(g.startEastern)+' · '+escapeSlateText(g.shortStatus||g.status);
+   b.onclick=()=>{dailySelected=i;renderDailySelected()};
+   box.appendChild(b);
+  }
+ }
+};
+const renderDailySlate=()=>{
+ const d=currentSlate;if(!d)return;
+ const count=d.sports.map(x=>x.sport+': '+x.games.length).join(' · ');
+ el('daily-slate-counts').textContent='Eastern date '+d.dateEastern+' · '+d.gameCount+' games returned · '+d.leaguesReturned+'/8 leagues · '+count+' · Review status: '+dailyReviewed.size+' checked / '+d.gameCount+' · All uncertified markets HOLD';
+ el('daily-slate-health').textContent='Updated '+d.retrievedAt+' · '+d.errors.length+' errors · '+(d.potentiallyIncomplete.length?'Provider may truncate: '+d.potentiallyIncomplete.join(', '):'No 500-game cap reached');
+ renderDailyGames();renderDailySelected()
+};
+const loadDailySlate=async(silent=false)=>{
+ if(!token)return;
+ const requestDay=el('daily-slate-date').value||easternTodayClient();
+ if(!silent)el('daily-slate-health').textContent='Loading every returned game from 8 league sources…';
+ try{
+  const r=await fetch('/api/daily-slate?date='+encodeURIComponent(requestDay),{headers:{'x-boardroom-password':token},cache:'no-store'});
+  const v=await r.json();if(!r.ok)throw Error(v.error||'HTTP '+r.status);
+  if(el('daily-slate-date').value!==requestDay)return;
+  const oldSelection=dailyGames[dailySelected]?.id;
+  const isNew=currentSlate?.dateEastern!==v.dateEastern;
+  currentSlate=v;dailyGames=v.sports.flatMap(x=>x.games).sort((a,b)=>(Date.parse(a.startUTC)||0)-(Date.parse(b.startUTC)||0)||a.sport.localeCompare(b.sport));
+  if(isNew)dailyReviewed=new Set();
+  const sameIdx=dailyGames.findIndex(g=>g.id===oldSelection);
+  dailySelected=sameIdx>=0?sameIdx:0;
+  renderDailySlate();
+  if(v.errors.length){el('daily-slate-health').textContent+=' · FEED WARNINGS: '+v.errors.map(x=>x.sport).join(', ')}
+ }catch(e){el('daily-slate-health').textContent='Daily schedule fetch failed: '+e.message+' · existing data, if any, is not refreshed'}
+};
+const auditEntireDailySlate=async()=>{
+ if(!currentSlate||dailyScanActive)return;
+ dailyScanActive=true;el('daily-slate-review-all').disabled=true;
+ try{
+  let missingSchedule=0;
+  for(let i=0;i<dailyGames.length;i++){
+   const g=dailyGames[i];if(!g.startUTC||g.teams.length<2)missingSchedule++;
+   dailyReviewed.add(g.sport+':'+g.id);
+   if(i%6===0||i===dailyGames.length-1){
+    el('daily-slate-health').textContent='Auditing every game · '+(i+1)+'/'+dailyGames.length+' · missing time/team fields: '+missingSchedule+' · betting markets HOLD';
+    await new Promise(resolve=>setTimeout(resolve,0));
+   }
+  }
+  el('daily-slate-counts').textContent+=' · Completed schedule and bet-readiness review for all '+dailyGames.length+' returned games. '+missingSchedule+' games have missing core schedule fields. Zero certified sportsbook selections.';
+  setDailyConsensus();
+ }finally{dailyScanActive=false;el('daily-slate-review-all').disabled=false}
+};
+const discussSelectedDailyGame=()=>{
+ if(!token){el('daily-slate-health').textContent='Sign in to join a conversation';return}
+ const g=dailyGames[dailySelected];if(!g){el('daily-slate-health').textContent='No game selected';return}
+ dailyReviewed.add(g.sport+':'+g.id);renderDailySelected();
+ const question='Freddy wants the full six-analyst panel to discuss one scheduled game: '+g.sport+' '+g.name+' (event '+g.id+'), '+g.startEastern+', verified ESPN status '+g.shortStatus+', teams/scores '+g.teams.map(x=>x.team+' '+(x.score??'N/A')).join(' vs ')+'. One analyst at a time: Bella coordination; David schedule, form and missing last-5/10; Cassidy strict price/probability/EV certification; Roger cautious moneyline, spread, total, props/combo/parlay review; Sarah correlation, bankroll and injuries; Adam source audit. Speak to Freddy like a friend, respond to one another naturally, and ask clarifying follow-ups where useful. We have NO verified DraftKings market prices or native Champion-001 probabilities. Do not invent a pick, a percentage or sportsbook quotation; HOLD until verifiable.';
+ void startPanel(question)
+};
+const debateDailyParlay=async(legs)=>{
+ if(!token||!currentSlate)return;
+ await auditEntireDailySlate();
+ const draft='Freddy requests the entire six-person boardroom to come together and reach ONE consensus for '+legs+' parlay legs from all '+dailyGames.length+' games on the '+currentSlate.dateEastern+' Eastern slate. Consider moneylines, spreads, totals, player points/rebounds/assists, combinations and correlated markets. Discuss each analyst’s independent role, challenged assumptions, market timing, injuries, line values and last 5/10 coverage. Current verified price count is 0 and certified Champion-001 EV count is 0. Consequently do not invent matchups, legs, market prices, probabilities or a winning parlay. The agreed outcome today is NO PLAY/HOLD unless a fully verified feed supplies the necessary independent evidence. Address Freddy conversationally and do not repeat generic disclaimers unnecessarily.';
+ el('daily-consensus-status').textContent=legs+'-LEG PANEL MEETING STARTING · '+dailyGames.length+' schedule records audited · No supported wagers; certification HOLD';
+ void startPanel(draft)
+};
+el('daily-slate-date').value=easternTodayClient();
+el('daily-slate-today').onclick=()=>{dailyPinned=false;el('daily-slate-date').value=easternTodayClient();void loadDailySlate()};
+el('daily-slate-date').onchange=()=>{dailyPinned=true;void loadDailySlate()};
+el('daily-slate-refresh').onclick=()=>void loadDailySlate();
+el('daily-slate-review-all').onclick=()=>void auditEntireDailySlate();
+el('daily-game-previous').onclick=()=>{if(!dailyGames.length)return;dailySelected=(dailySelected+dailyGames.length-1)%dailyGames.length;renderDailySelected()};
+el('daily-game-next').onclick=()=>{if(!dailyGames.length)return;dailySelected=(dailySelected+1)%dailyGames.length;renderDailySelected()};
+el('daily-game-discuss').onclick=discussSelectedDailyGame;
+el('daily-consensus-two').onclick=()=>void debateDailyParlay(2);
+el('daily-consensus-five').onclick=()=>void debateDailyParlay(5);
+const beginDailyRefresh=()=>{
+ if(dailyRefreshTimer)return;
+ dailyRefreshTimer=setInterval(()=>{
+  if(!token||document.hidden)return;
+  const today=easternTodayClient();
+  if(!dailyPinned&&today!==el('daily-slate-date').value){el('daily-slate-date').value=today;dailyReviewed=new Set();currentSlate=null}
+  void loadDailySlate(true)
+ },300000)
+};
 
 const roomActionPrompts={
  NBA:'RUN NBA. Have all six analysts discuss todays authenticated NBA schedule, scores, model research and injuries when verified. Include moneyline, spreads, totals, points/rebounds/assists and last five/ten status. Do not invent DraftKings odds or probabilities; HOLD when unverified.',
