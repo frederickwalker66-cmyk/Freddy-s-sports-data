@@ -297,8 +297,26 @@ jobs:
             echo "Public dashboard snapshot unchanged."
           else
             git commit -m "dashboard: refresh public V8 research snapshot [skip ci]"
-            git push origin HEAD:main
-            echo "Public dashboard updated on the main/docs branch."
+            # Other scheduled jobs may advance main during dashboard generation.
+            # Rebase only this generated-data commit, without force-pushing or
+            # overwriting concurrent source changes. Fail closed on conflicts.
+            for attempt in 1 2 3 4; do
+              git fetch origin main
+              if ! git rebase origin/main; then
+                git rebase --abort || true
+                echo "::error::Concurrent dashboard data conflict; refusing to overwrite newer data."
+                exit 1
+              fi
+              if git push origin HEAD:main; then
+                echo "Public dashboard updated on the main/docs branch."
+                break
+              fi
+              if [[ "$attempt" == 4 ]]; then
+                echo "::error::Main branch kept advancing; dashboard push retries exhausted."
+                exit 1
+              fi
+              sleep "$((attempt * 2))"
+            done
           fi
       - name: Verify GitHub Pages is configured for official Actions deployment
         id: pages_state
