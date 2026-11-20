@@ -3,6 +3,7 @@ on:
   push:
     branches: [feature/tiktok-three-point-strategy-20261120]
     paths:
+      - 'challenger_nba_player_boxes.py'
       - 'research/tiktok_three_point_strategy.py'
       - 'tests/test_tiktok_three_point_strategy.py'
       - 'tests/test_tiktok_three_point_backtest.py'
