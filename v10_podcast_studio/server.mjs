@@ -461,8 +461,8 @@ const provisionSourceAnamTool=async()=>{
    Never use ESPN moneylines, estimated odds, or a stale price as a verified DK/FD quote.
    Frozen Champion-001 EV certification is independent and remains HOLD. */
 const sportsbookLeagues=['NBA','NFL','MLB','NHL','NCAAF','NCAAB','MLS','UCL'];
-const sportsbookCache=new Map(),sportsbookCallTimes=[],sportsbookDailyQuota={date:'',requests:0};
-const oddsProviderConfigured=()=>!!process.env.SPORTSGAMEODDS_API_KEY;
+const sportsbookCache=new Map(),sportsbookSignedSnapshots=new Map(),sportsbookCallTimes=[],sportsbookDailyQuota={date:'',requests:0};
+const oddsProviderConfigured=()=>!!process.env.SPORTSGAMEODDS_API_KEY||sportsbookSignedSnapshots.size>0;
 const sportsbookOddsPrice=x=>{
  const text=String(x??'').trim();if(!/^[+-]?[0-9]{3,6}$/.test(text))return null;
  const n=Number(text);return Number.isInteger(n)&&Math.abs(n)>=100&&Math.abs(n)<100000?(n>0?'+':'')+n:null;
@@ -524,7 +524,17 @@ const sportsbookEmpty=(league,reason,detail)=>({source:'SportsGameOdds v2 · Dra
 const sportsbookLoad=async(league='NBA',cursor='')=>{
  if(!sportsbookLeagues.includes(league))return sportsbookEmpty('NBA','INVALID_LEAGUE','Supported leagues: '+sportsbookLeagues.join(', '));
  if(cursor&&(!/^[A-Za-z0-9_\-+=/]{8,1024}$/.test(cursor)))return sportsbookEmpty(league,'INVALID_CURSOR','Invalid provider pagination cursor');
- if(!oddsProviderConfigured())return sportsbookEmpty(league,'NOT_CONNECTED','No authenticated licensed sportsbook odds credential is configured on this Railway service. ESPN scores do not contain DK / FanDuel markets.');
+ if(!process.env.SPORTSGAMEODDS_API_KEY){
+  const signed=sportsbookSignedSnapshots.get(league);
+  if(!signed)return sportsbookEmpty(league,'NOT_CONNECTED','No signed GitHub sportsbook snapshot has been received for this league. The GitHub secret is never readable by Railway. ESPN is not a bookmaker.');
+  const ageSeconds=Math.floor((Date.now()-signed.at)/1000);
+  const normalized=sportsbookNormalize(signed.events,league,new Date().toISOString());
+  return {source:'SportsGameOdds v2 · signed GitHub Actions read-only research snapshot',league,checkedAt:signed.receivedAt,sourceFetchedAt:signed.providerFetchedAt,ageSeconds,
+    status:ageSeconds<=600&&normalized.quotedSelections>0?'SOURCE_QUOTES_RETURNED':ageSeconds>600?'STALE_SNAPSHOT':'NO_AVAILABLE_QUOTES',
+    providerAuthenticated:true,books:['DraftKings','FanDuel'],...normalized,nextCursor:null,allPagesLoaded:false,certifiedChampion001Probability:false,certifiedSharpEdgeEV:false,
+    decision:'HOLD',detail:ageSeconds>600?'Snapshot older than 10 minutes. These are NOT live lines; refresh the GitHub workflow for current observations.':'GitHub fetched bookmaker source prices; the key remained in GitHub. Data is a limited dated snapshot, not streaming live book checkout.'};
+ }
+
  const key=league+':'+cursor,now=Date.now(),cache=sportsbookCache.get(key);
  if(cache?.pending)return cache.pending;
  if(cache?.value&&now-cache.at<300000)return {...cache.value,cacheAgeSeconds:Math.floor((now-cache.at)/1000)};
@@ -2435,7 +2445,32 @@ stop.addEventListener('click',async()=>{
 })();</script></body></html>`;
 const bootMarker="const btn=document.getElementById('unlock'),input=document.getElementById('pass'),status=document.getElementById('status');let busy=false;";
 const mainScriptTag=[...html.matchAll(/<script>[\s\S]*?<\/script>/g)].map(m=>m[0]).find(t=>t.includes('window.v10CompleteUnlock=async'));if(!mainScriptTag)throw Error('V10 main script not found');const mainScriptSource=mainScriptTag.slice('<script>'.length,-'</script>'.length);new Script(mainScriptSource,{filename:'studio-runtime.js'});const pageHtml=html.replace('</head>','<meta name="v10-app-version" content="'+appVersion+'"></head>'); // HTML and API expose the same deployed revision; browsers fetch fresh HTML on open.
-const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url||'/', 'http://localhost').pathname;console.log('V10_REQUEST',req.method,pathname);if(req.method==='GET'&&pathname==='/studio-runtime.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});return res.end(mainScriptSource)}
+const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url||'/', 'http://localhost').pathname;console.log('V10_REQUEST',req.method,pathname);if(req.method==='POST'&&pathname==='/api/sportsbook-quote-push'){
+ // HMAC body authentication uses the EXISTING research bridge shared secret; never accept a provider key.
+ const secret=process.env.RESEARCH_PUSH_SECRET;
+ if(!secret||secret.length<32)return respond(res,503,{error:'SIGNED_RESEARCH_SECRET_NOT_CONFIGURED'});
+ const sent=String(req.headers['x-research-timestamp']||''),signature=String(req.headers['x-research-signature']||''),when=Number(sent);
+ if(!/^[0-9]{13}$/.test(sent)||!Number.isFinite(when)||Math.abs(Date.now()-when)>300000||!/^sha256=[a-f0-9]{64}$/.test(signature))return respond(res,401,{error:'INVALID_RESEARCH_SIGNATURE'});
+ let bytes=0,buffers=[];
+ for await (const chunk of req){bytes+=chunk.length;if(bytes>280000)return respond(res,413,{error:'SNAPSHOT_TOO_LARGE'});buffers.push(chunk)}
+ const payloadRaw=Buffer.concat(buffers);
+ const check='sha256='+createHmac('sha256',secret).update(sent+'.').update(payloadRaw).digest('hex');
+ if(!compare(check,signature))return respond(res,401,{error:'INVALID_RESEARCH_SIGNATURE'});
+ let data;try{data=JSON.parse(payloadRaw.toString('utf8'))}catch{return respond(res,400,{error:'INVALID_SNAPSHOT_JSON'})}
+ if(data?.schemaVersion!==2||!sportsbookLeagues.includes(data.league)||typeof data.runId!=='number'||!Number.isSafeInteger(data.runId)||
+  typeof data.fetchedAt!=='string'||!Number.isFinite(Date.parse(data.fetchedAt))||Math.abs(Date.now()-Date.parse(data.fetchedAt))>600000||
+  !Array.isArray(data.events)||data.events.length>5||
+  data.events.some(x=>x===null||typeof x!=='object'||!x.eventID||x.leagueID!==data.league||!x.odds||typeof x.odds!=='object'||Object.keys(x.odds).length>220)){
+  return respond(res,400,{error:'INVALID_SPORTSBOOK_RESEARCH_SCHEMA'})
+ }
+ const receivedAt=new Date().toISOString(),normalized=sportsbookNormalize(data.events,data.league,receivedAt);
+ sportsbookSignedSnapshots.set(data.league,{at:Date.now(),receivedAt,providerFetchedAt:data.fetchedAt,runId:data.runId,events:data.events});
+ sportsbookCache.delete(data.league+':');
+ console.log('V10_SIGNED_SPORTSBOOK_RESEARCH_RECEIVED',JSON.stringify({league:data.league,runId:data.runId,events:data.events.length,markets:normalized.marketsReturned,quotes:normalized.quotedSelections,secretExposed:false}));
+ return respond(res,200,{received:true,league:data.league,receivedAt,providerFetchedAt:data.fetchedAt,events:data.events.length,quotedSelections:normalized.quotedSelections,
+  source:'signed GitHub workflow using existing SportsGameOdds key',secretExposed:false,certifiedEV:false,decision:'HOLD'});
+}
+if(req.method==='GET'&&pathname==='/studio-runtime.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});return res.end(mainScriptSource)}
 if(req.method==='GET'&&pathname==='/podcast-logo.webp'){try{const encoded=await readFile(new URL('./public/you-talking-to-me-logo.webp.b64',import.meta.url),'utf8');const image=Buffer.from(encoded.trim(),'base64');if(image.length<3000||image.toString('ascii',0,4)!=='RIFF'||image.toString('ascii',8,12)!=='WEBP')throw Error('INVALID_LOGO_ASSET');res.writeHead(200,{'content-type':'image/webp','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'});return res.end(image)}catch(e){console.warn('V10_LOGO_ASSET_READ_ERROR',String(e.message||e).slice(0,100));return respond(res,404,{error:'OFFICIAL_PODCAST_LOGO_NOT_AVAILABLE'})}}
 if(req.method==='GET'&&pathname==='/manifest.webmanifest')return respond(res,200,{name:'"YOU TALKING TO ME" PODCAST · Freddy’s Picks AI V10',short_name:'"YOU TALKING TO ME"',description:"Six sports specialists debate with Freddy live; powered by Freddy’s Picks AI V10",start_url:"/",scope:"/",display:"standalone",background_color:"#050d1e",theme_color:"#0b1732",icons:[{src:"/podcast-logo.webp",sizes:"256x256",type:"image/webp",purpose:"any"},{src:"/app-icon.svg",sizes:"any",type:"image/svg+xml",purpose:"any"}]}, {'content-type':'application/manifest+json'});
 if(req.method==='GET'&&pathname==='/app-icon.svg'){res.writeHead(200,{'content-type':'image/svg+xml','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'});return res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="38" fill="#07162c"/><rect x="12" y="12" width="168" height="168" rx="32" fill="none" stroke="#f4cb83" stroke-width="5"/><text x="96" y="108" fill="#f4cb83" font-size="76" font-weight="900" text-anchor="middle" font-family="Arial,sans-serif">YT</text><rect x="38" y="118" width="116" height="3" fill="#76e4d4"/><text x="96" y="152" fill="#ffffff" font-size="17" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">PODCAST</text></svg>')}
@@ -2502,7 +2537,7 @@ if(req.method==='GET'&&pathname==='/api/anam-concurrency'){
    allSixSimultaneousPossible:Number(a.limit)>=6,requiredSessionsForAllLive:6,note:'Anam concurrency is shared across your account. Session creation may still return 429.'});
  }catch(e){return respond(res,502,{error:'ANAM_CAPACITY_UNAVAILABLE',note:String(e.message||e).slice(0,120)})}
 }
-if(req.url==='/api/status'&&req.method==='GET')return respond(res,200,{online:true,aiConfigured:!!process.env.OPENAI_API_KEY,elevenLabsConfigured:!!process.env.ELEVENLABS_API_KEY,anamConfigured:!!(process.env.ANAM_API_KEY&&anamPersonaId),anamAnalysts:Object.fromEntries(Object.entries(anamPersonaIds).map(([name,id])=>[name,!!id])),sportsFeedConfigured:!!process.env.CERTIFIED_PICKS_FEED_URL,liveAnamScores:{status:liveScoreToolState.status,connectedAnalysts:liveScoreToolState.attached,errors:liveScoreToolState.errors},modelResearchTool:{status:modelToolState.status,connectedAnalysts:modelToolState.attached,errors:modelToolState.errors},dailySlateTool:{status:dailyAnamToolState.status,connectedAnalysts:dailyAnamToolState.attached,errors:dailyAnamToolState.errors},sourceReadinessTool:{status:sourceAnamToolState.status,connectedAnalysts:sourceAnamToolState.attached,errors:sourceAnamToolState.errors},bookmakerOdds:{provider:'SportsGameOdds',configured:oddsProviderConfigured(),source:oddsProviderConfigured()?'Railway environment':'GitHub signed relay not yet linked',books:['DraftKings','FanDuel'],toolStatus:sportsbookAnamToolState.status,connectedAnalysts:sportsbookAnamToolState.attached,certifiedEV:false},participants:Object.keys(people)});
+if(req.url==='/api/status'&&req.method==='GET')return respond(res,200,{online:true,aiConfigured:!!process.env.OPENAI_API_KEY,elevenLabsConfigured:!!process.env.ELEVENLABS_API_KEY,anamConfigured:!!(process.env.ANAM_API_KEY&&anamPersonaId),anamAnalysts:Object.fromEntries(Object.entries(anamPersonaIds).map(([name,id])=>[name,!!id])),sportsFeedConfigured:!!process.env.CERTIFIED_PICKS_FEED_URL,liveAnamScores:{status:liveScoreToolState.status,connectedAnalysts:liveScoreToolState.attached,errors:liveScoreToolState.errors},modelResearchTool:{status:modelToolState.status,connectedAnalysts:modelToolState.attached,errors:modelToolState.errors},dailySlateTool:{status:dailyAnamToolState.status,connectedAnalysts:dailyAnamToolState.attached,errors:dailyAnamToolState.errors},sourceReadinessTool:{status:sourceAnamToolState.status,connectedAnalysts:sourceAnamToolState.attached,errors:sourceAnamToolState.errors},bookmakerOdds:{provider:'SportsGameOdds',configured:oddsProviderConfigured(),source:process.env.SPORTSGAMEODDS_API_KEY?'Railway environment':sportsbookSignedSnapshots.size?'GitHub HMAC signed research snapshots':'GitHub signed relay not yet linked',books:['DraftKings','FanDuel'],toolStatus:sportsbookAnamToolState.status,connectedAnalysts:sportsbookAnamToolState.attached,certifiedEV:false},participants:Object.keys(people)});
 try{if(req.url==='/api/research-push'&&req.method==='POST'){const secret=process.env.RESEARCH_PUSH_SECRET;if(!secret||secret.length<32)return respond(res,503,{error:'RESEARCH_PUSH_NOT_CONFIGURED'});const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>32768)return respond(res,413,{error:'PAYLOAD_TOO_LARGE'});chunks.push(chunk)}const raw=Buffer.concat(chunks);const stamp=Number(req.headers['x-research-timestamp']);const signature=String(req.headers['x-research-signature']||'');if(!Number.isFinite(stamp)||Math.abs(Date.now()-stamp)>300000||!/^sha256=[a-f0-9]{64}$/.test(signature))return respond(res,401,{error:'INVALID_RESEARCH_SIGNATURE'});const expected='sha256='+createHmac('sha256',secret).update(String(stamp)+'.').update(raw).digest('hex');if(!compare(expected,signature))return respond(res,401,{error:'INVALID_RESEARCH_SIGNATURE'});let data;try{data=JSON.parse(raw.toString('utf8'))}catch{return respond(res,400,{error:'INVALID_JSON'})}if(data?.schemaVersion!==1||typeof data.runId!=='number'||typeof data.createdAt!=='string'||!Array.isArray(data.reports)||data.reports.length>25||data.reports.some(x=>typeof x.name!=='string'||typeof x.summary!=='string'||x.summary.length>2000))return respond(res,400,{error:'INVALID_RESEARCH_SCHEMA'});if(Date.parse(data.createdAt)>Date.now()+300000||Date.parse(data.createdAt)<Date.now()-86400000||!Number.isFinite(Date.parse(data.createdAt)))return respond(res,400,{error:'STALE_RESEARCH_REPORT'});globalThis.v10ResearchSnapshot={receivedAt:new Date().toISOString(),runId:data.runId,createdAt:data.createdAt,reports:data.reports.map(x=>({name:x.name.slice(0,120),summary:x.summary.slice(0,2000)})),certifiedPredictions:0,certified:false};return respond(res,200,{accepted:true,runId:data.runId,certifiedPredictions:0})}
 if(req.url==='/api/data-health'&&req.method==='GET')return respond(res,200,continuousFeedStatus());
 if(req.url==='/api/source-readiness'&&req.method==='GET')return respond(res,200,await refreshV10Sources());
