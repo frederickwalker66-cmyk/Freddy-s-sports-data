@@ -1,0 +1,35 @@
+name: TikTok 3PT Research Tests
+on:
+  push:
+    branches: [feature/tiktok-three-point-strategy-20261120]
+    paths:
+      - 'challenger_nba_player_boxes.py'
+      - 'research/tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_backtest.py'
+      - 'research/tiktok_three_point_backtest.py'
+      - 'research/tiktok_nba_boxscore_adapter.py'
+      - 'tests/test_tiktok_nba_boxscore_adapter.py'
+      - '.github/workflows/tiktok-three-point-research-tests.yml'
+  pull_request:
+    paths:
+      - 'research/tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_strategy.py'
+      - 'tests/test_tiktok_three_point_backtest.py'
+      - 'research/tiktok_three_point_backtest.py'
+      - 'research/tiktok_nba_boxscore_adapter.py'
+      - 'tests/test_tiktok_nba_boxscore_adapter.py'
+      - '.github/workflows/tiktok-three-point-research-tests.yml'
+  workflow_dispatch:
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run isolated 3PT research tests
+        run: python -m unittest discover -s tests -p 'test_tiktok*.py' -v

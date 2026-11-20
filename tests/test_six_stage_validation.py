@@ -17,7 +17,7 @@ def nba_box():
         return {"athlete":{"id":pid,"displayName":"Player "+pid},
                 "stats":stats,"didNotPlay":dnp,"starter":not dnp}
     return {"header":{"id":"1234567","competitions":[{
-         "id":"1234567","status":{"type":{"completed":True}},
+         "id":"1234567","date":"2026-10-30T23:00:00Z","status":{"type":{"completed":True}},
          "competitors":[{"team":{"id":"12"}},{"team":{"id":"34"}}]}]},
       "boxscore":{"players":[
           {"team":{"id":"12"},"statistics":[{"labels":labels,

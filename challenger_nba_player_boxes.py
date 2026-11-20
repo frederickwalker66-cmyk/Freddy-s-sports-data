@@ -81,6 +81,8 @@ def parse_summary(data, event_id, fetched_at):
     if not isinstance(groups, list) or len(groups)!=2:
         raise ValueError("missing both teams' player boxscore")
     event_start_utc = _event_start(comp)
+    if event_start_utc is None:
+        raise ValueError("missing timezone-aware NBA event start")
     rows=[]
     for group in groups:
         tid = str((group.get("team") or {}).get("id"))
@@ -108,6 +110,12 @@ def parse_summary(data, event_id, fetched_at):
                 if not isinstance(values,list) or (len(values)!=len(labels) and not (dnp and len(values)==0)):
                     raise ValueError("partial player boxscore")
                 cells=dict(zip(labels,values)) if values else {}
+                # ESPN may name the 3-point made-attempted stat "3PT" or "3PM-A".
+                # Require one unambiguous value rather than silently treating it as missing.
+                three_values=[cells[k] for k in ("3PT","3PM-A") if k in cells]
+                if len(three_values)>1 and len(set(three_values))!=1:
+                    raise ValueError("conflicting three-point stat labels")
+                three_made=_three_made(three_values[0]) if three_values else None
                 mins=_minutes(cells.get("MIN"))
                 if not dnp and mins is None:
                     raise ValueError("player missing trustworthy minutes")
@@ -119,7 +127,7 @@ def parse_summary(data, event_id, fetched_at):
                     "starter":a.get("starter") is True,
                     "did_not_play":dnp,
                     "minutes":mins,
-                    "threes_made":_three_made(cells.get("3PT")),
+                    "threes_made":three_made,
                     "event_start_utc":event_start_utc,
                     "points":_number(cells.get("PTS")),
                     "rebounds":_number(cells.get("REB")),
@@ -193,6 +201,8 @@ def collect(database, limit=MAX_GAMES, fetcher=fetch_summary, now=None):
                 "DNP contradicts positive minutes",
                 "key numeric NBA statistics unavailable",
                 "no player rows for team", "summary exceeds permitted size",
+                "missing timezone-aware NBA event start",
+                "conflicting three-point stat labels",
             }:
                 detail = type(exc).__name__
             failures.append({"event_id":str(event_id),

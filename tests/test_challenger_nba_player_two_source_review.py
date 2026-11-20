@@ -52,7 +52,7 @@ def espn_source(eid="401999001", points=28, home_dnp=False, swap_team=False, nam
     home_vals = [] if home_dnp else ["31:30", str(points), "7", "5", "2", "1"]
     return json.dumps({
         "header": {"id": eid, "competitions": [
-            {"id": eid, "status": {"type": {"completed": True}},
+            {"id": eid, "date": "2026-11-02T23:00:00Z", "status": {"type": {"completed": True}},
              "competitors": competitors}]},
         "boxscore": {"players": [
             group(home_id, player("100", name, home_dnp, home_vals)),
