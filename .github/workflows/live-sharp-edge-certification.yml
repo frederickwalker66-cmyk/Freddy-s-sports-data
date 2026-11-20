@@ -2,7 +2,8 @@ name: Sharp Edge — Live Certification Audit (fail closed)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 16-23,0-5 * * *'
+    # Every day, all UTC hours: captures early, afternoon and late games across sports.
+    - cron: '*/15 * * * *'
   push:
     branches: [main]
     paths:
