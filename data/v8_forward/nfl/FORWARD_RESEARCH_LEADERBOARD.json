@@ -6,7 +6,7 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-21T01:45:55.654074+00:00",
+  "generated_at_utc": "2026-11-21T20:38:31.966068+00:00",
   "graded_research_games": 15,
   "last_synchronization": {
     "due_forecast_rows_checked": 0,
@@ -15,7 +15,7 @@
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
     "new_original_forecasts": 0,
-    "original_source_receipt_files_saved": 11
+    "original_source_receipt_files_saved": 0
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
