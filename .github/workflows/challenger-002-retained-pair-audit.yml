@@ -13,6 +13,7 @@ on:
       - 'research/challenger_002_nba_sportsbook_census.py'
       - 'research/challenger_002_nba_identity_gate.py'
       - 'research/challenger_002_nba_market_time.py'
+      - 'research/challenger_002_nba_market_time_formats.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -136,6 +137,10 @@ jobs:
                                         json.loads(single("odds-metadata").read_text()))
           (root/"nba-market-time.json").write_text(json.dumps(market_time,indent=2)+"\\n")
           print("NBA_MARKET_TIME="+json.dumps(market_time,sort_keys=True))
+          from research.challenger_002_nba_market_time_formats import census as time_format_census
+          formats=time_format_census(json.loads(single("odds").read_text()))
+          (root/"nba-market-time-formats.json").write_text(json.dumps(formats,indent=2)+"\\n")
+          print("NBA_MARKET_TIME_FORMATS="+json.dumps(formats,sort_keys=True))
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write(f"\n### Research-only joined games: {joined['joined_game_count']}\n")
               summary.write("- Certified TAKE: 0; training approval: 0\n")
@@ -161,5 +166,6 @@ jobs:
             ${{ runner.temp }}/nba-sportsbook-census.json
             ${{ runner.temp }}/nba-identity-gate.json
             ${{ runner.temp }}/nba-market-time.json
+            ${{ runner.temp }}/nba-market-time-formats.json
           if-no-files-found: ignore
           retention-days: 30
