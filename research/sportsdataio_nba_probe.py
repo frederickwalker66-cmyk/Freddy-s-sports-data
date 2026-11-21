@@ -25,7 +25,9 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
     env = os.environ if env is None else env
     day = day or date.today().isoformat()
     try:
-        date.fromisoformat(day)
+        parsed_day = date.fromisoformat(day)
+        if parsed_day.isoformat() != day:
+            raise ValueError("noncanonical_iso_date")
     except ValueError as exc:
         raise ValueError("invalid_iso_date") from exc
     # Never silently substitute a key from another account/provider.
@@ -52,8 +54,8 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
                 "draftkings_selection_verified": False,
                 "player_team_and_injury_crosschecked": False,
             }
-        except SourceUnavailable as exc:
-            results[name] = {"status": "HOLD_PROVIDER_ERROR", "reason": str(exc)}
+        except (SourceUnavailable, KeyError, TypeError, ValueError) as exc:
+            results[name] = {"status": "HOLD_PROVIDER_ERROR", "reason_type": type(exc).__name__}
     return {"provider": "SportsDataIO", "sport": "nba", "date": day,
             "endpoints": results, "certified_take_count": 0, "decision": "HOLD",
             "note": "DraftKings book mapping, props, independent roster corroboration, original Champion inference, and calibrated EV remain required."}
