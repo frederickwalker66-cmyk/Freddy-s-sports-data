@@ -1,0 +1,45 @@
+name: Sharp Edge Pro — Independent Automated Readiness
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'sharp-edge-pro/**'
+      - '.github/workflows/sharp-edge-pro-automation.yml'
+  schedule:
+    - cron: '*/5 * * * *'
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run independent, no-cost readiness and prediction safety gate
+        env:
+          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+          SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
+        run: python sharp-edge-pro/runner.py
+      - name: Publish readable status
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('sharp-edge-pro/output/status.json')
+          if p.exists():
+              d=json.loads(p.read_text())
+              rows=['# Sharp Edge Pro','', '**Status: HOLD — 0 certified TAKE**','', '## Blockers']
+              rows += ['- '+x for x in d['blockers']]
+          else:
+              rows=['# Sharp Edge Pro','', 'Readiness run failed before producing a report. HOLD.']
+          pathlib.Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(rows)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sharp-edge-pro-status
+          path: sharp-edge-pro/output/status.json
+          retention-days: 14
