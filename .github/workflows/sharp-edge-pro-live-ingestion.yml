@@ -30,6 +30,11 @@ jobs:
         env:
           SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
         run: python collector.py --leagues nba --max-pages 1 --output-dir sharp-edge-pro/output/live
+      - name: Run NBA unified market report (spreads, totals, player props, combos)
+        run: |
+          snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
+          test -n "$snapshot"
+          python sharp-edge-pro/run_nba.py --input "$snapshot"
       - name: Independent schedule crosswalk
         run: |
           snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
@@ -39,17 +44,17 @@ jobs:
         run: |
           snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
           python challenger_audit.py --input "$snapshot" --schedule sharp-edge-pro/output/audit/schedule_manifest.json --output-dir sharp-edge-pro/output/audit
-      - name: Run NBA unified market report (spreads, totals, player props, combos)
-        run: |
-          snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
-          test -n "$snapshot"
-          python sharp-edge-pro/run_nba.py --input "$snapshot"
       - name: Publish honest status
         if: always()
         run: |
           echo '## Sharp Edge Pro live NBA ingestion' >> "$GITHUB_STEP_SUMMARY"
           echo 'Research only. Zero certified TAKE. No model probabilities or checkout-price verification.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'At most two SharpAPI requests per successful run, scheduled hourly; provider charges and limits may apply.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Up to two SharpAPI requests per collector invocation; provider charges and limits may apply.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f sharp-edge-pro/output/nba_all.json ]; then
+            echo 'Unified NBA report generated: download sharp-edge-pro-live-nba-research artifact and open nba_all.json.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Unified NBA report unavailable; collection or report step failed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
