@@ -11,6 +11,7 @@ on:
       - 'research/challenger_002_nba_odds_schema.py'
       - 'research/challenger_002_nba_sportsbook_audit.py'
       - 'research/challenger_002_nba_sportsbook_census.py'
+      - 'research/challenger_002_nba_identity_gate.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -124,6 +125,10 @@ jobs:
           sportsbook_census=census(json.loads(single("odds").read_text()))
           (root/"nba-sportsbook-census.json").write_text(json.dumps(sportsbook_census,indent=2)+"\\n")
           print("NBA_SPORTSBOOK_CENSUS="+json.dumps(sportsbook_census,sort_keys=True))
+          from research.challenger_002_nba_identity_gate import gate as identity_gate
+          identity=identity_gate(json.loads(single("odds").read_text()))
+          (root/"nba-identity-gate.json").write_text(json.dumps(identity,indent=2)+"\\n")
+          print("NBA_IDENTITY_GATE="+json.dumps(identity,sort_keys=True))
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write(f"\n### Research-only joined games: {joined['joined_game_count']}\n")
               summary.write("- Certified TAKE: 0; training approval: 0\n")
@@ -147,5 +152,6 @@ jobs:
             ${{ runner.temp }}/nba-odds-schema.json
             ${{ runner.temp }}/nba-sportsbook-audit.json
             ${{ runner.temp }}/nba-sportsbook-census.json
+            ${{ runner.temp }}/nba-identity-gate.json
           if-no-files-found: ignore
           retention-days: 30
