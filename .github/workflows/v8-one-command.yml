@@ -788,15 +788,15 @@ jobs:
               lines=[
                   "# Freddy's Picks AI — One Command",
                   f"**Command:** {r.get('command')}",
-                  f"**Historic date ending:** {r['historical_end_et']}",
+                  f"**Historic date ending:** {r.get('historical_end_et','Not supplied by this command')}",
                   "**Certified picks and certified +EV bets: 0.**",
                   "**Status:** Research only. Forward forecasts, when recorded, are NOT independently validated betting predictions.",
                   "",
                   "| Sport | Source days successful | Published games | Status |",
                   "|---|---:|---:|---|",
               ]
-              for lg,info in r['by_league'].items():
-                  lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
+              for lg,info in (r.get('by_league') or {}).items():
+                  lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info.get('status','UNKNOWN')} |")
               if r.get('command') == 'run_arbitrage':
                   a=r.get('arbitrage_research') or {}
                   lines.extend(["", "## All-Sports Crossbook Arbitrage Research",
