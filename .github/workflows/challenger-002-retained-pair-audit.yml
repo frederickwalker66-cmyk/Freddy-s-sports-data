@@ -1,0 +1,88 @@
+name: Challenger-002 retained NBA pair audit
+on:
+  workflow_dispatch:
+    inputs:
+      scores_run_id:
+        description: "Successful NBA scores snapshot run ID"
+        required: true
+        default: "44931759996"
+        type: string
+      odds_run_id:
+        description: "Successful NBA odds snapshot run ID"
+        required: true
+        default: "44932013570"
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: challenger-002-nba-intake-metadata
+          run-id: ${{ inputs.scores_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/scores-metadata
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: challenger-002-licensed-nba_scores-*
+          run-id: ${{ inputs.scores_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/scores
+      - uses: actions/download-artifact@v4
+        with:
+          name: challenger-002-nba-intake-metadata
+          run-id: ${{ inputs.odds_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/odds-metadata
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: challenger-002-licensed-nba_odds-*
+          run-id: ${{ inputs.odds_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/odds
+      - name: Validate retained artifacts without logging licensed records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from research.challenger_002_artifact_pair_audit import audit_pair
+          root=Path(os.environ["RUNNER_TEMP"])
+          def single(folder):
+              matches=list((root/folder).rglob("*.json"))
+              if len(matches)!=1:
+                  raise RuntimeError(f"EXPECTED_EXACTLY_ONE_JSON_IN_{folder}: {len(matches)}")
+              return matches[0]
+          report=audit_pair(single("scores").read_bytes(),
+                            single("odds").read_bytes(),
+                            json.loads(single("scores-metadata").read_text()),
+                            json.loads(single("odds-metadata").read_text()))
+          (root/"nba-pair-audit.json").write_text(json.dumps(report,indent=2)+"\n")
+          lines=["## Retained NBA scores/odds artifact audit","",
+                 f"- Game date: {report['game_date']}",
+                 f"- Digest integrity: {'PASS' if report['digest_integrity_passed'] else 'FAIL'}",
+                 "- Certification: HOLD",
+                 "- Certified TAKE: 0", "", "### Unverified requirements"]
+          lines += ["- "+x for x in report["blockers"]]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          assert report["digest_integrity_passed"], "Stored snapshot digest mismatch"
+          assert "DIFFERENT_GAME_DATES" not in report["blockers"], "Game date mismatch"
+          assert "SCORES_METADATA_MISMATCH" not in report["blockers"], "Scores metadata mismatch"
+          assert "ODDS_METADATA_MISMATCH" not in report["blockers"], "Odds metadata mismatch"
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: challenger-002-nba-pair-audit-report
+          path: ${{ runner.temp }}/nba-pair-audit.json
+          if-no-files-found: ignore
+          retention-days: 30
