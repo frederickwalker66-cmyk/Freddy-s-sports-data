@@ -7,6 +7,8 @@ on:
     paths:
       - 'research/challenger_003_train_predict.py'
       - 'tests/test_challenger_003_train_predict.py'
+      - 'research/challenger_003_grade_ledger.py'
+      - 'tests/test_challenger_003_grade_ledger.py'
       - '.github/workflows/challenger-003-model.yml'
 jobs:
   validate:
@@ -31,6 +33,17 @@ jobs:
           print('Independent certification gate:',r['status'])
           print('Missing:',', '.join(r['missing']))
           PY
+      - name: Test immutable prediction grading and safety gates
+        run: python -m unittest discover -s tests -p 'test_challenger_003_grade_ledger.py' -v
+      - name: Grade retained pregame predictions against verified settlement candidates
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          if [ -f approved_data/challenger_003_pregame_predictions.jsonl ] && [ -f approved_data/challenger_003_settlements.jsonl ]; then
+            python -m research.challenger_003_grade_ledger --predictions approved_data/challenger_003_pregame_predictions.jsonl --results approved_data/challenger_003_settlements.jsonl --output artifacts/challenger_003_grading.json
+          else
+            echo '{"status":"HOLD_MISSING_PREDICTIONS_OR_SETTLEMENTS","graded_count":0,"certified_take_count":0}' > artifacts/challenger_003_grading.json
+          fi
       - name: Daily training from approved point-in-time data, if available
         shell: bash
         run: |
