@@ -25,6 +25,7 @@ from research.sharp_edge_source_readiness import audit as audit_sharp_edge_sourc
 from research.universal_sharp_edge_board import build_universal_board
 from research.sharp_edge_certification_gap import assess as assess_sharp_edge_certification_gap
 from research.pregame_five_gate import run as run_pregame_five_gate
+from research.trusted_provider_gateway import readiness as trusted_source_readiness
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -587,6 +588,7 @@ def main(argv=None):
     p.add_argument("--days", type=int, default=None)
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
+    p.add_argument("--trusted-source-readiness", action="store_true", help="Check explicitly configured authenticated provider endpoints; never certifies EV")
     p.add_argument("--pregame-input", help="Optional local pregame five-gate snapshot JSON (untrusted, HOLD-only)")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--sgo-archive-dir", help="Downloaded existing SportsGameOdds run artifacts; no API calls")
@@ -707,6 +709,12 @@ def main(argv=None):
     output_path.write_text(json.dumps(pregame, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     main_report_path = Path(args.output_dir) / "ONE_COMMAND_REPORT.json"
     main_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if args.trusted_source_readiness:
+        trusted = trusted_source_readiness()
+        report["trusted_source_readiness"] = trusted
+        trusted_path = Path(args.output_dir) / "TRUSTED_SOURCE_READINESS.json"
+        trusted_path.write_text(json.dumps(trusted, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        main_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"command": requested_user_command,
                       "leagues": report["requested_leagues"],
                       "research_edges": len(report.get("research_edge_candidates", [])),
