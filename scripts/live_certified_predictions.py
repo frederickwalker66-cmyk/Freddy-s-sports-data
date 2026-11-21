@@ -58,6 +58,13 @@ def main():
             feed_state = "FEED_STATUS_INVALID"
     except (ValueError, OSError, UnicodeError):
         feed_state = "FEED_STATUS_INVALID"
+    # Bind the candidate batch to the intake summary. Reject stale, substituted,
+    # or truncated candidate files even if the status file says FEED_RECEIVED.
+    expected_count = feed_report.get("candidate_count") if isinstance(feed_report, dict) else None
+    if (feed_state == "FEED_RECEIVED" and
+            (type(expected_count) is not int or expected_count <= 0 or
+             expected_count != len(candidates))):
+        feed_state = "FEED_CANDIDATE_COUNT_MISMATCH"
     if feed_state != "FEED_RECEIVED":
         candidates = []  # No verified intake provenance: never certify leftover/manual data.
     report = run(candidates, model_key=os.getenv("SHARP_MODEL_ATTESTATION_KEY"),
