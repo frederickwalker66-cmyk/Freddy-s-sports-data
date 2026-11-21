@@ -112,16 +112,47 @@ def execute_frozen_champion(input_record, *, artifact_path, expected_sha256,
             "independently_validated": False, "certified": False}
 
 
+def inspect_champion_artifact(env):
+    artifact_name = env.get("FREDDY_CHAMPION_ARTIFACT")
+    runner_name = env.get("FREDDY_CHAMPION_RUNNER")
+    expected = env.get("FREDDY_CHAMPION_SHA256")
+    if not all((artifact_name, runner_name, expected)):
+        return {"status": "HOLD_MODEL_NOT_CONFIGURED", "hash_verified": False}
+    artifact = Path(artifact_name)
+    runner = Path(runner_name)
+    if (not artifact.is_file() or artifact.is_symlink()
+            or not runner.is_file() or runner.is_symlink()):
+        return {"status": "HOLD_MODEL_ARTIFACT_OR_RUNNER_MISSING", "hash_verified": False}
+    if len(expected) != 64 or any(c not in "0123456789abcdefABCDEF" for c in expected):
+        return {"status": "HOLD_MODEL_HASH_INVALID", "hash_verified": False}
+    actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    if actual != expected.lower():
+        return {"status": "HOLD_MODEL_HASH_MISMATCH", "hash_verified": False}
+    return {"status": "ARTIFACT_HASH_VERIFIED_INFERENCE_NOT_CERTIFIED",
+            "hash_verified": True, "independent_validation": False}
+
+
 def readiness(env=None):
     env = os.environ if env is None else env
     sources = collect_configured_sources(env)
-    model = {"status": "HOLD_MODEL_NOT_CONFIGURED"}
-    artifact = env.get("FREDDY_CHAMPION_ARTIFACT")
-    runner = env.get("FREDDY_CHAMPION_RUNNER")
-    sha = env.get("FREDDY_CHAMPION_SHA256")
-    if all((artifact, runner, sha)):
-        model = {"status": "CONFIGURED_NOT_INDEPENDENTLY_VERIFIED",
-                 "artifact_hash_pinned": True}
+    model = inspect_champion_artifact(env)
+    blockers = []
+    if sources["odds"]["status"] != "RECEIVED_UNVERIFIED_CONTENT":
+        blockers.append("authenticated_odds_response_missing")
+    else:
+        blockers.append("odds_market_content_not_independently_authenticated")
+    if sources["roster_injury"]["status"] != "RECEIVED_UNVERIFIED_CONTENT":
+        blockers.append("roster_injury_response_missing")
+    else:
+        blockers.append("roster_injury_content_not_independently_authenticated")
+    if not model["hash_verified"]:
+        blockers.append("frozen_champion_artifact_not_verified")
+    else:
+        blockers.append("native_model_inference_and_calibration_not_independently_validated")
+    blockers.extend(["exact_market_identity_and_freshness_unverified",
+                     "native_market_probability_and_positive_EV_unverified",
+                     "independent_pregame_recheck_missing"])
     return {"sources": sources, "champion_001": model,
+            "certification_blockers": blockers,
             "certified_predictions": 0, "decision": "HOLD",
-            "warning": "Transport credentials, pinned artifacts, and user-supplied data do not independently certify betting EV."}
+            "warning": "Transport credentials and artifact hashes alone cannot certify betting EV."}
