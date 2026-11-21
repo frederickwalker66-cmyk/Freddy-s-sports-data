@@ -36,6 +36,11 @@ jobs:
         run: |
           snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
           python challenger_audit.py --input "$snapshot" --schedule sharp-edge-pro/output/audit/schedule_manifest.json --output-dir sharp-edge-pro/output/audit
+      - name: Run NBA unified market report (spreads, totals, player props, combos)
+        run: |
+          snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
+          test -n "$snapshot"
+          python sharp-edge-pro/run_nba.py --input "$snapshot"
       - name: Publish honest status
         if: always()
         run: |
