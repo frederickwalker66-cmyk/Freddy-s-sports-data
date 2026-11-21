@@ -15,6 +15,7 @@ on:
       - 'research/challenger_002_nba_market_time.py'
       - 'research/challenger_002_nba_market_time_formats.py'
       - 'research/challenger_002_nba_market_timezone_sensitivity.py'
+      - 'research/challenger_002_nba_source_integrity.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -147,6 +148,10 @@ jobs:
                                         json.loads(single("odds-metadata").read_text()))
           (root/"nba-market-timezone-sensitivity.json").write_text(json.dumps(zone_screen,indent=2)+"\\n")
           print("NBA_MARKET_ZONE_SENSITIVITY="+json.dumps(zone_screen,sort_keys=True))
+          from research.challenger_002_nba_source_integrity import audit as integrity_audit
+          integrity=integrity_audit(json.loads(single("odds").read_text()))
+          (root/"nba-source-integrity.json").write_text(json.dumps(integrity,indent=2)+"\\n")
+          print("NBA_SOURCE_INTEGRITY="+json.dumps(integrity,sort_keys=True))
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write(f"\n### Research-only joined games: {joined['joined_game_count']}\n")
               summary.write("- Certified TAKE: 0; training approval: 0\n")
@@ -174,5 +179,6 @@ jobs:
             ${{ runner.temp }}/nba-market-time.json
             ${{ runner.temp }}/nba-market-time-formats.json
             ${{ runner.temp }}/nba-market-timezone-sensitivity.json
+            ${{ runner.temp }}/nba-source-integrity.json
           if-no-files-found: ignore
           retention-days: 30
