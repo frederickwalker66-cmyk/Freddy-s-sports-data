@@ -4,8 +4,10 @@ on:
   pull_request:
     paths:
       - "research/challenger_002_baseline.py"
+      - "research/challenger_002_source_validation.py"
       - "research/CHALLENGER_002_README.md"
       - "tests/test_challenger_002_baseline.py"
+      - "tests/test_challenger_002_source_validation.py"
       - ".github/workflows/challenger-002-research.yml"
   workflow_dispatch:
 
@@ -22,9 +24,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile research module and tests
-        run: python -m py_compile research/challenger_002_baseline.py tests/test_challenger_002_baseline.py
+        run: python -m py_compile research/challenger_002_baseline.py research/challenger_002_source_validation.py tests/test_challenger_002_baseline.py tests/test_challenger_002_source_validation.py
       - name: Run offline fail-closed regression tests
-        run: python -m unittest discover -s tests -p 'test_challenger_002_baseline.py' -v
+        run: python -m unittest discover -s tests -p 'test_challenger_002*.py' -v
       - name: Assert no Certified TAKE from research lane
         run: |
           python - <<'PY'
