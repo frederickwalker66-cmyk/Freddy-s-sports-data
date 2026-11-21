@@ -15,12 +15,20 @@ def profile(scores, odds):
         return sorted({k for row in rows if isinstance(row,dict) for k in row})
     score_keys=keys(scores)
     odds_keys=keys(odds)
-    candidates=("GameID","GameId","GameIDOriginal","Game")
+    candidates=("GameID","GlobalGameID")
     def ids(rows,field):
+        # SportsDataIO scores uses GameID, while odds uses GameId.
+        # Resolve only unambiguous case-insensitive key aliases.
+        def resolve(row):
+            matches=[key for key in row if key.casefold()==field.casefold()]
+            return matches[0] if len(matches)==1 else None
         result=[]
         for row in rows:
-            if isinstance(row,dict) and row.get(field) is not None:
-                val=row[field]
+            if isinstance(row,dict):
+                key=resolve(row)
+                if key is None or row[key] is None:
+                    continue
+                val=row[key]
                 if isinstance(val,(str,int)) and str(val).strip():
                     result.append(str(val))
         return result
