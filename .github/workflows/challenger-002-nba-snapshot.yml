@@ -1,0 +1,67 @@
+name: Challenger-002 NBA authenticated snapshot (manual research only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_date:
+        description: "NBA date YYYY-MM-DD; no default to avoid unintended requests"
+        required: true
+        type: string
+      feed:
+        description: "Choose one licensed NBA data feed"
+        required: true
+        type: choice
+        options:
+          - nba_scores
+          - nba_odds
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+      SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+      GAME_DATE: ${{ inputs.game_date }}
+      FEED: ${{ inputs.feed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Capture authenticated provider snapshot without printing licensed records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m research.challenger_002_authenticated_intake \
+            --date "$GAME_DATE" --kind "$FEED" \
+            --output-dir "$RUNNER_TEMP/challenger_002_licensed" \
+            --report "$RUNNER_TEMP/challenger_002_intake_report.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"challenger_002_intake_report.json").read_text())
+          lines=["## Challenger-002 authenticated NBA research snapshot","",
+                 f"- Feed: {report['kind']}",
+                 f"- Date: {report['date']}",
+                 f"- Status: {report['status']}",
+                 f"- Record count: {report.get('record_count',0)}",
+                 f"- SHA256 (canonical snapshot): {report.get('canonical_payload_sha256','unavailable')}",
+                 "- Historical pregame availability: NOT VERIFIED",
+                 "- DraftKings identity: NOT VERIFIED",
+                 "- Certified TAKE: 0 (HOLD)",
+                 "",
+                 "Raw licensed snapshot is retained only on the ephemeral runner, not uploaded as an artifact."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          PY
+      - name: Upload metadata report only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-002-nba-intake-metadata
+          path: ${{ runner.temp }}/challenger_002_intake_report.json
+          if-no-files-found: ignore
+          retention-days: 7
