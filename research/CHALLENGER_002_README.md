@@ -5,11 +5,11 @@ This is a **new** model, not a recovered Champion-001. Original Champion-001 rem
 ## Initial implementation
 `python -m research.challenger_002_baseline --input point_in_time_examples.jsonl --output artifacts/challenger_002_research.json`
 
-Each JSONL record must have `event_id`, `event_start_at`, `observed_at` (timezone-aware ISO timestamps), `outcome` (0/1), and `features` (same numeric feature names on every record). Each row represents a **binary target** and must have a unique event ID for that target; use separate datasets per market. Features must be point-in-time, and settled outcomes must be independently verified. The current script checks timestamps and schema but **cannot prove** that the underlying feature values were genuinely available at the recorded time.
+Each JSONL record must have `event_id`, `event_start_at`, `observed_at`, `outcome_observed_at` (timezone-aware ISO timestamps; outcome timestamp must be after event start), `outcome` (0/1), and `features` (same numeric feature names on every record). Each row represents a **binary target** and must have a unique event ID for that target; use separate datasets per market. Features must be point-in-time, and settled outcomes must be independently verified. The current script checks timestamps and schema but **cannot prove** that the underlying feature values were genuinely available at the recorded time.
 
-Minimum initial research gate: 200 training rows and 50 later testing rows. Chronological holdout; train observations must predate the first test event. No fabricated historical data, no model probability substitutions, and no sportsbook-implied probabilities as training targets.
+Minimum initial research gate: 200 training rows and 50 later testing rows. Chronological holdout; train features **and recorded outcome availability** must predate the first test event. No fabricated historical data, no model probability substitutions, and no sportsbook-implied probabilities as training targets.
 
-## Explicitly NOT implemented or certified
+Run offline checks: `python -m unittest tests.test_challenger_002_baseline` (tests must pass before merging).\n\n## Explicitly NOT implemented or certified
 - No production deployment, no live SportsDataIO or DraftKings ingestion.
 - No authenticated odds, injuries, roster verification, or player props feed.
 - No independent data provenance, model calibration signoff, market-specific holdout certification, or release signature.
