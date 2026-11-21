@@ -1,7 +1,7 @@
 """Challenger-002: isolated, research-only logistic baseline.
 
 No sportsbook API, no certified TAKE output, no Champion-001 modification.
-Input JSONL rows: event_id, event_start_at, observed_at, features (numeric
+Input JSONL rows: event_id, event_start_at, observed_at, outcome_observed_at, features (numeric
 mapping), outcome (0 or 1). Only use features known at observed_at.
 Chronological train/test split; the test portion is never used to fit.
 """
@@ -32,6 +32,9 @@ def evaluate(rows, train_fraction=0.7, min_train=200, min_test=50):
             if not isinstance(event_id, str) or not event_id or event_id in seen:
                 raise ValueError("missing_or_duplicate_event")
             start, observed = timestamp(row["event_start_at"]), timestamp(row["observed_at"])
+            outcome_observed = timestamp(row["outcome_observed_at"])
+            if outcome_observed <= start:
+                raise ValueError("outcome_time_not_after_start")
             if observed >= start:
                 raise ValueError("not_pregame")
             outcome = row["outcome"]
@@ -44,7 +47,7 @@ def evaluate(rows, train_fraction=0.7, min_train=200, min_test=50):
                    or not math.isfinite(v) for k, v in features.items()):
                 raise ValueError("invalid_features")
             seen.add(event_id)
-            valid.append((start, observed, event_id, features, outcome))
+            valid.append((start, observed, event_id, features, outcome, outcome_observed))
         except (KeyError, ValueError, TypeError, AttributeError) as exc:
             rejected.append({"row": i, "reason": str(exc)})
     valid.sort(key=lambda r: (r[0], r[2]))
@@ -58,8 +61,8 @@ def evaluate(rows, train_fraction=0.7, min_train=200, min_test=50):
         return report
     # No training on future events or features observed after first test kickoff.
     cutoff = test[0][0]
-    if any(r[1] >= cutoff for r in train):
-        report["blockers"] = ["TRAIN_FEATURES_OVERLAP_TEST_PERIOD"]
+    if any(r[1] >= cutoff or r[5] >= cutoff for r in train):
+        report["blockers"] = ["TRAIN_FEATURES_OR_LABELS_OVERLAP_TEST_PERIOD"]
         return report
     keys = sorted(set().union(*(r[3].keys() for r in train)))
     if any(set(r[3]) != set(keys) for r in train + test):
