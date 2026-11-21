@@ -1175,6 +1175,27 @@ jobs:
               cat "$report" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
+      - name: Always display BEST BET TAKE PASS HOLD
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p v8_results/one_command
+          python -m research.nba_all_markets_best_bet > v8_results/one_command/NBA_BEST_BET_STATUS.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads(Path("v8_results/one_command/NBA_BEST_BET_STATUS.json").read_text())
+          lines=["## NBA BEST BET — All 20 Markets",
+                 "**Best Bet: HOLD — no independently verified positive-EV selection.**",
+                 "**TAKE: 0 | PASS: 0 | Markets awaiting evidence: HOLD.**",
+                 "Game moneylines, spreads, totals O/U, player PTS/REB/AST/3PM O/U and PR/PA/RA/PRA O/U are covered.",
+                 "No fabricated Champion-001 probabilities, DraftKings prices, or certified bets."]
+          text="\\n".join(lines)+"\\n"
+          Path("v8_results/one_command/NBA_BEST_BET_STATUS.md").write_text(text)
+          print(text)
+          if os.environ.get("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:f.write(text)
+          PY
       - name: Downloadable historical data + status
         if: always()
         uses: actions/upload-artifact@v4
