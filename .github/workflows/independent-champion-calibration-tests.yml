@@ -1,0 +1,24 @@
+name: Independent Champion Calibration Tests
+on:
+  push:
+    paths:
+      - research/independent_champion_calibration.py
+      - tests/test_independent_champion_calibration.py
+      - .github/workflows/independent-champion-calibration-tests.yml
+  pull_request:
+    paths:
+      - research/independent_champion_calibration.py
+      - tests/test_independent_champion_calibration.py
+      - .github/workflows/independent-champion-calibration-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_independent_champion_calibration.py' -v
