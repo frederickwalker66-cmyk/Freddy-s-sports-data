@@ -15,10 +15,10 @@ on:
           - nba_scores
           - nba_odds
       licensed_retention_approved:
-        description: "Confirm SportsDataIO license permits storing these raw records in private GitHub Actions artifacts"
+        description: "User confirmed licensed retention permission; disable if subscription terms change"
         required: true
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
