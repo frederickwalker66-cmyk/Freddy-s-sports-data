@@ -11,7 +11,23 @@ MIN_TRAIN, MIN_HOLDOUT = 200, 50
 
 def assess(rows):
     accepted, rejected = {}, Counter()
+    seen_raw_keys, ambiguous_keys = set(), set()
     for row in rows:
+        # Identify duplicates *before* checking review flags or source timing.
+        # A bad later copy (or a good later copy after a bad first one) must
+        # never leave a first-in-order event silently eligible for training.
+        key = None
+        if isinstance(row, dict) and row.get("league") in LEAGUES:
+            event = row.get("event_id")
+            if (isinstance(event, str) and event.strip()) or type(event) is int:
+                key = (row["league"], str(event))
+        if key is not None:
+            if key in seen_raw_keys:
+                ambiguous_keys.add(key)
+                accepted.pop(key, None)
+                rejected["duplicate_event_quarantined"] += 1
+                continue
+            seen_raw_keys.add(key)
         try:
             validate_record(row)
             if row.get("qualified_for_challenger_backtest") is not True:
@@ -28,14 +44,14 @@ def assess(rows):
             if (timestamp(row["start_utc"]) >= datetime.now(timezone.utc)
                     or timestamp(row["outcome_verified_at_utc"]) > datetime.now(timezone.utc)):
                 raise ValueError("future_or_unsettled_at_readiness_check")
-            key = (row["league"], str(row["event_id"]))
-            if key in accepted:
-                raise ValueError("duplicate_event")
+            if key is None or key in ambiguous_keys:
+                raise ValueError("missing_or_ambiguous_event_identity")
             accepted[key] = row
         except (ValueError, TypeError, KeyError, OverflowError) as exc:
             rejected[str(exc)[:100]] += 1
     per_league = {}
     for league in sorted(LEAGUES):
+        ambiguous_in_league = sum(1 for lg, _ in ambiguous_keys if lg == league)
         group = sorted((r for (lg, _), r in accepted.items() if lg == league),
                        key=lambda r: (timestamp(r["start_utc"]), str(r["event_id"])))
         # Match challenger_nba_probability.train_engine: the holdout starts
@@ -48,11 +64,15 @@ def assess(rows):
         eligible = [r for r in prior
                     if first_holdout and timestamp(r["outcome_verified_at_utc"]) <= first_holdout]
         schema_ok = bool(group) and all(set(r["features"]) == set(group[0]["features"]) for r in group)
-        ready = (schema_ok and len(eligible) >= MIN_TRAIN and len(holdout) >= MIN_HOLDOUT
+        ready = (ambiguous_in_league == 0 and schema_ok
+                 and len(eligible) >= MIN_TRAIN and len(holdout) >= MIN_HOLDOUT
                  and len({r["outcome"] for r in eligible}) == 2
                  and len({r["outcome"] for r in holdout}) == 2)
         per_league[league] = {
             "accepted_independently_audited_records": len(group),
+            "ambiguous_duplicate_event_count": ambiguous_in_league,
+            "source_integrity_blocker": ("DUPLICATE_EVENT_EVIDENCE"
+                                         if ambiguous_in_league else None),
             "eligible_chronological_training_records": len(eligible),
             "later_holdout_records": len(holdout),
             "holdout_cutoff_utc_day": cutoff_day.isoformat() if cutoff_day else None,
@@ -66,11 +86,14 @@ def assess(rows):
         "stage": "challenger_training_readiness_gate",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "by_league": per_league, "rejected": dict(sorted(rejected.items())),
+        "ambiguous_duplicate_event_count": len(ambiguous_keys),
+        "leagues_blocked_by_duplicate_event_evidence":
+            sorted({lg for lg, _ in ambiguous_keys}),
         "qualified_training_examples": sum(v["eligible_chronological_training_records"] for v in per_league.values()),
         "leagues_ready": [k for k,v in per_league.items() if v["research_training_ready"]],
         "certified_predictions": 0, "bet_ready_selections": 0,
         "champion_001_modified": False,
-        "warning": "NBA readiness now requires the probability engine's actual source-review fields and a whole-UTC-day chronological split. Boolean flags and hashes are still declarations, NOT independent proof; no dataset is certified or trained by this report.",
+        "warning": "NBA readiness now requires the probability engine's actual source-review fields and a whole-UTC-day chronological split. Boolean flags and hashes are still declarations, NOT independent proof; ambiguous duplicate event IDs quarantine both original and repeated rows and block league readiness; no dataset is certified or trained by this report.",
     }
 
 def main():
