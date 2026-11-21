@@ -1,0 +1,46 @@
+name: SportsDataIO NBA Authenticated Readiness (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      game_date:
+        description: "NBA game date (YYYY-MM-DD); leave blank for UTC today"
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe provider without exposing credentials
+        shell: bash
+        env:
+          GAME_DATE: ${{ inputs.game_date }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATE}" ]; then GAME_DATE="$(date -u +%F)"; fi
+          python -m research.sportsdataio_nba_probe --date "${GAME_DATE}" --output SPORTSDATAIO_NBA_READINESS.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report=json.loads(Path("SPORTSDATAIO_NBA_READINESS.json").read_text())
+          summary=Path(os.environ["GITHUB_STEP_SUMMARY"])
+          lines=["## SportsDataIO NBA authenticated probe", "", "| Feed | Result |", "|---|---|"]
+          for key, result in report["endpoints"].items():
+              lines.append(f"| {key} | {result['status']} |")
+          lines.extend(["", "**Certified TAKE: 0 — HOLD.** API response alone does not certify DraftKings or model EV."])
+          summary.write_text("\n".join(lines)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sportsdataio-nba-readiness
+          path: SPORTSDATAIO_NBA_READINESS.json
+          retention-days: 7

@@ -1,0 +1,24 @@
+name: SportsDataIO NBA Endpoint Tests
+on:
+  push:
+    paths:
+      - research/sportsdataio_nba_probe.py
+      - tests/test_sportsdataio_nba_probe.py
+      - .github/workflows/sportsdataio-nba-endpoint-tests.yml
+  pull_request:
+    paths:
+      - research/sportsdataio_nba_probe.py
+      - tests/test_sportsdataio_nba_probe.py
+      - .github/workflows/sportsdataio-nba-endpoint-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_sportsdataio_nba_probe.py' -v
