@@ -20,6 +20,8 @@ class IntegrityGateTests(unittest.TestCase):
         self.assertIn("roster_team_mismatch", validate(record, now))
         record["roster_team_id"] = "A"
         self.assertEqual([], validate(record, now))
+        record["roster_verified_at"] = iso(now + dt.timedelta(minutes=1))
+        self.assertIn("verification_after_odds_capture", validate(record, now))
 
 if __name__ == "__main__":
     unittest.main()
