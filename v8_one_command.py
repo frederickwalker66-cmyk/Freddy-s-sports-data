@@ -25,6 +25,7 @@ from research.sharp_edge_source_readiness import audit as audit_sharp_edge_sourc
 from research.universal_sharp_edge_board import build_universal_board
 from research.sharp_edge_certification_gap import assess as assess_sharp_edge_certification_gap
 from research.pregame_five_gate import run as run_pregame_five_gate
+from research.trusted_source_intake import collect as collect_trusted_sources
 from v8_source_cadence_watchdog import evaluate as source_health
 from v8_certification_audit import inspect_archives as certification_audit
 from v8_audit_reconciliation import inspect_full as full_audit
@@ -587,6 +588,7 @@ def main(argv=None):
     p.add_argument("--days", type=int, default=None)
     p.add_argument("--end-date", default="")
     p.add_argument("--edge-input", help="Optional JSONL of external research forecasts and quotes")
+    p.add_argument("--collect-trusted-sources", action="store_true", help="Call configured HTTPS provider endpoints, never certify on transport alone")
     p.add_argument("--pregame-input", help="Optional local pregame five-gate snapshot JSON (untrusted, HOLD-only)")
     p.add_argument("--sharp-archive-dir", help="Downloaded existing SharpAPI run artifacts; no API calls")
     p.add_argument("--sgo-archive-dir", help="Downloaded existing SportsGameOdds run artifacts; no API calls")
@@ -701,6 +703,11 @@ def main(argv=None):
             raise ValueError("pregame_input_too_large")
         snapshot = json.loads(pregame_path.read_text(encoding="utf-8"))
     pregame = run_pregame_five_gate(snapshot)
+    if args.collect_trusted_sources:
+        intake = collect_trusted_sources()
+        report["trusted_source_intake"] = intake
+        (Path(args.output_dir) / "TRUSTED_SOURCE_INTAKE.json").write_text(
+            json.dumps(intake, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["pregame_five_gate"] = pregame
     output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
