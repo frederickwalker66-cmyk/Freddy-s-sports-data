@@ -1,0 +1,61 @@
+name: Freddy's Picks AI operational readiness monitor
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '12 12,22 * * *'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  operational-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Inspect latest critical workflow runs and publish truthful readiness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, urllib.request, datetime
+          from pathlib import Path
+          repo=os.environ['REPO']
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','User-Agent':'freddys-readiness'}
+          url=f'https://api.github.com/repos/{repo}/actions/runs?per_page=100'
+          with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=20) as response:
+              runs=json.load(response).get('workflow_runs',[])
+          names=[
+            "Freddy's Picks AI — One Command Train + Certification Gate",
+            'V8 durable NBA forward research ledger and leaderboard',
+            'Challenger-001 prospective outcome linkage validation (research only)',
+            'V10 Sportsbook Source Research — Signed DraftKings/FanDuel Snapshots',
+          ]
+          checks={}
+          for name in names:
+              found=next((r for r in runs if r.get('name')==name),None)
+              checks[name]={'status':found.get('status'),'conclusion':found.get('conclusion'),'url':found.get('html_url')} if found else {'status':'missing','conclusion':None}
+          blockers=['DraftKings executable checkout prices not independently verified',
+                    'Champion-001 genuine calibrated probabilities not independently verified',
+                    'Current roster/injury and point-in-time source identity not independently verified',
+                    'Qualified settled shadow predictions and calibration not established']
+          report={'checked_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  'operational_status':'HOLD','certified_take_count':0,
+                  'production_model':'Champion-001 frozen',
+                  'workflow_checks':checks,'certification_blockers':blockers}
+          Path('operational_readiness.json').write_text(json.dumps(report,indent=2)+'\n')
+          lines=['# Freddy\'s Picks AI operational readiness','',
+                 '**Certification: HOLD — 0 certified TAKE.**','',
+                 '| Workflow | Latest status | Conclusion |','|---|---|---|']
+          for name,value in checks.items():
+              lines.append(f"| {name} | {value['status']} | {value['conclusion'] or 'not established'} |")
+          lines.extend(['','## Remaining certification blockers']+['- '+x for x in blockers])
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operational-readiness
+          path: operational_readiness.json
+          retention-days: 30
