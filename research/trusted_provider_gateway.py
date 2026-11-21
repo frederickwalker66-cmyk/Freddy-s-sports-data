@@ -103,7 +103,7 @@ def execute_frozen_champion(input_record, *, artifact_path, expected_sha256,
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         raise SourceUnavailable("champion_execution_failed") from exc
     p = output.get("model_probability") if isinstance(output, dict) else None
-    if (output.get("model_id") != "Champion-001" or type(p) not in (float, int)
+    if (not isinstance(output, dict) or output.get("model_id") != "Champion-001" or type(p) not in (float, int)
             or not 0 < p < 1 or not output.get("forecast_run_id")):
         raise SourceUnavailable("champion_output_invalid")
     return {"model_id": "Champion-001", "model_probability": p,
