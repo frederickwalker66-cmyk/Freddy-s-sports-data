@@ -26,6 +26,7 @@ class SportsDataIOProbeTests(unittest.TestCase):
         self.assertEqual([x[1] for x in calls], ["odds-test", "odds-test", "players-test", "players-test"])
         self.assertTrue(all(x[2] == HOST for x in calls))
         self.assertEqual(r["certified_take_count"], 0)
+        self.assertEqual(r["endpoints"]["pregame_odds"]["status"], "HOLD_EMPTY_PROVIDER_RESPONSE")
         self.assertEqual(r["decision"], "HOLD")
 
     def test_invalid_day_rejected(self):

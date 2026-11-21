@@ -47,7 +47,8 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
                 results[name] = {"status": "HOLD_UNEXPECTED_PROVIDER_SCHEMA"}
                 continue
             results[name] = {
-                "status": "RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS",
+                "status": ("RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS"
+                           if payload else "HOLD_EMPTY_PROVIDER_RESPONSE"),
                 "retrieved_at": response["retrieved_at"],
                 "record_count": len(payload),
                 "transport_authenticated": True,

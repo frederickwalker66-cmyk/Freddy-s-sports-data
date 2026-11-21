@@ -57,9 +57,12 @@ jobs:
               raise SystemExit("VERIFICATION_FAILED: provider readiness report missing")
           report=json.loads(path.read_text())
           statuses={name:item["status"] for name,item in report["endpoints"].items()}
+          acceptable={"RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS", "HOLD_EMPTY_PROVIDER_RESPONSE"}
           failures={name:status for name,status in statuses.items()
-                    if status!="RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS"}
+                    if status not in acceptable or (name=="players" and status=="HOLD_EMPTY_PROVIDER_RESPONSE")}
           if failures:
               raise SystemExit("VERIFICATION_FAILED: "+repr(failures))
-          print("Authenticated provider endpoints responded. DraftKings identity, rosters, model inference and certified TAKE still HOLD.")
+          empty=[name for name,status in statuses.items() if status=="HOLD_EMPTY_PROVIDER_RESPONSE"]
+          print("Authenticated provider endpoints responded; empty feeds:", empty)
+          print("Empty odds on a no-game date may be legitimate; DraftKings identity, rosters, model inference and certified TAKE still HOLD.")
           PY
