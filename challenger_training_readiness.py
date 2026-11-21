@@ -17,7 +17,8 @@ def assess(rows):
         # A bad later copy (or a good later copy after a bad first one) must
         # never leave a first-in-order event silently eligible for training.
         key = None
-        if isinstance(row, dict) and row.get("league") in LEAGUES:
+        if (isinstance(row, dict) and isinstance(row.get("league"), str)
+                and row["league"] in LEAGUES):
             event = row.get("event_id")
             if (isinstance(event, str) and event.strip()) or type(event) is int:
                 key = (row["league"], str(event))
