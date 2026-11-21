@@ -159,7 +159,10 @@ def train(rows, now=None, min_train=MIN_TRAIN, min_holdout=MIN_HOLDOUT):
         if not score["brier_improves_prior"] or not score["log_loss_improves_prior"]:
             report["status"] = "blocked_no_out_of_sample_improvement"
             continue
-        fitted = make_fit(games, names, league)
+        # Preserve the untouched chronological holdout after scoring. Re-fitting
+        # on all games would make the saved coefficients different from those
+        # evaluated above and contaminate any later holdout-based claim.
+        fitted = preliminary
         artifact = {"model_version": f"challenger-001-{league}-native-trained-v1",
                     "league": league, "market_type": MARKETS[league],
                     "settlement_scope": SCOPE[league], "lane": "Challenger-001",
@@ -170,6 +173,11 @@ def train(rows, now=None, min_train=MIN_TRAIN, min_holdout=MIN_HOLDOUT):
                     "chronological_training_rows": len(training),
                     "later_holdout_rows": len(holdout),
                     "historical_source_evidence_sha256": digest(games),
+                    "fitted_training_evidence_sha256": digest(training),
+                    "untouched_holdout_evidence_sha256": digest(holdout),
+                    "fit_partition": "chronological_training_only",
+                    "holdout_excluded_from_coefficients": True,
+                    "holdout_start_utc": min(instant(r["start_utc"]) for r in holdout).isoformat(),
                     "trained_at_utc": now.isoformat(), **fitted}
         artifact["artifact_sha256"] = digest(artifact)
         check_model(artifact, league, now)
@@ -181,7 +189,8 @@ def train(rows, now=None, min_train=MIN_TRAIN, min_holdout=MIN_HOLDOUT):
                "trained_research_models": sorted(artifacts), "by_league": reports,
                "independent_source_authentication_performed_by_this_script": False,
                "source_reviews_cannot_self_authenticate": True,
-               "holdout_metrics_apply_to_pre_refit_fit_only": True,
+               "holdout_metrics_apply_to_saved_training_only_fit": True,
+               "no_holdout_refit": True,
                "player_prop_models_created": 0, "certified_champion_001_predictions": 0,
                "certified_challenger_001_predictions": 0, "certified_positive_ev_bets": 0,
                "bet_ready_selections": 0, "automated_bets_placed": 0,
