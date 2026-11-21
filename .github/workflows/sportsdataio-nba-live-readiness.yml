@@ -35,7 +35,10 @@ jobs:
           summary=Path(os.environ["GITHUB_STEP_SUMMARY"])
           lines=["## SportsDataIO NBA authenticated probe", "", "| Feed | Result |", "|---|---|"]
           for key, result in report["endpoints"].items():
-              lines.append(f"| {key} | {result['status']} |")
+              lines.append(f"| {key} | {result['status']} ({result.get('record_count', 0)} records) |")
+          lines.extend(["", "### Evidence gates", "",
+              f"- DraftKings markets independently verified: {report['draftkings_markets_verified']}",
+              f"- Player identities independently verified: {report['roster_identities_independently_verified']}"])
           lines.extend(["", "**Certified TAKE: 0 — HOLD.** API response alone does not certify DraftKings or model EV."])
           summary.write_text("\n".join(lines)+"\n")
           PY
