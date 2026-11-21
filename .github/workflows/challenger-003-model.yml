@@ -1,8 +1,8 @@
-name: Challenger-003 new model readiness (Champion frozen)
+name: Freddy's Picks AI — One Command Train + Certification Gate
 on:
   workflow_dispatch:
   schedule:
-    - cron: '20 12 * * *'
+    - cron: '20 12,21 * * *'
   push:
     paths:
       - 'research/challenger_003_train_predict.py'
@@ -20,6 +20,17 @@ jobs:
           python-version: '3.11'
       - name: Test new independent model
         run: python -m unittest discover -s tests -p 'test_challenger_003_train_predict.py' -v
+      - name: Verify sportsbook and model certification blockers
+        run: |
+          python -m research.challenger_002_certification_readiness > certification_readiness.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('certification_readiness.json').read_text())
+          assert r['certified_take_count']==0
+          print('Independent certification gate:',r['status'])
+          print('Missing:',', '.join(r['missing']))
+          PY
       - name: Daily training from approved point-in-time data, if available
         shell: bash
         run: |
@@ -29,7 +40,24 @@ jobs:
           else
             python -m research.challenger_003_train_predict --train /dev/null --output artifacts/challenger_003_readiness.json
           fi
-          cat artifacts/challenger_003_readiness.json >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path("artifacts/challenger_003_readiness.json").read_text())
+          g=json.loads(Path("certification_readiness.json").read_text())
+          report={"model":"Challenger-003","training_status":r["status"],
+                  "training_rows":r.get("train_rows",0),"holdout_rows":r.get("test_rows",0),
+                  "holdout_brier":r.get("holdout_brier"),
+                  "certification_status":g["status"],"missing_certification_evidence":g["missing"],
+                  "certified_take_count":0,"champion_001_modified":False,
+                  "note":"Research training does not authorize betting certification"}
+          Path("artifacts/ONE_COMMAND_STATUS.json").write_text(json.dumps(report,indent=2)+"\\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("## One Command — Train + Certification Gate\\n")
+              f.write("Training: "+r["status"]+"\\n\\n")
+              f.write("Certification: "+g["status"]+"; TAKE: 0\\n\\n")
+              f.write("Missing: "+", ".join(g["missing"])+"\\n")
+          PY
       - name: Publish honest readiness
         shell: bash
         run: |
