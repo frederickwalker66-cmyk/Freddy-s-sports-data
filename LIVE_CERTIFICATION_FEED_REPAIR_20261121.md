@@ -34,7 +34,7 @@ Set GitHub **Actions variable**:
   An entry in this variable is not itself independent model approval.
 
 These values cannot be invented in this repository or entered into chat.
-A single person generating two HMAC keys cannot establish independence.
+A single person generating multiple HMAC keys cannot establish independence.
 Model originality, immutable version provenance, independently reproduced
 reference outputs, prospective calibration, exact market/settlement and
 player status, and executable DraftKings checkout receipts still need independent
@@ -53,9 +53,15 @@ The private HTTPS endpoint returns UTF-8 JSON:
 
 The array is limited to 500 objects and 1 MB. Every nonempty row must include
 the **real** \`model_attestation\` and \`odds_attestation\` objects accepted by
-\`scripts/certify_sharp_edge.py\`. Both are HMAC-signed records with
+\`scripts/certify_sharp_edge.py\`. All three (`model_attestation`, `odds_attestation`, and
+`release_attestation`) are HMAC-signed records with
 \`payload\` and \`signature\` fields. They must reference the exact same event,
-market, selection and line. The odds receipt must be fresh, independently
+market, selection and line. The independent release record must match the model's artifact SHA-256,
+calibration-report SHA-256 and version; it must attest original Champion-001
+provenance, independently reproduced outputs and calibration review. The
+model payload must declare `model_family=Champion-001` and carry a native
+forecast receipt; the quote payload must carry a direct checkout receipt.
+The odds receipt must be fresh, independently
 authenticated and still pregame. An unsigned, expired, inconsistent, or
 unapproved candidate remains **HOLD**, never TAKE.
 
