@@ -16,3 +16,9 @@ Run offline checks: `python -m unittest tests.test_challenger_002_baseline` (tes
 - No Certified TAKE, no staking, and no modification to Champion-001 or existing certification gates.
 
 The output always contains `certified_take_count: 0`. Passing research metrics is not certification. Later phases must add source-backed point-in-time ingestion, per-market features, disjoint calibration and test windows, signing, verification, and production controls through separate reviewed changes.
+
+## Manual authenticated NBA snapshot workflow
+
+GitHub Actions: `.github/workflows/challenger-002-nba-snapshot.yml` (workflow_dispatch only). Select a date and `nba_scores` or `nba_odds`. Credentials are read from GitHub Actions secrets `SPORTSDATAIO_NBA_API_KEY`, `SPORTSDATAIO_ODDS_API_KEY`, or existing `SPORTSDATAIO`. No credentials should be pasted into issues or logs.
+
+This workflow makes an authenticated request through the existing trusted provider gateway, writes the licensed canonical response to an ephemeral runner directory, and uploads **metadata only** (status, count, digest, time). It does not upload raw licensed provider data. Because the ephemeral data is not retained, it cannot itself populate the training dataset or establish historical point-in-time custody. Source licensing and a secure retention design must be reviewed before persisting data. The workflow has not been executed merely by committing it.
