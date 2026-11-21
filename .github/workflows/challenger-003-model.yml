@@ -77,7 +77,7 @@ jobs:
           python - <<'PY'
           import json, os
           from pathlib import Path
-          report=json.loads(Path('artifacts/ONE_COMMAND_STATUS.json').read_text())
+          report=json.loads(Path('artifacts/ONE_COMMAND_STATUS.json').read_text().replace('}\\\\n','}'))
           grade=json.loads(Path('artifacts/challenger_003_grading.json').read_text())
           training=report['training_status']
           trained=training=='RESEARCH_TRAINED_NOT_CERTIFIED'
