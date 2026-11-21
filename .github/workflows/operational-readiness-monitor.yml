@@ -2,7 +2,7 @@ name: Freddy's Picks AI operational readiness monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: '12 12,22 * * *'
+    - cron: '7,22,37,52 * * * *'
 permissions:
   contents: read
   actions: read
@@ -31,6 +31,7 @@ jobs:
             'V8 durable NBA forward research ledger and leaderboard',
             'Challenger-001 prospective outcome linkage validation (research only)',
             'V10 Sportsbook Source Research — Signed DraftKings/FanDuel Snapshots',
+            "Freddy's Picks AI V8 — NBA scoreboard live updates (research only)",
           ]
           checks={}
           for name in names:
