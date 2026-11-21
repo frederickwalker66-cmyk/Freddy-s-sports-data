@@ -47,5 +47,39 @@ class LiveCertificationTests(unittest.TestCase):
             self.assertEqual(d["decisions"], [])
             self.assertIn("NO_SIGNED_CANDIDATES", d["certification_blockers"])
 
+    def test_received_feed_count_mismatch_fails_closed(self):
+        fixture = {"selection": "unsigned test candidate"}
+        with tempfile.TemporaryDirectory() as tmp:
+            candidates = Path(tmp) / "candidates.json"
+            status = Path(tmp) / "status.json"
+            output = Path(tmp) / "result.json"
+            candidates.write_text(json.dumps([fixture]))
+            status.write_text(json.dumps({"status": "FEED_RECEIVED", "candidate_count": 2}))
+            argv = ["live_certified_predictions", "--input", str(candidates),
+                    "--output", str(output), "--feed-status", str(status)]
+            with patch("sys.argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                main()
+            result = json.loads(output.read_text())
+            self.assertEqual(result["feed_status"], "FEED_CANDIDATE_COUNT_MISMATCH")
+            self.assertEqual(result["certified_take_count"], 0)
+            self.assertEqual(result["decisions"], [])
+            self.assertIn("NO_SIGNED_CANDIDATES", result["certification_blockers"])
+
+    def test_received_feed_matching_count_evaluates_unsigned_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidates = Path(tmp) / "candidates.json"
+            status = Path(tmp) / "status.json"
+            output = Path(tmp) / "result.json"
+            candidates.write_text(json.dumps([{"selection": "unsigned test candidate"}]))
+            status.write_text(json.dumps({"status": "FEED_RECEIVED", "candidate_count": 1}))
+            argv = ["live_certified_predictions", "--input", str(candidates),
+                    "--output", str(output), "--feed-status", str(status)]
+            with patch("sys.argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                main()
+            result = json.loads(output.read_text())
+            self.assertEqual(result["feed_status"], "FEED_RECEIVED")
+            self.assertEqual(result["hold_count"], 1)
+            self.assertEqual(result["certified_take_count"], 0)
+
 if __name__ == "__main__":
     unittest.main()
