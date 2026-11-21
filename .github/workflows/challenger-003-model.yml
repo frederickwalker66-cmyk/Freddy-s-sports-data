@@ -1,6 +1,8 @@
 name: Challenger-003 new model readiness (Champion frozen)
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '20 12 * * *'
   push:
     paths:
       - 'research/challenger_003_train_predict.py'
@@ -18,13 +20,22 @@ jobs:
           python-version: '3.11'
       - name: Test new independent model
         run: python -m unittest discover -s tests -p 'test_challenger_003_train_predict.py' -v
+      - name: Daily training from approved point-in-time data, if available
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          if [ -s approved_data/challenger_003_nba_game_moneyline.jsonl ]; then
+            python -m research.challenger_003_train_predict --train approved_data/challenger_003_nba_game_moneyline.jsonl --artifact artifacts/challenger_003_model.json --output artifacts/challenger_003_readiness.json
+          else
+            python -m research.challenger_003_train_predict --train /dev/null --output artifacts/challenger_003_readiness.json
+          fi
+          cat artifacts/challenger_003_readiness.json >> "$GITHUB_STEP_SUMMARY"
       - name: Publish honest readiness
         shell: bash
         run: |
           mkdir -p artifacts
-          python -m research.challenger_003_train_predict --train /dev/null --output artifacts/challenger_003_readiness.json
-          cat artifacts/challenger_003_readiness.json >> "$GITHUB_STEP_SUMMARY"
+          echo 'Champion-001 unchanged. Predictions are not training labels until independently settled. Certified TAKE remains zero pending validation.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: challenger-003-readiness
-          path: artifacts/challenger_003_readiness.json
+          path: artifacts/
