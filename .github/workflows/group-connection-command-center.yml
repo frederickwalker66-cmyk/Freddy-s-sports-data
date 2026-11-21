@@ -1,0 +1,46 @@
+name: Freddy's Picks AI — Group Connection Command Center
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/group_readiness.py
+      - scripts/player_prop_integrity_gate.py
+      - challenger_audit.py
+      - .github/workflows/group-connection-command-center.yml
+  schedule:
+    - cron: '13,43 * * * *'
+permissions:
+  contents: read
+jobs:
+  grouped-offline-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Inspect all model connection gates together without paid API calls
+        run: python scripts/group_readiness.py --output group_readiness.json
+      - name: Publish grouped readiness summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json,os,pathlib
+          path=pathlib.Path('group_readiness.json')
+          if not path.exists():
+              path.write_text(json.dumps({'status':'HOLD','certified_take_count':0,'blockers':['Preflight failed before report creation']},indent=2))
+          data=json.loads(path.read_text())
+          lines=['# Freddy’s Picks AI grouped connection status','',
+                 '**'+data.get('status','HOLD')+' — 0 certified TAKE**','',
+                 'This workflow does not call paid APIs, start training, or place bets.','',
+                 '## Connection blockers']
+          lines += ['- '+x for x in data.get('blockers',[])]
+          pathlib.Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: group-connection-readiness
+          path: group_readiness.json
+          retention-days: 30
