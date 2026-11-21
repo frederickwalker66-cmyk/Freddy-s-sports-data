@@ -64,12 +64,12 @@ jobs:
                   "certification_status":g["status"],"missing_certification_evidence":g["missing"],
                   "certified_take_count":0,"champion_001_modified":False,
                   "note":"Research training does not authorize betting certification"}
-          Path("artifacts/ONE_COMMAND_STATUS.json").write_text(json.dumps(report,indent=2)+"\\n")
+          Path("artifacts/ONE_COMMAND_STATUS.json").write_text(json.dumps(report,indent=2)+"\n")
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
-              f.write("## One Command — Train + Certification Gate\\n")
-              f.write("Training: "+r["status"]+"\\n\\n")
-              f.write("Certification: "+g["status"]+"; TAKE: 0\\n\\n")
-              f.write("Missing: "+", ".join(g["missing"])+"\\n")
+              f.write("## One Command — Train + Certification Gate\n")
+              f.write("Training: "+r["status"]+"\\n\n")
+              f.write("Certification: "+g["status"]+"; TAKE: 0\\n\n")
+              f.write("Missing: "+", ".join(g["missing"])+"\n")
           PY
       - name: Enforce fail-closed readiness evidence and summarize blockers
         shell: bash
@@ -94,11 +94,11 @@ jobs:
                 'graded_predictions':grade.get('graded_count',0),
                 'blockers':sorted(set(blockers)),
                 'champion_001_modified':False}
-          Path('artifacts/SHARP_EDGE_GATE.json').write_text(json.dumps(gate,indent=2)+'\\n')
+          Path('artifacts/SHARP_EDGE_GATE.json').write_text(json.dumps(gate,indent=2)+'\n')
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as summary:
-              summary.write('\\n### Sharp Edge certification: HOLD (not live-ready)\\n')
-              summary.write('Training: '+training+'; verified graded predictions: '+str(gate['graded_predictions'])+'\\n\\n')
-              summary.write('Blocking evidence: '+', '.join(gate['blockers'])+'\\n')
+              summary.write('\\n### Sharp Edge certification: HOLD (not live-ready)\n')
+              summary.write('Training: '+training+'; verified graded predictions: '+str(gate['graded_predictions'])+'\\n\n')
+              summary.write('Blocking evidence: '+', '.join(gate['blockers'])+'\n')
           print(json.dumps(gate,sort_keys=True))
           PY
       - name: Publish honest readiness
