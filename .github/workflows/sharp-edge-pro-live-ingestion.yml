@@ -1,6 +1,9 @@
 name: Sharp Edge Pro — Bounded Live NBA Ingestion
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sharp-edge-pro-live-ingestion.yml'
   schedule:
     - cron: '7 * * * *'
 permissions:
