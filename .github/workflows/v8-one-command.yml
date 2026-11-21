@@ -787,7 +787,7 @@ jobs:
               r=json.loads(p.read_text())
               lines=[
                   "# Freddy's Picks AI — One Command",
-                  f"**Command:** {r['command']}",
+                  f"**Command:** {r.get('command')}",
                   f"**Historic date ending:** {r['historical_end_et']}",
                   "**Certified picks and certified +EV bets: 0.**",
                   "**Status:** Research only. Forward forecasts, when recorded, are NOT independently validated betting predictions.",
@@ -797,7 +797,7 @@ jobs:
               ]
               for lg,info in r['by_league'].items():
                   lines.append(f"| {lg.upper()} | {info.get('successful_source_days','-')} | {info.get('completed_published_games','-')} | {info['status']} |")
-              if r['command'] == 'run_arbitrage':
+              if r.get('command') == 'run_arbitrage':
                   a=r.get('arbitrage_research') or {}
                   lines.extend(["", "## All-Sports Crossbook Arbitrage Research",
                       f"**Status:** {a.get('status','UNAVAILABLE')}",
@@ -824,7 +824,7 @@ jobs:
                                    f"{item.get('player_last5_complete',0)}/{item.get('player_last10_complete',0)} | "
                                    f"{item.get('status','UNKNOWN')} |")
                   lines.append("Source-only research; no authenticated odds or certified betting +EV.")
-              if r['command'] == 'run_calibration':
+              if r.get('command') == 'run_calibration':
                   health=r.get('metrics_health') or {}
                   lines.extend(["", "## Evidence Metrics Health (never certified betting skill)",
                       f"**Archived original NBA research forecasts:** {health.get('nba_archived_original_forward_forecasts')}",
@@ -852,7 +852,7 @@ jobs:
                       for b in m['fixed_predeclared_probability_bins']:
                           lines.append(f"| {b['probability_min_inclusive']:.1f}-{b['probability_max_exclusive']:.1f} | {b['observations']} | {b['home_wins']} | {b['mean_original_forecast_probability']} | {b['observed_home_win_frequency']} | {b['wilson_95pct_descriptive_interval']} |")
                   lines.append("All observations are exploratory ESPN-published results, NOT certified probability calibration or executable sportsbook prices.")
-              if r['command'] == 'run_leaderboard':
+              if r.get('command') == 'run_leaderboard':
                   leader=r.get('forward_leaderboard') or {}
                   lines.extend(["", "## Saved NBA Forward Research Leaderboard",
                       f"**Storage:** Git branch research/forward-ledger (not externally immutable)",
@@ -869,7 +869,7 @@ jobs:
                           "|---|---:|---:|---:|"])
                       for m in eligible:
                           lines.append(f"| {m['model_version']} | {m['graded_forward_research_games']} | {m['mean_Brier_lower_is_better']} | {m['mean_log_loss_lower_is_better']} |")
-              if r['command'] == 'run_nba_grade':
+              if r.get('command') == 'run_nba_grade':
                   scored=r.get('nba_forward_grading') or {}
                   lines.extend(["", "## NBA Forward Research — First-Receipt Outcome Scorecard",
                       f"**Status:** {scored.get('status','unknown')}",
@@ -884,7 +884,7 @@ jobs:
                       "**Champion-001 certified shadows: 0. Independently certified EV bets: 0. Wagers: $0.**",
                       "**Original predictions remain immutable; no missing outcomes are scored as losses.**",
                       "Download NBA_FORWARD_GRADING_REPORT.json and NBA_FORWARD_GRADING_LEDGER.jsonl for per-game source and timestamp details."])
-              if r['command'] == 'run_sport_board':
+              if r.get('command') == 'run_sport_board':
                   board=r.get('nfl_nhl_forward_board') or {}
                   lines.extend(["", "## NFL / NHL Permanent Original Forward Research Ledger (read-only)",
                       "| Sport | First forecasts saved | ESPN finals graded | Pending 48h | Ties excluded | Status |",
@@ -897,9 +897,9 @@ jobs:
                   lines.extend(["", "**For graded research leaderboard: 50 original before-start non-tied results required per sport/model.**",
                       "**Git branch is durable but not independent immutable custody; no original Champion-001 certified probabilities.**",
                       "**Independently certified bets: 0, verified +EV: 0, wagers: $0.**"])
-              if r['command'] in ('run_nfl_forward','run_nhl_forward'):
+              if r.get('command') in ('run_nfl_forward','run_nhl_forward'):
                   research=r.get('next_sport_forward_research') or {}
-                  sport=research.get('league') or r['command'].replace('run_','').replace('_forward','')
+                  sport=research.get('league') or r.get('command').replace('run_','').replace('_forward','')
                   lines.extend(['',f'## {sport.upper()} GENUINE Prospective V8 Research Forecasts (NOT betting picks)',
                       f"**Actual recorded at UTC:** {research.get('recorded_at_utc')}",
                       f"**Published historic games retrieved (35 ET days):** {research.get('published_history_retrieved',0)}",
@@ -912,7 +912,7 @@ jobs:
                       '**NFL forecasts conditional on no tie are not full market moneyline probabilities; NHL settlement also unverified.**',
                       '**Champion-001 certified predictions: 0. Verified positive-EV bets: 0. Stakes: $0.**',
                       f"Download {sport}_forward/{sport.upper()}_FORWARD_RESEARCH_FORECASTS.jsonl and unmodified original ESPN schedule bytes."])
-              if r['command'] == 'run_nba_forward':
+              if r.get('command') == 'run_nba_forward':
                   fwd=r.get('nba_forward_research') or {}
                   lines.extend(["", "## NBA REAL Forward Research Forecasts — Created Before Tipoff",
                       f"**Actual clock-time recorded at:** {fwd.get('captured_at_utc', 'not captured')}",
@@ -925,7 +925,7 @@ jobs:
                       "**Model lane: V8 ELO v0 RESEARCH ONLY; not Champion-001 and not independent betting certification.**",
                       "**Certified Champion-001 shadows: 0. Certified EV bets: 0. Stake: $0.**",
                       "Download nba_forward/NBA_FORWARD_FORECASTS.jsonl with each forecast timestamp, event ID, source hash and probability."])
-              if r['command'] == 'run_nba_oos':
+              if r.get('command') == 'run_nba_oos':
                   oos=r.get('nba_oos_research') or {}
                   lines.extend(["", "## NBA Archived-Score Retrospective Elo Evaluation",
                       f"**Research status:** {oos.get('status','UNKNOWN')}",
@@ -942,7 +942,7 @@ jobs:
                       f"**Elo clearly better than moving prior under exploratory interval:** {(oos.get('paired_rolling_home_baseline_comparison') or {}).get('elo_beat_rolling_prior_with_exploratory_day_interval', False)}",
                       "**These probabilities were reconstructed after the games, not logged pregame. Certified model picks / EV remain 0.**",
                       "Download NBA_ELO_RETROSPECTIVE_REPORT.json and NBA_ELO_RETROSPECTIVE_LEDGER.jsonl for full research evidence."])
-              if r['command'] == 'run_nba_train':
+              if r.get('command') == 'run_nba_train':
                   intake=r.get('nba_training_intake') or {}
                   lines.extend(["", "## NBA Original Evidence Intake & Training Readiness",
                       f"**Status:** {intake.get('status', 'UNKNOWN')}",
@@ -953,7 +953,7 @@ jobs:
                       f"**Native research model fitted:** {intake.get('native_research_model_fitted', False)}",
                       "**No training on automatic review packets, no certified model or positive EV bets.**",
                       "Download NBA_RESEARCH_INTAKE.json and NBA_ORIGINAL_REVIEW_WORKLIST.jsonl for review."])
-              if r['command'] == 'run_readiness':
+              if r.get('command') == 'run_readiness':
                   ready = r.get('betting_readiness') or {}
                   fwd = ready.get('research_forward') or {}
                   refs = ready.get('archive_price_context') or {}
@@ -968,7 +968,7 @@ jobs:
                       f"**Matched authentic CLV receipts:** {ready.get('matched_original_entry_and_authenticated_closing_price_receipts')}",
                       "**All NBA/NFL markets remain HOLD. Aggregator prices and research forecasts cannot certify positive EV.**",
                       "Download BETTING_READINESS.json for specific blockers by market."])
-              if r['command'] == 'run_certify':
+              if r.get('command') == 'run_certify':
                   audit=r.get('certification_review') or {}
                   lines.extend(["", "## Certification Evidence Audit — Real Existing GitHub Reports",
                       f"**Release:** {audit.get('status', 'UNKNOWN')}",
@@ -983,7 +983,7 @@ jobs:
                   for lg,info in (audit.get('by_league') or {}).items():
                       lines.append(f"| {lg.upper()} | {info['archived_source_games_latest_run']} | {info['league_operated_identity_matches_research_only']} | {info['native_research_model_fitted']} |")
                   lines.append("See downloadable CERTIFICATION_AUDIT.json for league-level blockers and missing independent evidence.")
-              if r['command'] == 'run_audit':
+              if r.get('command') == 'run_audit':
                   a=r.get('comprehensive_audit') or {}
                   lines.extend(["", "## Comprehensive V8 Evidence Audit",
                       f"**Decision:** {a.get('status', 'UNKNOWN')}",
@@ -998,7 +998,7 @@ jobs:
                   for item in (a.get('priority_remediation') or [])[:6]:
                       lines.append(f"- **{item['blocker']}:** {item['action']}")
                   lines.append("Full details: FULL_AUDIT_REPORT.json. Job success is NOT prediction certification.")
-              if r['command'] == 'run_health':
+              if r.get('command') == 'run_health':
                   health=r.get('source_collection_health') or {}
                   lines.append("")
                   lines.append("## Source capture health (actual GitHub run metadata)")
@@ -1008,7 +1008,7 @@ jobs:
                   lines.append(f"**Minutes since last completed source run:** {health.get('minutes_since_latest_successful_run')}")
                   lines.append(f"**Source runs currently in progress:** {len(health.get('in_flight_source_run_ids', []))}")
                   lines.append("No scheduled source collection is guaranteed. This status button never spends API credits or triggers a recovery.")
-              if r['command'] in ('run_sharp','run_nfl_props_edge','run_mixed_market'):
+              if r.get('command') in ('run_sharp','run_nfl_props_edge','run_mixed_market'):
                   sharp=r.get('sharp_archive') or {}
                   lines.append("")
                   lines.append(f"**SharpAPI archive status:** {sharp.get('status', 'not_available')}")
@@ -1114,7 +1114,7 @@ jobs:
                       lines.append(
                           f"| {market} | {nstr} | {f'{b:.4f}' if b is not None else 'Withheld'} | {f'{e:.4f}' if e is not None else 'Withheld'} | NO / HOLD |")
                   lines.append("**No validated NFL or prop-native probability/outcome calibration; no model recalibration, wagers, or independently verified positive EV.**")
-              if r['command'] == 'run_mixed_market':
+              if r.get('command') == 'run_mixed_market':
                   mixed=r.get('mixed_market_research') or {}
                   counts=mixed.get('displayed_reference_counts_by_market') or {}
                   lines.extend(["", "## Unified Games + Player Props — RESEARCH ONLY",
@@ -1134,9 +1134,9 @@ jobs:
                                 "**Model probability / certified EV:** unavailable / 0.",
                                 "**No direct price or player identity verification; no automatic SharpAPI join.**",
                                 "Full source report: SGO_SEPARATE_SOURCE_RESEARCH.json."])
-              if r['command'] == 'run_edge':
+              if r.get('command') == 'run_edge':
                   lines.append(f"Indicative research edges: {len(r['research_edge_candidates'])} (no independently verified executable quotes).")
-              if r['command'] == 'model_status':
+              if r.get('command') == 'model_status':
                   lines.append(f"NBA status: {r['model_status']['milestone_a']}.")
               text="\n".join(lines)+"\n"
               print(text)
