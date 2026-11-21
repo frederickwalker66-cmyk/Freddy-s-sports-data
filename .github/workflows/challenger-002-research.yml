@@ -17,6 +17,23 @@ on:
       - "tests/test_challenger_002_authenticated_intake.py"
       - "tests/test_challenger_002_dataset_audit.py"
       - ".github/workflows/challenger-002-research.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/challenger_002_baseline.py"
+      - "research/challenger_002_source_validation.py"
+      - "research/challenger_002_receipt_verification.py"
+      - "research/challenger_002_research_pipeline.py"
+      - "research/challenger_002_authenticated_intake.py"
+      - "research/challenger_002_dataset_audit.py"
+      - "research/CHALLENGER_002_README.md"
+      - "tests/test_challenger_002_baseline.py"
+      - "tests/test_challenger_002_source_validation.py"
+      - "tests/test_challenger_002_receipt_verification.py"
+      - "tests/test_challenger_002_research_pipeline.py"
+      - "tests/test_challenger_002_authenticated_intake.py"
+      - "tests/test_challenger_002_dataset_audit.py"
+      - ".github/workflows/challenger-002-research.yml"
   workflow_dispatch:
 
 permissions:
