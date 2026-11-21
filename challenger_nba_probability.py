@@ -148,8 +148,8 @@ def holdout_metrics(model, test):
 def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
     """Train research model only on review-attested, point-in-time rows.
 
-    The holdout model is fitted without knowledge of test-period outcomes;
-    only after evaluation is a separate final research artifact refitted.
+    The saved coefficients are fitted exclusively on chronologically earlier
+    games. The untouched holdout is scored but NEVER refitted into this model.
     """
     if type(min_train) is not int or type(min_test) is not int or min_train < 2 or min_test < 2:
         raise ValueError("invalid sample thresholds")
@@ -221,9 +221,10 @@ def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
         return report, None
     held_model = fit(eligible_train, names)
     report["out_of_sample_exploratory_metrics"] = holdout_metrics(held_model, test)
-    # The artifact fitted on *all already settled evidence* is a new model.
-    # Holdout metrics above refer only to the pre-refit model, not this artifact.
-    final = fit(accepted, names)
+    # Persist the exact training-only fit evaluated on the untouched holdout.
+    # An all-games refit would contaminate this holdout and invalidate any
+    # claim that the saved model's coefficients were tested out of sample.
+    final = held_model
     model = {
         "version": VERSION,
         "lane": "Challenger-001",
@@ -231,8 +232,14 @@ def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
         "status": "unverified_research_model_not_deployed",
         "trained_at_utc": iso(now),
         "historical_source_evidence_digest": digest(accepted),
-        "last_training_event_start_utc": accepted[-1]["start_utc"],
-        "holdout_metrics_apply_to_pre_refit_model_only": True,
+        "fitted_training_evidence_digest": digest(eligible_train),
+        "untouched_holdout_evidence_digest": digest(test),
+        "last_training_event_start_utc": eligible_train[-1]["start_utc"],
+        "holdout_start_utc": test[0]["start_utc"],
+        "fit_partition": "chronological_training_only",
+        "holdout_excluded_from_coefficients": True,
+        "holdout_metrics_apply_to_saved_model": True,
+        "holdout_metrics_apply_to_pre_refit_model_only": False,
         "fit": final,
         "qualified_for_real_money_wagers": False,
         "champion_001_modified": False,
@@ -240,11 +247,15 @@ def train_engine(rows, as_of=None, min_train=MIN_TRAIN, min_test=MIN_TEST):
     model["artifact_sha256"] = digest(model)
     report["result"] = "fitted_unverified_research_model"
     report["fit_artifact_sha256"] = model["artifact_sha256"]
+    report["saved_fit_did_not_include_holdout"] = True
+    report["holdout_metrics_apply_to_saved_model"] = True
     report["retrained_artifact_has_independent_forward_performance"] = False
     report["warning"] = (
         "Dataset review flags and hashes alone do not validate real source "
-        "history. Holdout results were measured on a separate earlier fit. "
-        "No independent certification, player prop probabilities or EV."
+        "history. Holdout results were measured on the same training-only "
+        "coefficients saved in this artifact, but external source review "
+        "and prospective calibration remain unverified. No independent "
+        "certification, player prop probabilities or EV."
     )
     return report, model
 
@@ -262,6 +273,9 @@ def score_future_event(model, candidate, now=None):
     if (not valid_digest(stored_digest) or digest(check) != stored_digest
             or model.get("version") != VERSION or model.get("lane") != "Challenger-001"
             or model.get("status") != "unverified_research_model_not_deployed"
+            or model.get("fit_partition") != "chronological_training_only"
+            or model.get("holdout_excluded_from_coefficients") is not True
+            or model.get("holdout_metrics_apply_to_saved_model") is not True
             or model.get("champion_001_modified") is not False):
         raise ValueError("model artifact signature or safety metadata invalid")
     if (candidate.get("league") != "nba" or candidate.get("market_type") != "moneyline"

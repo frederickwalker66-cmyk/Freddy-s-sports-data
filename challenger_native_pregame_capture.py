@@ -14,7 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from challenger_nba_probability import VERSION, digest, score_future_event
+from challenger_nba_probability import VERSION, digest, score_future_event, valid_digest
 from challenger_prospective_outcome_validation import instant, validate_snapshot
 
 FORECAST_FILE = "native_challenger_forecasts.jsonl"
@@ -37,6 +37,12 @@ def _approved_model(model):
             and model.get("status") == "unverified_research_model_not_deployed"
             and model.get("champion_001_modified") is False
             and model.get("qualified_for_real_money_wagers") is False
+            and model.get("fit_partition") == "chronological_training_only"
+            and model.get("holdout_excluded_from_coefficients") is True
+            and model.get("holdout_metrics_apply_to_saved_model") is True
+            and valid_digest(model.get("fitted_training_evidence_digest"))
+            and valid_digest(model.get("untouched_holdout_evidence_digest"))
+            and model["fitted_training_evidence_digest"] != model["untouched_holdout_evidence_digest"]
             and isinstance(model.get("fit"), dict)
             and type(model["fit"].get("training_rows")) is int
             and model["fit"]["training_rows"] >= 200)

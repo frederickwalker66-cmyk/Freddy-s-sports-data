@@ -27,6 +27,12 @@ def make_model():
         "status": "unverified_research_model_not_deployed",
         "trained_at_utc": "2027-01-01T00:00:00+00:00",
         "last_training_event_start_utc": "2026-12-30T00:00:00+00:00",
+        # Synthetic-only integrity metadata: never proof of authentic source files.
+        "fit_partition": "chronological_training_only",
+        "holdout_excluded_from_coefficients": True,
+        "holdout_metrics_apply_to_saved_model": True,
+        "fitted_training_evidence_digest": "a" * 64,
+        "untouched_holdout_evidence_digest": "b" * 64,
         "fit": {"features": ["pregame_away_form", "pregame_home_form"],
                 "means": [0.5, 0.5], "standard_deviations": [0.2, 0.2],
                 "coefficients": [0.0, -0.4, 0.4],
@@ -105,6 +111,16 @@ class NativeCaptureTests(unittest.TestCase):
         model["fit"]["coefficients"][0] = 10.0
         result, report = capture([make_snapshot()], [make_candidate()], model, now=NOW)
         self.assertFalse(result)
+        self.assertFalse(report["research_model_artifact_present_and_format_valid"])
+
+    def test_legacy_holdout_refitted_model_cannot_score(self):
+        model = make_model()
+        model["fit_partition"] = "refitted_using_holdout"
+        model["holdout_excluded_from_coefficients"] = False
+        model.pop("artifact_sha256")
+        model["artifact_sha256"] = digest(model)
+        records, report = capture([make_snapshot()], [make_candidate()], model, now=NOW)
+        self.assertFalse(records)
         self.assertFalse(report["research_model_artifact_present_and_format_valid"])
 
     def test_late_gameday_capture_rejected(self):

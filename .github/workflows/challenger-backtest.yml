@@ -12,6 +12,7 @@ on:
       - 'challenger_nba_source_inventory.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
+      - 'challenger_native_pregame_capture.py'
       - 'tests/test_challenger_backtest.py'
       - 'tests/test_challenger_nba_independent_review.py'
       - 'tests/test_challenger_nba_source_integrity.py'
@@ -19,6 +20,7 @@ on:
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
+      - 'tests/test_challenger_native_pregame_capture.py'
       - 'tests/test_challenger_training_readiness.py'
       - '.github/workflows/challenger-backtest.yml'
   pull_request:
@@ -27,6 +29,7 @@ on:
       - 'challenger_backtest.py'
       - 'challenger_rolling_validation.py'
       - 'challenger_nba_probability.py'
+      - 'challenger_native_pregame_capture.py'
       - 'tests/test_challenger_backtest.py'
       - 'tests/test_challenger_nba_independent_review.py'
       - 'tests/test_challenger_nba_source_integrity.py'
@@ -34,6 +37,7 @@ on:
       - 'tests/test_challenger_nba_source_inventory.py'
       - 'tests/test_challenger_rolling_validation.py'
       - 'tests/test_challenger_nba_probability.py'
+      - 'tests/test_challenger_native_pregame_capture.py'
       - 'tests/test_challenger_training_readiness.py'
       - '.github/workflows/challenger-backtest.yml'
 permissions:
@@ -47,6 +51,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install declared native Challenger trainer dependencies
+        run: python -m pip install -r requirements-calibration.txt
       - name: Run offline tests (all fixtures synthetic; no API keys)
         run: python -m unittest discover -s tests -v
       - name: Review NBA independent evidence (fail closed)

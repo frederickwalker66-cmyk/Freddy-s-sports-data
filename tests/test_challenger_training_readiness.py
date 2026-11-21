@@ -90,6 +90,40 @@ class TrainingReadinessConsistencyTests(unittest.TestCase):
         self.assertEqual(report["by_league"]["nba"]["accepted_independently_audited_records"], 0)
         self.assertIn("future_or_unsettled_at_readiness_check", report["rejected"])
 
+    def test_duplicate_event_quarantines_original_and_blocks_league(self):
+        rows = [game(i, same_day_group=3) for i in range(260)]
+        original = rows[0]
+        for duplicate in (dict(original), {**original, "outcome": 1 - original["outcome"]}):
+            with self.subTest(conflicting=duplicate["outcome"] != original["outcome"]):
+                for sample in (rows + [duplicate], [duplicate] + rows):
+                    report = assess(sample)
+                    nba = report["by_league"]["nba"]
+                    self.assertEqual(report["ambiguous_duplicate_event_count"], 1)
+                    self.assertEqual(nba["ambiguous_duplicate_event_count"], 1)
+                    self.assertEqual(nba["accepted_independently_audited_records"], 259)
+                    self.assertEqual(nba["source_integrity_blocker"],
+                                     "DUPLICATE_EVENT_EVIDENCE")
+                    self.assertFalse(nba["research_training_ready"])
+                    self.assertIn("nba", report["leagues_blocked_by_duplicate_event_evidence"])
+                    self.assertEqual(report["rejected"]["duplicate_event_quarantined"], 1)
+                    self.assertEqual(report["certified_predictions"], 0)
+
+    def test_invalid_duplicate_also_quarantines_valid_event(self):
+        rows = [game(i, same_day_group=3) for i in range(260)]
+        bad = dict(rows[0], independent_outcome_adjudication=False)
+        for sample in (rows + [bad], [bad] + rows):
+            with self.subTest(bad_first=sample[0] is bad):
+                report = assess(sample)
+                self.assertEqual(report["by_league"]["nba"]["accepted_independently_audited_records"], 259)
+                self.assertFalse(report["by_league"]["nba"]["research_training_ready"])
+
+    def test_malformed_league_is_rejected_without_crashing(self):
+        bad = dict(game(0))
+        bad["league"] = ["nba"]
+        report = assess([bad])
+        self.assertEqual(report["qualified_training_examples"], 0)
+        self.assertTrue(report["rejected"])
+
     def test_synthetic_attestations_are_not_external_certification(self):
         report = assess([game(i) for i in range(260)])
         self.assertTrue(report["by_league"]["nba"]["research_training_ready"])
