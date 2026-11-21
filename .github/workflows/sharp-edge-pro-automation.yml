@@ -24,6 +24,8 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_player_prop_integrity_gate.py' -v
           python -m unittest discover -s tests -p 'test_live_audit_prop_integration.py' -v
+      - name: Test independent Sharp Edge Pro EV mathematics and release gates
+        run: python -m unittest discover -s sharp-edge-pro -p 'test_edge_math.py' -v
       - name: Run independent, no-cost readiness and prediction safety gate
         env:
           SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
