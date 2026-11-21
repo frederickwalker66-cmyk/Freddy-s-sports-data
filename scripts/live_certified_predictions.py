@@ -9,13 +9,13 @@ import os
 from pathlib import Path
 from scripts.certify_sharp_edge import evaluate
 
-def run(candidates, *, model_key=None, odds_key=None, approved_model_versions=(), now=None):
+def run(candidates, *, model_key=None, odds_key=None, release_key=None, approved_model_versions=(), now=None):
     if not isinstance(candidates, list) or len(candidates) > 500:
         raise ValueError("expected at most 500 candidates")
     now = now or datetime.now(timezone.utc)
     rows = []
     for index, candidate in enumerate(candidates):
-        verdict = evaluate(candidate, model_key=model_key, odds_key=odds_key, approved_model_versions=approved_model_versions, now=now)
+        verdict = evaluate(candidate, model_key=model_key, odds_key=odds_key, release_key=release_key, approved_model_versions=approved_model_versions, now=now)
         # The raw candidate and secret signatures are never copied to public output.
         row = {"index": index + 1, **verdict}
         if verdict["certified"]:
@@ -52,6 +52,7 @@ def main():
         candidates = []
     report = run(candidates, model_key=os.getenv("SHARP_MODEL_ATTESTATION_KEY"),
                  odds_key=os.getenv("SHARP_ODDS_ATTESTATION_KEY"),
+                 release_key=os.getenv("SHARP_RELEASE_ATTESTATION_KEY"),
                  approved_model_versions=tuple(v.strip() for v in os.getenv("SHARP_APPROVED_MODEL_VERSIONS", "").split(",") if v.strip()))
     feed_status_path = Path(args.feed_status)
     try:
