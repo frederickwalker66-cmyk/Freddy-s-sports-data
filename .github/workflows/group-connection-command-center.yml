@@ -8,7 +8,7 @@ on:
       - challenger_audit.py
       - .github/workflows/group-connection-command-center.yml
   schedule:
-    - cron: '13,43 * * * *'
+    - cron: '*/5 * * * *'
 permissions:
   contents: read
 jobs:
