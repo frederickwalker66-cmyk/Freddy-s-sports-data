@@ -707,7 +707,7 @@ def main(argv=None):
         intake = collect_trusted_sources()
         report["trusted_source_intake"] = intake
         (Path(args.output_dir) / "TRUSTED_SOURCE_INTAKE.json").write_text(
-            json.dumps(intake, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+            json.dumps(intake, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["pregame_five_gate"] = pregame
     output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
