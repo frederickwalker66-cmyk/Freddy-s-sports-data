@@ -1,0 +1,36 @@
+name: Sharp Edge Pro — All Sports Pregame Timelines
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sharp-edge-pro-all-sports.yml'
+  schedule:
+    - cron: '12 * * * *'
+permissions:
+  contents: read
+jobs:
+  all-sports-timelines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate sport-specific timelines from available archived snapshots
+        run: |
+          mkdir -p sharp-edge-pro/output
+          for sport in nba nfl nhl mlb ncaaf ncaab mls uefa_champions_league; do
+            snapshot=$(find snapshots -maxdepth 1 -name '*.jsonl' -type f 2>/dev/null | sort | tail -n 1 || true)
+            if [ -n "$snapshot" ]; then
+              python sharp-edge-pro/run_sport.py --sport "$sport" --input "$snapshot"
+            else
+              echo "{\"sport\":\"$sport\",\"status\":\"HOLD\",\"certified_takes\":0,\"reason\":\"No archived odds snapshot available\",\"markets\":[]}" > "sharp-edge-pro/output/${sport}_timeline.json"
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sharp-edge-pro-all-sports-timelines
+          path: sharp-edge-pro/output/*_timeline.json
+          retention-days: 7
