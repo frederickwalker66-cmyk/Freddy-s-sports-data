@@ -12,6 +12,7 @@ import hmac
 import json
 import math
 import os
+import re
 from pathlib import Path
 
 def canonical(obj):
@@ -34,7 +35,7 @@ def parse_time(s):
     except (ValueError, AttributeError, TypeError):
         return None
 
-def evaluate(candidate, *, model_key=None, odds_key=None, approved_model_versions=(), now=None):
+def evaluate(candidate, *, model_key=None, odds_key=None, release_key=None, approved_model_versions=(), now=None):
     result = {"decision": "HOLD", "certified": False, "reasons": []}
     reasons = result["reasons"]
     if not isinstance(candidate, dict):
@@ -42,13 +43,17 @@ def evaluate(candidate, *, model_key=None, odds_key=None, approved_model_version
         return result
     model = candidate.get("model_attestation")
     odds = candidate.get("odds_attestation")
+    release = candidate.get("release_attestation")
     if not verify(model, model_key):
         reasons.append("MODEL_ATTESTATION_NOT_VERIFIED")
     if not verify(odds, odds_key) or (model_key and odds_key and model_key == odds_key):
         reasons.append("INDEPENDENT_ODDS_ATTESTATION_NOT_VERIFIED")
+    if (not verify(release, release_key) or not release_key or
+            release_key in (model_key, odds_key)):
+        reasons.append("INDEPENDENT_CHAMPION_RELEASE_ATTESTATION_NOT_VERIFIED")
     if reasons:
         return result
-    m, o = model["payload"], odds["payload"]
+    m, o, r = model["payload"], odds["payload"], release["payload"]
     fields = ("event_id", "market_id", "selection_id", "line")
     if any(m.get(f) != o.get(f) or m.get(f) is None for f in fields):
         reasons.append("EXACT_MARKET_MISMATCH")
@@ -57,10 +62,32 @@ def evaluate(candidate, *, model_key=None, odds_key=None, approved_model_version
         reasons.append("INVALID_MODEL_PROBABILITY")
     if type(price) not in (float, int) or not math.isfinite(price) or not 1 < price <= 1000:
         reasons.append("INVALID_DECIMAL_ODDS")
+    if m.get("model_family") != "Champion-001":
+        reasons.append("NATIVE_CHAMPION_001_MODEL_REQUIRED")
+    sha = re.compile(r"^[0-9a-f]{64}$")
+    model_digest = m.get("model_artifact_sha256")
+    calibration_digest = m.get("calibration_report_sha256")
+    if (not isinstance(model_digest, str) or not sha.fullmatch(model_digest)
+            or r.get("model_artifact_sha256") != model_digest
+            or not isinstance(calibration_digest, str) or not sha.fullmatch(calibration_digest)
+            or r.get("calibration_report_sha256") != calibration_digest
+            or r.get("model_version") != m.get("model_version")):
+        reasons.append("INDEPENDENT_MODEL_RELEASE_DIGEST_MISMATCH")
+    if (r.get("original_champion_001_authenticated") is not True
+            or r.get("reference_outputs_independently_reproduced") is not True
+            or r.get("calibration_independently_validated") is not True
+            or r.get("release_authorized") is not True
+            or not isinstance(r.get("release_approval_receipt_id"), str)
+            or not r["release_approval_receipt_id"].strip()):
+        reasons.append("INDEPENDENT_CHAMPION_PROVENANCE_OR_CALIBRATION_NOT_VERIFIED")
+    if not isinstance(m.get("forecast_receipt_id"), str) or not m["forecast_receipt_id"].strip():
+        reasons.append("MISSING_NATIVE_FORECAST_RECEIPT")
     if m.get("model_version") is None or m.get("independent_model_validation") is not True:
         reasons.append("MODEL_VALIDATION_NOT_ATTESTED")
     if m.get("model_version") not in approved_model_versions:
         reasons.append("MODEL_RELEASE_NOT_IN_INDEPENDENT_APPROVAL_REGISTRY")
+    if o.get("direct_checkout_verified") is not True or not isinstance(o.get("checkout_receipt_id"), str) or not o["checkout_receipt_id"].strip():
+        reasons.append("EXECUTABLE_SPORTSBOOK_CHECKOUT_RECEIPT_NOT_VERIFIED")
     if o.get("sportsbook") not in ("DraftKings", "FanDuel"):
         reasons.append("UNSUPPORTED_BOOK")
     now = now or datetime.now(timezone.utc)
@@ -91,6 +118,7 @@ def main():
     candidate = json.loads(Path(args.input).read_text())
     report = evaluate(candidate, model_key=os.environ.get("SHARP_MODEL_ATTESTATION_KEY"),
                       odds_key=os.environ.get("SHARP_ODDS_ATTESTATION_KEY"),
+                      release_key=os.environ.get("SHARP_RELEASE_ATTESTATION_KEY"),
                       approved_model_versions=tuple(x.strip() for x in os.environ.get("SHARP_APPROVED_MODEL_VERSIONS", "").split(",") if x.strip()))
     path = Path(args.output)
     path.parent.mkdir(parents=True, exist_ok=True)
