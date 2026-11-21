@@ -14,6 +14,7 @@ on:
       - "research/challenger_002_nba_schema_profile.py"
       - "research/challenger_002_nba_research_join.py"
       - "research/challenger_002_nba_temporal_audit.py"
+      - "research/challenger_002_nba_odds_schema.py"
       - "research/CHALLENGER_002_README.md"
       - "tests/test_challenger_002_baseline.py"
       - "tests/test_challenger_002_source_validation.py"
@@ -26,6 +27,7 @@ on:
       - "tests/test_challenger_002_nba_schema_profile.py"
       - "tests/test_challenger_002_nba_research_join.py"
       - "tests/test_challenger_002_nba_temporal_audit.py"
+      - "tests/test_challenger_002_nba_odds_schema.py"
       - ".github/workflows/challenger-002-research.yml"
   push:
     branches: [main]
@@ -41,6 +43,7 @@ on:
       - "research/challenger_002_nba_schema_profile.py"
       - "research/challenger_002_nba_research_join.py"
       - "research/challenger_002_nba_temporal_audit.py"
+      - "research/challenger_002_nba_odds_schema.py"
       - "research/CHALLENGER_002_README.md"
       - "tests/test_challenger_002_baseline.py"
       - "tests/test_challenger_002_source_validation.py"
@@ -53,6 +56,7 @@ on:
       - "tests/test_challenger_002_nba_schema_profile.py"
       - "tests/test_challenger_002_nba_research_join.py"
       - "tests/test_challenger_002_nba_temporal_audit.py"
+      - "tests/test_challenger_002_nba_odds_schema.py"
       - ".github/workflows/challenger-002-research.yml"
   workflow_dispatch:
 
@@ -69,7 +73,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile research module and tests
-        run: python -m py_compile research/challenger_002_baseline.py research/challenger_002_source_validation.py research/challenger_002_receipt_verification.py research/challenger_002_research_pipeline.py research/challenger_002_authenticated_intake.py research/challenger_002_dataset_audit.py research/challenger_002_pregame_gate.py research/challenger_002_artifact_pair_audit.py research/challenger_002_nba_schema_profile.py research/challenger_002_nba_research_join.py research/challenger_002_nba_temporal_audit.py tests/test_challenger_002_nba_temporal_audit.py tests/test_challenger_002_nba_schema_profile.py tests/test_challenger_002_nba_research_join.py tests/test_challenger_002_artifact_pair_audit.py tests/test_challenger_002_dataset_audit.py tests/test_challenger_002_pregame_gate.py tests/test_challenger_002_baseline.py tests/test_challenger_002_source_validation.py
+        run: python -m py_compile research/challenger_002_baseline.py research/challenger_002_source_validation.py research/challenger_002_receipt_verification.py research/challenger_002_research_pipeline.py research/challenger_002_authenticated_intake.py research/challenger_002_dataset_audit.py research/challenger_002_pregame_gate.py research/challenger_002_artifact_pair_audit.py research/challenger_002_nba_schema_profile.py research/challenger_002_nba_research_join.py research/challenger_002_nba_temporal_audit.py research/challenger_002_nba_odds_schema.py tests/test_challenger_002_nba_odds_schema.py tests/test_challenger_002_nba_temporal_audit.py tests/test_challenger_002_nba_schema_profile.py tests/test_challenger_002_nba_research_join.py tests/test_challenger_002_artifact_pair_audit.py tests/test_challenger_002_dataset_audit.py tests/test_challenger_002_pregame_gate.py tests/test_challenger_002_baseline.py tests/test_challenger_002_source_validation.py
       - name: Run offline fail-closed regression tests
         run: python -m unittest discover -s tests -p 'test_challenger_002*.py' -v
       - name: Assert no Certified TAKE from research lane
