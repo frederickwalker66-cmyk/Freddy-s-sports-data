@@ -4,9 +4,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
 import unittest
+from unittest.mock import patch
 
 from challenger_multisport_native_capture import CAPTURE_LEAGUES, MARKETS, SCOPE, SIDES, check_model
-from challenger_multisport_native_training import ROW_TYPE, main, train
+from challenger_multisport_native_training import ROW_TYPE, main, train, make_fit
 
 NOW = datetime(2027, 7, 1, tzinfo=timezone.utc)
 
@@ -54,6 +55,25 @@ class MultisportNativeTrainingTests(unittest.TestCase):
                 self.assertIsNotNone(check_model(models[league], league, NOW))
                 self.assertEqual(report["by_league"][league]["status"],
                                  "fitted_research_only_not_certified")
+
+    def test_saved_fit_never_consumes_holdout(self):
+        """The tested coefficients and stored coefficients use training rows only."""
+        for league in sorted(CAPTURE_LEAGUES):
+            with self.subTest(league=league):
+                with patch("challenger_multisport_native_training.make_fit", wraps=make_fit) as fit:
+                    report, models = train(records(league), now=NOW)
+                self.assertIn(league, models)
+                artifact = models[league]
+                train_count = artifact["chronological_training_rows"]
+                self.assertEqual(len(fit.call_args_list), 1)
+                self.assertEqual(len(fit.call_args_list[0].args[0]), train_count)
+                self.assertLess(train_count, 300)
+                self.assertTrue(artifact["holdout_excluded_from_coefficients"])
+                self.assertEqual(artifact["fit_partition"], "chronological_training_only")
+                self.assertNotEqual(artifact["fitted_training_evidence_sha256"],
+                                    artifact["untouched_holdout_evidence_sha256"])
+                self.assertTrue(report["no_holdout_refit"])
+                self.assertTrue(report["holdout_metrics_apply_to_saved_training_only_fit"])
 
     def test_empty_data_fails_closed(self):
         report, models = train([], now=NOW)
