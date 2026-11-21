@@ -6,21 +6,21 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-20T21:55:28.929494+00:00",
-  "graded_research_games": 61,
+  "generated_at_utc": "2026-11-21T01:45:55.837791+00:00",
+  "graded_research_games": 63,
   "last_synchronization": {
-    "due_forecast_rows_checked": 0,
-    "later_repeated_forecasts_ignored": 76,
-    "new_ESPN_binary_research_outcomes": 0,
+    "due_forecast_rows_checked": 2,
+    "later_repeated_forecasts_ignored": 90,
+    "new_ESPN_binary_research_outcomes": 2,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 14,
+    "new_original_forecasts": 0,
     "original_source_receipt_files_saved": 6
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
   "original_saved_forecasts": 90,
-  "pending_48h": 29,
+  "pending_48h": 27,
   "published_NFL_ties_excluded": 0,
   "research_model_scorecards_including_insufficient_samples": [
     {
@@ -28,11 +28,11 @@
       "market_betting_ready": false,
       "model": "v8-nhl-elo-forward-v0-k16-ha35",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 61,
+      "original_forward_ESPN_games_graded": 63,
       "rank_eligible_after_50": true,
-      "research_Brier": 0.26318767,
-      "research_direction_accuracy": 0.409836,
-      "research_log_loss": 0.72038547
+      "research_Brier": 0.2645091,
+      "research_direction_accuracy": 0.412698,
+      "research_log_loss": 0.72305556
     }
   ],
   "research_ranked_models_after_50": [
@@ -41,11 +41,11 @@
       "market_betting_ready": false,
       "model": "v8-nhl-elo-forward-v0-k16-ha35",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 61,
+      "original_forward_ESPN_games_graded": 63,
       "rank_eligible_after_50": true,
-      "research_Brier": 0.26318767,
-      "research_direction_accuracy": 0.409836,
-      "research_log_loss": 0.72038547
+      "research_Brier": 0.2645091,
+      "research_direction_accuracy": 0.412698,
+      "research_log_loss": 0.72305556
     }
   ],
   "source_research_receipts": {
@@ -66,12 +66,13 @@
       44411521007,
       44441013723,
       44656883772,
-      44808576597
+      44808576597,
+      44851920150
     ],
     "source_exclusions": {
-      "later_forecast_ignored": 46
+      "later_forecast_ignored": 60
     },
-    "source_forward_rows_loaded": 136
+    "source_forward_rows_loaded": 150
   },
   "sport": "nhl",
   "status": "PROVISIONAL_FORWARD_RESEARCH_RANKING_NOT_BETTING_CERTIFIED",
