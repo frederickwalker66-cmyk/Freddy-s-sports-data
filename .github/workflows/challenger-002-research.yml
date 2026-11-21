@@ -10,6 +10,8 @@ on:
       - "research/challenger_002_authenticated_intake.py"
       - "research/challenger_002_nba_source_integrity.py"
       - "research/challenger_002_certification_readiness.py"
+      - "research/nba_all_markets_best_bet.py"
+      - "tests/test_nba_all_markets_best_bet.py"
       - "research/challenger_002_dataset_audit.py"
       - "research/challenger_002_pregame_gate.py"
       - "research/challenger_002_artifact_pair_audit.py"
@@ -44,6 +46,8 @@ on:
       - "research/challenger_002_authenticated_intake.py"
       - "research/challenger_002_nba_source_integrity.py"
       - "research/challenger_002_certification_readiness.py"
+      - "research/nba_all_markets_best_bet.py"
+      - "tests/test_nba_all_markets_best_bet.py"
       - "research/challenger_002_dataset_audit.py"
       - "research/challenger_002_pregame_gate.py"
       - "research/challenger_002_artifact_pair_audit.py"
@@ -86,6 +90,10 @@ jobs:
         run: python -m py_compile research/challenger_002_baseline.py research/challenger_002_source_validation.py research/challenger_002_receipt_verification.py research/challenger_002_research_pipeline.py research/challenger_002_authenticated_intake.py research/challenger_002_dataset_audit.py research/challenger_002_pregame_gate.py research/challenger_002_artifact_pair_audit.py research/challenger_002_nba_schema_profile.py research/challenger_002_nba_research_join.py research/challenger_002_nba_temporal_audit.py research/challenger_002_nba_odds_schema.py research/challenger_002_nba_sportsbook_audit.py tests/test_challenger_002_nba_sportsbook_audit.py tests/test_challenger_002_nba_odds_schema.py tests/test_challenger_002_nba_temporal_audit.py tests/test_challenger_002_nba_schema_profile.py tests/test_challenger_002_nba_research_join.py tests/test_challenger_002_artifact_pair_audit.py tests/test_challenger_002_dataset_audit.py tests/test_challenger_002_pregame_gate.py tests/test_challenger_002_baseline.py tests/test_challenger_002_source_validation.py
       - name: Compile certification and integrity modules
         run: python -m py_compile research/challenger_002_nba_source_integrity.py research/challenger_002_certification_readiness.py tests/test_challenger_002_certification_readiness.py tests/test_challenger_002_authenticated_intake.py
+      - name: Test permanent all-market BEST BET board
+        run: python -m unittest discover -s tests -p "test_nba_all_markets_best_bet.py" -v
+      - name: Display BEST BET status
+        run: python -m research.nba_all_markets_best_bet
       - name: Run offline fail-closed regression tests
         run: python -m unittest discover -s tests -p 'test_challenger_002*.py' -v
       - name: Print unified certification readiness ledger
