@@ -58,7 +58,13 @@ jobs:
           snapshot="$(find live_nba_odds -maxdepth 1 -name 'sharpapi_dk_*.jsonl' | sort | tail -n 1)"
           test -n "$snapshot"
           python challenger_schedule_crosswalk.py --odds "$snapshot" --outdir live_nba_validation
-          python challenger_audit.py --input "$snapshot" --schedule live_nba_validation/schedule_manifest.json --output-dir live_nba_validation
+          args=(--input "$snapshot" --schedule live_nba_validation/schedule_manifest.json --output-dir live_nba_validation)
+          # Only explicit independently reviewed manifests may clear player-prop gates.
+          # Never silently substitute stale or unverified provider snapshots.
+          if [[ -f verified_inputs/rosters.json && -f verified_inputs/availability.json ]]; then
+            args+=(--rosters verified_inputs/rosters.json --availability verified_inputs/availability.json)
+          fi
+          python challenger_audit.py "${args[@]}"
           python challenger_gate_diagnostics.py --raw "$snapshot" --audit-dir live_nba_validation --output live_nba_validation/quality_diagnostics.json
       - name: Report actual NBA connection status and no-bet gate
         if: always()
