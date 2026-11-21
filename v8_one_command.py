@@ -690,6 +690,9 @@ def main(argv=None):
                      calibration_file=args.calibration_file,
                      nfl_nhl_board_files={"nfl":args.nfl_board_file, "nhl":args.nhl_board_file},
                      season_archive_dir=args.season_archive_dir)
+    # Every command emits a fresh, explicit fail-closed pregame assessment.
+    # No input means no authenticated selections; never reuse yesterday's file.
+    snapshot = {"sport": requested_user_command, "selections": []}
     if args.pregame_input:
         pregame_path = Path(args.pregame_input)
         if not pregame_path.is_file() or pregame_path.is_symlink():
@@ -697,14 +700,13 @@ def main(argv=None):
         if pregame_path.stat().st_size > 2_000_000:
             raise ValueError("pregame_input_too_large")
         snapshot = json.loads(pregame_path.read_text(encoding="utf-8"))
-        pregame = run_pregame_five_gate(snapshot)
-        output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(pregame, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        report["pregame_five_gate"] = pregame
-        main_report_path = Path(args.output_dir) / "ONE_COMMAND_REPORT.json"
-        if main_report_path.is_file():
-            main_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    pregame = run_pregame_five_gate(snapshot)
+    report["pregame_five_gate"] = pregame
+    output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(pregame, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    main_report_path = Path(args.output_dir) / "ONE_COMMAND_REPORT.json"
+    main_report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"command": requested_user_command,
                       "leagues": report["requested_leagues"],
                       "research_edges": len(report.get("research_edge_candidates", [])),
