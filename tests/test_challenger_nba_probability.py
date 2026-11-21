@@ -5,10 +5,11 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from challenger_nba_probability import (
     BLOCKED, VERSION, digest, main, predict_probability, score_future_event,
-    train_engine,
+    train_engine, fit,
 )
 
 AS_OF = datetime(2027, 1, 1, tzinfo=timezone.utc)
@@ -84,7 +85,14 @@ class NbaProbabilityEngineTests(unittest.TestCase):
                                      as_of=AS_OF)
         self.assertEqual(report["result"], "fitted_unverified_research_model")
         self.assertEqual(model["version"], VERSION)
-        self.assertEqual(model["fit"]["training_rows"], 260)
+        self.assertEqual(model["fit"]["training_rows"], 208)
+        self.assertEqual(model["fit_partition"], "chronological_training_only")
+        self.assertTrue(model["holdout_excluded_from_coefficients"])
+        self.assertTrue(model["holdout_metrics_apply_to_saved_model"])
+        self.assertFalse(model["holdout_metrics_apply_to_pre_refit_model_only"])
+        self.assertTrue(report["saved_fit_did_not_include_holdout"])
+        self.assertNotEqual(model["fitted_training_evidence_digest"],
+                            model["untouched_holdout_evidence_digest"])
         self.assertEqual(report["chronological_train_games"], 208)
         self.assertEqual(report["chronological_holdout_games"], 52)
         self.assertEqual(report["out_of_sample_exploratory_metrics"]["holdout_games"], 52)
@@ -95,6 +103,27 @@ class NbaProbabilityEngineTests(unittest.TestCase):
         self.assertFalse(report["champion_001_modified"])
         self.assertEqual(digest({k: v for k, v in model.items()
                                  if k != "artifact_sha256"}), model["artifact_sha256"])
+
+    def test_nba_saved_coefficients_are_the_only_fitted_coefficients(self):
+        rows = [synthetic_game(i) for i in range(260)]
+        with patch("challenger_nba_probability.fit", wraps=fit) as tracked:
+            report, model = train_engine(rows, as_of=AS_OF)
+        self.assertIsNotNone(model)
+        self.assertEqual(len(tracked.call_args_list), 1)
+        self.assertEqual(len(tracked.call_args_list[0].args[0]), 208)
+        self.assertEqual(model["fit"]["training_rows"], report["chronological_train_games"])
+        self.assertEqual(model["holdout_start_utc"], rows[208]["start_utc"])
+
+    def test_old_refitted_model_rejected_even_with_matching_hash(self):
+        _, model = train_engine([synthetic_game(i) for i in range(260)], as_of=AS_OF)
+        old = copy.deepcopy(model)
+        old["fit_partition"] = "refitted_on_training_and_holdout"
+        old["holdout_excluded_from_coefficients"] = False
+        old.pop("artifact_sha256")
+        old["artifact_sha256"] = digest(old)
+        with self.assertRaisesRegex(ValueError, "model artifact signature"):
+            score_future_event(old, next_event(model),
+                               now=AS_OF + timedelta(hours=2, minutes=10))
 
     def test_quarantined_rows_never_enter_train(self):
         rows = [synthetic_game(i) for i in range(4)]
