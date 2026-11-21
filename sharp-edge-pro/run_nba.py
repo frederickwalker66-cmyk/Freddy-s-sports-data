@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from pregame_timeline import timeline
 
 FAMILIES = {
     "spreads": {"point_spread"},
@@ -47,6 +48,11 @@ def main():
                 continue
             item={k:row.get(k) for k in ("event_id","home_team","away_team","market_type","selection","selection_type","player_name","player_id","line","odds_american","timestamp","recorded_at")}
             item.update(status="HOLD",certified=False,model_probability=None,reason="Independent forecast, live roster/injury and executable odds not certified")
+            if row.get("event_start_time"):
+                try:
+                    item["pregame_timeline"]=timeline(row["event_start_time"])
+                except (ValueError,TypeError):
+                    item["pregame_timeline"]={"status":"HOLD","reason":"Invalid event start timestamp"}
             groups[classify(row)].append(item)
     result={"command":"run nba","status":"HOLD","certified_takes":0,
             "input_snapshot":args.input,"rejected_non_nba_or_invalid":rejected,
