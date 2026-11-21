@@ -27,6 +27,32 @@ class AuthenticatedIntakeTests(unittest.TestCase):
             r=capture("2025-01-01","nba_scores",d,env={"SPORTSDATAIO_NBA_API_KEY":"test-key"},
                 fetch=lambda *a,**k:{"payload":{},"retrieved_at":"2026-11-21T17:00:00Z"})
             self.assertEqual(r["status"],"BLOCKED")
+    def test_scrambled_odds_intake_is_not_usable_for_training(self):
+        def fake_fetch(url,**kwargs):
+            self.assertIn("/odds/json/GameOddsByDate/",url)
+            return {"payload":[{"GameId":1,"PregameOdds":[
+                {"Sportsbook":"Scrambled","SportsbookId":12,
+                 "HomeMoneyLine":-110,"Created":"2026-11-21T12:00:00"}]}],
+                "retrieved_at":"2026-11-21T17:00:00Z"}
+        with tempfile.TemporaryDirectory() as d:
+            r=capture("2026-11-21","nba_odds",d,
+                env={"SPORTSDATAIO_ODDS_API_KEY":"test-key"},fetch=fake_fetch)
+            self.assertEqual(r["status"],"AUTHENTICATED_SNAPSHOT_RESEARCH_ONLY")
+            self.assertEqual(r["odds_source_integrity"]["status"],"BLOCKED_SCRAMBLED_SPORTSBOOK")
+            self.assertEqual(r["odds_source_integrity"]["scrambled_sportsbook_rows"],1)
+            self.assertFalse(r["odds_real_data_verified"])
+            self.assertFalse(r["odds_sportsbook_identity_verified"])
+            self.assertEqual(r["certified_take_count"],0)
+    def test_non_scrambled_name_alone_does_not_verify_prices(self):
+        with tempfile.TemporaryDirectory() as d:
+            r=capture("2026-11-21","nba_odds",d,
+                env={"SPORTSDATAIO_ODDS_API_KEY":"test-key"},
+                fetch=lambda *a,**k:{"payload":[{"GameId":1,"PregameOdds":[
+                    {"Sportsbook":"DraftKings","SportsbookId":12}]}],
+                    "retrieved_at":"2026-11-21T17:00:00Z"})
+            self.assertFalse(r["odds_real_data_verified"])
+            self.assertFalse(r["odds_sportsbook_identity_verified"])
+            self.assertEqual(r["certified_take_count"],0)
     def test_invalid_date_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(ValueError):
