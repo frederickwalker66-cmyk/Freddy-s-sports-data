@@ -33,9 +33,9 @@ def audit(rows, manifest):
         if not isinstance(manifest.get("evidence_uri"), str) or not manifest["evidence_uri"].strip():
             blockers.append("MISSING_AUDIT_EVIDENCE_REFERENCE")
     return {
-        "status": "ELIGIBLE_FOR_RESEARCH_REVIEW_NOT_CERTIFIED" if not blockers else "BLOCKED",
+        "status": "BLOCKED",
         "rows": len(rows), "schema_validation": report,
-        "blockers": blockers, "evidence_self_reported_not_independently_authenticated": True,
+        "blockers": blockers + ["INDEPENDENT_EVIDENCE_AUTHENTICATION_NOT_IMPLEMENTED"], "evidence_self_reported_not_independently_authenticated": True,
         "certified_take_count": 0, "research_only": True,
     }
 
