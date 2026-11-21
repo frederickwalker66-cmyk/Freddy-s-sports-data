@@ -12,7 +12,7 @@ permissions:
 jobs:
   readiness:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,7 +28,12 @@ jobs:
         env:
           SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
           SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
-        run: python sharp-edge-pro/runner.py
+        run: |
+          for tick in 1 2 3 4 5; do
+            echo "Readiness check $tick of 5"
+            python sharp-edge-pro/runner.py || exit $?
+            if [ "$tick" -lt 5 ]; then sleep 60; fi
+          done
       - name: Publish readable status
         if: always()
         run: |
