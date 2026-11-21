@@ -2,6 +2,12 @@ name: Freddy's Picks AI — One Command Train + Certification Gate
 # Manual pre-7pm research verification rerun; never certifies unverified bets.
 on:
   workflow_dispatch:
+    inputs:
+      enable_training:
+        description: 'Opt in to Challenger-003 research training for this manual run only'
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: '20 12,21 * * *'
   push:
@@ -45,14 +51,21 @@ jobs:
           else
             echo '{"status":"HOLD_MISSING_PREDICTIONS_OR_SETTLEMENTS","graded_count":0,"certified_take_count":0}' > artifacts/challenger_003_grading.json
           fi
-      - name: Daily training from approved point-in-time data, if available
+      - name: Optional manual training (disabled by default)
+        env:
+          ENABLE_TRAINING: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_training && 'true' || 'false' }}
         shell: bash
         run: |
           mkdir -p artifacts
-          if [ -s approved_data/challenger_003_nba_game_moneyline.jsonl ]; then
+          if [ "$ENABLE_TRAINING" = "true" ] && [ -s approved_data/challenger_003_nba_game_moneyline.jsonl ]; then
             python -m research.challenger_003_train_predict --train approved_data/challenger_003_nba_game_moneyline.jsonl --artifact artifacts/challenger_003_model.json --output artifacts/challenger_003_readiness.json
           else
-            python -m research.challenger_003_train_predict --train /dev/null --output artifacts/challenger_003_readiness.json
+            python - <<'PY'
+          import json,os
+          from pathlib import Path
+          status='TRAINING_PAUSED_BY_USER' if os.getenv('ENABLE_TRAINING')!='true' else 'HOLD_NO_APPROVED_DATA'
+          Path('artifacts/challenger_003_readiness.json').write_text(json.dumps({'status':status,'train_rows':0,'test_rows':0,'certified_take_count':0})+'\n')
+          PY
           fi
           python - <<'PY'
           import json,os
