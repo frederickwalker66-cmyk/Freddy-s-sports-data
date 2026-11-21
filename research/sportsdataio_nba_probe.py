@@ -57,7 +57,14 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
             }
         except (SourceUnavailable, KeyError, TypeError, ValueError) as exc:
             results[name] = {"status": "HOLD_PROVIDER_ERROR", "reason_type": type(exc).__name__}
+    coverage = {name: {"response_received": item["status"] in (
+                    "RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS", "HOLD_EMPTY_PROVIDER_RESPONSE"),
+                    "records_present": item.get("record_count", 0) > 0,
+                    "record_count": item.get("record_count", 0)}
+                for name, item in results.items()}
     return {"provider": "SportsDataIO", "sport": "nba", "date": day,
+            "coverage": coverage, "draftkings_markets_verified": 0,
+            "roster_identities_independently_verified": 0,
             "endpoints": results, "certified_take_count": 0, "decision": "HOLD",
             "note": "DraftKings book mapping, props, independent roster corroboration, original Champion inference, and calibrated EV remain required."}
 
