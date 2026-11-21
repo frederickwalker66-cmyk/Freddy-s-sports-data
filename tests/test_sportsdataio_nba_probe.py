@@ -1,8 +1,14 @@
 import unittest
-from research.sportsdataio_nba_probe import probe, HOST
+from research.sportsdataio_nba_probe import probe, schema_shape, HOST
 
 
 class SportsDataIOProbeTests(unittest.TestCase):
+    def test_schema_shape_omits_values(self):
+        shape = schema_shape([{"Sportsbook": "DraftKings", "Odds": -110, "Nested": {"token": "secret"}}])
+        self.assertEqual(shape["field_names"], ["Nested", "Odds", "Sportsbook"])
+        self.assertNotIn("DraftKings", str(shape))
+        self.assertNotIn("secret", str(shape))
+
     def test_missing_keys_hold(self):
         r = probe(day="2026-11-21", env={})
         self.assertEqual(r["certified_take_count"], 0)
