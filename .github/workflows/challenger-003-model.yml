@@ -1,4 +1,5 @@
 name: Freddy's Picks AI — One Command Train + Certification Gate
+# Manual pre-7pm research verification rerun; never certifies unverified bets.
 on:
   workflow_dispatch:
   schedule:
