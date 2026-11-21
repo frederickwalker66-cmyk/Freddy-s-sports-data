@@ -40,7 +40,26 @@ jobs:
           summary.write_text("\n".join(lines)+"\n")
           PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: sportsdataio-nba-readiness
           path: SPORTSDATAIO_NBA_READINESS.json
           retention-days: 7
+      - name: Fail verification if any authenticated feed is unavailable
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path("SPORTSDATAIO_NBA_READINESS.json")
+          if not path.exists():
+              raise SystemExit("VERIFICATION_FAILED: provider readiness report missing")
+          report=json.loads(path.read_text())
+          statuses={name:item["status"] for name,item in report["endpoints"].items()}
+          failures={name:status for name,status in statuses.items()
+                    if status!="RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS"}
+          if failures:
+              raise SystemExit("VERIFICATION_FAILED: "+repr(failures))
+          print("Authenticated provider endpoints responded. DraftKings identity, rosters, model inference and certified TAKE still HOLD.")
+          PY
