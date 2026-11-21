@@ -57,6 +57,8 @@ jobs:
                  f"- Record count: {report.get('record_count',0)}",
                  f"- SHA256 (canonical snapshot): {report.get('canonical_payload_sha256','unavailable')}",
                  "- Historical pregame availability: NOT VERIFIED",
+                 f"- Odds integrity: {report.get('odds_source_integrity',{}).get('status','NOT_APPLICABLE')}",
+                 f"- Scrambled sportsbook rows: {report.get('odds_source_integrity',{}).get('scrambled_sportsbook_rows','NOT_APPLICABLE')}",
                  "- DraftKings identity: NOT VERIFIED",
                  "- Certified TAKE: 0 (HOLD)",
                  "",
