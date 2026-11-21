@@ -50,10 +50,6 @@ def main():
             raise SystemExit("Invalid candidate JSON; no certified predictions")
     else:
         candidates = []
-    report = run(candidates, model_key=os.getenv("SHARP_MODEL_ATTESTATION_KEY"),
-                 odds_key=os.getenv("SHARP_ODDS_ATTESTATION_KEY"),
-                 release_key=os.getenv("SHARP_RELEASE_ATTESTATION_KEY"),
-                 approved_model_versions=tuple(v.strip() for v in os.getenv("SHARP_APPROVED_MODEL_VERSIONS", "").split(",") if v.strip()))
     feed_status_path = Path(args.feed_status)
     try:
         feed_report = json.loads(feed_status_path.read_text(encoding="utf-8")) if feed_status_path.is_file() else {}
@@ -62,6 +58,12 @@ def main():
             feed_state = "FEED_STATUS_INVALID"
     except (ValueError, OSError, UnicodeError):
         feed_state = "FEED_STATUS_INVALID"
+    if feed_state != "FEED_RECEIVED":
+        candidates = []  # No verified intake provenance: never certify leftover/manual data.
+    report = run(candidates, model_key=os.getenv("SHARP_MODEL_ATTESTATION_KEY"),
+                 odds_key=os.getenv("SHARP_ODDS_ATTESTATION_KEY"),
+                 release_key=os.getenv("SHARP_RELEASE_ATTESTATION_KEY"),
+                 approved_model_versions=tuple(v.strip() for v in os.getenv("SHARP_APPROVED_MODEL_VERSIONS", "").split(",") if v.strip()))
     report["feed_status"] = feed_state
     report["certification_blockers"] = []
     if feed_state != "FEED_RECEIVED":
