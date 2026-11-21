@@ -50,7 +50,7 @@ def main():
             groups[classify(row)].append(item)
     result={"command":"run nba","status":"HOLD","certified_takes":0,
             "input_snapshot":args.input,"rejected_non_nba_or_invalid":rejected,
-            "markets":groups,"note":"Research observations only. Missing markets are not fabricated. No wagers placed."}
+            "markets":groups,"sharp_edge":{"status":"UNVERIFIED","qualified_bets":[],"reason":"No independently validated model edge and executable sportsbook price"},"reverse_line_movement":{"status":"UNVERIFIED","reason":"Requires timestamped opening/current same-book lines and verified public bet splits"},"sharp_money":{"status":"UNVERIFIED","reason":"Requires source-backed public handle and bet percentages"},"team_leans":{"status":"NONE_VERIFIED","leans":[],"reason":"No independent model team-side probabilities"},"note":"Research observations only. Missing markets are not fabricated. No wagers placed."}
     out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(result,indent=2)+"\n",encoding="utf8")
     print(json.dumps({"command":"run nba","status":"HOLD","certified_takes":0,
