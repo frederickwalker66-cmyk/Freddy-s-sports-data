@@ -14,6 +14,11 @@ on:
         options:
           - nba_scores
           - nba_odds
+      licensed_retention_approved:
+        description: "Confirm SportsDataIO license permits storing these raw records in private GitHub Actions artifacts"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
+      LICENSED_RETENTION_APPROVED: ${{ inputs.licensed_retention_approved }}
       SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
       SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
       GAME_DATE: ${{ inputs.game_date }}
@@ -54,9 +60,17 @@ jobs:
                  "- DraftKings identity: NOT VERIFIED",
                  "- Certified TAKE: 0 (HOLD)",
                  "",
-                 "Raw licensed snapshot is retained only on the ephemeral runner, not uploaded as an artifact."]
+                 "Raw snapshot uploaded only when licensed retention is explicitly approved; otherwise ephemeral runner only."]
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
           PY
+      - name: Upload licensed raw snapshot only with explicit retention approval
+        if: ${{ success() && inputs.licensed_retention_approved == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-002-licensed-${{ inputs.feed }}-${{ inputs.game_date }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/challenger_002_licensed/*.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload metadata report only
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,4 +78,4 @@ jobs:
           name: challenger-002-nba-intake-metadata
           path: ${{ runner.temp }}/challenger_002_intake_report.json
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 30
