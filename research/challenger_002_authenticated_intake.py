@@ -13,6 +13,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from research.trusted_provider_gateway import SourceUnavailable, fetch_provider_json
 from research.challenger_002_pregame_gate import inspect_pregame_snapshot
+from research.challenger_002_nba_source_integrity import audit as odds_integrity_audit
 
 HOST = "api.sportsdata.io"
 PATHS = {
@@ -49,6 +50,11 @@ def capture(day, kind, output_dir, *, env=None, fetch=fetch_provider_json):
         path.write_bytes(canonical)
         pregame = inspect_pregame_snapshot(payload, retrieved_at) if kind == "nba_scores" else {"status":"NOT_ASSESSED_FOR_ODDS_NESTED_SCHEMA","certified_take_count":0}
         report.update(pregame_candidate_assessment=pregame)
+        if kind == "nba_odds":
+            integrity = odds_integrity_audit(payload)
+            report["odds_source_integrity"] = integrity
+            report["odds_real_data_verified"] = False
+            report["odds_sportsbook_identity_verified"] = False
         report.update(status="AUTHENTICATED_SNAPSHOT_RESEARCH_ONLY",
                       retrieved_at=retrieved_at, record_count=len(payload),
                       canonical_payload_sha256=digest, snapshot_path=str(path),
