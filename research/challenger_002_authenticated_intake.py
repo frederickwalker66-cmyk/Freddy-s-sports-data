@@ -12,6 +12,7 @@ import os
 from datetime import date, datetime, timezone
 from pathlib import Path
 from research.trusted_provider_gateway import SourceUnavailable, fetch_provider_json
+from research.challenger_002_pregame_gate import inspect_pregame_snapshot
 
 HOST = "api.sportsdata.io"
 PATHS = {
@@ -46,6 +47,8 @@ def capture(day, kind, output_dir, *, env=None, fetch=fetch_provider_json):
         filename = kind + "_" + day + "_" + digest[:16] + ".json"
         path = directory / filename
         path.write_bytes(canonical)
+        pregame = inspect_pregame_snapshot(payload, retrieved_at) if kind == "nba_scores" else {"status":"NOT_ASSESSED_FOR_ODDS_NESTED_SCHEMA","certified_take_count":0}
+        report.update(pregame_candidate_assessment=pregame)
         report.update(status="AUTHENTICATED_SNAPSHOT_RESEARCH_ONLY",
                       retrieved_at=retrieved_at, record_count=len(payload),
                       canonical_payload_sha256=digest, snapshot_path=str(path),
