@@ -1,6 +1,14 @@
 name: Sharp Edge — Live Certification Audit (fail closed)
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/certify_sharp_edge.py'
+      - 'scripts/live_certified_predictions.py'
+      - 'scripts/fetch_certification_candidates.py'
+      - 'tests/test_fetch_certification_candidates.py'
+      - 'tests/test_live_certified_predictions.py'
+      - '.github/workflows/live-sharp-edge-certification.yml'
   schedule:
     # Every day, all UTC hours: captures early, afternoon and late games across sports.
     - cron: '*/15 * * * *'
@@ -20,7 +28,21 @@ concurrency:
   group: live-sharp-edge-certification
   cancel-in-progress: false
 jobs:
+  offline-regression:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test feed and certification fail-closed contracts without secrets
+        run: python -m unittest tests.test_fetch_certification_candidates tests.test_sharp_edge_certification tests.test_live_certified_predictions -v
   certify:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
