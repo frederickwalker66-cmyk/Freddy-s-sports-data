@@ -17,6 +17,7 @@ a trained Champion-001 artifact, or certified betting decisions.
 | `FREDDY_CHAMPION_ARTIFACT` | Existing frozen Champion-001 artifact path |
 | `FREDDY_CHAMPION_SHA256` | Independently established SHA-256 of original model |
 | `FREDDY_CHAMPION_RUNNER` | Reviewed Python adapter implementing frozen model inference |
+| `FREDDY_CHAMPION_RUNNER_SHA256` | Independently verified SHA-256 of reviewed runner code; required before executing |
 
 For GitHub Actions, store credentials in **Actions secrets**, not in workflow YAML,
 commits, issues, or chat. A configured provider must support the header
