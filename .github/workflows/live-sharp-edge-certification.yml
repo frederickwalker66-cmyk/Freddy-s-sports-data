@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/certify_sharp_edge.py'
       - 'scripts/live_certified_predictions.py'
+      - 'tests/test_sharp_edge_certification.py'
       - 'scripts/fetch_certification_candidates.py'
       - 'tests/test_fetch_certification_candidates.py'
       - 'tests/test_live_certified_predictions.py'
@@ -57,6 +58,7 @@ jobs:
         env:
           SHARP_MODEL_ATTESTATION_KEY: ${{ secrets.SHARP_MODEL_ATTESTATION_KEY }}
           SHARP_ODDS_ATTESTATION_KEY: ${{ secrets.SHARP_ODDS_ATTESTATION_KEY }}
+          SHARP_RELEASE_ATTESTATION_KEY: ${{ secrets.SHARP_RELEASE_ATTESTATION_KEY }}
           SHARP_APPROVED_MODEL_VERSIONS: ${{ vars.SHARP_APPROVED_MODEL_VERSIONS }}
         run: |
           python -m unittest tests.test_fetch_certification_candidates tests.test_sharp_edge_certification tests.test_live_certified_predictions -v
