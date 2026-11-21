@@ -1,0 +1,54 @@
+name: NBA production odds entitlement preflight (no raw data)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/nba-production-odds-preflight.yml"
+permissions:
+  contents: read
+jobs:
+  check-current-odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check authenticated current odds without exposing prices or keys
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from research.trusted_provider_gateway import fetch_provider_json
+          from research.challenger_002_nba_source_integrity import audit
+          today=datetime.now(timezone.utc).date().isoformat()
+          result={"date_utc":today,"status":"HOLD","certified_take_count":0,
+                  "production_entitlement_verified":False,"draftkings_verified":False}
+          key=os.environ.get("SPORTSDATAIO_ODDS_API_KEY")
+          if not key:
+              result["reason"]="ODDS_SECRET_MISSING"
+          else:
+              try:
+                  response=fetch_provider_json(
+                      "https://api.sportsdata.io/v3/nba/odds/json/GameOddsByDate/"+today,
+                      api_key=key,allowed_host="api.sportsdata.io")
+                  gate=audit(response["payload"])
+                  result.update({"reason":gate["status"],
+                      "games":gate["game_records"],
+                      "pregame_markets":gate["pregame_market_rows"],
+                      "scrambled_rows":gate["scrambled_sportsbook_rows"],
+                      "unscrambled_rows":gate["non_scrambled_sportsbook_rows"]})
+              except Exception as exc:
+                  result["reason"]="PROVIDER_REQUEST_FAILED_"+type(exc).__name__
+          # Even a non-scrambled response cannot by itself prove a paid entitlement.
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(
+              "## NBA odds production preflight\\n\\n"+ 
+              "\\n".join(f"- {k}: {v}" for k,v in result.items())+"\\n")
+          print("NBA_PRODUCTION_ODDS_PREFLIGHT="+json.dumps(result,sort_keys=True))
+          PY
