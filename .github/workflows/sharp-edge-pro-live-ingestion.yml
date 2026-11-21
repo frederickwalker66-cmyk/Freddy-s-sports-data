@@ -1,0 +1,50 @@
+name: Sharp Edge Pro — Bounded Live NBA Ingestion
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: sharp-edge-pro-live-ingestion
+  cancel-in-progress: false
+jobs:
+  nba-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Preflight credential without revealing it
+        env:
+          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+        run: |
+          test -n "$SHARPAPI_KEY" || { echo "HOLD: missing SHARPAPI_KEY"; exit 2; }
+          python collector.py --leagues nba --max-pages 1 --dry-run
+      - name: Fetch bounded pregame odds (maximum two paid provider requests)
+        env:
+          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+        run: python collector.py --leagues nba --max-pages 1 --output-dir sharp-edge-pro/output/live
+      - name: Independent schedule crosswalk
+        run: |
+          snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
+          test -n "$snapshot"
+          python challenger_schedule_crosswalk.py --odds "$snapshot" --outdir sharp-edge-pro/output/audit
+      - name: Quarantine unverified markets; stage research only
+        run: |
+          snapshot=$(find sharp-edge-pro/output/live -name '*.jsonl' | head -n 1)
+          python challenger_audit.py --input "$snapshot" --schedule sharp-edge-pro/output/audit/schedule_manifest.json --output-dir sharp-edge-pro/output/audit
+      - name: Publish honest status
+        if: always()
+        run: |
+          echo '## Sharp Edge Pro live NBA ingestion' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Research only. Zero certified TAKE. No model probabilities or checkout-price verification.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'At most two SharpAPI requests per successful run, scheduled hourly; provider charges and limits may apply.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sharp-edge-pro-live-nba-research
+          path: sharp-edge-pro/output/
+          retention-days: 7
