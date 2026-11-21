@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/challenger-002-retained-pair-audit.yml'
       - 'research/challenger_002_nba_schema_profile.py'
+      - 'research/challenger_002_nba_research_join.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -87,6 +88,14 @@ jobs:
           schema=profile(json.loads(single("scores").read_text()), json.loads(single("odds").read_text()))
           (root/"nba-schema-profile.json").write_text(json.dumps(schema,indent=2)+"\\n")
           print("SANITIZED_NBA_SCHEMA_PROFILE="+json.dumps(schema,sort_keys=True))
+          from research.challenger_002_nba_research_join import build
+          joined=build(json.loads(single("scores").read_text()),json.loads(single("odds").read_text()),
+                       json.loads(single("scores-metadata").read_text()),json.loads(single("odds-metadata").read_text()))
+          (root/"nba-research-join.json").write_text(json.dumps(joined,indent=2)+"\n")
+          print("NBA_RESEARCH_JOIN_COUNTS="+json.dumps({k:v for k,v in joined.items() if k!="research_join_rows"},sort_keys=True))
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+              summary.write(f"\n### Research-only joined games: {joined['joined_game_count']}\n")
+              summary.write("- Certified TAKE: 0; training approval: 0\n")
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write("\\n### Game-ID join diagnostics\\n")
               summary.write(f"- Score records: {schema.get('score_records',0)}\\n")
@@ -101,5 +110,6 @@ jobs:
           path: |
             ${{ runner.temp }}/nba-pair-audit.json
             ${{ runner.temp }}/nba-schema-profile.json
+            ${{ runner.temp }}/nba-research-join.json
           if-no-files-found: ignore
           retention-days: 30
