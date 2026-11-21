@@ -11,6 +11,7 @@ import math
 from pathlib import Path
 from roster_validation import check_player_roster, load_rosters
 from availability_validation import check_availability, load_availability
+from scripts.player_prop_integrity_gate import validate as validate_prop_integrity
 
 
 def parse_utc(value):
@@ -134,6 +135,30 @@ def validate(row, events, rosters=None, availability=None):
             reasons.append("invalid_player_line")
         reasons.extend(check_player_roster(row, rosters))
         reasons.extend(check_availability(row, availability))
+        # Validate point-in-time integrity using reviewed manifests only.
+        roster = rosters.get((row.get("league"), str(row.get("player_id"))))
+        status = availability.get((row.get("league"), str(row.get("player_id")), row.get("event_id")))
+        integrity_record = {
+            "player_id": row.get("player_id"),
+            "team_id": roster.get("team") if roster else None,
+            "roster_team_id": status.get("team") if status else None,
+            "event_id": row.get("event_id"),
+            "sportsbook": row.get("sportsbook"),
+            "market": row.get("market_type"),
+            "line": row.get("line"),
+            "odds": row.get("odds_american"),
+            "status": status.get("injury_status") if status else None,
+            "observed_at": row.get("recorded_at"),
+            "roster_verified_at": roster.get("verified_at_utc") if roster else None,
+            "injury_verified_at": status.get("verified_at_utc") if status else None,
+            "starts_at": row.get("event_start_time"),
+        }
+        try:
+            captured = parse_utc(row.get("recorded_at"))
+            reasons.extend("integrity_" + reason for reason in
+                           validate_prop_integrity(integrity_record, captured))
+        except (ValueError, TypeError, OverflowError):
+            reasons.append("integrity_invalid_capture_time")
     elif player_prop is not False:
         reasons.append("unknown_prop_class")
     return sorted(set(reasons))
