@@ -21,6 +21,17 @@ ENDPOINTS = {
 }
 
 
+def schema_shape(records, *, max_fields=40):
+    """Field-name-only structural sample; never emit licensed record values."""
+    if not isinstance(records, list) or not records:
+        return {"record_type": "empty_or_invalid", "field_names": []}
+    first = next((record for record in records if isinstance(record, dict)), None)
+    if first is None:
+        return {"record_type": type(records[0]).__name__, "field_names": []}
+    return {"record_type": "object", "field_names": sorted(
+        key for key in first if isinstance(key, str))[:max_fields]}
+
+
 def probe(*, day=None, env=None, fetch=fetch_provider_json):
     env = os.environ if env is None else env
     day = day or date.today().isoformat()
@@ -51,6 +62,7 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
                            if payload else "HOLD_EMPTY_PROVIDER_RESPONSE"),
                 "retrieved_at": response["retrieved_at"],
                 "record_count": len(payload),
+                "schema_shape": schema_shape(payload),
                 "transport_authenticated": True,
                 "draftkings_selection_verified": False,
                 "player_team_and_injury_crosschecked": False,
