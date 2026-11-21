@@ -1,5 +1,10 @@
 name: Challenger-002 retained NBA pair audit
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/challenger-002-retained-pair-audit.yml'
+      - 'research/challenger_002_nba_schema_profile.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -27,25 +32,25 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: challenger-002-nba-intake-metadata
-          run-id: ${{ inputs.scores_run_id }}
+          run-id: ${{ inputs.scores_run_id || '44931759996' }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/scores-metadata
       - uses: actions/download-artifact@v4
         with:
           pattern: challenger-002-licensed-nba_scores-*
-          run-id: ${{ inputs.scores_run_id }}
+          run-id: ${{ inputs.scores_run_id || '44931759996' }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/scores
       - uses: actions/download-artifact@v4
         with:
           name: challenger-002-nba-intake-metadata
-          run-id: ${{ inputs.odds_run_id }}
+          run-id: ${{ inputs.odds_run_id || '44932013570' }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/odds-metadata
       - uses: actions/download-artifact@v4
         with:
           pattern: challenger-002-licensed-nba_odds-*
-          run-id: ${{ inputs.odds_run_id }}
+          run-id: ${{ inputs.odds_run_id || '44932013570' }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/odds
       - name: Validate retained artifacts without logging licensed records
@@ -81,6 +86,7 @@ jobs:
           from research.challenger_002_nba_schema_profile import profile
           schema=profile(json.loads(single("scores").read_text()), json.loads(single("odds").read_text()))
           (root/"nba-schema-profile.json").write_text(json.dumps(schema,indent=2)+"\\n")
+          print("SANITIZED_NBA_SCHEMA_PROFILE="+json.dumps(schema,sort_keys=True))
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write("\\n### Game-ID join diagnostics\\n")
               summary.write(f"- Score records: {schema.get('score_records',0)}\\n")
