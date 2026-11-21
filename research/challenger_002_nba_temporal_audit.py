@@ -17,6 +17,8 @@ def parse_aware(value):
 
 def audit(scores,odds,scores_meta,odds_meta):
     out={"status":"RESEARCH_TEMPORAL_SCREEN_ONLY","matched_games":0,
+         "missing_start_count":0,"naive_start_count":0,
+         "invalid_start_count":0,"invalid_capture_count":0,
          "timestamp_before_start_candidates":0,"blocked_missing_or_ambiguous_time":0,
          "blocked_at_or_after_start":0,"blocked_identifier_conflict":0,
          "training_rows_approved":0,"certified_take_count":0,
@@ -48,6 +50,15 @@ def audit(scores,odds,scores_meta,odds_meta):
         start=parse_aware(field(sr,"DateTimeUTC"))
         if start is None or captured is None:
             out["blocked_missing_or_ambiguous_time"]+=1
+            raw=field(sr,"DateTimeUTC")
+            if raw is None or raw=="":
+                out["missing_start_count"]+=1
+            elif isinstance(raw,str) and parse_aware(raw+"Z") is not None:
+                out["naive_start_count"]+=1
+            else:
+                out["invalid_start_count"]+=1
+            if captured is None:
+                out["invalid_capture_count"]+=1
         elif captured>=start:
             out["blocked_at_or_after_start"]+=1
         else:
