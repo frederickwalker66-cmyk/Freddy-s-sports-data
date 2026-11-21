@@ -51,6 +51,7 @@ def main():
     else:
         candidates = []
     feed_status_path = Path(args.feed_status)
+    feed_report = {}
     try:
         feed_report = json.loads(feed_status_path.read_text(encoding="utf-8")) if feed_status_path.is_file() else {}
         feed_state = feed_report.get("status", "FEED_STATUS_MISSING")
