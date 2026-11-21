@@ -47,8 +47,8 @@ def validate(record, now):
             reasons.append("stale_injury")
         if start <= now:
             reasons.append("event_already_started")
-        if observed < roster or observed < injury:
-            reasons.append("unverified_at_odds_capture")
+        if roster > observed or injury > observed:
+            reasons.append("verification_after_odds_capture")
     except (ValueError, TypeError, OverflowError):
         reasons.append("invalid_timestamp")
     return sorted(set(reasons))
