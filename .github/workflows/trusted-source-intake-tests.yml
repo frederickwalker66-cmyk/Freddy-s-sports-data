@@ -1,0 +1,24 @@
+name: Trusted Source Intake Tests
+on:
+  push:
+    paths:
+      - research/trusted_source_intake.py
+      - tests/test_trusted_source_intake.py
+      - .github/workflows/trusted-source-intake-tests.yml
+  pull_request:
+    paths:
+      - research/trusted_source_intake.py
+      - tests/test_trusted_source_intake.py
+      - .github/workflows/trusted-source-intake-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_trusted_source_intake.py' -v
