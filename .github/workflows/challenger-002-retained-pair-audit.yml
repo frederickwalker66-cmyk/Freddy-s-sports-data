@@ -7,6 +7,7 @@ on:
       - 'research/challenger_002_nba_schema_profile.py'
       - 'research/challenger_002_nba_research_join.py'
       - 'research/challenger_002_nba_temporal_audit.py'
+      - 'research/challenger_002_nba_timezone_sensitivity.py'
   workflow_dispatch:
     inputs:
       scores_run_id:
@@ -101,6 +102,13 @@ jobs:
                                   json.loads(single("odds-metadata").read_text()))
           (root/"nba-temporal-audit.json").write_text(json.dumps(temporal,indent=2)+"\\n")
           print("NBA_TEMPORAL_AUDIT="+json.dumps(temporal,sort_keys=True))
+          from research.challenger_002_nba_timezone_sensitivity import analyze
+          sensitivity=analyze(json.loads(single("scores").read_text()),
+                              json.loads(single("odds").read_text()),
+                              json.loads(single("scores-metadata").read_text()),
+                              json.loads(single("odds-metadata").read_text()))
+          (root/"nba-timezone-sensitivity.json").write_text(json.dumps(sensitivity,indent=2)+"\\n")
+          print("NBA_TIMEZONE_SENSITIVITY="+json.dumps(sensitivity,sort_keys=True))
           with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
               summary.write(f"\n### Research-only joined games: {joined['joined_game_count']}\n")
               summary.write("- Certified TAKE: 0; training approval: 0\n")
@@ -120,5 +128,6 @@ jobs:
             ${{ runner.temp }}/nba-schema-profile.json
             ${{ runner.temp }}/nba-research-join.json
             ${{ runner.temp }}/nba-temporal-audit.json
+            ${{ runner.temp }}/nba-timezone-sensitivity.json
           if-no-files-found: ignore
           retention-days: 30
