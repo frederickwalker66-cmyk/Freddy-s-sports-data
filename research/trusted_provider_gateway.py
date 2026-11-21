@@ -5,6 +5,7 @@ Transport authentication is not provider-signed data authenticity.
 """
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -81,7 +82,7 @@ def collect_configured_sources(env=None):
 
 
 def execute_frozen_champion(input_record, *, artifact_path, expected_sha256,
-                            runner_path, timeout=15):
+                            runner_path, expected_runner_sha256=None, timeout=15):
     """Run a pinned local model adapter, never substitute market probabilities.
 
     The adapter must already exist and be independently audited; hash pinning
@@ -92,6 +93,12 @@ def execute_frozen_champion(input_record, *, artifact_path, expected_sha256,
     if (not artifact.is_file() or artifact.is_symlink() or not runner.is_file()
             or runner.is_symlink() or len(expected_sha256) != 64):
         raise SourceUnavailable("champion_artifact_or_runner_missing")
+    if (not isinstance(expected_runner_sha256, str) or len(expected_runner_sha256) != 64
+            or any(c not in "0123456789abcdefABCDEF" for c in expected_runner_sha256)):
+        raise SourceUnavailable("champion_runner_hash_required")
+    runner_hash = hashlib.sha256(runner.read_bytes()).hexdigest()
+    if runner_hash != expected_runner_sha256.lower():
+        raise SourceUnavailable("champion_runner_hash_mismatch")
     actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
     if actual != expected_sha256.lower():
         raise SourceUnavailable("champion_artifact_hash_mismatch")
@@ -104,11 +111,12 @@ def execute_frozen_champion(input_record, *, artifact_path, expected_sha256,
         raise SourceUnavailable("champion_execution_failed") from exc
     p = output.get("model_probability") if isinstance(output, dict) else None
     if (not isinstance(output, dict) or output.get("model_id") != "Champion-001" or type(p) not in (float, int)
-            or not 0 < p < 1 or not output.get("forecast_run_id")):
+            or not math.isfinite(p) or not 0 < p < 1 or not output.get("forecast_run_id")):
         raise SourceUnavailable("champion_output_invalid")
     return {"model_id": "Champion-001", "model_probability": p,
             "forecast_run_id": output["forecast_run_id"],
-            "model_artifact_sha256": actual, "predicted_at": _utc_now(),
+            "model_artifact_sha256": actual, "runner_sha256": runner_hash,
+            "predicted_at": _utc_now(),
             "independently_validated": False, "certified": False}
 
 
@@ -116,6 +124,7 @@ def inspect_champion_artifact(env):
     artifact_name = env.get("FREDDY_CHAMPION_ARTIFACT")
     runner_name = env.get("FREDDY_CHAMPION_RUNNER")
     expected = env.get("FREDDY_CHAMPION_SHA256")
+    runner_expected = env.get("FREDDY_CHAMPION_RUNNER_SHA256")
     if not all((artifact_name, runner_name, expected)):
         return {"status": "HOLD_MODEL_NOT_CONFIGURED", "hash_verified": False}
     artifact = Path(artifact_name)
@@ -125,11 +134,18 @@ def inspect_champion_artifact(env):
         return {"status": "HOLD_MODEL_ARTIFACT_OR_RUNNER_MISSING", "hash_verified": False}
     if len(expected) != 64 or any(c not in "0123456789abcdefABCDEF" for c in expected):
         return {"status": "HOLD_MODEL_HASH_INVALID", "hash_verified": False}
+    if (not runner_expected or len(runner_expected) != 64
+            or any(c not in "0123456789abcdefABCDEF" for c in runner_expected)):
+        return {"status": "HOLD_RUNNER_HASH_MISSING", "hash_verified": False}
+    runner_actual = hashlib.sha256(runner.read_bytes()).hexdigest()
+    if runner_actual != runner_expected.lower():
+        return {"status": "HOLD_RUNNER_HASH_MISMATCH", "hash_verified": False}
     actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
     if actual != expected.lower():
         return {"status": "HOLD_MODEL_HASH_MISMATCH", "hash_verified": False}
-    return {"status": "ARTIFACT_HASH_VERIFIED_INFERENCE_NOT_CERTIFIED",
-            "hash_verified": True, "independent_validation": False}
+    return {"status": "ARTIFACT_AND_RUNNER_HASH_VERIFIED_INFERENCE_NOT_CERTIFIED",
+            "hash_verified": True, "runner_hash_verified": True,
+            "independent_validation": False}
 
 
 def readiness(env=None):

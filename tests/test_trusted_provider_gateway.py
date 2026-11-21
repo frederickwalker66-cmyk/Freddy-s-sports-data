@@ -49,9 +49,13 @@ class TrustedGatewayTests(unittest.TestCase):
             runner.write_text("print('fixture')")
             env = {"FREDDY_CHAMPION_ARTIFACT": str(artifact),
                    "FREDDY_CHAMPION_RUNNER": str(runner),
-                   "FREDDY_CHAMPION_SHA256": "0" * 64}
+                   "FREDDY_CHAMPION_SHA256": "0" * 64,
+                   "FREDDY_CHAMPION_RUNNER_SHA256": hashlib.sha256(runner.read_bytes()).hexdigest()}
             self.assertEqual(inspect_champion_artifact(env)["status"], "HOLD_MODEL_HASH_MISMATCH")
             env["FREDDY_CHAMPION_SHA256"] = hashlib.sha256(artifact.read_bytes()).hexdigest()
             result = inspect_champion_artifact(env)
             self.assertTrue(result["hash_verified"])
             self.assertFalse(result["independent_validation"])
+            self.assertTrue(result["runner_hash_verified"])
+            env["FREDDY_CHAMPION_RUNNER_SHA256"] = "f" * 64
+            self.assertEqual(inspect_champion_artifact(env)["status"], "HOLD_RUNNER_HASH_MISMATCH")
