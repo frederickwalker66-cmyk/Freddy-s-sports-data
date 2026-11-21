@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - challenger_audit.py
       - scripts/player_prop_integrity_gate.py
       - tests/test_player_prop_integrity_gate.py
       - .github/workflows/player-prop-integrity-gate.yml
