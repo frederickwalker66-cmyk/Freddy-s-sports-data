@@ -78,11 +78,22 @@ jobs:
           assert "DIFFERENT_GAME_DATES" not in report["blockers"], "Game date mismatch"
           assert "SCORES_METADATA_MISMATCH" not in report["blockers"], "Scores metadata mismatch"
           assert "ODDS_METADATA_MISMATCH" not in report["blockers"], "Odds metadata mismatch"
+          from research.challenger_002_nba_schema_profile import profile
+          schema=profile(json.loads(single("scores").read_text()), json.loads(single("odds").read_text()))
+          (root/"nba-schema-profile.json").write_text(json.dumps(schema,indent=2)+"\\n")
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
+              summary.write("\\n### Game-ID join diagnostics\\n")
+              summary.write(f"- Score records: {schema.get('score_records',0)}\\n")
+              summary.write(f"- Odds records: {schema.get('odds_records',0)}\\n")
+              for item in schema.get("join_candidates",[]):
+                  summary.write(f"- {item['field']}: {item['unique_matching_ids']} unique matches\\n")
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: challenger-002-nba-pair-audit-report
-          path: ${{ runner.temp }}/nba-pair-audit.json
+          path: |
+            ${{ runner.temp }}/nba-pair-audit.json
+            ${{ runner.temp }}/nba-schema-profile.json
           if-no-files-found: ignore
           retention-days: 30
