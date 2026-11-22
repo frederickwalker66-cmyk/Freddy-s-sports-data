@@ -1,0 +1,38 @@
+name: Freddy's Picks AI unified diagnostic and safe recovery
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '5,35 * * * *'
+  pull_request:
+    paths:
+      - 'research/unified_self_healing_monitor.py'
+      - 'tests/test_unified_self_healing_monitor.py'
+      - '.github/workflows/unified-self-healing.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  unified-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify fail-closed diagnostic behavior
+        run: python -m unittest discover -s tests -p 'test_unified_self_healing_monitor.py' -v
+      - name: Inspect latest main-branch workflow health
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m research.unified_self_healing_monitor --output unified_health_report.json
+          echo '## Freddy unified diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Read-only monitoring active. No unverified automatic retries, data edits, merges, model promotions or TAKE certification.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: freddys-unified-health
+          path: unified_health_report.json
+          retention-days: 14
