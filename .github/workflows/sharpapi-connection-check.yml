@@ -37,11 +37,11 @@ jobs:
                   print("DraftKings NBA pregame odds rows:", len(rows) if isinstance(rows, list) else "unknown")
                   print("Connection successful. Data is NOT independently certified for betting.")
                   with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-                      summary.write("### SharpAPI read-only check\\n")
-                      summary.write("- Authentication and HTTP request: passed\\n")
-                      summary.write(f"- DraftKings NBA pregame rows returned: {len(rows) if isinstance(rows,list) else 'unknown'}\\n")
-                      summary.write("- No raw API response or credentials retained\\n")
-                      summary.write("- Certified predictions: HOLD; no native model probability, injury or calibration audit performed\\n")
+                      summary.write("### SharpAPI read-only check\n")
+                      summary.write("- Authentication and HTTP request: passed\n")
+                      summary.write(f"- DraftKings NBA pregame rows returned: {len(rows) if isinstance(rows,list) else 'unknown'}\n")
+                      summary.write("- No raw API response or credentials retained\n")
+                      summary.write("- Certified predictions: HOLD; no native model probability, injury or calibration audit performed\n")
           except urllib.error.HTTPError as exc:
               print("SharpAPI HTTP error:", exc.code)
               raise SystemExit(1)
