@@ -1,0 +1,51 @@
+name: NBA historical artifact bridge (quarantine only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inventory-historical-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download latest successful historical NBA archive
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p historical_input
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-historical-backfill.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [[ -z "$run_id" ]]; then
+            echo "No successful historical backfill available; cannot qualify data."
+            exit 1
+          fi
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --pattern "challenger-backfill-nba-$run_id" --dir historical_input
+      - name: Inventory downloaded evidence without promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python challenger_nba_source_inventory.py --root historical_input --manifest nba_historical_bridge_receipts.json --report nba_historical_bridge_report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("nba_historical_bridge_report.json").read_text())
+          assert r["independently_authenticated_publication"] is False
+          assert r["qualified_training_examples"] == 0
+          assert r["champion_001_modified"] is False
+          assert r["archived_files_found"] > 0, "Missing historical source artifacts"
+          print("Historical NBA artifact files inventoried:",r["archived_files_found"])
+          print("Training eligibility: HOLD; independent publication-time verification absent")
+          PY
+      - name: Retain research-only archive inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-historical-bridge-${{ github.run_id }}
+          path: |
+            nba_historical_bridge_receipts.json
+            nba_historical_bridge_report.json
+          retention-days: 30
+          if-no-files-found: warn
