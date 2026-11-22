@@ -30,6 +30,7 @@ jobs:
         env:
           SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
           SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
+          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY }}
         run: |
           for tick in 1 2 3 4 5; do
             echo "Readiness check $tick of 5"
@@ -44,7 +45,7 @@ jobs:
           p=pathlib.Path('sharp-edge-pro/output/status.json')
           if p.exists():
               d=json.loads(p.read_text())
-              rows=['# Sharp Edge Pro','', '**Status: HOLD — 0 certified TAKE**','', '## Blockers']
+              rows=['# Sharp Edge Pro','', '**Certification: '+str(d.get('status','HOLD'))+' — '+str(d.get('certified_take_count',0))+' certified TAKE**','', '**Workflow success means preflight execution, not betting certification.**','', '## Blockers']
               rows += ['- '+x for x in d['blockers']]
           else:
               rows=['# Sharp Edge Pro','', 'Readiness run failed before producing a report. HOLD.']
