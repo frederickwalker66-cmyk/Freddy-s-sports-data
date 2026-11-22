@@ -1,0 +1,21 @@
+name: Sharp Edge — NBA Independent Schedule Crosscheck
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  schedule-crosscheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test schedule reconciliation safeguards
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_nba_schedule_crosscheck.py' -v
+      - name: Inspect live schedule corroboration
+        run: python3 sharp-edge-pro/live_nba_schedule_crosscheck.py
+      - name: Certification boundary
+        if: always()
+        run: echo 'Schedule agreement is not verified roster, injury eligibility, independent Champion probability or certified TAKE. HOLD.' >> "$GITHUB_STEP_SUMMARY"
