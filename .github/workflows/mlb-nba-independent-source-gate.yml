@@ -1,0 +1,58 @@
+name: MLB NBA independent source gate (research only)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mlb_nba_independent_source_gate.py'
+      - 'tests/test_mlb_nba_independent_source_gate.py'
+      - '.github/workflows/mlb-nba-independent-source-gate.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test fail-closed evidence classifier
+        run: python -m unittest discover -s tests -p 'test_mlb_nba_independent_source_gate.py' -v
+      - name: Retrieve existing historical and provider evidence archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source_gate/archives
+          for workflow in challenger-historical-backfill.yml sportsdataio-research-intake.yml; do
+            mapfile -t runs < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --status success --limit 5 --json databaseId --jq '.[].databaseId')
+            for rid in "${runs[@]}"; do
+              mkdir -p "source_gate/archives/$workflow/$rid"
+              if gh run download "$rid" --repo "$GITHUB_REPOSITORY" --dir "source_gate/archives/$workflow/$rid"; then
+                echo "Downloaded $workflow run $rid"
+                break
+              fi
+            done
+          done
+      - name: Generate independent-authentication HOLD report
+        run: |
+          python mlb_nba_independent_source_gate.py --archive-root source_gate/archives --output source_gate/mlb_nba_source_gate.json
+          python - <<'PY'
+          import json
+          r=json.load(open('source_gate/mlb_nba_source_gate.json'))
+          assert r['status']=='HOLD'
+          assert r['qualified_training_rows_created']==r['certified_take_predictions']==0
+          assert r['champion_001_modified'] is False
+          assert r['nfl_collection_modified'] is False
+          assert all(r['leagues'][league]['status']=='HOLD' for league in ('mlb','nba'))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mlb-nba-independent-source-gate
+          path: source_gate/mlb_nba_source_gate.json
+          retention-days: 30
+          if-no-files-found: warn
