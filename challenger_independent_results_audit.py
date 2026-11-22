@@ -185,7 +185,23 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
             status = ("published_result_cross_checked" if
                       (g["home_score"], g["away_score"]) == (row["home_score"], row["away_score"])
                       else "secondary_score_disagreement")
+        # Diagnostics are explanatory only: never relax the strict match gate.
+        near = [g for g in games if
+                g["home_name"] == clean_name(row["home_team"]) and
+                g["away_name"] == clean_name(row["away_team"]) and
+                abs((g["start"] - start).total_seconds()) <= 24 * 3600]
+        diagnostic = {
+            "same_teams_within_24h": len(near),
+            "same_teams_nearest_start_delta_minutes":
+                min((round(abs((g["start"] - start).total_seconds()) / 60, 1)
+                     for g in near), default=None),
+            "same_teams_nearby_secondary_event_ids":
+                sorted(g["id"] for g in near)[:10],
+            "matching_rule_unchanged": True,
+            "diagnostic_only_not_training_evidence": True,
+        }
         checked.append({"league": league, "espn_event_id": row["espn_event_id"],
+                        "match_diagnostic": diagnostic,
                         "secondary_event_id": independent_id, "secondary_source_url": source_url,
                         "secondary_source_class": secondary_source_class,
                         "secondary_source_retrieved_at_utc": observed.isoformat(),
