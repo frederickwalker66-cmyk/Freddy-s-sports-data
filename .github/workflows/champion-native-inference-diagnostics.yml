@@ -1,0 +1,33 @@
+name: Champion-001 native artifact diagnostics (manual, read-only)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'research/champion_native_inference_diagnostics.py'
+      - 'tests/test_champion_native_inference_diagnostics.py'
+      - '.github/workflows/champion-native-inference-diagnostics.yml'
+permissions:
+  contents: read
+jobs:
+  native-artifact-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline safety tests
+        run: python -m unittest discover -s tests -p 'test_champion_native_inference_diagnostics.py' -v
+      - name: Read-only artifact and runner verification
+        env:
+          FREDDY_CHAMPION_ARTIFACT: ${{ vars.FREDDY_CHAMPION_ARTIFACT }}
+          FREDDY_CHAMPION_RUNNER: ${{ vars.FREDDY_CHAMPION_RUNNER }}
+          FREDDY_CHAMPION_SHA256: ${{ vars.FREDDY_CHAMPION_SHA256 }}
+          FREDDY_CHAMPION_RUNNER_SHA256: ${{ vars.FREDDY_CHAMPION_RUNNER_SHA256 }}
+        run: python -m research.champion_native_inference_diagnostics --output "$RUNNER_TEMP/champion_native_diagnostic.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: champion-native-diagnostic
+          path: ${{ runner.temp }}/champion_native_diagnostic.json
+          retention-days: 7
