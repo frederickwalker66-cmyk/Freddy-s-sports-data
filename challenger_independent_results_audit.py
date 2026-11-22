@@ -99,7 +99,9 @@ def independent_games(league, data):
                     result.append({"id": str(game["gamePk"]), "start": parse_time(game["gameDate"]),
                                    "home_name": clean_name(home["team"]["name"]),
                                    "away_name": clean_name(away["team"]["name"]),
-                                   "home_score": score(home["score"]), "away_score": score(away["score"])})
+                                   "home_score": score(home["score"]), "away_score": score(away["score"]),
+                                   "double_header": game.get("doubleHeader"),
+                                   "game_number": game.get("gameNumber")})
                 except (KeyError, ValueError, TypeError):
                     continue
     elif league == "nba" and isinstance(data.get("events"), list):
@@ -197,6 +199,15 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
                      for g in near), default=None),
             "same_teams_nearby_secondary_event_ids":
                 sorted(g["id"] for g in near)[:10],
+            "nearby_secondary_scores": [
+                {"id": g["id"], "home": g["home_score"], "away": g["away_score"],
+                 "start_delta_minutes": round((g["start"] - start).total_seconds() / 60, 1),
+                 "game_number": g.get("game_number"),
+                 "double_header": g.get("double_header")}
+                for g in sorted(near, key=lambda g: (abs((g["start"] - start).total_seconds()), g["id"]))[:10]
+            ],
+            "nba_archive_same_day_games": (sum(1 for g in games
+                if g["start"].date() == start.date()) if league == "nba" else None),
             "matching_rule_unchanged": True,
             "diagnostic_only_not_training_evidence": True,
         }
