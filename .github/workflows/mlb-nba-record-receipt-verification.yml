@@ -1,0 +1,21 @@
+name: MLB NBA record receipt verification (offline)
+on:
+  pull_request:
+    paths:
+      - 'mlb_nba_record_receipt_verification.py'
+      - 'tests/test_mlb_nba_record_receipt_verification.py'
+      - '.github/workflows/mlb-nba-record-receipt-verification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  receipt-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify receipt integrity regression tests
+        run: python -m unittest discover -s tests -p 'test_mlb_nba_record_receipt_verification.py' -v
