@@ -1,0 +1,23 @@
+name: Sharp Edge Pro — Inspect Provider Field Names
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-fields:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify secret
+        shell: bash
+        run: |
+          test -n "$SHARP_API_KEY" || { echo "::error::Missing SHARP_API_KEY"; exit 1; }
+          echo "::add-mask::$SHARP_API_KEY"
+      - name: Inspect provider schema without exposing values
+        run: python3 sharp-edge-pro/inspect_sharpapi_fields.py
+      - name: Mark certification HOLD
+        if: always()
+        run: echo 'Provider field discovery only. No independent model probability, roster verification, or certified TAKE. **HOLD**.' >> "$GITHUB_STEP_SUMMARY"
