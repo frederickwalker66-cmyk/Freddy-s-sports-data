@@ -1,0 +1,50 @@
+name: Freddy's Picks AI — Option B NBA Prediction Training
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 12 * * *'
+permissions:
+  contents: read
+jobs:
+  nba-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate native NBA training code
+        run: python -m unittest discover -s tests -p 'test_challenger_nba_probability.py' -v
+      - name: Train only on reviewed point-in-time historical evidence
+        run: |
+          python challenger_nba_probability.py \
+            --history prediction_input/qualified_nba_history.jsonl \
+            --output-dir challenger_results/nba_probability
+      - name: Enforce evidence readiness and separate from certification
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('challenger_results/nba_probability')
+          r=json.loads((p/'report.json').read_text())
+          model=p/'research_model.json'
+          if model.exists():
+              m=json.loads(model.read_text())
+              assert m['champion_001_modified'] is False
+              assert m['qualified_for_real_money_wagers'] is False
+              assert m['holdout_excluded_from_coefficients'] is True
+              assert m['holdout_metrics_apply_to_saved_model'] is True
+          else:
+              assert r.get('result') != 'fitted_unverified_research_model'
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## Option B — NBA Prediction Training\n\n')
+              f.write('Training status: '+str(r.get('result'))+'\n\n')
+              f.write('Native research model artifact: '+('generated (uncertified)' if model.exists() else 'not generated; evidence insufficient')+'\n\n')
+              f.write('Certified TAKE: 0; Champion-001 unchanged.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: option-b-nba-training-report
+          path: challenger_results/nba_probability/
+          retention-days: 30
