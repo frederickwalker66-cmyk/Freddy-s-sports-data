@@ -1,0 +1,18 @@
+name: Sharp Edge — NBA Roster Field Inspection
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect only provider roster and injury field names
+        run: python3 sharp-edge-pro/inspect_nba_identity_schema.py
+      - name: Record certification boundary
+        if: always()
+        run: echo 'Schema discovery only. Cross-provider player identity and certified TAKE remain HOLD.' >> "$GITHUB_STEP_SUMMARY"
