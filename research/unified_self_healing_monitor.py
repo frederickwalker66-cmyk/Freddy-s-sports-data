@@ -111,6 +111,33 @@ def recover_latest(runs, token, repo, *, now=None, get_jobs=None, get_log=None, 
         results.append(item)
     return results
 
+PIPELINE_STAGES = {
+    "data_collection": ("refresh-nba-mlb-evidence.yml", "sportsdataio-nba-live-readiness.yml"),
+    "challenger_training": ("option-b-nba-training.yml", "challenger-multisport-training.yml", "all-eight-sports-training.yml"),
+    "prediction": ("prediction-mode.yml",),
+    "certification_guard": ("freddys-operational-readiness.yml",),
+}
+def pipeline_status(runs):
+    """CI health only; successful jobs do not prove verified training data."""
+    latest = {}
+    for run in runs:
+        name = run.get("path", "").split("/")[-1]
+        if run.get("head_branch") != "main":
+            continue
+        if name not in latest or run.get("created_at", "") > latest[name].get("created_at", ""):
+            latest[name] = run
+    result = {}
+    for stage, workflows in PIPELINE_STAGES.items():
+        checks = {}
+        for name in workflows:
+            run = latest.get(name)
+            checks[name] = {"run_id": run.get("id") if run else None,
+                            "status": run.get("status") if run else "missing",
+                            "conclusion": run.get("conclusion") if run else None}
+        result[stage] = {"ci_state": "PASS" if all(x["conclusion"] == "success" for x in checks.values()) else "NEEDS_REVIEW",
+                         "workflows": checks, "evidence_verified": False, "certified": False}
+    return result
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--output", default="unified_health_report.json")
@@ -122,6 +149,7 @@ def main():
         raise SystemExit("GH_TOKEN and GITHUB_REPOSITORY required")
     runs = api("/actions/runs?per_page=100", token, repo).get("workflow_runs", [])
     report = audit(runs, {}, auto_retry=False)
+    report['pipeline_stages'] = pipeline_status(runs)
     if args.enable_safe_retry:
         def get_jobs(run_id):
             return api(f"/actions/runs/{run_id}/jobs?per_page=100", token, repo).get("jobs", [])
