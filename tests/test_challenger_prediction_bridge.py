@@ -15,5 +15,7 @@ class BridgeTests(unittest.TestCase):
         self.assertFalse(result["certified"])
         self.assertAlmostEqual(result["model_probability"],0.61)
         self.assertFalse(result["independent_source_provenance_verified"])
+        self.assertFalse(result["evidence_manifest_complete"])
+        self.assertIn("exact_draftkings_market_verified", result["evidence_blockers"])
 if __name__=="__main__":
     unittest.main()
