@@ -1,0 +1,19 @@
+name: Sharp Edge — Diagnose NBA UTC Timestamp Shape
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose redacted timestamp representation
+        run: python3 sharp-edge-pro/diagnose_nba_datetime_shape.py
+      - name: Hold certification
+        if: always()
+        run: echo 'Timestamp diagnostics only; certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
