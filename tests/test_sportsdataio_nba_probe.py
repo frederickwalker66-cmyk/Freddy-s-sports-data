@@ -1,4 +1,6 @@
 import unittest
+import urllib.error
+from research.trusted_provider_gateway import SourceUnavailable
 from research.sportsdataio_nba_probe import probe, schema_shape, HOST
 
 
@@ -34,6 +36,32 @@ class SportsDataIOProbeTests(unittest.TestCase):
         self.assertEqual(r["certified_take_count"], 0)
         self.assertEqual(r["endpoints"]["pregame_odds"]["status"], "HOLD_EMPTY_PROVIDER_RESPONSE")
         self.assertEqual(r["decision"], "HOLD")
+
+    def test_provider_http_error_classified_without_leaking_message(self):
+        def fetch(url, *, api_key, allowed_host):
+            try:
+                raise urllib.error.HTTPError(url, 403, "secret detail", {}, None)
+            except urllib.error.HTTPError as cause:
+                raise SourceUnavailable("provider_request_failed") from cause
+        r = probe(day="2026-11-22", env={"SPORTSDATAIO_ODDS_API_KEY": "secret"}, fetch=fetch)
+        self.assertEqual(r["endpoints"]["betting_events"]["status"], "HOLD_PROVIDER_HTTP_ERROR")
+        self.assertEqual(r["endpoints"]["betting_events"]["http_status"], 403)
+        self.assertNotIn("secret", str(r))
+
+    def test_invalid_json_and_schema_hold_separately(self):
+        def bad_json(url, *, api_key, allowed_host):
+            try:
+                raise ValueError("sensitive response")
+            except ValueError as cause:
+                raise SourceUnavailable("provider_request_failed") from cause
+        env = {"SPORTSDATAIO_ODDS_API_KEY": "key"}
+        r = probe(day="2026-11-22", env=env, fetch=bad_json)
+        self.assertEqual(r["endpoints"]["betting_events"]["status"], "HOLD_PROVIDER_INVALID_JSON")
+        def wrong_schema(url, *, api_key, allowed_host):
+            return {"payload": {"message": "not a list"}, "retrieved_at": "2026-11-22T00:00:00Z"}
+        r = probe(day="2026-11-22", env=env, fetch=wrong_schema)
+        self.assertEqual(r["endpoints"]["betting_events"]["status"], "HOLD_UNEXPECTED_PROVIDER_SCHEMA")
+        self.assertEqual(r["certified_take_count"], 0)
 
     def test_invalid_day_rejected(self):
         with self.assertRaises(ValueError):
