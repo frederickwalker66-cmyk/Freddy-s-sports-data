@@ -7,6 +7,8 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
+import re
+from datetime import timedelta
 from pathlib import Path
 import urllib.error
 import urllib.request
@@ -26,7 +28,8 @@ def api(path, token, repo, method="GET"):
                  "User-Agent": "freddys-unified-repair"},
         method=method)
     with urllib.request.urlopen(request, timeout=20) as response:
-        return json.load(response) if response.status != 201 or method == "GET" else {}
+        if method != "GET": return {}
+        return json.load(response)
 
 def audit(runs, attempts, *, auto_retry=False, retry=None):
     report = {"checked_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -61,19 +64,84 @@ def audit(runs, attempts, *, auto_retry=False, retry=None):
     report["missing_workflows"] = sorted(CRITICAL - set(latest))
     return report
 
+def transient_log(log):
+    """Allow only explicit network/upstream errors, never application test failures."""
+    if not isinstance(log, str) or len(log) > 500_000:
+        return False
+    lines = log.lower().splitlines()
+    errors = [line for line in lines if re.search(r"error|fatal|exception|failed|timed out|timeout", line)]
+    unsafe = ("assertionerror", "assert ", "permission denied", "unauthorized",
+              "invalid api key", "bad credentials", "secret", "authentication failed",
+              "syntaxerror", "modulenotfounderror", "test failed")
+    return bool(errors) and any(any(t in line for t in TRANSIENT) for line in errors) and not any(
+        any(bad in line for bad in unsafe) for line in errors)
+
+def recover_latest(runs, token, repo, *, now=None, get_jobs=None, get_log=None, rerun=None):
+    """At most one retry per original run; GitHub run_attempt persists across schedules."""
+    now = now or datetime.now(timezone.utc)
+    latest = {}
+    for run in runs:
+        name = run.get("path", "").split("/")[-1]
+        if name in CRITICAL and run.get("head_branch") == "main":
+            if name not in latest or run.get("created_at", "") > latest[name].get("created_at", ""):
+                latest[name] = run
+    results = []
+    for name, run in sorted(latest.items()):
+        item = {"workflow": name, "run_id": run.get("id"), "action": "none"}
+        try:
+            created = datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
+            eligible = (run.get("status") == "completed" and run.get("conclusion") == "failure"
+                        and run.get("event") in ("schedule", "workflow_dispatch")
+                        and run.get("run_attempt") == 1 and run.get("head_branch") == "main"
+                        and timedelta(0) <= now - created <= timedelta(hours=24))
+            if not eligible:
+                item["action"] = "not_eligible"
+            else:
+                jobs = get_jobs(run["id"])
+                failed = [j for j in jobs if j.get("conclusion") == "failure"]
+                if not failed or len(failed) > 3:
+                    item["action"] = "manual_review"
+                elif all(transient_log(get_log(j["id"])) for j in failed):
+                    rerun(run["id"])
+                    item["action"] = "retry_requested_once"
+                else:
+                    item["action"] = "manual_review"
+        except (KeyError, TypeError, ValueError, urllib.error.URLError, TimeoutError) as exc:
+            item["action"] = "diagnostic_error_no_retry"
+        results.append(item)
+    return results
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--output", default="unified_health_report.json")
+    p.add_argument("--enable-safe-retry", action="store_true")
     args = p.parse_args()
     token = os.getenv("GH_TOKEN", "")
     repo = os.getenv("GITHUB_REPOSITORY", "")
     if not token or not repo:
         raise SystemExit("GH_TOKEN and GITHUB_REPOSITORY required")
     runs = api("/actions/runs?per_page=100", token, repo).get("workflow_runs", [])
-    # Fail closed: no automatic retry until trusted job-log classification is implemented.
     report = audit(runs, {}, auto_retry=False)
+    if args.enable_safe_retry:
+        def get_jobs(run_id):
+            return api(f"/actions/runs/{run_id}/jobs?per_page=100", token, repo).get("jobs", [])
+        def get_log(job_id):
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{repo}/actions/jobs/{job_id}/logs",
+                headers={"Authorization": "Bearer " + token,
+                         "User-Agent": "freddys-unified-repair"})
+            with urllib.request.urlopen(req, timeout=20) as response:
+                data = response.read(500_001)
+            return data.decode("utf-8", errors="replace")
+        def rerun(run_id):
+            api(f"/actions/runs/{run_id}/rerun-failed-jobs", token, repo, method="POST")
+        report["recovery"] = recover_latest(runs, token, repo,
+                                            get_jobs=get_jobs, get_log=get_log, rerun=rerun)
+    else:
+        report["recovery"] = "disabled"
     Path(args.output).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps({"status":"HOLD","workflow_count":len(report["latest_by_workflow"]),
-                      "missing":report["missing_workflows"],"certified_takes":0}))
+                      "missing":report["missing_workflows"],"certified_takes":0,
+                      "recovery":report["recovery"]}))
 if __name__ == "__main__":
     main()
