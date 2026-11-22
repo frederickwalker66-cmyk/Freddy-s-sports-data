@@ -1,0 +1,26 @@
+name: Sharp Edge Pro — Live Market Quality Audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-live-market:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check credential configured
+        shell: bash
+        run: |
+          test -n "$SHARP_API_KEY" || { echo "::error::Missing SHARP_API_KEY"; exit 1; }
+          echo "::add-mask::$SHARP_API_KEY"
+      - name: Audit five read-only DraftKings NBA pregame records
+        run: python3 sharp-edge-pro/audit_live_sharpapi.py
+      - name: Certification boundary
+        if: always()
+        run: |
+          echo '### Sharp Edge live sample audit' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Sample only; does not verify roster, injuries, odds completeness or calibrated probabilities.' >> "$GITHUB_STEP_SUMMARY"
+          echo '**Certified predictions: HOLD**' >> "$GITHUB_STEP_SUMMARY"
