@@ -13,6 +13,8 @@ on:
       - 'sharp-edge-pro/test_player_identity.py'
       - 'sharp-edge-pro/roster_bridge.py'
       - 'sharp-edge-pro/test_roster_bridge.py'
+      - 'sharp-edge-pro/nba_name_candidates.py'
+      - 'sharp-edge-pro/test_nba_name_candidates.py'
       - '.github/workflows/sharp-edge-market-tests.yml'
   workflow_dispatch:
 permissions:
