@@ -4,6 +4,8 @@ on:
     paths:
       - 'research/challenger_nba_native_research_inference.py'
       - 'tests/test_challenger_nba_native_research_inference.py'
+      - 'research/challenger_nba_artifact_readiness.py'
+      - 'tests/test_challenger_nba_artifact_readiness.py'
       - '.github/workflows/challenger-nba-native-research-inference.yml'
   workflow_dispatch:
 permissions:
@@ -18,7 +20,10 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test missing and invalid artifacts fail closed
-        run: python -m unittest discover -s tests -p 'test_challenger_nba_native_research_inference.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_challenger_nba_native_research_inference.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_artifact_readiness.py' -v
+          python -m research.challenger_nba_artifact_readiness
       - name: Report readiness without fabricating native forecasts
         shell: bash
         run: |
