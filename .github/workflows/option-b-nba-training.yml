@@ -14,6 +14,41 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Probe existing NBA provider access without exposing credentials
+        continue-on-error: true
+        env:
+          SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+        run: |
+          python -m research.sportsdataio_nba_probe --output challenger_results/nba_probability/provider_readiness.json
+      - name: Explain historical data readiness
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          history=Path('prediction_input/qualified_nba_history.jsonl')
+          lines=history.read_text().splitlines() if history.is_file() else []
+          count=sum(bool(line.strip()) for line in lines)
+          p=Path('challenger_results/nba_probability/provider_readiness.json')
+          provider=json.loads(p.read_text()) if p.is_file() else {}
+          statuses={k:v.get('status') for k,v in provider.get('endpoints',{}).items()}
+          report={'historical_rows_supplied':count,'minimum_required':250,
+                  'historical_input_present':history.is_file(),
+                  'provider_endpoint_statuses':statuses,
+                  'provider_live_access_is_not_historical_evidence':True,
+                  'next_action':('Review and qualify at least 250 authentic pregame NBA records with settled outcomes'
+                                 if count<250 else 'Run strict chronological qualification and training'),
+                  'certified_take_count':0}
+          out=Path('challenger_results/nba_probability/readiness_diagnostic.json')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+'\\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## NBA single-run data diagnosis\\n\\n')
+              f.write(f'Historical rows supplied: {count} / minimum 250\\n\\n')
+              f.write('Provider endpoint statuses: '+json.dumps(statuses)+'\\n\\n')
+              f.write('Provider availability alone does not authenticate historical pregame features.\\n\\n')
+              f.write('Next: '+report['next_action']+'\\n')
+          PY
       - name: Validate native NBA training code
         run: python -m unittest discover -s tests -p 'test_challenger_nba_probability.py' -v
       - name: Validate Challenger-to-Prediction bridge
