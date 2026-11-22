@@ -3,9 +3,28 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from official_source_refresh import latest_nba_report, refresh, player_prop_source_gates
+from official_source_refresh import latest_nba_report, refresh, player_prop_source_gates, fetch_nba_player_index_with_retry
 
 class OfficialSourceTests(unittest.TestCase):
+    def test_nba_player_index_retries_timeout_then_recovers(self):
+        calls = []
+        def transient(url):
+            calls.append(url)
+            if len(calls) == 1:
+                raise TimeoutError("temporary timeout")
+            return {"resultSets": []}
+        self.assertEqual(fetch_nba_player_index_with_retry("https://stats.nba.com/example", transient), {"resultSets": []})
+        self.assertEqual(len(calls), 2)
+
+    def test_nba_player_index_repeated_timeout_fails_closed(self):
+        calls = []
+        def unavailable(url):
+            calls.append(url)
+            raise TimeoutError("still unavailable")
+        with self.assertRaises(TimeoutError):
+            fetch_nba_player_index_with_retry("https://stats.nba.com/example", unavailable)
+        self.assertEqual(len(calls), 2)
+
     def test_player_prop_source_gates_explain_exact_injury_and_identity_gaps(self):
         sources = {
             "nba": {"status": "evidence_downloaded", "player_status_parsed": False},
