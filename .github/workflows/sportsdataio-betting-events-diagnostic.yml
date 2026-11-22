@@ -1,0 +1,18 @@
+name: SportsDataIO Betting Events — HTTP Diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Diagnose betting-events access without exposing provider data
+        run: python3 sharp-edge-pro/diagnose_betting_events.py
+      - name: Certification boundary
+        if: always()
+        run: echo 'SportsDataIO endpoint diagnostics only; certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
