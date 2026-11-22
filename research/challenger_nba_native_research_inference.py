@@ -1,6 +1,5 @@
 """Run existing trained Challenger NBA home-moneyline artifact, research only."""
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from challenger_nba_probability import VERSION, digest, predict_probability
@@ -18,9 +17,9 @@ def infer(model, event):
         raise ValueError("model_artifact_integrity_failed")
     if model.get("holdout_excluded_from_coefficients") is not True:
         raise ValueError("holdout_contamination_risk")
-    if not isinstance(event, dict) or not event.get("event_id") or not event.get("home_team") or not event.get("away_team"):
+    if not isinstance(event, dict) or not isinstance(event.get("event_id"), str) or not event["event_id"].strip() or not isinstance(event.get("home_team"), str) or not event["home_team"].strip() or not isinstance(event.get("away_team"), str) or not event["away_team"].strip() or event["home_team"] == event["away_team"]:
         raise ValueError("event_identity_missing")
-    if event.get("pregame_source_verified") is not True or not event.get("features_asof_utc") or not event.get("event_start_utc"):
+    if event.get("pregame_source_verified") is not True or not event.get("features_asof_utc") or not event.get("event_start_utc") or event.get("league") != "nba":
         raise ValueError("pregame_evidence_missing")
     from datetime import datetime, timezone
     def when(s):
