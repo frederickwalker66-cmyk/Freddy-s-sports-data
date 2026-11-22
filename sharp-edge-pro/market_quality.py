@@ -26,7 +26,7 @@ def validate_market(market, now=None, max_age_seconds=120):
     for field in required:
         if market.get(field) in (None, ""):
             reasons.append("missing_" + field)
-    if market.get("sportsbook", "").lower() != "draftkings":
+    if str(market.get("sportsbook") or "").lower() != "draftkings":
         reasons.append("sportsbook_unverified")
     price = market.get("decimal_odds")
     if isinstance(price, bool) or not isinstance(price, (int, float)) or not (1.0 < price < 10000):
