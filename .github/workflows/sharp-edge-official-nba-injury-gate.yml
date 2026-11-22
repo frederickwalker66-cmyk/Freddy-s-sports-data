@@ -1,0 +1,28 @@
+name: Sharp Edge — Official NBA Injury Evidence Gate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-injury-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run official injury evidence gate regression tests
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_official_nba_injury_gate.py' -v
+      - name: Check fail-closed behavior without official evidence
+        run: |
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'sharp-edge-pro')
+          from official_nba_injury_gate import check
+          result=check(None,expected_player_id='unverified',expected_game_date='2026-11-22',as_of='2026-11-22T20:00:00Z')
+          print('Official injury report gate:',result)
+          print('Official injury reports independently fetched: 0')
+          print('Certified TAKE: 0 (HOLD)')
+          assert result.startswith('HOLD')
+          PY
+      - name: Keep certification blocked
+        if: always()
+        run: echo 'No official NBA injury report was downloaded or verified by this workflow. Certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
