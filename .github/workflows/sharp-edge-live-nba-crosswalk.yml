@@ -1,0 +1,19 @@
+name: Sharp Edge — Live NBA Candidate Crosswalk
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate-crosswalk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only cross-provider candidate matching
+        run: python3 sharp-edge-pro/live_nba_name_candidates.py
+      - name: Certification boundary
+        if: always()
+        run: echo 'Name-match candidates are unverified. Champion-001 unchanged. Certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
