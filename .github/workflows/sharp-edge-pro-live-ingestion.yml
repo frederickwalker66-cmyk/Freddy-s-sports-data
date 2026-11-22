@@ -22,13 +22,13 @@ jobs:
           python-version: '3.12'
       - name: Preflight credential without revealing it
         env:
-          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY || secrets.SHARP_API_KEY }}
         run: |
           test -n "$SHARPAPI_KEY" || { echo "HOLD: missing SHARPAPI_KEY"; exit 2; }
           python collector.py --leagues nba --max-pages 1 --dry-run
       - name: Fetch bounded pregame odds (maximum two paid provider requests)
         env:
-          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
+          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY || secrets.SHARP_API_KEY }}
         run: python collector.py --leagues nba --max-pages 1 --output-dir sharp-edge-pro/output/live
       - name: Run NBA unified market report (spreads, totals, player props, combos)
         run: |
