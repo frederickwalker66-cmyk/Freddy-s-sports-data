@@ -18,6 +18,7 @@ jobs:
             exit 1
           fi
           echo "::add-mask::$SHARP_API_KEY"
+          echo "SharpAPI secret is configured (value not displayed)."
       - name: Test pregame DraftKings NBA odds (read-only)
         shell: bash
         run: |
@@ -28,10 +29,19 @@ jobs:
           try:
               with urllib.request.urlopen(req, timeout=20) as resp:
                   payload = json.load(resp)
+                  if not isinstance(payload, dict):
+                      print("Unexpected API response type; HOLD.")
+                      raise SystemExit(1)
                   rows = payload.get("data", [])
                   print("SharpAPI HTTP:", resp.status)
                   print("DraftKings NBA pregame odds rows:", len(rows) if isinstance(rows, list) else "unknown")
                   print("Connection successful. Data is NOT independently certified for betting.")
+                  with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+                      summary.write("### SharpAPI read-only check\\n")
+                      summary.write("- Authentication and HTTP request: passed\\n")
+                      summary.write(f"- DraftKings NBA pregame rows returned: {len(rows) if isinstance(rows,list) else 'unknown'}\\n")
+                      summary.write("- No raw API response or credentials retained\\n")
+                      summary.write("- Certified predictions: HOLD; no native model probability, injury or calibration audit performed\\n")
           except urllib.error.HTTPError as exc:
               print("SharpAPI HTTP error:", exc.code)
               raise SystemExit(1)
