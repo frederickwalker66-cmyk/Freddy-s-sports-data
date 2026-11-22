@@ -6,21 +6,21 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-22T00:42:25.317310+00:00",
-  "graded_research_games": 15,
+  "generated_at_utc": "2026-11-22T20:48:34.615547+00:00",
+  "graded_research_games": 16,
   "last_synchronization": {
-    "due_forecast_rows_checked": 0,
-    "later_repeated_forecasts_ignored": 32,
-    "new_ESPN_binary_research_outcomes": 0,
+    "due_forecast_rows_checked": 1,
+    "later_repeated_forecasts_ignored": 33,
+    "new_ESPN_binary_research_outcomes": 1,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 1,
-    "original_source_receipt_files_saved": 11
+    "new_original_forecasts": 0,
+    "original_source_receipt_files_saved": 0
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
   "original_saved_forecasts": 33,
-  "pending_48h": 18,
+  "pending_48h": 17,
   "published_NFL_ties_excluded": 0,
   "research_model_scorecards_including_insufficient_samples": [
     {
@@ -28,7 +28,7 @@
       "market_betting_ready": false,
       "model": "v8-nfl-elo-forward-v0-k18-ha45",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 15,
+      "original_forward_ESPN_games_graded": 16,
       "rank_eligible_after_50": false,
       "research_Brier": null,
       "research_direction_accuracy": null,

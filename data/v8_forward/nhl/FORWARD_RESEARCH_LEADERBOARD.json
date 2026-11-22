@@ -6,21 +6,21 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-22T00:42:25.568270+00:00",
-  "graded_research_games": 71,
+  "generated_at_utc": "2026-11-22T20:48:35.153479+00:00",
+  "graded_research_games": 76,
   "last_synchronization": {
-    "due_forecast_rows_checked": 7,
-    "later_repeated_forecasts_ignored": 90,
-    "new_ESPN_binary_research_outcomes": 7,
+    "due_forecast_rows_checked": 5,
+    "later_repeated_forecasts_ignored": 95,
+    "new_ESPN_binary_research_outcomes": 5,
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
-    "new_original_forecasts": 5,
-    "original_source_receipt_files_saved": 6
+    "new_original_forecasts": 0,
+    "original_source_receipt_files_saved": 0
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
   "original_saved_forecasts": 95,
-  "pending_48h": 24,
+  "pending_48h": 19,
   "published_NFL_ties_excluded": 0,
   "research_model_scorecards_including_insufficient_samples": [
     {
@@ -28,11 +28,11 @@
       "market_betting_ready": false,
       "model": "v8-nhl-elo-forward-v0-k16-ha35",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 71,
+      "original_forward_ESPN_games_graded": 76,
       "rank_eligible_after_50": true,
-      "research_Brier": 0.2671184,
-      "research_direction_accuracy": 0.394366,
-      "research_log_loss": 0.72828192
+      "research_Brier": 0.26349954,
+      "research_direction_accuracy": 0.421053,
+      "research_log_loss": 0.72092363
     }
   ],
   "research_ranked_models_after_50": [
@@ -41,11 +41,11 @@
       "market_betting_ready": false,
       "model": "v8-nhl-elo-forward-v0-k16-ha35",
       "model_independently_calibrated": false,
-      "original_forward_ESPN_games_graded": 71,
+      "original_forward_ESPN_games_graded": 76,
       "rank_eligible_after_50": true,
-      "research_Brier": 0.2671184,
-      "research_direction_accuracy": 0.394366,
-      "research_log_loss": 0.72828192
+      "research_Brier": 0.26349954,
+      "research_direction_accuracy": 0.421053,
+      "research_log_loss": 0.72092363
     }
   ],
   "source_research_receipts": {
