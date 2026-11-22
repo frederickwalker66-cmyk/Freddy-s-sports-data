@@ -1,0 +1,26 @@
+name: Freddy's Picks AI — Prediction Mode (native evidence only)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 13,21 * * *'
+permissions:
+  contents: read
+jobs:
+  prediction-mode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build native-only prediction display
+        run: python prediction_mode.py --output prediction_output/predictions.json
+      - name: Show prediction readiness
+        shell: bash
+        run: |
+          echo '## Prediction Mode' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Native-only forecasts; zero certified TAKE unless independently verified by separate certification service.' >> "$GITHUB_STEP_SUMMARY"
+          cat prediction_output/predictions.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prediction-mode-display
+          path: prediction_output/predictions.json
+          retention-days: 14
