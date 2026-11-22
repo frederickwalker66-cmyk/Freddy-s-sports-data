@@ -1,0 +1,25 @@
+name: Sharp Edge Pro — Market Quality Unit Tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sharp-edge-pro/market_quality.py'
+      - 'sharp-edge-pro/test_market_quality.py'
+      - '.github/workflows/sharp-edge-market-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  market-quality-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic market quality unit tests
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_market_quality.py' -v
+      - name: Certification reminder
+        if: always()
+        run: |
+          echo '### Market quality tests' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Synthetic fixture tests only; no provider live market schema or roster verified.' >> "$GITHUB_STEP_SUMMARY"
+          echo '**Certified predictions: HOLD**' >> "$GITHUB_STEP_SUMMARY"
