@@ -1,0 +1,48 @@
+name: SportsDataIO historical evidence quarantine (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      historical_date:
+        description: 'NBA historical date YYYY-MM-DD (research only; one request)'
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - 'research/sportsdataio_historical_quarantine.py'
+      - 'tests/test_sportsdataio_historical_quarantine.py'
+      - '.github/workflows/sportsdataio-historical-quarantine.yml'
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_sportsdataio_historical_quarantine.py' -v
+  manual-provider-capture:
+    if: github.event_name == 'workflow_dispatch'
+    needs: offline-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+      HISTORICAL_DATE: ${{ inputs.historical_date }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: One bounded HTTPS provider call, never certify
+        run: python -m research.sportsdataio_historical_quarantine --date "$HISTORICAL_DATE" --output-dir historical_quarantine
+      - name: Keep original bytes in restricted research artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sportsdataio-historical-quarantine-${{ github.run_id }}
+          path: historical_quarantine/
+          retention-days: 7
+          if-no-files-found: ignore
