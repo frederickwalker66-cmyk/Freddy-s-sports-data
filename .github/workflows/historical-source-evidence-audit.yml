@@ -1,0 +1,77 @@
+name: Freddy's Picks AI — Historical Source Evidence Audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 13 * * *'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-existing-source-archives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve existing historical and provider validation reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source_audit/archives
+          for workflow in challenger-historical-backfill.yml sportsdataio-research-intake.yml; do
+            mkdir -p "source_audit/archives/$workflow"
+            gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" --branch main --limit 8 --json databaseId,status --jq '.[] | select(.status=="completed") | .databaseId' > "source_audit/$workflow.runs"
+            while IFS= read -r rid; do
+              [[ -n "$rid" ]] || continue
+              mkdir -p "source_audit/archives/$workflow/$rid"
+              if gh run download "$rid" --repo "$GITHUB_REPOSITORY" --dir "source_audit/archives/$workflow/$rid"; then
+                echo "Retrieved $workflow run $rid"
+                break
+              fi
+            done < "source_audit/$workflow.runs"
+          done
+      - name: Inventory evidence and enforce source trust boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path('source_audit/archives')
+          paths=sorted(root.rglob('backfill_coverage.json'))
+          validations=sorted(root.rglob('validation_report.json'))
+          backfills=[]
+          for p in paths:
+              try:
+                  r=json.loads(p.read_text())
+                  backfills.append({'league':r.get('league'),'published_completed_game_results':r.get('published_completed_game_results',0),'quarantined_research_candidates':r.get('quarantined_research_candidates',0),'qualified_training_examples':r.get('qualified_training_examples',0),'source_file':str(p)})
+              except (ValueError,OSError) as exc:backfills.append({'source_file':str(p),'error':type(exc).__name__})
+          providers=[]
+          for p in validations:
+              try:
+                  r=json.loads(p.read_text())
+                  providers.append({'records_validated':r.get('records_validated',0),'numeric_values_allowed_for_training':r.get('quantitative_values_allowed_for_training'),'source_file':str(p)})
+              except (ValueError,OSError) as exc:providers.append({'source_file':str(p),'error':type(exc).__name__})
+          # Existing published-score and provider validation archives are never promoted to qualified training.
+          report={'stage':'existing_historical_source_audit','historical_coverage_reports_found':len(paths),
+                  'provider_validation_reports_found':len(validations),'historical_research':backfills,
+                  'provider_quality':providers,'qualified_training_rows_created':0,
+                  'independent_source_authentication_performed':False,
+                  'sportsdataio_numeric_data_promoted_to_training':False,
+                  'champion_001_modified':False,'certified_take_predictions':0,
+                  'next_gate':'independently authenticate point-in-time features and settled outcomes per league'}
+          Path('source_audit/source_readiness.json').write_text(json.dumps(report,indent=2)+'\n')
+          lines=['## Historical source evidence audit','',
+                 f'Historical coverage reports: {len(paths)}',
+                 f'SportsDataIO validation reports: {len(validations)}','',
+                 '| League | Published finals | Quarantined candidates |',
+                 '|---|---:|---:|']
+          for x in backfills:lines.append(f"| {x.get('league','unknown')} | {x.get('published_completed_game_results',0)} | {x.get('quarantined_research_candidates',0)} |")
+          lines+=['','**Training-eligible rows created: 0**. Existing published finals and provider responses are not authenticated original pregame features.','Champion-001 unchanged; no certified TAKE.']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: historical-source-evidence-audit
+          path: source_audit/source_readiness.json
+          retention-days: 30
