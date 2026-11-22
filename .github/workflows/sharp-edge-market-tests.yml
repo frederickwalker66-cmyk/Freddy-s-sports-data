@@ -11,6 +11,8 @@ on:
       - 'sharp-edge-pro/test_sharpapi_mapping.py'
       - 'sharp-edge-pro/player_identity.py'
       - 'sharp-edge-pro/test_player_identity.py'
+      - 'sharp-edge-pro/roster_bridge.py'
+      - 'sharp-edge-pro/test_roster_bridge.py'
       - '.github/workflows/sharp-edge-market-tests.yml'
   workflow_dispatch:
 permissions:
