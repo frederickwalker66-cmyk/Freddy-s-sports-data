@@ -9,7 +9,7 @@ def main():
     out = root / "output"
     out.mkdir(exist_ok=True)
     components = {
-        "sharpapi_key_configured": bool(os.getenv("SHARPAPI_KEY")),
+        "sharpapi_key_configured": bool(os.getenv("SHARP_API_KEY") or os.getenv("SHARPAPI_KEY")),
         "sportsdataio_key_configured": bool(os.getenv("SPORTSDATAIO_NBA_API_KEY") or os.getenv("SPORTSDATAIO_API_KEY")),
         "independent_model_artifact_present": (root / "model" / "validated_model.json").exists(),
         "verified_market_snapshot_present": (root / "inputs" / "verified_markets.json").exists(),
