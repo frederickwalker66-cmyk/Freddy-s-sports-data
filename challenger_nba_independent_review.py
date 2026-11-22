@@ -53,21 +53,25 @@ def review(row):
         if not isinstance(sources, list) or len(sources) < 2:
             raise ValueError(kind + "_insufficient_sources")
         providers = set()
+        source_hosts = set()
         for source in sources:
             if not isinstance(source, dict):
                 raise ValueError(kind + "_invalid_source")
             providers.add(source.get("origin_provider"))
-            host(source.get("url"))
+            source_host = host(source.get("url"))
+            source_hosts.add(source_host)
             observed = instant(source.get("observed_at_utc"))
             if kind != "final_outcome" and observed > captured:
                 raise ValueError(kind + "_late_source")
-            if kind == "final_outcome" and observed <= start:
-                raise ValueError("outcome_not_postgame")
+            if kind == "final_outcome" and (observed <= start or observed > outcome):
+                raise ValueError("outcome_outside_observation_window")
             digest = source.get("sha256")
             if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
                 raise ValueError(kind + "_missing_source_digest")
         if None in providers or len(providers) < 2:
             raise ValueError(kind + "_not_distinct_origins")
+        if len(source_hosts) < 2:
+            raise ValueError(kind + "_same_source_host")
         if check.get("upstream_independence_verified") is not True:
             raise ValueError(kind + "_independence_unproven")
         if check.get("values_agree") is not True:
