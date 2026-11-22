@@ -5,10 +5,10 @@ import unittest
 from pathlib import Path
 from challenger_nba_source_evidence_crosscheck import audit
 
-def row(name,digest):
+def row(name,digest,second_name=None):
     return {"independent_checks":{kind:{"sources":[
         {"archive_file":name,"sha256":digest},
-        {"archive_file":name,"sha256":digest}]} for kind in
+        {"archive_file":second_name or name,"sha256":digest}]} for kind in
         ("schedule","pregame_features","final_outcome")}}
 
 class CrosscheckTests(unittest.TestCase):
@@ -23,12 +23,23 @@ class CrosscheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
             (root/"sample.json").write_bytes(b"synthetic")
-            result=audit([row("sample.json",hashlib.sha256(b"synthetic").hexdigest())],root)
+            (root/"second.json").write_bytes(b"synthetic")
+            result=audit([row("sample.json",hashlib.sha256(b"synthetic").hexdigest(),"second.json")],root)
             self.assertEqual(result["source_bytes_matching_declared_hashes"],6)
             self.assertEqual(result["rejected_source_references"],0)
             self.assertFalse(result["independent_publication_time_verified"])
             self.assertEqual(result["qualified_training_examples"],0)
             self.assertFalse(result["champion_001_modified"])
+
+    def test_reused_archive_cannot_count_as_independent_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/"sample.json").write_bytes(b"synthetic")
+            result=audit([row("sample.json",hashlib.sha256(b"synthetic").hexdigest())],root)
+            self.assertEqual(result["source_bytes_matching_declared_hashes"],3)
+            self.assertEqual(result["rejected_source_references"],3)
+            self.assertTrue(all(x["reason"]=="duplicate_archive_used_as_independent_source" for x in result["rejections"]))
+            self.assertEqual(result["qualified_training_examples"],0)
 
     def test_wrong_digest_and_traversal_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
