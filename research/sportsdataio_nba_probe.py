@@ -10,6 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from research.trusted_provider_gateway import SourceUnavailable, fetch_provider_json
+import urllib.error
 
 HOST = "api.sportsdata.io"
 BASE = "https://" + HOST + "/v3/nba"
@@ -67,8 +68,20 @@ def probe(*, day=None, env=None, fetch=fetch_provider_json):
                 "draftkings_selection_verified": False,
                 "player_team_and_injury_crosschecked": False,
             }
-        except (SourceUnavailable, KeyError, TypeError, ValueError) as exc:
-            results[name] = {"status": "HOLD_PROVIDER_ERROR", "reason_type": type(exc).__name__}
+        except SourceUnavailable as exc:
+            # Do not print exception messages: they can include URLs or response details.
+            cause = exc.__cause__
+            if isinstance(cause, urllib.error.HTTPError):
+                results[name] = {"status": "HOLD_PROVIDER_HTTP_ERROR",
+                                 "http_status": int(cause.code)}
+            elif isinstance(cause, ValueError):
+                results[name] = {"status": "HOLD_PROVIDER_INVALID_JSON"}
+            else:
+                results[name] = {"status": "HOLD_PROVIDER_TRANSPORT_ERROR",
+                                 "reason_type": type(cause).__name__ if cause else "SourceUnavailable"}
+        except (KeyError, TypeError, ValueError) as exc:
+            results[name] = {"status": "HOLD_PROVIDER_RESPONSE_ERROR",
+                             "reason_type": type(exc).__name__}
     coverage = {name: {"response_received": item["status"] in (
                     "RECEIVED_PROVIDER_RESPONSE_UNVERIFIED_MARKETS", "HOLD_EMPTY_PROVIDER_RESPONSE"),
                     "records_present": item.get("record_count", 0) > 0,
