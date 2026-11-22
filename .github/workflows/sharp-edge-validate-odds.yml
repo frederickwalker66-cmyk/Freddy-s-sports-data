@@ -1,0 +1,33 @@
+name: Sharp Edge Pro — Validate SharpAPI Sample
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify secret is available
+        shell: bash
+        run: |
+          if [ -z "$SHARP_API_KEY" ]; then
+            echo "::error::SHARP_API_KEY repository secret missing"
+            exit 1
+          fi
+          echo "::add-mask::$SHARP_API_KEY"
+      - name: Validate read-only odds sample
+        run: python3 sharp-edge-pro/validate_sharpapi_sample.py
+      - name: Publish research-only status
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '### Sharp Edge Pro — odds sample validation'
+            echo 'The validator checks authentication, top-level response schema, and nonempty sample only.'
+            echo 'Market IDs, sportsbook provenance, freshness, roster/injury checks and calibrated model probabilities are NOT verified.'
+            echo '**Certification: HOLD**'
+          } >> "$GITHUB_STEP_SUMMARY"
