@@ -1,0 +1,39 @@
+name: Sharp Edge certification configuration preflight
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/certification_configuration_preflight.py'
+      - 'tests/test_certification_configuration_preflight.py'
+      - '.github/workflows/certification-configuration-preflight.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/certification_configuration_preflight.py'
+      - 'tests/test_certification_configuration_preflight.py'
+      - '.github/workflows/certification-configuration-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  configuration-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test non-secret preflight
+        run: python -m unittest discover -s tests -p 'test_certification_configuration_preflight.py' -v
+      - name: Report missing configuration names only
+        if: github.event_name != 'pull_request'
+        env:
+          SHARP_CERTIFICATION_FEED_URL: ${{ secrets.SHARP_CERTIFICATION_FEED_URL }}
+          SHARP_CERTIFICATION_FEED_TOKEN: ${{ secrets.SHARP_CERTIFICATION_FEED_TOKEN }}
+          SHARP_MODEL_ATTESTATION_KEY: ${{ secrets.SHARP_MODEL_ATTESTATION_KEY }}
+          SHARP_ODDS_ATTESTATION_KEY: ${{ secrets.SHARP_ODDS_ATTESTATION_KEY }}
+          SHARP_RELEASE_ATTESTATION_KEY: ${{ secrets.SHARP_RELEASE_ATTESTATION_KEY }}
+          SHARP_APPROVED_MODEL_VERSIONS: ${{ vars.SHARP_APPROVED_MODEL_VERSIONS }}
+        run: python -m scripts.certification_configuration_preflight
