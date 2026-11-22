@@ -16,7 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Validate native NBA training code
         run: python -m unittest discover -s tests -p 'test_challenger_nba_probability.py' -v
-      - name: Train only on reviewed point-in-time historical evidence
+      - name: Validate Challenger-to-Prediction bridge\n        run: python -m unittest discover -s tests -p 'test_challenger_prediction_bridge.py' -v\n      - name: Train only on reviewed point-in-time historical evidence
         run: |
           python challenger_nba_probability.py \
             --history prediction_input/qualified_nba_history.jsonl \
@@ -43,6 +43,17 @@ jobs:
               f.write('Native research model artifact: '+('generated (uncertified)' if model.exists() else 'not generated; evidence insufficient')+'\n\n')
               f.write('Certified TAKE: 0; Champion-001 unchanged.\n')
           PY
+      - name: Bridge real Challenger forecast into Prediction Mode if candidate exists
+        shell: bash
+        run: |
+          if [[ -f challenger_results/nba_probability/research_model.json && -f prediction_input/nba_future_candidate.json ]]; then
+            python -m research.challenger_prediction_bridge \
+              --model challenger_results/nba_probability/research_model.json \
+              --candidate prediction_input/nba_future_candidate.json \
+              --output challenger_results/nba_probability/prediction_mode_research.json
+          else
+            echo 'No qualified model and/or future candidate; prediction remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: option-b-nba-training-report
