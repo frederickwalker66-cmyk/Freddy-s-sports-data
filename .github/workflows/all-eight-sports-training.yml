@@ -42,7 +42,7 @@ jobs:
           assert m['champion_001_modified'] is False
           assert m['certified_positive_ev_bets'] == 0
           assert m['automated_bets_placed'] == 0
-          assert all(x in m['by_league'] for x in ('nfl','mlb','nhl','ncaaf','ncaab','mls','ucl'))
+          assert all(x in m['by_league'] for x in ('nfl','mlb','nhl','ncaaf','ncaab','mls','uefa_champions_league'))
           if (nba/'research_model.json').exists():
               a=json.loads((nba/'research_model.json').read_text())
               assert a['champion_001_modified'] is False
