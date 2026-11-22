@@ -1,0 +1,41 @@
+name: SharpAPI — Safe Odds Connection Check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-sharpapi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+    steps:
+      - name: Validate secret is configured
+        shell: bash
+        run: |
+          if [ -z "$SHARP_API_KEY" ]; then
+            echo "::error::Add SHARP_API_KEY under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "::add-mask::$SHARP_API_KEY"
+      - name: Test pregame DraftKings NBA odds (read-only)
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+          url = "https://api.sharpapi.io/api/v1/odds?sportsbook=draftkings&league=nba&is_live=false&limit=5"
+          req = urllib.request.Request(url, headers={"X-API-Key": os.environ["SHARP_API_KEY"], "Accept": "application/json"})
+          try:
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  payload = json.load(resp)
+                  rows = payload.get("data", [])
+                  print("SharpAPI HTTP:", resp.status)
+                  print("DraftKings NBA pregame odds rows:", len(rows) if isinstance(rows, list) else "unknown")
+                  print("Connection successful. Data is NOT independently certified for betting.")
+          except urllib.error.HTTPError as exc:
+              print("SharpAPI HTTP error:", exc.code)
+              raise SystemExit(1)
+          except Exception as exc:
+              print("SharpAPI connection failed:", type(exc).__name__)
+              raise SystemExit(1)
+          PY
