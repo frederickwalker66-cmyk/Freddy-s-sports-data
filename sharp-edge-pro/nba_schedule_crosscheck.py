@@ -15,6 +15,16 @@ def instant(value):
     except ValueError:
         return None
 
+def sportsdataio_utc(value):
+    """Parse only the provider's explicitly UTC-labeled DateTimeUTC field."""
+    if not isinstance(value,str) or not value.strip():
+        return None
+    try:
+        parsed=datetime.fromisoformat(value.strip().replace("Z","+00:00"))
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+    except ValueError:
+        return None
+
 def abbreviations(market):
     sides=[]
     for key in ("home","away"):
@@ -38,7 +48,7 @@ def assess(market,games,tolerance_minutes=30):
         return "HOLD_SCHEDULE_MATCHUP_NOT_FOUND"
     valid=[]
     for game in candidates:
-        scheduled=instant(game.get("DateTimeUTC"))
+        scheduled=sportsdataio_utc(game.get("DateTimeUTC"))
         if scheduled and abs((scheduled-start).total_seconds())<=tolerance_minutes*60:
             valid.append(game)
     if len(valid)!=1:
