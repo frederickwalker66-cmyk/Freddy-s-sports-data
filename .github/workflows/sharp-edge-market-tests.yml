@@ -5,6 +5,8 @@ on:
     paths:
       - 'sharp-edge-pro/market_quality.py'
       - 'sharp-edge-pro/test_market_quality.py'
+      - 'sharp-edge-pro/provider_adapter.py'
+      - 'sharp-edge-pro/test_provider_adapter.py'
       - '.github/workflows/sharp-edge-market-tests.yml'
   workflow_dispatch:
 permissions:
@@ -16,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run deterministic market quality unit tests
-        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_market_quality.py' -v
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_*.py' -v
       - name: Certification reminder
         if: always()
         run: |
