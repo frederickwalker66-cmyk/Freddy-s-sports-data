@@ -180,7 +180,17 @@ def audit(rows, candidates, league, data, source_url, observed_utc=None):
         if len(matches) == 0:
             status, independent_id = "no_unambiguous_secondary_match", None
         elif len(matches) > 1:
-            status, independent_id = "ambiguous_secondary_match", None
+            # Retrospective MLB doubleheaders can share teams within six hours.
+            # Resolve only if exactly one candidate agrees on BOTH the original
+            # scheduled UTC start and final scores; otherwise fail closed.
+            exact = [g for g in matches if league == "mlb"
+                     and g["start"] == start
+                     and (g["home_score"], g["away_score"]) ==
+                         (row["home_score"], row["away_score"])]
+            if len(exact) == 1:
+                status, independent_id = "published_result_cross_checked", exact[0]["id"]
+            else:
+                status, independent_id = "ambiguous_secondary_match", None
         else:
             g = matches[0]
             independent_id = g["id"]
