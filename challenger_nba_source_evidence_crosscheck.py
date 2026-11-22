@@ -20,6 +20,7 @@ def audit(rows, archive_root):
             rejected.append({"line":index,"reason":"missing_independent_checks"})
             continue
         for kind in KINDS:
+            seen_archive_paths=set()
             sources=checks.get(kind,{}).get("sources",[]) if isinstance(checks.get(kind),dict) else []
             if not isinstance(sources,list) or len(sources)<2:
                 rejected.append({"line":index,"kind":kind,"reason":"insufficient_source_records"})
@@ -32,6 +33,11 @@ def audit(rows, archive_root):
                     or len(digest)!=64 or any(ch not in "0123456789abcdef" for ch in digest)):
                     rejected.append({"line":index,"kind":kind,"source":j,"reason":"invalid_archive_reference"})
                     continue
+                archive_key=Path(name).as_posix()
+                if archive_key in seen_archive_paths:
+                    rejected.append({"line":index,"kind":kind,"source":j,"reason":"duplicate_archive_used_as_independent_source"})
+                    continue
+                seen_archive_paths.add(archive_key)
                 target=root/name
                 if (not target.resolve().is_relative_to(root)
                     or any(part.is_symlink() for part in [target,*list(target.parents)[:len(Path(name).parts)]])
