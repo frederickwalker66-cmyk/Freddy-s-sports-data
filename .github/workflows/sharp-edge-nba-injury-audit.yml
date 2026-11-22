@@ -1,0 +1,21 @@
+name: Sharp Edge — NBA Injury Eligibility Audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  injury-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run injury screening unit tests
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_nba_injury_eligibility.py' -v
+      - name: Audit live provider injury records
+        run: python3 sharp-edge-pro/live_nba_injury_eligibility.py
+      - name: Keep certification blocked
+        if: always()
+        run: echo 'SportsDataIO injury data is not independent official player clearance. Certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
