@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import time
 from urllib.request import Request, urlopen
+from urllib.error import URLError
+import socket
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -113,6 +115,17 @@ def player_prop_source_gates(sources):
     return report
 
 
+def fetch_nba_player_index_with_retry(url, json_fetcher, attempts=2):
+    """Retry transient official NBA transport failures only; never accept partial data."""
+    for attempt in range(attempts):
+        try:
+            return json_fetcher(url)
+        except (TimeoutError, socket.timeout, URLError):
+            if attempt + 1 == attempts:
+                raise
+            time.sleep(1)
+
+
 def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=get_json):
     root = Path(outdir)
     root.mkdir(parents=True, exist_ok=True)
@@ -147,7 +160,7 @@ def refresh(today=None, outdir="official_sources", fetcher=fetch, json_fetcher=g
         season = f"{year}-{(year + 1) % 100:02d}"
         url = NBA_STATS + "?" + urlencode({"IsOnlyCurrentSeason": 1,
                                             "LeagueID": "00", "Season": season})
-        data = json_fetcher(url)
+        data = fetch_nba_player_index_with_retry(url, json_fetcher)
         sets = data.get("resultSets")
         if not isinstance(sets, list):
             raise ValueError("NBA current-player result sets absent")
