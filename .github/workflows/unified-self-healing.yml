@@ -10,7 +10,7 @@ on:
       - '.github/workflows/unified-self-healing.yml'
 permissions:
   contents: read
-  actions: read
+  actions: write
 jobs:
   unified-diagnostics:
     runs-on: ubuntu-latest
@@ -27,9 +27,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python -m research.unified_self_healing_monitor --output unified_health_report.json
+          python -m research.unified_self_healing_monitor --enable-safe-retry --output unified_health_report.json
           echo '## Freddy unified diagnostic' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Read-only monitoring active. No unverified automatic retries, data edits, merges, model promotions or TAKE certification.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Bounded retry of log-confirmed transient GitHub failures only, at most once per original run. No code edits, merges, model promotions or TAKE certification.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
