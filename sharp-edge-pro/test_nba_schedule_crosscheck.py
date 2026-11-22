@@ -18,6 +18,12 @@ class ScheduleTests(unittest.TestCase):
         self.assertTrue(assess(M,[G,G]).startswith("HOLD"))
     def test_missing_timezone_holds(self):
         self.assertTrue(assess({**M,"event_start_time":"2026-11-22T19:00:00"},[G]).startswith("HOLD"))
+    def test_sportsdataio_naive_utc_is_accepted(self):
+        self.assertEqual(assess(M,[{**G,"DateTimeUTC":"2026-11-22T19:00:00"}]),"SCHEDULE_CORROBORATED_ONLY")
+    def test_sportsdataio_naive_space_utc_is_accepted(self):
+        self.assertEqual(assess(M,[{**G,"DateTimeUTC":"2026-11-22 19:00:00"}]),"SCHEDULE_CORROBORATED_ONLY")
+    def test_sportsdataio_bad_utc_holds(self):
+        self.assertTrue(assess(M,[{**G,"DateTimeUTC":"not-a-time"}]).startswith("HOLD"))
     def test_never_certifies(self):
         self.assertEqual(summarize([M],[G])["certified_take"],0)
 if __name__=="__main__":
