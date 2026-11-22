@@ -27,6 +27,27 @@ def bridge(model, candidate, now=None):
         "is_player_prop": False,
     }
     result = assess(row, now)
+    # A research projection is not evidence of independent feed verification.
+    # Preserve explicit gate states so downstream dashboards can identify
+    # missing inputs without inferring TAKE eligibility from model probability.
+    evidence = candidate.get("verification_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    required = (
+        "event_identity_verified",
+        "roster_and_injury_verified",
+        "exact_draftkings_market_verified",
+        "odds_timestamp_verified",
+        "independent_source_verified",
+        "model_calibration_verified",
+        "independent_certification_verified",
+    )
+    result["evidence_gates"] = {key: evidence.get(key) is True for key in required}
+    result["evidence_blockers"] = [
+        key for key, verified in result["evidence_gates"].items() if not verified
+    ]
+    result["evidence_manifest_complete"] = not result["evidence_blockers"]
+    # Even a fully populated caller-provided manifest is NOT an independent
+    # attestation; this bridge never releases production predictions.
     result["research_only"] = True
     result["native_model_sha256"] = projection["model_sha256"]
     result["independent_source_provenance_verified"] = False
