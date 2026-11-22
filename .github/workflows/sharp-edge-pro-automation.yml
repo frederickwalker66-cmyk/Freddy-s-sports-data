@@ -28,9 +28,9 @@ jobs:
         run: python -m unittest discover -s sharp-edge-pro -p 'test_edge_math.py' -v
       - name: Run independent, no-cost readiness and prediction safety gate
         env:
-          SHARPAPI_KEY: ${{ secrets.SHARPAPI_KEY }}
-          SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
-          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY }}
+          SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+          SPORTSDATAIO_API_KEY: ${{ secrets.Sportsdataio || secrets.SPORTSDATAIO_API_KEY }}
+          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
         run: |
           for tick in 1 2 3 4 5; do
             echo "Readiness check $tick of 5"
