@@ -1,0 +1,32 @@
+name: Challenger NBA native research inference safety
+on:
+  pull_request:
+    paths:
+      - 'research/challenger_nba_native_research_inference.py'
+      - 'tests/test_challenger_nba_native_research_inference.py'
+      - 'research/challenger_nba_artifact_readiness.py'
+      - 'tests/test_challenger_nba_artifact_readiness.py'
+      - '.github/workflows/challenger-nba-native-research-inference.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test missing and invalid artifacts fail closed
+        run: |
+          python -m unittest discover -s tests -p 'test_challenger_nba_native_research_inference.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_nba_artifact_readiness.py' -v
+          python -m research.challenger_nba_artifact_readiness
+      - name: Report readiness without fabricating native forecasts
+        shell: bash
+        run: |
+          echo '## Challenger NBA native research inference' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Safety tests only. No trained model artifact or authenticated pregame feature receipt supplied.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Actual model predictions: 0. Certified TAKE: 0. Status: HOLD.' >> "$GITHUB_STEP_SUMMARY"
