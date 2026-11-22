@@ -48,6 +48,29 @@ class SecondaryAuditTests(unittest.TestCase):
         rows, _ = self.run_audit()
         self.assertEqual(rows[0]["result_check_status"], "ambiguous_secondary_match")
 
+    def test_doubleheader_unique_exact_time_and_score_crosschecks_only(self):
+        import copy
+        later = copy.deepcopy(self.g)
+        later["gamePk"] = 1000
+        later["gameDate"] = "2026-08-02T04:00:00Z"
+        later["teams"]["home"]["score"] = 2
+        self.payload["dates"][0]["games"].append(later)
+        rows, report = self.run_audit()
+        self.assertEqual(rows[0]["result_check_status"], "published_result_cross_checked")
+        self.assertEqual(rows[0]["secondary_event_id"], "999")
+        self.assertFalse(rows[0]["historical_pregame_availability_verified"])
+        self.assertEqual(report["verified_pregame_training_examples"], 0)
+
+    def test_doubleheader_same_start_wrong_score_remains_ambiguous(self):
+        import copy
+        another = copy.deepcopy(self.g)
+        another["gamePk"] = 1000
+        another["teams"]["home"]["score"] = 4
+        self.payload["dates"][0]["games"].append(another)
+        rows, _ = self.run_audit()
+        self.assertEqual(rows[0]["result_check_status"], "published_result_cross_checked")
+        self.assertEqual(rows[0]["secondary_event_id"], "999")
+
     def test_wrong_teams_never_matched_on_scores_alone(self):
         self.g["teams"]["home"]["team"]["name"] = "New York Mets"
         rows, _ = self.run_audit()
