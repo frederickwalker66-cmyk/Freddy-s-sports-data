@@ -1,0 +1,21 @@
+name: Sharp Edge — NBA Team Event Candidate Audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  team-event-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARP_API_KEY: ${{ secrets.SHARP_API_KEY }}
+      SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test fail-closed candidate checks
+        run: python3 -m unittest discover -s sharp-edge-pro -p 'test_nba_team_event_candidates.py' -v
+      - name: Check live team-event candidates
+        run: python3 sharp-edge-pro/live_nba_team_event_candidates.py
+      - name: Preserve certification boundary
+        if: always()
+        run: echo 'Team/event candidates do not prove independent game, roster or injury validation. Certified TAKE remains HOLD.' >> "$GITHUB_STEP_SUMMARY"
