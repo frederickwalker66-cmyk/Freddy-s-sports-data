@@ -32,7 +32,7 @@ def ingest(source, output, report_path):
             except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
                 rejected.append({"line": number, "reason": str(exc)[:160]})
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text("".join(json.dumps(x, sort_keys=True)+"\\n" for x in qualified), encoding="utf-8")
+    output.write_text("".join(json.dumps(x, sort_keys=True)+"\n" for x in qualified), encoding="utf-8")
     report = {"source_exists": source.is_file(), "rows_received": rows,
               "review_attested_rows": len(qualified), "awaiting_review": review[:100],
               "rejected": rejected[:100], "minimum_required": 250,
@@ -40,7 +40,7 @@ def ingest(source, output, report_path):
               "certified_takes": 0, "champion_001_modified": False,
               "next_action": "Supply authentic archived pregame snapshots and independently review their provenance" if len(qualified)<250 else "Run training with separate source authenticity review"}
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True)+"\\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True)+"\n", encoding="utf-8")
     print(json.dumps({k:report[k] for k in ("source_exists","rows_received","review_attested_rows","minimum_required")}))
     return report
 
