@@ -10,6 +10,16 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run unified local safety and readiness checks
+        run: |
+          python -m unittest discover -s tests -p 'test_freddys_operational_readiness.py' -v
+          python -m unittest discover -s tests -p 'test_sportsdataio_nba_probe.py' -v
+          python -m unittest discover -s tests -p 'test_challenger_prediction_bridge.py' -v
+          python -m research.freddys_operational_readiness --output local-readiness.json
       - name: Check latest dependency runs and publish one report
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,13 +45,16 @@ jobs:
               r=next((x for x in runs if x["name"]==name),None)
               rows.append({"name":name,"result":r["conclusion"] if r else "NOT_FOUND",
                            "url":r["html_url"] if r else None})
-          report={"release":"HOLD","certified_takes":0,"workflow_checks":rows,
+          local=json.loads(Path("local-readiness.json").read_text())
+          report={"release":"HOLD","certified_takes":0,"workflow_checks":rows,"local_readiness":local,
                   "warning":"CI success does not establish authenticated odds, model calibration or certification."}
           Path("diagnostic.json").write_text(json.dumps(report,indent=2))
           lines=["# One-Shot System Diagnostic","","**Release: HOLD pending independent evidence.**",
                  "","| Dependency | Latest run |","|---|---|"]
           for row in rows:
               lines.append("| "+row["name"]+" | "+row["result"]+" |")
+          lines+=["","## Current local readiness blockers"]
+          lines+=["- "+str(x) for x in local.get("missing_or_unverified",[])]
           lines+=["","Green checks mean workflow execution succeeded, not that live predictions are certified."]
           Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
           PY
