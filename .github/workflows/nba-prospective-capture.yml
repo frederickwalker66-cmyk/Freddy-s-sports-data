@@ -16,8 +16,8 @@ jobs:
           python-version: '3.12'
       - name: Capture timestamped source receipts
         env:
-          SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY }}
-          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY }}
+          SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY || secrets.SPORTSDATAIO }}
+          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY || secrets.SPORTSDATAIO }}
         shell: bash
         run: |
           set -euo pipefail
