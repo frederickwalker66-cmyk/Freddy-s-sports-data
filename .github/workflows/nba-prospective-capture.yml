@@ -1,0 +1,29 @@
+name: NBA prospective evidence receipts
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 16,21 * * *'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Capture timestamped source receipts
+        env:
+          SPORTSDATAIO_ODDS_API_KEY: ${{ secrets.SPORTSDATAIO_ODDS_API_KEY }}
+          SPORTSDATAIO_NBA_API_KEY: ${{ secrets.SPORTSDATAIO_NBA_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m research.nba_prospective_capture --date "$(TZ=America/New_York date +%F)" --output nba_prospective_capture_receipt.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-prospective-receipt
+          path: nba_prospective_capture_receipt.json
+          retention-days: 90
