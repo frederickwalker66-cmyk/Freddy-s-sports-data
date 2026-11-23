@@ -147,7 +147,21 @@ def main():
     repo = os.getenv("GITHUB_REPOSITORY", "")
     if not token or not repo:
         raise SystemExit("GH_TOKEN and GITHUB_REPOSITORY required")
+    # Repository-wide first-page results can omit infrequently run critical jobs.
     runs = api("/actions/runs?per_page=100", token, repo).get("workflow_runs", [])
+    seen = {run.get("id") for run in runs}
+    for workflow in sorted(CRITICAL):
+        try:
+            recent = api(f"/actions/workflows/{workflow}/runs?branch=main&per_page=10",
+                         token, repo).get("workflow_runs", [])
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                continue
+            raise
+        for run in recent:
+            if run.get("id") not in seen:
+                runs.append(run)
+                seen.add(run.get("id"))
     report = audit(runs, {}, auto_retry=False)
     report['pipeline_stages'] = pipeline_status(runs)
     if args.enable_safe_retry:
