@@ -40,6 +40,27 @@ jobs:
           assert all(x['decision']=='HOLD' and x['certified'] is False for x in r['forecasts'])
           print('Research forecasts:',len(r['forecasts']),'Historical results:',r['historical_games_used'])
           PY
+      - name: Print auditable research prediction board
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          fixtures={e['event_id']:e for e in json.loads(Path('nba_research/upcoming.json').read_text())}
+          report=json.loads(Path('nba_research/forecasts.json').read_text())
+          print('NBA_RESEARCH_PREDICTION_BOARD_START')
+          for f in report['forecasts']:
+              e=fixtures[f['event_id']]
+              print(json.dumps({
+                  'event_id':f['event_id'],
+                  'away_team':e['away_team'],'home_team':e['home_team'],
+                  'start_utc':f['start_utc'],
+                  'home_win_probability':f['research_probability_home_win'],
+                  'away_win_probability':f['research_probability_away_win'],
+                  'model':f['model'],'decision':f['decision'],
+                  'certified':f['certified'],'bet_ready':f['bet_ready']
+              },sort_keys=True))
+          print('NBA_RESEARCH_PREDICTION_BOARD_END')
+          PY
       - name: Upload real research forecasts and source data
         if: always()
         uses: actions/upload-artifact@v4
