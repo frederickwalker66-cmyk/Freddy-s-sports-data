@@ -1,0 +1,48 @@
+name: NBA prospective Elo research forecasts
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 16,21 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'research/nba_upcoming_fixtures.py'
+      - 'research/nba_prospective_elo.py'
+      - 'tests/test_nba_prospective_elo.py'
+      - '.github/workflows/nba-elo-research.yml'
+permissions:
+  contents: read
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test probability and safety gates
+        run: python -m unittest discover -s tests -p test_nba_prospective_elo.py -v
+      - name: Collect real historical NBA final scores (35 days; public source)
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_research
+      - name: Fetch actual upcoming NBA events
+        run: python research/nba_upcoming_fixtures.py --output nba_research/upcoming.json
+      - name: Calculate uncalibrated prospective research probabilities
+        run: |
+          python research/nba_prospective_elo.py --history nba_research/results.jsonl --upcoming nba_research/upcoming.json --output nba_research/forecasts.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('nba_research/forecasts.json').read_text())
+          assert r['certified_take_count']==0 and r['champion_001_modified'] is False
+          assert all(x['decision']=='HOLD' and x['certified'] is False for x in r['forecasts'])
+          print('Research forecasts:',len(r['forecasts']),'Historical results:',r['historical_games_used'])
+          PY
+      - name: Upload real research forecasts and source data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-elo-research-${{ github.run_id }}
+          path: nba_research/
+          retention-days: 30
+          if-no-files-found: warn
