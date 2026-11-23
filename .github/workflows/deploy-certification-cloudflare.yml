@@ -1,0 +1,56 @@
+name: Deploy independent certification feed to Cloudflare
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Cloudflare configuration (names only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_CERT_KV_NAMESPACE_ID: ${{ secrets.CF_CERT_KV_NAMESPACE_ID }}
+        run: |
+          missing=0
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CF_CERT_KV_NAMESPACE_ID; do
+            if [ -z "${!name}" ]; then echo "::error::Missing GitHub Actions secret: $name"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          if ! [[ "$CF_CERT_KV_NAMESPACE_ID" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "::error::CF_CERT_KV_NAMESPACE_ID must be a 32-character lowercase hex namespace ID"
+            exit 1
+          fi
+      - name: Prepare Wrangler config
+        env:
+          CF_CERT_KV_NAMESPACE_ID: ${{ secrets.CF_CERT_KV_NAMESPACE_ID }}
+        run: |
+          cat > cloudflare/certification-feed/wrangler.toml <<EOF
+          name = "freddys-certification-feed"
+          main = "worker.js"
+          compatibility_date = "2026-11-01"
+          workers_dev = true
+          [[kv_namespaces]]
+          binding = "CERTIFICATION_EVIDENCE"
+          id = "$CF_CERT_KV_NAMESPACE_ID"
+          EOF
+      - name: Deploy Worker
+        working-directory: cloudflare/certification-feed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy
+      - name: Deployment security reminder
+        run: |
+          echo "## Cloudflare certification transport deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Configure FEED_READ_TOKEN and FEED_WRITE_TOKEN as distinct Cloudflare Worker secrets before using the endpoint." >> "$GITHUB_STEP_SUMMARY"
+          echo "Configure GitHub SHARP_CERTIFICATION_FEED_URL and SHARP_CERTIFICATION_FEED_TOKEN separately." >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment does not certify model predictions or create signing authority. HOLD until independently signed evidence passes." >> "$GITHUB_STEP_SUMMARY"
