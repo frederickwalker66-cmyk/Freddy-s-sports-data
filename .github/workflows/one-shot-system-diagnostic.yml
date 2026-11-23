@@ -1,0 +1,52 @@
+name: Freddy's Picks AI — One-Shot Diagnostic
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 12,22 * * *'
+permissions:
+  actions: read
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check latest dependency runs and publish one report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          req=urllib.request.Request(
+              "https://api.github.com/repos/"+os.environ["GH_REPOSITORY"]+"/actions/runs?per_page=100",
+              headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"})
+          with urllib.request.urlopen(req,timeout=30) as response:
+              runs=json.load(response)["workflow_runs"]
+          targets=["SportsDataIO NBA Authenticated Readiness (manual)",
+                   "Sharp Edge Pro — Bounded Live NBA Ingestion",
+                   "Collect SharpAPI DraftKings pregame odds",
+                   "Challenger-001 daily isotonic research calibration",
+                   "Sharp Edge — Live Certification Audit (fail closed)",
+                   "Sharp Edge certification configuration preflight",
+                   "Freddy's Picks AI V8 — One Command (phone + laptop)"]
+          rows=[]
+          for name in targets:
+              r=next((x for x in runs if x["name"]==name),None)
+              rows.append({"name":name,"result":r["conclusion"] if r else "NOT_FOUND",
+                           "url":r["html_url"] if r else None})
+          report={"release":"HOLD","certified_takes":0,"workflow_checks":rows,
+                  "warning":"CI success does not establish authenticated odds, model calibration or certification."}
+          Path("diagnostic.json").write_text(json.dumps(report,indent=2))
+          lines=["# One-Shot System Diagnostic","","**Release: HOLD pending independent evidence.**",
+                 "","| Dependency | Latest run |","|---|---|"]
+          for row in rows:
+              lines.append("| "+row["name"]+" | "+row["result"]+" |")
+          lines+=["","Green checks mean workflow execution succeeded, not that live predictions are certified."]
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(lines)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: one-shot-diagnostic
+          path: diagnostic.json
+          retention-days: 14
