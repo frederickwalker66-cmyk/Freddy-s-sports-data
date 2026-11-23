@@ -11,6 +11,19 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Score real Challenger NBA model when verified input artifacts exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          model="prediction_input/challenger_nba_model.json"
+          candidate="prediction_input/nba_future_candidate.json"
+          if [[ -s "$model" && -s "$candidate" ]]; then
+            mkdir -p prediction_output
+            python -m research.challenger_prediction_bridge --model "$model" --candidate "$candidate" --output prediction_output/challenger_nba_research.json
+            echo "Challenger native NBA research forecast generated (not certified)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Native NBA scoring blocked: model or future candidate evidence missing; no synthetic predictions." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Build native-only prediction display
         run: python prediction_mode.py --output prediction_output/predictions.json
       - name: Show prediction readiness
@@ -22,5 +35,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: prediction-mode-display
-          path: prediction_output/predictions.json
+          path: prediction_output/
           retention-days: 14
