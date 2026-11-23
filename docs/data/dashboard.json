@@ -186,10 +186,10 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-23T03:50:48.980277+00:00",
+  "generated_at_utc": "2026-11-23T03:57:41.997909+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -200,7 +200,7 @@
       "team_last5": 0
     },
     "mls": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -211,7 +211,7 @@
       "team_last5": 0
     },
     "nba": {
-      "age_minutes": 124.5,
+      "age_minutes": 131.4,
       "as_of_utc": "2026-11-23T01:46:19.623686+00:00",
       "forecasts": 0,
       "player_last10": 311,
@@ -222,7 +222,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -233,7 +233,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -244,7 +244,7 @@
       "team_last5": 0
     },
     "nfl": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -255,7 +255,7 @@
       "team_last5": 0
     },
     "nhl": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -266,7 +266,7 @@
       "team_last5": 0
     },
     "uefa_champions_league": {
-      "age_minutes": 635.7,
+      "age_minutes": 642.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -277,7 +277,7 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 147.9,
+  "live_age_minutes_at_publication": 154.8,
   "live_observed_at_utc": "2026-11-23T01:22:54.460294+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
@@ -285,9 +285,9 @@
     "archived_quotes": 5828,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 124.5,
+    "model_age_minutes_at_publication": 131.4,
     "odds_age_minutes_at_model_run": 259.3,
-    "odds_age_minutes_at_publication": 383.7,
+    "odds_age_minutes_at_publication": 390.6,
     "odds_receipt_utc": "2026-11-22T21:27:04.535868+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
@@ -302,7 +302,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -316,7 +316,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -330,8 +330,8 @@
       "archived_quotes": 5828,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 124.5,
-      "odds_age_minutes_at_publication": 383.7,
+      "model_age_minutes_at_publication": 131.4,
+      "odds_age_minutes_at_publication": 390.6,
       "odds_receipt_utc": "2026-11-22T21:27:04.535868+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -344,7 +344,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -358,7 +358,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -372,7 +372,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -386,7 +386,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -400,7 +400,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 635.7,
+      "model_age_minutes_at_publication": 642.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -424,7 +424,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:46.610715+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.437645+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -498,7 +498,7 @@
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:47.299016+00:00",
+      "observed_at_utc": "2026-11-23T03:57:40.017775+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -635,9 +635,9 @@
           "away": "Boston Celtics",
           "away_abbr": "BOS",
           "away_record": "11-5",
-          "away_score": 86,
+          "away_score": 87,
           "broadcasts": [],
-          "clock": "55.7",
+          "clock": "8.2",
           "home": "Golden State Warriors",
           "home_abbr": "GS",
           "home_record": "8-8",
@@ -647,12 +647,12 @@
           "period": 4.0,
           "start_et": "2026-11-22T20:30:00-05:00",
           "status": "in",
-          "status_detail": "55.7 - 4th",
+          "status_detail": "8.2 - 4th",
           "venue": "Chase Center"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:46.306439+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.258603+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -745,7 +745,7 @@
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:47.137592+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.896451+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -753,7 +753,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:46.941272+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.674152+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -978,22 +978,22 @@
           "broadcasts": [
             "NBC"
           ],
-          "clock": "14:18",
+          "clock": "13:03",
           "home": "San Francisco 49ers",
           "home_abbr": "SF",
           "home_record": "8-1",
-          "home_score": 28,
+          "home_score": 35,
           "id": "401873077",
           "market_reference": null,
           "period": 4.0,
           "start_et": "2026-11-22T20:20:00-05:00",
           "status": "in",
-          "status_detail": "14:18 - 4th",
+          "status_detail": "13:03 - 4th",
           "venue": "Estadio Banorte"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:46.519687+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.360749+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1115,7 +1115,7 @@
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:46.831624+00:00",
+      "observed_at_utc": "2026-11-23T03:57:39.525855+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1123,7 +1123,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:50:47.460885+00:00",
+      "observed_at_utc": "2026-11-23T03:57:40.119655+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     }
