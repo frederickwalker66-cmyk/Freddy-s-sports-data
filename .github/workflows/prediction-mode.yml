@@ -48,7 +48,7 @@ jobs:
               report["native_challenger_forecasts"]=0
           report["certified_take_count"]=0
           report["status"]="HOLD"
-          p.write_text(json.dumps(report,indent=2,sort_keys=True)+"\\n")
+          p.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
           print("Unified native research forecasts:",report["native_challenger_forecasts"])
           PY
       - name: Show prediction readiness
