@@ -19,7 +19,7 @@ jobs:
           candidate="prediction_input/nba_future_candidate.json"
           if [[ -s "$model" && -s "$candidate" ]]; then
             mkdir -p prediction_output
-            python -m research.challenger_prediction_bridge --model "$model" --candidate "$candidate" --output prediction_output/challenger_nba_research.json
+            PYTHONPATH=. python research/challenger_prediction_bridge.py --model "$model" --candidate "$candidate" --output prediction_output/challenger_nba_research.json
             echo "Challenger native NBA research forecast generated (not certified)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Native NBA scoring blocked: model or future candidate evidence missing; no synthetic predictions." >> "$GITHUB_STEP_SUMMARY"
