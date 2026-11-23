@@ -106,7 +106,7 @@ jobs:
           summary = os.getenv("GITHUB_STEP_SUMMARY")
           if summary:
               with open(summary, "a", encoding="utf-8") as handle:
-                  handle.write("\\n".join(lines) + "\\n")
+                  handle.write("\n".join(lines) + "\n")
           print(json.dumps({"feed_status": feed_state, "certified_take_count": count, "blockers": blockers}))
           PY
       - name: Save certification results for downstream dashboards
