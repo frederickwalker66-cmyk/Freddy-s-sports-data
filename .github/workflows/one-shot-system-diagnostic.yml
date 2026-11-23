@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           for workflow in all-sports-feed-audit.yml v8-one-command.yml challenger-isotonic-calibration.yml live-sharp-edge-certification.yml; do
-            gh workflow run "$workflow" --ref main
+            gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main
             echo "Dispatched: $workflow (not yet verified complete)" >> "$GITHUB_STEP_SUMMARY"
           done
       - uses: actions/checkout@v4
