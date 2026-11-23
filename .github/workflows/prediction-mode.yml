@@ -26,6 +26,31 @@ jobs:
           fi
       - name: Build native-only prediction display
         run: python prediction_mode.py --output prediction_output/predictions.json
+      - name: Include native Challenger research in unified prediction display
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("prediction_output/predictions.json")
+          report=json.loads(p.read_text())
+          native=Path("prediction_output/challenger_nba_research.json")
+          if native.is_file():
+              research=json.loads(native.read_text())
+              forecasts=research.get("forecasts",[])
+              if not isinstance(forecasts,list):
+                  raise ValueError("invalid native research forecasts")
+              report["forecasts"].extend(forecasts)
+              report["research_ready_count"]=sum(
+                  r.get("research_status")=="RESEARCH_READY" for r in report["forecasts"])
+              report["native_challenger_forecasts"]=len(forecasts)
+          else:
+              report["native_challenger_forecasts"]=0
+          report["certified_take_count"]=0
+          report["status"]="HOLD"
+          p.write_text(json.dumps(report,indent=2,sort_keys=True)+"\\n")
+          print("Unified native research forecasts:",report["native_challenger_forecasts"])
+          PY
       - name: Show prediction readiness
         shell: bash
         run: |
