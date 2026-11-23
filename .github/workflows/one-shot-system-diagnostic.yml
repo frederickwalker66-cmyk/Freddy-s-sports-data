@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       run_pipeline:
-        description: 'Launch all-sports feed, V8 research, Challenger calibration and certification audits'
+        description: 'Launch evidence recovery, native prediction display, research, calibration and certification checks'
         required: false
         type: boolean
         default: true
@@ -22,7 +22,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          for workflow in all-sports-feed-audit.yml v8-one-command.yml challenger-isotonic-calibration.yml live-sharp-edge-certification.yml; do
+          for workflow in all-sports-feed-audit.yml v8-one-command.yml prediction-mode.yml v8-durable-forward-ledger.yml challenger-isotonic-calibration.yml certification-configuration-preflight.yml live-sharp-edge-certification.yml; do
             gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main
             echo "Dispatched: $workflow (not yet verified complete)" >> "$GITHUB_STEP_SUMMARY"
           done
@@ -49,7 +49,9 @@ jobs:
               headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"})
           with urllib.request.urlopen(req,timeout=30) as response:
               runs=json.load(response)["workflow_runs"]
-          targets=["SportsDataIO NBA Authenticated Readiness (manual)",
+          targets=["Freddy's Picks AI — Prediction Mode (native evidence only)",
+                   "V8 durable NBA forward research ledger and leaderboard",
+                   "SportsDataIO NBA Authenticated Readiness (manual)",
                    "Sharp Edge Pro — Bounded Live NBA Ingestion",
                    "Collect SharpAPI DraftKings pregame odds",
                    "Challenger-001 daily isotonic research calibration",
