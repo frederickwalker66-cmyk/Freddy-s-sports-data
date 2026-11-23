@@ -1,0 +1,29 @@
+name: NBA archive provenance gap diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  provenance-gap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve latest NBA backfill artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p historical_input
+          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-historical-backfill.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [[ -n "$run_id" ]]; then
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --pattern "challenger-backfill-nba-$run_id" --dir historical_input
+          fi
+      - name: Audit missing historical provenance without promotion
+        run: python nba_archive_provenance_gap.py --root historical_input --output nba_provenance_gap_report.json
+      - name: Archive report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-provenance-gap-report
+          path: nba_provenance_gap_report.json
