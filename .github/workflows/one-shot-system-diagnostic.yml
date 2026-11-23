@@ -59,7 +59,7 @@ jobs:
           rows=[]
           for name in targets:
               r=next((x for x in runs if x["name"]==name),None)
-              rows.append({"name":name,"result":r["conclusion"] if r else "NOT_FOUND",
+              rows.append({"name":name,"result":(r["conclusion"] or r["status"] or "UNKNOWN") if r else "NOT_FOUND",
                            "url":r["html_url"] if r else None})
           local=json.loads(Path("local-readiness.json").read_text())
           report={"release":"HOLD","certified_takes":0,"workflow_checks":rows,"local_readiness":local,
