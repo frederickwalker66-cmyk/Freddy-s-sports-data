@@ -50,6 +50,20 @@ def assess(row, now):
         reasons.append("EXECUTABLE_CHECKOUT_ODDS_NOT_VERIFIED")
     if row.get("independent_certification") is not True:
         reasons.append("INDEPENDENT_CERTIFICATION_MISSING")
+    research_blockers = [r for r in reasons if r in (
+        "MISSING_MARKET_IDENTITY", "NOT_PREGAME",
+        "INVALID_EVENT_OR_FORECAST_TIME", "MISSING_NATIVE_MODEL_PROBABILITY",
+        "MISSING_VALID_ODDS", "NATIVE_MODEL_RECEIPT_NOT_VERIFIED",
+        "PLAYER_AVAILABILITY_NOT_VERIFIED",
+    )]
+    out["research_status"] = "RESEARCH_READY" if not research_blockers else "RESEARCH_HOLD"
+    out["research_blockers"] = research_blockers
+    out["research_lean"] = (
+        "POSITIVE_EV_RESEARCH" if out["research_status"] == "RESEARCH_READY"
+        and out.get("estimated_ev_percent", 0) > 0 else
+        "NON_POSITIVE_EV_RESEARCH" if out["research_status"] == "RESEARCH_READY"
+        else "NO_VALID_RESEARCH_SELECTION"
+    )
     # Input flags are self-asserted; this display never issues a certified TAKE.
     reasons.append("INDEPENDENT_ATTESTATIONS_NOT_VALIDATED_BY_THIS_WORKFLOW")
     return out
@@ -74,6 +88,7 @@ def main():
     report = {"mode": "prediction", "generated_utc": now.isoformat(),
               "native_forecast_source_present": source.is_file(),
               "forecasts": results, "certified_take_count": 0,
+              "research_ready_count": sum(x.get("research_status") == "RESEARCH_READY" for x in results),
               "status": "HOLD", "champion_001_modified": False,
               "note": "Predictions appear only if real native forecast receipts are supplied; this display never self-certifies."}
     dest = Path(args.output)
