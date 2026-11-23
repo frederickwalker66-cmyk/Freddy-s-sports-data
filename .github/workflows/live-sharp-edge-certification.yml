@@ -69,6 +69,46 @@ jobs:
           d=json.loads(Path('validation_output/live_certified_predictions.json').read_text())
           print(json.dumps({key:d[key] for key in ('feed_status','certified_take_count','pass_count','hold_count','certification_blockers')}))
           PY
+      - name: Publish explicit certification readiness summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          report_path = Path("validation_output/live_certified_predictions.json")
+          status_path = Path("validation_output/certification_feed_status.json")
+          try:
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+          except (OSError, ValueError):
+              report = {}
+          try:
+              feed = json.loads(status_path.read_text(encoding="utf-8"))
+          except (OSError, ValueError):
+              feed = {}
+          feed_state = report.get("feed_status") or feed.get("status") or "FEED_STATUS_MISSING"
+          count = report.get("certified_take_count", 0)
+          blockers = report.get("certification_blockers", [])
+          if not isinstance(blockers, list):
+              blockers = ["INVALID_BLOCKER_REPORT"]
+          lines = [
+              "## Sharp Edge certification readiness",
+              "",
+              f"**Feed:** {feed_state}",
+              f"**Signed candidates received:** {feed.get('candidate_count', 0)}",
+              f"**Certified TAKE count:** {count}",
+              f"**Decision:** {'TAKE candidates available' if count and feed_state == 'FEED_RECEIVED' else 'HOLD — not certified'}",
+              "",
+              "**Blockers:** " + (", ".join(map(str, blockers)) if blockers else "None reported"),
+              "",
+              "A successful workflow run does not certify a prediction. Missing independent supplier evidence must never be replaced with synthetic attestations.",
+          ]
+          summary = os.getenv("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as handle:
+                  handle.write("\\n".join(lines) + "\\n")
+          print(json.dumps({"feed_status": feed_state, "certified_take_count": count, "blockers": blockers}))
+          PY
       - name: Save certification results for downstream dashboards
         uses: actions/upload-artifact@v4
         if: always()
