@@ -1,15 +1,31 @@
 name: Freddy's Picks AI — One-Shot Diagnostic
 on:
   workflow_dispatch:
+    inputs:
+      run_pipeline:
+        description: 'Launch all-sports feed, V8 research, Challenger calibration and certification audits'
+        required: false
+        type: boolean
+        default: true
   schedule:
     - cron: '30 12,22 * * *'
 permissions:
-  actions: read
+  actions: write
   contents: read
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
+      - name: Launch unified downstream research and audit workflows
+        if: github.event_name == 'workflow_dispatch' && inputs.run_pipeline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for workflow in all-sports-feed-audit.yml v8-one-command.yml challenger-isotonic-calibration.yml live-sharp-edge-certification.yml; do
+            gh workflow run "$workflow" --ref main
+            echo "Dispatched: $workflow (not yet verified complete)" >> "$GITHUB_STEP_SUMMARY"
+          done
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
