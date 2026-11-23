@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       game_date:
-        description: "NBA game date (YYYY-MM-DD); leave blank for UTC today"
+        description: "NBA game date (YYYY-MM-DD); leave blank for New York local today"
         required: false
         type: string
 permissions:
@@ -26,7 +26,7 @@ jobs:
           GAME_DATE: ${{ inputs.game_date }}
         run: |
           set -euo pipefail
-          if [ -z "${GAME_DATE}" ]; then GAME_DATE="$(date -u +%F)"; fi
+          if [ -z "${GAME_DATE}" ]; then GAME_DATE="$(TZ=America/New_York date +%F)"; fi
           python -m research.sportsdataio_nba_probe --date "${GAME_DATE}" --output SPORTSDATAIO_NBA_READINESS.json
           python - <<'PY'
           import json, os
@@ -36,6 +36,9 @@ jobs:
           lines=["## SportsDataIO NBA authenticated probe", "", "| Feed | Result |", "|---|---|"]
           for key, result in report["endpoints"].items():
               lines.append(f"| {key} | {result['status']} ({result.get('record_count', 0)} records) |")
+          for name, item in report["endpoints"].items():
+              if item["status"].startswith("HOLD_PROVIDER_"):
+                  lines.append(f"- Provider diagnostic: {name} {item['status']} HTTP {item.get('http_status', 'unknown')}")
           lines.extend(["", "### Evidence gates", "",
               f"- DraftKings markets independently verified: {report['draftkings_markets_verified']}",
               f"- Player identities independently verified: {report['roster_identities_independently_verified']}"])
