@@ -61,7 +61,7 @@
         "status": "NO_RECENT_PROVIDER_MARKETS"
       }
     },
-    "provider_run": 45072061691,
+    "provider_run": 45105759146,
     "schema": "freddys-fresh-market-display-v1",
     "source": "Existing SharpAPI artifact; DraftKings-labelled aggregator only"
   },
@@ -186,10 +186,10 @@
       "status": "pre"
     }
   ],
-  "generated_at_utc": "2026-11-23T03:16:34.278723+00:00",
+  "generated_at_utc": "2026-11-23T03:29:43.470078+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -200,7 +200,7 @@
       "team_last5": 0
     },
     "mls": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -211,7 +211,7 @@
       "team_last5": 0
     },
     "nba": {
-      "age_minutes": 90.2,
+      "age_minutes": 103.4,
       "as_of_utc": "2026-11-23T01:46:19.623686+00:00",
       "forecasts": 0,
       "player_last10": 311,
@@ -222,7 +222,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -233,7 +233,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -244,7 +244,7 @@
       "team_last5": 0
     },
     "nfl": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -255,7 +255,7 @@
       "team_last5": 0
     },
     "nhl": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -266,7 +266,7 @@
       "team_last5": 0
     },
     "uefa_champions_league": {
-      "age_minutes": 601.5,
+      "age_minutes": 614.6,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -277,7 +277,7 @@
       "team_last5": 0
     }
   },
-  "live_age_minutes_at_publication": 113.7,
+  "live_age_minutes_at_publication": 126.8,
   "live_observed_at_utc": "2026-11-23T01:22:54.460294+00:00",
   "live_scoreboard_not_continuous": true,
   "live_source_status": "SOURCE_OBSERVED",
@@ -285,9 +285,9 @@
     "archived_quotes": 5828,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 90.2,
+    "model_age_minutes_at_publication": 103.4,
     "odds_age_minutes_at_model_run": 259.3,
-    "odds_age_minutes_at_publication": 349.5,
+    "odds_age_minutes_at_publication": 362.6,
     "odds_receipt_utc": "2026-11-22T21:27:04.535868+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
@@ -302,7 +302,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -316,7 +316,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -330,8 +330,8 @@
       "archived_quotes": 5828,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 90.2,
-      "odds_age_minutes_at_publication": 349.5,
+      "model_age_minutes_at_publication": 103.4,
+      "odds_age_minutes_at_publication": 362.6,
       "odds_receipt_utc": "2026-11-22T21:27:04.535868+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -344,7 +344,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -358,7 +358,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -372,7 +372,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -386,7 +386,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -400,7 +400,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 601.5,
+      "model_age_minutes_at_publication": 614.6,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -424,7 +424,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.716395+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.120274+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -483,7 +483,7 @@
           "broadcasts": [
             "Apple TV"
           ],
-          "clock": "78'",
+          "clock": "90'+1'",
           "home": "Vancouver Whitecaps",
           "home_abbr": "VAN",
           "home_record": null,
@@ -500,7 +500,7 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-23T03:16:32.043992+00:00",
+            "source_observed_at_utc": "2026-11-23T03:29:41.489559+00:00",
             "spread_details": "VAN -240",
             "total": 3.5,
             "under_price": null
@@ -550,12 +550,12 @@
           ],
           "start_et": "2026-11-22T20:30:00-05:00",
           "status": "in",
-          "status_detail": "78'",
+          "status_detail": "90'+1'",
           "venue": "BC Place"
         }
       ],
       "line_reference_count": 1,
-      "observed_at_utc": "2026-11-23T03:16:32.043992+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.489559+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -671,45 +671,45 @@
           "away": "Indiana Pacers",
           "away_abbr": "IND",
           "away_record": "5-11",
-          "away_score": 87,
+          "away_score": 100,
           "broadcasts": [
             "DAZN IND"
           ],
-          "clock": "6:47",
+          "clock": "1:24",
           "home": "New York Knicks",
           "home_abbr": "NY",
           "home_record": "10-6",
-          "home_score": 98,
+          "home_score": 112,
           "id": "401910034",
           "market_reference": null,
           "period": 4.0,
           "start_et": "2026-11-22T20:00:00-05:00",
           "status": "in",
-          "status_detail": "6:47 - 4th",
+          "status_detail": "1:24 - 4th",
           "venue": "Madison Square Garden"
         },
         {
           "away": "Boston Celtics",
           "away_abbr": "BOS",
           "away_record": "11-5",
-          "away_score": 75,
+          "away_score": 81,
           "broadcasts": [],
-          "clock": "4.1",
+          "clock": "6:35",
           "home": "Golden State Warriors",
           "home_abbr": "GS",
           "home_record": "8-8",
-          "home_score": 69,
+          "home_score": 83,
           "id": "401910035",
           "market_reference": null,
-          "period": 3.0,
+          "period": 4.0,
           "start_et": "2026-11-22T20:30:00-05:00",
           "status": "in",
-          "status_detail": "4.1 - 3rd",
+          "status_detail": "6:35 - 4th",
           "venue": "Chase Center"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.603720+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.011826+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -802,7 +802,7 @@
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.965144+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.407361+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -810,7 +810,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.898738+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.288714+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -1035,7 +1035,7 @@
           "broadcasts": [
             "NBC"
           ],
-          "clock": "15:00",
+          "clock": "9:15",
           "home": "San Francisco 49ers",
           "home_abbr": "SF",
           "home_record": "8-1",
@@ -1045,12 +1045,12 @@
           "period": 3.0,
           "start_et": "2026-11-22T20:20:00-05:00",
           "status": "in",
-          "status_detail": "15:00 - 3rd",
+          "status_detail": "9:15 - 3rd",
           "venue": "Estadio Banorte"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.659755+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.051710+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1157,7 +1157,7 @@
             "ESPN+",
             "CHSN"
           ],
-          "clock": "15:51",
+          "clock": "9:28",
           "home": "Vancouver Canucks",
           "home_abbr": "VAN",
           "home_record": "6-18-1",
@@ -1167,12 +1167,12 @@
           "period": 3.0,
           "start_et": "2026-11-22T20:00:00-05:00",
           "status": "in",
-          "status_detail": "15:51 - 3rd",
+          "status_detail": "9:28 - 3rd",
           "venue": "Rogers Arena"
         }
       ],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:31.824901+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.187904+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1180,7 +1180,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-23T03:16:32.106767+00:00",
+      "observed_at_utc": "2026-11-23T03:29:41.531123+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     }
@@ -1189,7 +1189,7 @@
   "schema": "freddys-picks-ai-public-v1",
   "slates": {
     "mlb": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": 0,
       "games": [],
       "next_games": [],
@@ -1197,53 +1197,127 @@
       "status": "NO_GAMES_LISTED"
     },
     "mls": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": null,
       "games": [],
       "source": "ESPN scoreboard research",
       "status": "MATCHUPS_UNVERIFIED"
     },
     "nba": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": null,
       "games": [],
       "source": "ESPN scoreboard research",
       "status": "MATCHUPS_UNVERIFIED"
     },
     "ncaab": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": null,
       "games": [],
       "source": "ESPN scoreboard research",
       "status": "MATCHUPS_UNVERIFIED"
     },
     "ncaaf": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": 0,
       "games": [],
-      "next_games": [],
+      "next_games": [
+        {
+          "away": "Kent State Golden Flashes",
+          "certified_ev": null,
+          "home": "Eastern Michigan Eagles",
+          "id": "401866470",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T19:00:00-05:00"
+        },
+        {
+          "away": "Miami (OH) RedHawks",
+          "certified_ev": null,
+          "home": "Western Michigan Broncos",
+          "id": "401866471",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T19:00:00-05:00"
+        }
+      ],
       "source": "ESPN scoreboard research \u00b7 not official league confirmation",
       "status": "NO_GAMES_LISTED"
     },
     "nfl": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": null,
       "games": [],
       "source": "ESPN scoreboard research",
       "status": "MATCHUPS_UNVERIFIED"
     },
     "nhl": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": null,
       "games": [],
       "source": "ESPN scoreboard research",
       "status": "MATCHUPS_UNVERIFIED"
     },
     "uefa_champions_league": {
-      "as_of_utc": "2026-11-23T03:15:41.017075+00:00",
+      "as_of_utc": "2026-11-23T03:28:27.198347+00:00",
       "game_count": 0,
       "games": [],
-      "next_games": [],
+      "next_games": [
+        {
+          "away": "Aston Villa",
+          "certified_ev": null,
+          "home": "Galatasaray",
+          "id": "401915300",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T12:45:00-05:00"
+        },
+        {
+          "away": "LASK Linz",
+          "certified_ev": null,
+          "home": "Bodo/Glimt",
+          "id": "401915380",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T12:45:00-05:00"
+        },
+        {
+          "away": "FC Porto",
+          "certified_ev": null,
+          "home": "Feyenoord Rotterdam",
+          "id": "401915294",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T15:00:00-05:00"
+        },
+        {
+          "away": "Borussia Dortmund",
+          "certified_ev": null,
+          "home": "Arsenal",
+          "id": "401915295",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T15:00:00-05:00"
+        },
+        {
+          "away": "AEK Athens",
+          "certified_ev": null,
+          "home": "Como",
+          "id": "401915296",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T15:00:00-05:00"
+        },
+        {
+          "away": "Real Betis",
+          "certified_ev": null,
+          "home": "Slovan Bratislava",
+          "id": "401915297",
+          "odds": null,
+          "source": "ESPN original-hash matched future fixture, research only",
+          "start_et": "2026-11-24T15:00:00-05:00"
+        }
+      ],
       "source": "ESPN scoreboard research \u00b7 not official league confirmation",
       "status": "NO_GAMES_LISTED"
     }
@@ -1253,6 +1327,6 @@
     "live": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/45094211379",
     "run_all": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/45048277814",
     "run_nba": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/45096309538",
-    "schedule": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/45104888163"
+    "schedule": "https://github.com/frederickwalker66-cmyk/Freddy-s-sports-data/actions/runs/45106145590"
   }
 }
