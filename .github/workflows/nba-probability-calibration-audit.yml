@@ -1,0 +1,44 @@
+name: NBA Challenger Probability Calibration Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'research/nba_probability_calibration_audit.py'
+      - '.github/workflows/nba-probability-calibration-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  calibration-research:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect historical NBA scores
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_research
+      - name: Run exploratory probability calibration
+        run: python research/nba_probability_calibration_audit.py --results nba_research/results.jsonl --output nba_research/calibration_audit.json
+      - name: Enforce no-certification gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('nba_research/calibration_audit.json').read_text())
+          assert r['certified'] is False and r['bet_ready'] is False
+          assert r['champion_001_modified'] is False
+          assert r['take_count']==0
+          assert r.get('production_model_updated',False) is False
+          print(json.dumps(r,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-probability-calibration-audit
+          path: nba_research/
+          retention-days: 30
