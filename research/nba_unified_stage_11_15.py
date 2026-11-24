@@ -3,6 +3,23 @@ import argparse,json,math,os
 from datetime import datetime,timezone
 from pathlib import Path
 
+def professional_market_review(probability, american_odds, independently_validated=False):
+    """Research pricing; never grants betting certification."""
+    if isinstance(probability, bool) or not isinstance(probability, (int, float)) or not math.isfinite(probability) or not 0 <= probability <= 1:
+        return {"decision": "HOLD", "reason": "Missing or invalid model probability"}
+    if isinstance(american_odds, bool) or not isinstance(american_odds, (int, float)) or not math.isfinite(american_odds) or -100 < american_odds < 100:
+        return {"decision": "HOLD", "reason": "Missing or invalid verified sportsbook odds"}
+    decimal = 1 + (100 / abs(american_odds) if american_odds < 0 else american_odds / 100)
+    break_even = 1 / decimal
+    ev = probability * decimal - 1
+    return {
+        "break_even_probability": round(break_even, 6),
+        "estimated_ev_per_unit": round(ev, 6),
+        "edge_percentage_points": round(100 * (probability - break_even), 3),
+        "decision": "PASS" if independently_validated and ev <= 0 else "HOLD",
+        "reason": "Research edge is not independent certification" if ev > 0 else "Nonpositive estimated edge" if independently_validated else "Unverified probability or odds"
+    }
+
 def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_odds=None):
     reconciled_props = reconciled_props or {}
     reconciled_odds = reconciled_odds or {}
@@ -24,6 +41,7 @@ def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_od
             markets.append({"event_id":f["event_id"],"matchup":f["away_team"]+" @ "+f["home_team"],
                 "market":"moneyline","selection":f[side+"_team"] if side+"_team" in f else f["home_team"] if side=="home" else f["away_team"],
                 "research_probability":f[side+"_win_probability"],"sportsbook_odds":None,
+                "professional_review":professional_market_review(f[side+"_win_probability"], None),
                 "expected_value":None,"decision":"HOLD","reason":"Authenticated timestamped odds and independent calibration not established"})
     # Player props and sportsbook records must be real, structured and verified; never fabricate them.
     props_schema=props.get("schema_valid") is True and props.get("kind")=="props" and bool(props.get("records"))
@@ -41,6 +59,7 @@ def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_od
             "unavailable_categories":["spreads","totals","points","rebounds","assists","PR","PA","RA","PRA"]}}
     return {"model":"Challenger-001","status":"RESEARCH_ONLY","stages":stages,
       "champion_001_modified":False,"certified":False,"bet_ready":False,"take_count":0,
+      "risk_policy":{"independent_probability_required":True,"timestamped_odds_required":True,"positive_ev_required":True,"parlays_require_joint_probability":True,"automatic_staking_enabled":False},
       "note":"Stage 11's 200-game threshold is an exploratory monitoring checkpoint, not certification. No market implied probabilities substituted for model estimates."}
 
 def main():
