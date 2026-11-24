@@ -1,0 +1,51 @@
+name: Freddy NBA Autonomous Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 15,21 * * *'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: freddy-nba-autonomous-pipeline
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Run existing workflows sequentially and verify outcomes
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Freddy NBA Autonomous Pipeline" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in nba-challenger-prospective-ledger.yml nba-provider-collector.yml nba-unified-stages-11-15.yml; do
+            echo "Dispatching $workflow"
+            started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            gh workflow run "$workflow" --repo "$REPO" --ref main
+            run_id=""
+            for i in $(seq 1 24); do
+              sleep 5
+              run_id=$(gh run list --repo "$REPO" --workflow "$workflow" --event workflow_dispatch --limit 30 --json databaseId,createdAt,headBranch --jq "[.[] | select(.headBranch == \"main\" and .createdAt >= \"$started\")] | sort_by(.createdAt) | last | .databaseId // empty")
+              [[ -z "$run_id" ]] || break
+            done
+            if [[ -z "$run_id" ]]; then
+              echo "| $workflow | Dispatch not observed |" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            echo "Watching $workflow run $run_id"
+            if gh run watch "$run_id" --repo "$REPO" --exit-status --interval 10; then
+              echo "| $workflow | Success (run $run_id) |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| $workflow | FAILED (run $run_id) |" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          done
+          echo "Workflow execution succeeded. Provider authenticity and Sharp Edge certification are separate gates." >> "$GITHUB_STEP_SUMMARY"
