@@ -17,12 +17,35 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p historical_input
-          run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow challenger-historical-backfill.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
-          if [[ -z "$run_id" ]]; then
-            echo "No successful historical backfill available; cannot qualify data."
+          found=false
+          # Successful jobs may have no archive or may retain an empty artifact.
+          # Search prior runs and verify actual files before selecting one.
+          while IFS= read -r run_id; do
+            [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+            artifact="challenger-backfill-nba-$run_id"
+            names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
+              --jq '.artifacts[] | select(.expired == false) | .name' 2>/dev/null || true)"
+            if ! grep -Fqx "$artifact" <<< "$names"; then
+              continue
+            fi
+            candidate="historical_input/$run_id"
+            mkdir -p "$candidate"
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --name "$artifact" --dir "$candidate" &&
+              find "$candidate" -type f -size +0c -print -quit | grep -q .; then
+              echo "Recovered nonempty quarantined historical archive from run $run_id"
+              found=true
+              break
+            fi
+            rm -rf "$candidate"
+          done < <(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow challenger-historical-backfill.yml --branch main \
+            --status success --limit 75 --json databaseId --jq '.[].databaseId' || true)
+          if [[ "$found" != true ]]; then
+            echo "No nonempty unexpired historical NBA archive found in 75 latest successful runs."
+            echo "Training eligibility remains HOLD; no evidence was fabricated."
             exit 1
           fi
-          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --pattern "challenger-backfill-nba-$run_id" --dir historical_input
       - name: Inventory downloaded evidence without promotion
         shell: bash
         run: |
