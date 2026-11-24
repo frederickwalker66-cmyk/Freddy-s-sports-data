@@ -62,7 +62,7 @@ jobs:
           mkdir -p provider_inputs unified
           if [[ -z "$PROVIDER_RUN_ID" ]]; then
             PROVIDER_RUN_ID=$(gh api "repos/$REPO/actions/artifacts?per_page=100" \
-              --jq '[.artifacts[] | select(.name == "nba-provider-snapshots" and .expired == false) | .workflow_run.id] | first // empty')
+              --jq '[.artifacts[] | select(.name == "nba-provider-snapshots" and .expired == false and .workflow_run != null)] | sort_by(.created_at) | last | .workflow_run.id // empty')
           fi
           if [[ -n "$PROVIDER_RUN_ID" ]]; then
             [[ "$PROVIDER_RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid provider run ID"; exit 1; }
@@ -87,10 +87,10 @@ jobs:
           candidates=[]
           for f in files:
               data=json.loads(f.read_text())
-              if data.get('forecasts'):
+              if isinstance(data.get('forecasts'),list) and data.get('created_utc'):
                   candidates.append((data['created_utc'],str(f)))
           if not candidates:
-              raise SystemExit('No nonempty prospective forecast artifacts; cannot produce a current board')
+              raise SystemExit('No valid prospective ledger artifacts; cannot produce a current board')
           print(max(candidates)[1])
           PY
           )
