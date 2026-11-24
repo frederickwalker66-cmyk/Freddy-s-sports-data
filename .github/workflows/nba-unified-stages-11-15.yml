@@ -102,6 +102,8 @@ jobs:
           args=()
           [[ ! -f unified/validated_props.json ]] || args+=(--props unified/validated_props.json)
           [[ ! -f unified/validated_odds.json ]] || args+=(--odds unified/validated_odds.json)
+          [[ ! -f unified/reconciled_props.json ]] || args+=(--reconciled-props unified/reconciled_props.json)
+          [[ ! -f unified/reconciled_odds.json ]] || args+=(--reconciled-odds unified/reconciled_odds.json)
           python research/nba_unified_stage_11_15.py --accuracy unified/accuracy.json --forecasts "$latest" --output unified/stages_11_15.json "${args[@]}"
           python - <<'PY'
           import json
@@ -109,6 +111,8 @@ jobs:
           r=json.loads(Path('unified/stages_11_15.json').read_text())
           assert r['certified'] is False and r['bet_ready'] is False and r['take_count']==0
           assert r['champion_001_modified'] is False
+          assert r['stages']['12']['matched_records'] <= r['stages']['12']['validated_records']
+          assert r['stages']['13']['matched_records'] <= r['stages']['13']['validated_records']
           assert all(x['decision']=='HOLD' and x['expected_value'] is None for x in r['stages']['15']['markets'])
           PY
       - uses: actions/upload-artifact@v4
