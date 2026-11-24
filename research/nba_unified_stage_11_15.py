@@ -1,5 +1,6 @@
 """Stages 11-15 consolidated NBA research board; fail-closed on absent evidence."""
 import argparse,json,math,os
+from datetime import datetime,timezone
 from pathlib import Path
 
 def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_odds=None):
@@ -8,7 +9,17 @@ def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_od
     n=accuracy.get("scored_games",0)
     valid_perf=n>=200 and accuracy.get("brier_score") is not None and accuracy.get("baseline_50_50_brier") is not None and accuracy["brier_score"]<accuracy["baseline_50_50_brier"]
     markets=[]
+    expired_forecasts=0
+    now=datetime.now(timezone.utc)
     for f in forecasts.get("forecasts",[]):
+        try:
+            start=datetime.fromisoformat(f["start_utc"].replace("Z","+00:00"))
+            if start.tzinfo is None or start<=now:
+                expired_forecasts+=1
+                continue
+        except (KeyError,ValueError,TypeError):
+            expired_forecasts+=1
+            continue
         for side in ("home","away"):
             markets.append({"event_id":f["event_id"],"matchup":f["away_team"]+" @ "+f["home_team"],
                 "market":"moneyline","selection":f[side+"_team"] if side+"_team" in f else f["home_team"] if side=="home" else f["away_team"],
@@ -26,7 +37,7 @@ def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_od
       "12":{"name":"Player props and combos","validated_records":props.get('record_count',0),"matched_records":matched_props,"status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if props_schema else "HOLD_MISSING_VERIFIED_PROPS"},
       "13":{"name":"Sportsbook prices and EV","validated_records":odds.get('record_count',0),"matched_records":matched_odds,"status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if odds_schema else "HOLD_MISSING_VERIFIED_ODDS"},
       "14":{"name":"Sharp Edge independent certification","status":"HOLD","certified_take_count":0},
-      "15":{"name":"Unified market display","status":"RESEARCH_DISPLAY_READY","markets":markets,
+      "15":{"name":"Unified market display","status":"RESEARCH_DISPLAY_READY" if markets else "HOLD_NO_FUTURE_FIXTURES","expired_forecasts_filtered":expired_forecasts,"markets":markets,
             "unavailable_categories":["spreads","totals","points","rebounds","assists","PR","PA","RA","PRA"]}}
     return {"model":"Challenger-001","status":"RESEARCH_ONLY","stages":stages,
       "champion_001_modified":False,"certified":False,"bet_ready":False,"take_count":0,
@@ -47,7 +58,7 @@ def main():
     summary += ["", f"**Player props:** {result['stages']['12']['validated_records']} schema-valid, {result['stages']['12']['matched_records']} event-matched", f"**DraftKings odds:** {result['stages']['13']['validated_records']} schema-valid, {result['stages']['13']['matched_records']} event-matched"]
     summary+=["",f"**Scored games:** {result['stages']['11']['scored_games']}",
         f"**Brier:** {result['stages']['11']['brier']} | **50/50 baseline:** {result['stages']['11']['baseline_brier']}",
-        f"**Research moneyline forecasts:** {len(result['stages']['15']['markets'])}",
+        f"**Future research moneyline selections:** {len(result['stages']['15']['markets'])} | **Expired forecasts filtered:** {result['stages']['15']['expired_forecasts_filtered']}",
         "**Sharp Edge:** HOLD | **Champion-001:** Frozen | **Certified TAKE:** 0",
         "No fabricated player props, sportsbook prices, or expected values."]
     if os.getenv("GITHUB_STEP_SUMMARY"):
