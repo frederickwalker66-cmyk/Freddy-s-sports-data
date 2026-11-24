@@ -2,7 +2,9 @@
 import argparse,json,math,os
 from pathlib import Path
 
-def board(accuracy, forecasts, props, odds):
+def board(accuracy, forecasts, props, odds, reconciled_props=None, reconciled_odds=None):
+    reconciled_props = reconciled_props or {}
+    reconciled_odds = reconciled_odds or {}
     n=accuracy.get("scored_games",0)
     valid_perf=n>=200 and accuracy.get("brier_score") is not None and accuracy.get("baseline_50_50_brier") is not None and accuracy["brier_score"]<accuracy["baseline_50_50_brier"]
     markets=[]
@@ -15,11 +17,14 @@ def board(accuracy, forecasts, props, odds):
     # Player props and sportsbook records must be real, structured and verified; never fabricate them.
     props_schema=props.get("schema_valid") is True and props.get("kind")=="props" and bool(props.get("records"))
     odds_schema=odds.get("schema_valid") is True and odds.get("kind")=="odds" and bool(odds.get("records"))
+    matched_props = reconciled_props.get('matched_count', 0)
+    matched_odds = reconciled_odds.get('matched_count', 0)
+    # Reconciliation is not authentication; never promote unmatched or unsigned records.
     stages={
       "11":{"name":"Prospective accuracy","status":"RESEARCH" if n else "PENDING","scored_games":n,
             "accuracy":accuracy.get("pick_accuracy"),"brier":accuracy.get("brier_score"),"baseline_brier":accuracy.get("baseline_50_50_brier"),"exploratory_baseline_beaten":valid_perf},
-      "12":{"name":"Player props and combos","status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if props_schema else "HOLD_MISSING_VERIFIED_PROPS"},
-      "13":{"name":"Sportsbook prices and EV","status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if odds_schema else "HOLD_MISSING_VERIFIED_ODDS"},
+      "12":{"name":"Player props and combos","validated_records":props.get('record_count',0),"matched_records":matched_props,"status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if props_schema else "HOLD_MISSING_VERIFIED_PROPS"},
+      "13":{"name":"Sportsbook prices and EV","validated_records":odds.get('record_count',0),"matched_records":matched_odds,"status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if odds_schema else "HOLD_MISSING_VERIFIED_ODDS"},
       "14":{"name":"Sharp Edge independent certification","status":"HOLD","certified_take_count":0},
       "15":{"name":"Unified market display","status":"RESEARCH_DISPLAY_READY","markets":markets,
             "unavailable_categories":["spreads","totals","points","rebounds","assists","PR","PA","RA","PRA"]}}
@@ -31,13 +36,15 @@ def main():
     p=argparse.ArgumentParser()
     for x in ("accuracy","forecasts","output"):p.add_argument("--"+x,required=True)
     p.add_argument("--props");p.add_argument("--odds")
+    p.add_argument("--reconciled-props");p.add_argument("--reconciled-odds")
     a=p.parse_args()
     def read(path):return json.loads(Path(path).read_text()) if path and Path(path).exists() else {}
-    result=board(read(a.accuracy),read(a.forecasts),read(a.props),read(a.odds))
+    result=board(read(a.accuracy),read(a.forecasts),read(a.props),read(a.odds),read(a.reconciled_props),read(a.reconciled_odds))
     out=Path(a.output);out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(result,indent=2)+"\n")
     summary=["## Freddy's Picks AI — Stages 11–15","",
         "| Stage | Component | Status |","|---|---|---|"]
     for k,v in result["stages"].items():summary.append(f"| {k} | {v['name']} | {v['status']} |")
+    summary += ["", f"**Player props:** {result['stages']['12']['validated_records']} schema-valid, {result['stages']['12']['matched_records']} event-matched", f"**DraftKings odds:** {result['stages']['13']['validated_records']} schema-valid, {result['stages']['13']['matched_records']} event-matched"]
     summary+=["",f"**Scored games:** {result['stages']['11']['scored_games']}",
         f"**Brier:** {result['stages']['11']['brier']} | **50/50 baseline:** {result['stages']['11']['baseline_brier']}",
         f"**Research moneyline forecasts:** {len(result['stages']['15']['markets'])}",
