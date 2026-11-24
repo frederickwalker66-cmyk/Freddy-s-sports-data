@@ -1,0 +1,44 @@
+name: NBA Challenger Elo Parameter Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'research/nba_elo_parameter_audit.py'
+      - '.github/workflows/nba-elo-parameter-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect historical NBA completed games
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_research
+      - name: Run chronological parameter audit
+        run: python research/nba_elo_parameter_audit.py --results nba_research/results.jsonl --output nba_research/parameter_audit.json
+      - name: Enforce research-only safeguards
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('nba_research/parameter_audit.json').read_text())
+          assert r['certified'] is False and r['bet_ready'] is False
+          assert r.get('take_count',0)==0
+          assert r.get('champion_001_modified',False) is False
+          print(json.dumps(r,indent=2))
+          PY
+      - name: Upload audit and historical source data
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-elo-parameter-audit
+          path: nba_research/
+          retention-days: 30
