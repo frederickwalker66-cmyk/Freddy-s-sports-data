@@ -50,7 +50,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          latest=$(tail -n 1 forecast_files.txt)
+          latest=$(python - <<'PY'
+          import json
+          from pathlib import Path
+          files=[Path(x) for x in Path('forecast_files.txt').read_text().splitlines() if x]
+          candidates=[]
+          for f in files:
+              data=json.loads(f.read_text())
+              if data.get('forecasts'):
+                  candidates.append((data['created_utc'],str(f)))
+          if not candidates:
+              raise SystemExit('No nonempty prospective forecast artifacts; cannot produce a current board')
+          print(max(candidates)[1])
+          PY
+          )
           python research/nba_unified_stage_11_15.py --accuracy unified/accuracy.json --forecasts "$latest" --output unified/stages_11_15.json
           python - <<'PY'
           import json
