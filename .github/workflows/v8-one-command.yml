@@ -533,7 +533,8 @@ jobs:
             HISTORY_DAYS=35
           fi
           params=(--command "$SELECTED_COMMAND" --days "$HISTORY_DAYS"
-                  --output-dir v8_results/one_command)
+                  --output-dir v8_results/one_command
+                  --sgo-archive-dir saved_sgo_archives)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
           fi
