@@ -1,12 +1,12 @@
 {
   "ESPN_published_final_is_official_bet_settlement": false,
-  "archived_original_forward_forecasts": 102,
+  "archived_original_forward_forecasts": 112,
   "automatic_wagers": 0,
   "bet_ready": false,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
   "data_is_independently_publisher_authenticated": false,
-  "graded_research_NBA_games": 81,
+  "graded_research_NBA_games": 94,
   "independently_certified_models": 0,
   "independently_verified_sportsbook_checkout_quotes": 0,
   "minimum_forward_graded_games_for_exploratory_calibration": 100,
@@ -14,8 +14,8 @@
   "models": [
     {
       "day_cluster_bootstrap_approximate_Brier_95pct_CI": [
-        0.2041983,
-        0.2563397
+        0.1960665,
+        0.2491919
       ],
       "exploratory_expected_calibration_error": null,
       "fixed_predeclared_probability_bins": [
@@ -40,35 +40,35 @@
           "withheld_small_bin": true
         },
         {
-          "home_wins": 18,
-          "mean_original_forecast_probability": 0.5168091,
-          "observations": 46,
-          "observed_home_win_frequency": 0.3913043,
+          "home_wins": 21,
+          "mean_original_forecast_probability": 0.5178947,
+          "observations": 51,
+          "observed_home_win_frequency": 0.4117647,
           "probability_max_exclusive": 0.6,
           "probability_min_inclusive": 0.4,
           "wilson_95pct_descriptive_interval": [
-            0.26393,
-            0.53543
+            0.28754,
+            0.54835
           ],
           "withheld_small_bin": false
         },
         {
-          "home_wins": 21,
-          "mean_original_forecast_probability": 0.6593408,
-          "observations": 31,
-          "observed_home_win_frequency": 0.6774194,
+          "home_wins": 25,
+          "mean_original_forecast_probability": 0.661945,
+          "observations": 37,
+          "observed_home_win_frequency": 0.6756757,
           "probability_max_exclusive": 0.8,
           "probability_min_inclusive": 0.6,
           "wilson_95pct_descriptive_interval": [
-            0.50141,
-            0.81431
+            0.51464,
+            0.80367
           ],
           "withheld_small_bin": false
         },
         {
-          "home_wins": 0,
-          "mean_original_forecast_probability": 0.8116503,
-          "observations": 1,
+          "home_wins": 2,
+          "mean_original_forecast_probability": 0.8076896,
+          "observations": 3,
           "observed_home_win_frequency": null,
           "probability_max_exclusive": 1.0,
           "probability_min_inclusive": 0.8,
@@ -84,24 +84,24 @@
       "model_version": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
       "neutral_50_50_Brier_NOT_sportsbook": 0.25,
       "neutral_50_50_log_loss_NOT_sportsbook": 0.6931472,
-      "original_forward_pregame_games_graded": 81,
-      "research_Brier": 0.2322905,
-      "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": 0.0708378,
-      "research_directional_accuracy": 0.6296296,
+      "original_forward_pregame_games_graded": 94,
+      "research_Brier": 0.2254072,
+      "research_Brier_skill_vs_fixed_50_50_NOT_sportsbook": 0.0983711,
+      "research_directional_accuracy": 0.6489362,
       "research_directional_accuracy_wilson_95pct": [
-        0.52084,
-        0.72668
+        0.54833,
+        0.73785
       ],
-      "research_directional_correct": 51,
-      "research_directional_decisions": 81,
-      "research_log_loss": 0.6582192,
-      "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": 0.0503904,
+      "research_directional_correct": 61,
+      "research_directional_decisions": 94,
+      "research_log_loss": 0.6429372,
+      "research_log_loss_skill_vs_fixed_50_50_NOT_sportsbook": 0.0724377,
       "retained_uncertainty_not_certification": true
     }
   ],
   "original_Champion_001_certified_shadows": 0,
   "original_Champion_001_executable_authenticated": false,
-  "pending_ungraded": 21,
+  "pending_ungraded": 18,
   "quarantined": 0,
   "stage": "genuinely_forward_recorded_NBA_research_calibration_only",
   "status": "HOLD_WAITING_FOR_100_FORWARD_GRADED_AND_WELL_POPULATED_BINS",
