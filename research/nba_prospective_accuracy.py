@@ -54,12 +54,21 @@ def evaluate(ledgers, results):
                 "correct":(p>=0.5)==bool(y)}
     games=list(accepted.values())
     n=len(games)
+    # Baselines and probability buckets expose whether raw accuracy is meaningful.
+    baseline_brier=round(sum((0.5-x["actual_home_win"])**2 for x in games)/n,8) if n else None
+    buckets=[]
+    for low,high in ((0,0.2),(0.2,0.4),(0.4,0.6),(0.6,0.8),(0.8,1.0)):
+        group=[x for x in games if low<=x["home_win_probability"]<(high if high<1 else 1.000001)]
+        count=len(group)
+        buckets.append({"probability_band":f"{low:.0%}-{high:.0%}","games":count,
+                        "average_predicted_home_win":round(sum(x["home_win_probability"] for x in group)/count,5) if count else None,
+                        "observed_home_win_rate":round(sum(x["actual_home_win"] for x in group)/count,5) if count else None})
     return {"status":"RESEARCH_ONLY_NOT_CERTIFIED","scored_games":n,
         "pending_outcomes":len(set(pending)),"rejected_forecasts":rejected,
         "brier_score":round(sum(x["brier"] for x in games)/n,8) if n else None,
         "log_loss":round(sum(x["log_loss"] for x in games)/n,8) if n else None,
         "pick_accuracy":round(sum(x["correct"] for x in games)/n,6) if n else None,
-        "games":games,"champion_001_modified":False,"certified":False,
+        "baseline_50_50_brier":baseline_brier,"probability_buckets":buckets,\n        "sample_sufficient_for_promotion":False,\n        "games":games,"champion_001_modified":False,"certified":False,
         "bet_ready":False,"take_count":0,
         "warning":"ESPN scores and workflow timestamps are not independently authenticated betting evidence."}
 
