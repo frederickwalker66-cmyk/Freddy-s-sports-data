@@ -83,7 +83,7 @@ jobs:
                     "props_snapshot_found": Path("provider_inputs/props.json").exists(),
                     "odds_snapshot_found": Path("provider_inputs/odds.json").exists(),
                     "provider_run_id": None}
-          Path("unified/provider_discovery.json").write_text(json.dumps(report,indent=2)+"\\n")
+          Path("unified/provider_discovery.json").write_text(json.dumps(report,indent=2)+"\n")
           print("Provider discovery:",json.dumps(report))
           PY
       - name: Assemble combined Stages 11-15 dashboard
