@@ -45,6 +45,7 @@ def run(history, fixtures, now=None):
         p=1/(1+10**((b-a-HOME_ADV)/400))
         forecasts.append({
             "event_id":eid,"home_team":event["home_team"],"away_team":event["away_team"],
+            "home_team_espn_id":str(home),"away_team_espn_id":str(away),
             "start_utc":start.isoformat(),"forecast_created_utc":now.isoformat(),
             "home_win_probability":round(p,6),"away_win_probability":round(1-p,6),
             "source_url":event["source_url"],"model":"Challenger-001 20-point Elo research",
