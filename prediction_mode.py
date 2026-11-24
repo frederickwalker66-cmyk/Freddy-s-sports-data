@@ -4,6 +4,7 @@ import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+from research.portfolio_release_guard import audit_portfolio
 
 
 def utc(value):
@@ -41,20 +42,23 @@ def assess(row, now):
         decimal = 1 + (odds / 100 if odds > 0 else 100 / abs(odds))
         out["odds_american"] = odds
         out["break_even_probability"] = round(1 / decimal, 6)
-        out["estimated_ev_percent"] = round(100 * (p * decimal - 1), 3)
+        out["unverified_research_ev_percent"] = round(100 * (p * decimal - 1), 3)
     if row.get("model_origin") != "native_executable_receipt":
         reasons.append("NATIVE_MODEL_RECEIPT_NOT_VERIFIED")
-    if row.get("roster_and_injury_verified") is not True and row.get("is_player_prop") is True:
-        reasons.append("PLAYER_AVAILABILITY_NOT_VERIFIED")
+    if row.get("roster_and_injury_verified") is not True :
+        reasons.append("ROSTER_AND_INJURY_NOT_VERIFIED")
     if row.get("checkout_odds_verified") is not True:
         reasons.append("EXECUTABLE_CHECKOUT_ODDS_NOT_VERIFIED")
     if row.get("independent_certification") is not True:
         reasons.append("INDEPENDENT_CERTIFICATION_MISSING")
+    reasons.append("INDEPENDENT_CALIBRATION_NOT_AUTHENTICATED")
     research_blockers = [r for r in reasons if r in (
         "MISSING_MARKET_IDENTITY", "NOT_PREGAME",
         "INVALID_EVENT_OR_FORECAST_TIME", "MISSING_NATIVE_MODEL_PROBABILITY",
         "MISSING_VALID_ODDS", "NATIVE_MODEL_RECEIPT_NOT_VERIFIED",
-        "PLAYER_AVAILABILITY_NOT_VERIFIED",
+        "ROSTER_AND_INJURY_NOT_VERIFIED",
+        "EXECUTABLE_CHECKOUT_ODDS_NOT_VERIFIED",
+        "INDEPENDENT_CALIBRATION_NOT_AUTHENTICATED",
     )]
     out["research_status"] = "RESEARCH_READY" if not research_blockers else "RESEARCH_HOLD"
     out["research_blockers"] = research_blockers
@@ -64,6 +68,8 @@ def assess(row, now):
         "NON_POSITIVE_EV_RESEARCH" if out["research_status"] == "RESEARCH_READY"
         else "NO_VALID_RESEARCH_SELECTION"
     )
+    out["actionable"] = False
+    out["research_lean"] = "NO_ACTIONABLE_SELECTION"
     # Input flags are self-asserted; this display never issues a certified TAKE.
     reasons.append("INDEPENDENT_ATTESTATIONS_NOT_VALIDATED_BY_THIS_WORKFLOW")
     return out
@@ -73,6 +79,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="prediction_input/native_forecasts.jsonl")
     parser.add_argument("--output", default="prediction_output/predictions.json")
+    parser.add_argument("--portfolio", default="prediction_input/portfolio.json")
     args = parser.parse_args()
     now = datetime.now(timezone.utc)
     source = Path(args.input)
@@ -85,11 +92,17 @@ def main():
                     results.append(assess(row, now))
                 except (ValueError, TypeError, AttributeError):
                     results.append({"status": "HOLD", "certified": False, "reasons": ["INVALID_FORECAST_RECORD"]})
-    report = {"mode": "prediction", "generated_utc": now.isoformat(),
+    try:
+        portfolio = audit_portfolio(json.loads(Path(args.portfolio).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        portfolio = audit_portfolio(None)
+    report = {"portfolio_audit": portfolio, "mode": "prediction", "generated_utc": now.isoformat(),
               "native_forecast_source_present": source.is_file(),
               "forecasts": results, "certified_take_count": 0,
               "research_ready_count": sum(x.get("research_status") == "RESEARCH_READY" for x in results),
               "status": "HOLD", "champion_001_modified": False,
+              "best_bets": [], "actionable_parlays": [],
+              "portfolio_release_status": "HOLD_UNVERIFIED_EXPOSURE_AND_JOINT_PROBABILITY",
               "note": "Predictions appear only if real native forecast receipts are supplied; this display never self-certifies."}
     dest = Path(args.output)
     dest.parent.mkdir(parents=True, exist_ok=True)
