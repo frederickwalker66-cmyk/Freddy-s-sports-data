@@ -307,6 +307,37 @@ jobs:
             fi
           done
           echo "Archived SharpAPI runs downloaded: $count"
+      - name: Retrieve existing SportsGameOdds research archives (read-only, no provider calls)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p saved_sgo_archives
+          # Only completed successful manual collector runs; never dispatch collection.
+          mapfile -t ids < <(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow sportsgameodds-research.yml --branch main --status success \
+            --limit 8 --json databaseId --jq '.[].databaseId' || true)
+          count=0
+          for rid in "${ids[@]}"; do
+            [[ "$rid" =~ ^[0-9]+$ ]] || continue
+            dest="saved_sgo_archives/$rid"
+            if gh run download "$rid" --repo "$GITHUB_REPOSITORY" \
+              --name "sgo-draftkings-research-$rid" --dir "$dest"; then
+              # Only source snapshots are eligible for the existing HOLD-only auditor.
+              # Remove incomplete downloads; do not infer valid or current prices.
+              if find "$dest" -type f -name 'sportsgameodds_dk_*.jsonl' -print -quit | grep -q .; then
+                count=$((count+1))
+              else
+                rm -rf "$dest"
+                echo "SportsGameOdds run $rid has no source snapshot; excluded."
+              fi
+            else
+              rm -rf "$dest"
+              echo "SportsGameOdds artifact $rid unavailable or expired."
+            fi
+          done
+          echo "SportsGameOdds research archives retrieved: $count (not authenticated prices)"
       - name: Load latest saved eight-league season scoreboard and player form
         if: ${{ github.event_name == 'workflow_run' || inputs.command == 'run_nba' || inputs.command == 'run_season_form' || inputs.command == 'run_sports' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-best-bets]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba]')) || inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || inputs.command == 'run' || inputs.command == 'run_nba_nfl' || inputs.command == 'run_all' || inputs.command == 'run_sports' || inputs.command == 'run_nfl' || inputs.command == 'run_nhl' || inputs.command == 'run_mlb' || inputs.command == 'run_ncaaf' || inputs.command == 'run_ncaab' || inputs.command == 'run_mls' || inputs.command == 'run_uefa' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-full-stack]')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-nba-nfl]')) }}
         env:
@@ -502,7 +533,8 @@ jobs:
             HISTORY_DAYS=35
           fi
           params=(--command "$SELECTED_COMMAND" --days "$HISTORY_DAYS"
-                  --output-dir v8_results/one_command)
+                  --output-dir v8_results/one_command
+                  --sgo-archive-dir saved_sgo_archives)
           if [[ -n "$HISTORY_END_DATE" ]]; then
             params+=(--end-date "$HISTORY_END_DATE")
           fi
