@@ -68,7 +68,9 @@ def evaluate(ledgers, results):
         "brier_score":round(sum(x["brier"] for x in games)/n,8) if n else None,
         "log_loss":round(sum(x["log_loss"] for x in games)/n,8) if n else None,
         "pick_accuracy":round(sum(x["correct"] for x in games)/n,6) if n else None,
-        "baseline_50_50_brier":baseline_brier,"probability_buckets":buckets,\n        "sample_sufficient_for_promotion":False,\n        "games":games,"champion_001_modified":False,"certified":False,
+        "baseline_50_50_brier":baseline_brier,"probability_buckets":buckets,
+        "sample_sufficient_for_promotion":False,
+        "games":games,"champion_001_modified":False,"certified":False,
         "bet_ready":False,"take_count":0,
         "warning":"ESPN scores and workflow timestamps are not independently authenticated betting evidence."}
 
