@@ -1,0 +1,89 @@
+name: NBA Challenger Cumulative Accuracy
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 14 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  cumulative-research:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve recent completed prospective forecast ledgers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p locked_forecasts
+          gh run list --repo "$REPO" --workflow nba-challenger-prospective-ledger.yml --limit 50 --json databaseId,conclusion \
+            --jq '.[] | select(.conclusion == "success") | .databaseId' > run_ids.txt
+          while IFS= read -r id; do
+            test -n "$id" || continue
+            mkdir -p "locked_forecasts/$id"
+            if gh run download "$id" --repo "$REPO" --name nba-prospective-challenger20 --dir "locked_forecasts/$id"; then
+              test -s "locked_forecasts/$id/prospective_challenger20.json" || rm -rf "locked_forecasts/$id"
+            else
+              rm -rf "locked_forecasts/$id"
+            fi
+          done < run_ids.txt
+          find locked_forecasts -name prospective_challenger20.json -print | sort > forecast_files.txt
+          test -s forecast_files.txt
+      - name: Collect completed NBA outcomes
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_outcomes
+      - name: Score cumulative prospective sample
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS= read -r file; do
+            args+=(--forecast "$file")
+          done < forecast_files.txt
+          python research/nba_prospective_accuracy.py "${args[@]}" \
+            --results nba_outcomes/results.jsonl --output nba_cumulative/cumulative_accuracy.json
+      - name: Publish cumulative performance dashboard
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads(Path('nba_cumulative/cumulative_accuracy.json').read_text())
+          n=r['scored_games']
+          def fmt(v,pct=False):
+              return 'Not available' if v is None else f'{v*100:.1f}%' if pct else f'{v:.6f}'
+          lines=[
+              '## Challenger-001 — Cumulative NBA Prospective Accuracy','',
+              '| Metric | Value |','|---|---|',
+              f"| Forecast artifacts loaded | {len(Path('forecast_files.txt').read_text().splitlines())} |",
+              f"| Unique completed games scored | {n} |",
+              f"| Pending event IDs | {r['pending_outcomes']} |",
+              f"| Rejected / duplicate forecasts | {len(r['rejected_forecasts'])} |",
+              f"| Pick accuracy | {fmt(r['pick_accuracy'],True)} |",
+              f"| Brier score | {fmt(r['brier_score'])} |",
+              f"| Baseline 50/50 Brier | {fmt(r['baseline_50_50_brier'])} |",
+              f"| Log loss | {fmt(r['log_loss'])} |",
+              '| Sharp Edge | HOLD — zero certified TAKE |','',
+              '### Probability calibration bands','',
+              '| Predicted band | Games | Mean forecast | Observed home wins |',
+              '|---|---:|---:|---:|']
+          for b in r['probability_buckets']:
+              lines.append(f"| {b['probability_band']} | {b['games']} | {fmt(b['average_predicted_home_win'],True)} | {fmt(b['observed_home_win_rate'],True)} |")
+          lines += ['', '**Research only.** Workflow timestamps and ESPN outcomes do not constitute independently authenticated betting evidence.','Champion-001 unchanged.']
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\n'.join(lines)+'\n')
+          assert r['certified'] is False and r['bet_ready'] is False and r['take_count']==0
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-cumulative-accuracy
+          path: nba_cumulative/cumulative_accuracy.json
+          retention-days: 90
