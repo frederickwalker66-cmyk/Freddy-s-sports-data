@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       provider_run_id:
-        description: 'Optional existing GitHub Actions run containing provider snapshot artifacts'
+        description: 'Optional override; otherwise discover the newest available provider snapshot artifact'
         required: false
         type: string
   schedule:
@@ -58,8 +58,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p provider_inputs unified
+          if [[ -z "$PROVIDER_RUN_ID" ]]; then
+            PROVIDER_RUN_ID=$(gh api "repos/$REPO/actions/artifacts?per_page=100" \
+              --jq '[.artifacts[] | select(.name == "nba-provider-snapshots" and .expired == false) | .workflow_run.id] | first // empty')
+          fi
           if [[ -n "$PROVIDER_RUN_ID" ]]; then
             [[ "$PROVIDER_RUN_ID" =~ ^[0-9]+$ ]] || { echo "Invalid provider run ID"; exit 1; }
+            echo "Candidate provider artifact from run $PROVIDER_RUN_ID (not independently authenticated)"
             gh run download "$PROVIDER_RUN_ID" --repo "$REPO" --name nba-provider-snapshots --dir provider_inputs
             for kind in props odds; do
               if [[ -f "provider_inputs/$kind.json" ]]; then
@@ -67,7 +72,7 @@ jobs:
               fi
             done
           else
-            echo "No provider snapshot run supplied; provider readiness remains HOLD."
+            echo "No existing provider artifact found; provider readiness remains HOLD."
           fi
       - name: Assemble combined Stages 11-15 dashboard
         shell: bash
