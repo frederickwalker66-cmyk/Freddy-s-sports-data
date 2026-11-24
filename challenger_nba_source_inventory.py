@@ -18,7 +18,7 @@ def inventory(root):
         relative=file.relative_to(root).as_posix()
         if any(part.startswith(".") for part in file.relative_to(root).parts):
             continue
-        records.append({"file":relative,"sha256":hashlib.sha256(file.read_bytes()).hexdigest()})
+        records.append({"file":relative,"sha256":hashlib.sha256(file.read_bytes()).hexdigest(), "size_bytes":file.stat().st_size})
     return records
 
 def main():
@@ -34,6 +34,8 @@ def main():
     manifest.write_text(json.dumps(records,indent=2,sort_keys=True)+"\n")
     report={"archived_files_found":len(records),"independently_authenticated_publication":False,
             "qualified_training_examples":0,"champion_001_modified":False,
+            "empty_files_found":sum(item["size_bytes"] == 0 for item in records),
+            "total_bytes_inventoried":sum(item["size_bytes"] for item in records),
             "warning":"File hashes record local byte integrity only, not independent provenance."}
     output=Path(a.report)
     output.parent.mkdir(parents=True,exist_ok=True)
