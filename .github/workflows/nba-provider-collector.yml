@@ -1,0 +1,57 @@
+name: Freddy NBA Provider Collector
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 15 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      NBA_PROPS_SNAPSHOT_URL: ${{ vars.NBA_PROPS_SNAPSHOT_URL }}
+      NBA_ODDS_SNAPSHOT_URL: ${{ vars.NBA_ODDS_SNAPSHOT_URL }}
+      NBA_PROPS_SNAPSHOT_TOKEN: ${{ secrets.NBA_PROPS_SNAPSHOT_TOKEN }}
+      NBA_ODDS_SNAPSHOT_TOKEN: ${{ secrets.NBA_ODDS_SNAPSHOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect provider snapshots with validation
+        run: python -m research.nba_provider_collector
+      - name: Report source readiness
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          rows=json.loads(Path('provider_snapshots/discovery.json').read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## NBA provider readiness\n\n| Feed | Status | Records |\n|---|---|---:|\n')
+              for r in rows:f.write(f"| {r['kind']} | {r['status']} | {r['count']} |\n")
+              f.write('\nSchema validation is not independent authentication. Sharp Edge remains HOLD.\n')
+          PY
+      - name: Check nonempty provider data
+        id: evidence
+        shell: bash
+        run: |
+          if [[ -s provider_snapshots/props.json || -s provider_snapshots/odds.json ]]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish real provider snapshots only
+        if: steps.evidence.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-provider-snapshots
+          path: |
+            provider_snapshots/props.json
+            provider_snapshots/odds.json
+          if-no-files-found: error
+          retention-days: 7
