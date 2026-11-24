@@ -53,6 +53,39 @@ jobs:
           print('Scored games:',r['scored_games'],'pending:',r['pending_outcomes'])
           print('Brier:',r['brier_score'],'log loss:',r['log_loss'],'accuracy:',r['pick_accuracy'])
           PY
+      - name: Publish accuracy dashboard in workflow summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          path=Path('nba_accuracy/prospective_accuracy.json')
+          lines=['## NBA Challenger-001 — Prospective Accuracy Dashboard','']
+          if not path.exists():
+              lines += ['**Status:** Report unavailable — inspect preceding workflow steps.']
+          else:
+              r=json.loads(path.read_text())
+              n=r['scored_games']
+              def fmt(v, percent=False):
+                  return 'Pending' if v is None else f'{v*100:.1f}%' if percent else f'{v:.6f}'
+              lines += [
+                  '| Metric | Result |','|---|---|',
+                  f'| Completed games scored | {n} |',
+                  f"| Games awaiting results | {r['pending_outcomes']} |",
+                  f"| Rejected forecasts | {len(r['rejected_forecasts'])} |",
+                  f"| Prediction accuracy | {fmt(r['pick_accuracy'],True)} |",
+                  f"| Brier score (lower is better) | {fmt(r['brier_score'])} |",
+                  f"| Log loss (lower is better) | {fmt(r['log_loss'])} |",
+                  '| Certified TAKE | **0 — HOLD** |',
+                  '',
+                  '**Interpretation:** ' + ('No completed prospective games scored yet; no accuracy conclusion.' if n==0 else 'Preliminary research performance; not independent certification.'),
+                  '',
+                  'Champion-001 unchanged. No verified sportsbook expected value.'
+              ]
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('\\n'.join(lines)+'\\n')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: nba-prospective-accuracy-audit
