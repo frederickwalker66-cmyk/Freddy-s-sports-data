@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: .
+      SPORTSDATAIO_API_KEY: ${{ secrets.SPORTSDATAIO_API_KEY }}
       NBA_PROPS_SNAPSHOT_URL: ${{ vars.NBA_PROPS_SNAPSHOT_URL }}
       NBA_ODDS_SNAPSHOT_URL: ${{ vars.NBA_ODDS_SNAPSHOT_URL }}
       NBA_PROPS_SNAPSHOT_TOKEN: ${{ secrets.NBA_PROPS_SNAPSHOT_TOKEN }}
@@ -22,6 +23,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Collect SportsDataIO historical player statistics
+        run: python -m research.nba_sportsdataio_research
+      - name: Upload SportsDataIO research data only when present
+        if: ${{ hashFiles('sportsdataio_research/player_game_stats.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nba-sportsdataio-historical-research
+          path: sportsdataio_research/player_game_stats.json
+          retention-days: 30
       - name: Collect provider snapshots with validation
         run: python -m research.nba_provider_collector
       - name: Report source readiness
