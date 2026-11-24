@@ -66,7 +66,9 @@ class SourceResearchTests(unittest.TestCase):
         self.assertNotIn(
             "Retrieve last completed SportsGameOdds source artifact", workflow
         )
-        self.assertNotIn("--sgo-archive-dir saved_sgo_archives", workflow)
+        self.assertIn("--sgo-archive-dir saved_sgo_archives", workflow)
+        self.assertIn("Retrieve existing SportsGameOdds research archives", workflow)
+        self.assertNotIn("python v8_sgo_collect", workflow)
         source_workflow = Path(".github/workflows/sportsgameodds-research.yml").read_text()
         self.assertNotIn("  schedule:", source_workflow)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", source_workflow)
