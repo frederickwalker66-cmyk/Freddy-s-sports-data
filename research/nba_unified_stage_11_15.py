@@ -13,13 +13,13 @@ def board(accuracy, forecasts, props, odds):
                 "research_probability":f[side+"_win_probability"],"sportsbook_odds":None,
                 "expected_value":None,"decision":"HOLD","reason":"Authenticated timestamped odds and independent calibration not established"})
     # Player props and sportsbook records must be real, structured and verified; never fabricate them.
-    props_ready=bool(props.get("records")) and props.get("roster_verified") is True and props.get("pregame_timestamps_verified") is True
-    odds_ready=bool(odds.get("markets")) and odds.get("sportsbook_identity_verified") is True and odds.get("pregame_timestamps_verified") is True
+    props_schema=props.get("schema_valid") is True and props.get("kind")=="props" and bool(props.get("records"))
+    odds_schema=odds.get("schema_valid") is True and odds.get("kind")=="odds" and bool(odds.get("records"))
     stages={
       "11":{"name":"Prospective accuracy","status":"RESEARCH" if n else "PENDING","scored_games":n,
             "accuracy":accuracy.get("pick_accuracy"),"brier":accuracy.get("brier_score"),"baseline_brier":accuracy.get("baseline_50_50_brier"),"exploratory_baseline_beaten":valid_perf},
-      "12":{"name":"Player props and combos","status":"DATA_READY_RESEARCH_ONLY" if props_ready else "HOLD_MISSING_VERIFIED_PROPS"},
-      "13":{"name":"Sportsbook prices and EV","status":"DATA_READY_RESEARCH_ONLY" if odds_ready else "HOLD_MISSING_VERIFIED_ODDS"},
+      "12":{"name":"Player props and combos","status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if props_schema else "HOLD_MISSING_VERIFIED_PROPS"},
+      "13":{"name":"Sportsbook prices and EV","status":"HOLD_SCHEMA_VALIDATED_AUTHENTICITY_UNVERIFIED" if odds_schema else "HOLD_MISSING_VERIFIED_ODDS"},
       "14":{"name":"Sharp Edge independent certification","status":"HOLD","certified_take_count":0},
       "15":{"name":"Unified market display","status":"RESEARCH_DISPLAY_READY","markets":markets,
             "unavailable_categories":["spreads","totals","points","rebounds","assists","PR","PA","RA","PRA"]}}
