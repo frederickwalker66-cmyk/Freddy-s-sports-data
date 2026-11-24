@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Test provider event reconciliation and HOLD rules
+        run: python -m unittest research.test_nba_provider_reconciliation -v
       - name: Collect recent locked forecast artifacts
         shell: bash
         run: |
