@@ -1,0 +1,67 @@
+name: Freddy NBA Unified Stages 11-15
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 15 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  nba-unified-research:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect recent locked forecast artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p locked_forecasts
+          gh run list --repo "$REPO" --workflow nba-challenger-prospective-ledger.yml --limit 50 --json databaseId,conclusion \
+            --jq '.[] | select(.conclusion == "success") | .databaseId' > run_ids.txt
+          while IFS= read -r id; do
+            test -n "$id" || continue
+            mkdir -p "locked_forecasts/$id"
+            if ! gh run download "$id" --repo "$REPO" --name nba-prospective-challenger20 --dir "locked_forecasts/$id"; then
+              rm -rf "locked_forecasts/$id"
+            fi
+          done < run_ids.txt
+          find locked_forecasts -name prospective_challenger20.json | sort > forecast_files.txt
+          test -s forecast_files.txt
+      - name: Collect completed outcomes
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_outcomes
+      - name: Calculate cumulative accuracy
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS= read -r file; do args+=(--forecast "$file"); done < forecast_files.txt
+          python research/nba_prospective_accuracy.py "${args[@]}" --results nba_outcomes/results.jsonl --output unified/accuracy.json
+      - name: Assemble combined Stages 11-15 dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest=$(tail -n 1 forecast_files.txt)
+          python research/nba_unified_stage_11_15.py --accuracy unified/accuracy.json --forecasts "$latest" --output unified/stages_11_15.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('unified/stages_11_15.json').read_text())
+          assert r['certified'] is False and r['bet_ready'] is False and r['take_count']==0
+          assert r['champion_001_modified'] is False
+          assert all(x['decision']=='HOLD' and x['expected_value'] is None for x in r['stages']['15']['markets'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freddy-nba-stages-11-15
+          path: unified/
+          retention-days: 90
