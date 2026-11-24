@@ -1,0 +1,60 @@
+name: NBA Challenger Prospective Accuracy Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      forecast_run_id:
+        description: 'Completed prospective ledger workflow run ID'
+        required: true
+        type: string
+  workflow_run:
+    workflows: ['NBA Challenger Prospective 20-Point Ledger']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  score-locked-forecasts:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      FORECAST_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.forecast_run_id || github.event.workflow_run.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve locked prospective forecast artifact
+        run: |
+          mkdir -p locked_forecasts
+          gh run download "$FORECAST_RUN_ID" --repo "$REPO" --name nba-prospective-challenger20 --dir locked_forecasts
+          test -s locked_forecasts/prospective_challenger20.json
+      - name: Collect published completed NBA outcomes
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_outcomes
+      - name: Score completed forecasts without modifying model
+        run: |
+          python research/nba_prospective_accuracy.py \
+            --forecast locked_forecasts/prospective_challenger20.json \
+            --results nba_outcomes/results.jsonl \
+            --output nba_accuracy/prospective_accuracy.json
+      - name: Enforce research-only gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('nba_accuracy/prospective_accuracy.json').read_text())
+          assert r['certified'] is False and r['bet_ready'] is False
+          assert r['champion_001_modified'] is False and r['take_count']==0
+          print('Scored games:',r['scored_games'],'pending:',r['pending_outcomes'])
+          print('Brier:',r['brier_score'],'log loss:',r['log_loss'],'accuracy:',r['pick_accuracy'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-prospective-accuracy-audit
+          path: nba_accuracy/prospective_accuracy.json
+          retention-days: 90
