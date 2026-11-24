@@ -16,7 +16,8 @@ class ArchiveInventoryTests(unittest.TestCase):
             (root/"snapshot.json").write_bytes(b"synthetic pregame evidence")
             result=inventory(root)
             self.assertEqual(result,[{"file":"snapshot.json",
-                "sha256":hashlib.sha256(b"synthetic pregame evidence").hexdigest()}])
+                "sha256":hashlib.sha256(b"synthetic pregame evidence").hexdigest(),
+                "size_bytes":len(b"synthetic pregame evidence")}])
 
     def test_hidden_files_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
