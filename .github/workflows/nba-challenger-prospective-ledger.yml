@@ -1,0 +1,47 @@
+name: NBA Challenger Prospective 20-Point Ledger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 17 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'research/nba_prospective_challenger20.py'
+      - '.github/workflows/nba-challenger-prospective-ledger.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  record-pregame:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collect published NBA history
+        run: python historical_outcomes.py --leagues NBA --days 35 --output-dir nba_research
+      - name: Collect upcoming NBA fixtures
+        run: python research/nba_upcoming_fixtures.py --output nba_research/upcoming.json
+      - name: Record Challenger research predictions before games
+        run: python research/nba_prospective_challenger20.py --history nba_research/results.jsonl --upcoming nba_research/upcoming.json --output nba_research/prospective_challenger20.json
+      - name: Check HOLD and future-event gates
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('nba_research/prospective_challenger20.json').read_text())
+          assert r['champion_001_modified'] is False
+          assert r['certified_take_count']==0
+          assert all(f['decision']=='HOLD' and not f['bet_ready'] and not f['certified'] for f in r['forecasts'])
+          print('Recorded',len(r['forecasts']),'prospective research forecasts')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-prospective-challenger20
+          path: nba_research/
+          retention-days: 90
