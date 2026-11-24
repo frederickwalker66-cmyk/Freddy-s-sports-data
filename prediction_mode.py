@@ -4,6 +4,7 @@ import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+from research.portfolio_release_guard import audit_portfolio
 
 
 def utc(value):
@@ -78,6 +79,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="prediction_input/native_forecasts.jsonl")
     parser.add_argument("--output", default="prediction_output/predictions.json")
+    parser.add_argument("--portfolio", default="prediction_input/portfolio.json")
     args = parser.parse_args()
     now = datetime.now(timezone.utc)
     source = Path(args.input)
@@ -90,7 +92,11 @@ def main():
                     results.append(assess(row, now))
                 except (ValueError, TypeError, AttributeError):
                     results.append({"status": "HOLD", "certified": False, "reasons": ["INVALID_FORECAST_RECORD"]})
-    report = {"mode": "prediction", "generated_utc": now.isoformat(),
+    try:
+        portfolio = audit_portfolio(json.loads(Path(args.portfolio).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        portfolio = audit_portfolio(None)
+    report = {"portfolio_audit": portfolio, "mode": "prediction", "generated_utc": now.isoformat(),
               "native_forecast_source_present": source.is_file(),
               "forecasts": results, "certified_take_count": 0,
               "research_ready_count": sum(x.get("research_status") == "RESEARCH_READY" for x in results),
