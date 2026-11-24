@@ -66,10 +66,10 @@
     "source": "Existing SharpAPI artifact; DraftKings-labelled aggregator only"
   },
   "games": [],
-  "generated_at_utc": "2026-11-24T11:41:14.702118+00:00",
+  "generated_at_utc": "2026-11-24T12:18:19.517429+00:00",
   "leagues": {
     "mlb": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -80,7 +80,7 @@
       "team_last5": 0
     },
     "mls": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -91,7 +91,7 @@
       "team_last5": 0
     },
     "nba": {
-      "age_minutes": 380.0,
+      "age_minutes": 417.1,
       "as_of_utc": "2026-11-24T05:21:14.492167+00:00",
       "forecasts": 3,
       "player_last10": 319,
@@ -102,7 +102,7 @@
       "team_last5": 30
     },
     "ncaab": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -113,7 +113,7 @@
       "team_last5": 0
     },
     "ncaaf": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -124,7 +124,7 @@
       "team_last5": 0
     },
     "nfl": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -135,7 +135,7 @@
       "team_last5": 0
     },
     "nhl": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -146,7 +146,7 @@
       "team_last5": 0
     },
     "uefa_champions_league": {
-      "age_minutes": 2546.1,
+      "age_minutes": 2583.2,
       "as_of_utc": "2026-11-22T17:15:05.772882+00:00",
       "forecasts": 0,
       "player_last10": 0,
@@ -165,9 +165,9 @@
     "archived_quotes": 6214,
     "certified_positive_ev": 0,
     "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-    "model_age_minutes_at_publication": 380.0,
+    "model_age_minutes_at_publication": 417.1,
     "odds_age_minutes_at_model_run": 158.0,
-    "odds_age_minutes_at_publication": 538.0,
+    "odds_age_minutes_at_publication": 575.1,
     "odds_receipt_utc": "2026-11-24T02:43:14.714934+00:00",
     "paired_game_markets": null,
     "paired_market_reference_current": false,
@@ -182,7 +182,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -196,7 +196,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -210,8 +210,8 @@
       "archived_quotes": 6214,
       "certified_positive_ev": 0,
       "market_blocker": "NO_FRESH_EXACT_PAIRED_MARKETS",
-      "model_age_minutes_at_publication": 380.0,
-      "odds_age_minutes_at_publication": 538.0,
+      "model_age_minutes_at_publication": 417.1,
+      "odds_age_minutes_at_publication": 575.1,
       "odds_receipt_utc": "2026-11-24T02:43:14.714934+00:00",
       "paired_game_markets": null,
       "paired_market_reference_current": false,
@@ -224,7 +224,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -238,7 +238,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -252,7 +252,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -266,7 +266,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -280,7 +280,7 @@
       "archived_quotes": 0,
       "certified_positive_ev": 0,
       "market_blocker": "NO_ARCHIVED_PROVIDER_QUOTES",
-      "model_age_minutes_at_publication": 2546.1,
+      "model_age_minutes_at_publication": 2583.2,
       "odds_age_minutes_at_publication": null,
       "odds_receipt_utc": null,
       "paired_game_markets": null,
@@ -304,7 +304,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-24T11:41:12.758152+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.540848+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -337,18 +337,18 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.920370+00:00",
-            "spread_details": "SJ +100",
+            "source_observed_at_utc": "2026-11-24T12:18:17.802423+00:00",
+            "spread_details": "SJ -105",
             "total": 2.5,
             "under_price": null
           },
           "period": null,
           "reference_change": {
-            "current_line": "SJ +100",
-            "current_observed_at_utc": "2026-11-24T11:41:12.920370+00:00",
+            "current_line": "SJ -105",
+            "current_observed_at_utc": "2026-11-24T12:18:17.802423+00:00",
             "current_total": 2.5,
-            "previous_line": "SJ +110",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.708257+00:00",
+            "previous_line": "SJ +100",
+            "previous_observed_at_utc": "2026-11-24T11:41:12.920370+00:00",
             "previous_total": 2.5,
             "provider": "DraftKings",
             "sharp_action_verified": false,
@@ -374,6 +374,16 @@
               "sharp_action_verified": false,
               "spread_details": "SJ +100",
               "total": 2.5
+            },
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T12:18:17.802423+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "SJ -105",
+              "total": 2.5
             }
           ],
           "start_et": "2026-11-24T22:00:00-05:00",
@@ -383,7 +393,7 @@
         }
       ],
       "line_reference_count": 1,
-      "observed_at_utc": "2026-11-24T11:41:12.920370+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.802423+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -413,12 +423,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.368894+00:00",
             "spread_details": "DET -2.5",
             "total": 212.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "DET -2.5",
+              "total": 212.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -449,12 +471,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.368894+00:00",
             "spread_details": "BOS -10.5",
             "total": 217.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "BOS -10.5",
+              "total": 217.5
+            }
+          ],
           "start_et": "2026-11-24T20:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 8:00 PM EST",
@@ -487,12 +521,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.368894+00:00",
             "spread_details": "DEN -8.5",
             "total": 233.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "DEN -8.5",
+              "total": 233.5
+            }
+          ],
           "start_et": "2026-11-24T22:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 10:00 PM EST",
@@ -500,7 +546,7 @@
         }
       ],
       "line_reference_count": 3,
-      "observed_at_utc": "2026-11-24T11:41:12.677400+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.368894+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -532,12 +578,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "BYU -1.5",
             "total": 160.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "BYU -1.5",
+              "total": 160.5
+            }
+          ],
           "start_et": "2026-11-24T14:30:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 2:30 PM EST",
@@ -568,12 +626,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "TENN -4.5",
             "total": 145.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "TENN -4.5",
+              "total": 145.5
+            }
+          ],
           "start_et": "2026-11-24T15:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 3:00 PM EST",
@@ -604,12 +674,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "MIA -6.5",
             "total": 153.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "MIA -6.5",
+              "total": 153.5
+            }
+          ],
           "start_et": "2026-11-24T15:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 3:00 PM EST",
@@ -640,12 +722,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "ARIZ -7.5",
             "total": 154.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "ARIZ -7.5",
+              "total": 154.5
+            }
+          ],
           "start_et": "2026-11-24T17:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 5:00 PM EST",
@@ -676,12 +770,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "FLA -35.5",
             "total": 156.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "FLA -35.5",
+              "total": 156.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -712,12 +818,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "IU -28.5",
             "total": 147.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "IU -28.5",
+              "total": 147.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -748,12 +866,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "VAN -2.5",
             "total": 157.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "VAN -2.5",
+              "total": 157.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -784,12 +914,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "TTU -3.5",
             "total": 152.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "TTU -3.5",
+              "total": 152.5
+            }
+          ],
           "start_et": "2026-11-24T20:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 8:00 PM EST",
@@ -820,12 +962,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "ALA -1.5",
             "total": 175.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "ALA -1.5",
+              "total": 175.5
+            }
+          ],
           "start_et": "2026-11-24T22:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 10:00 PM EST",
@@ -856,12 +1010,45 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
             "spread_details": "SJU -9.5",
-            "total": 155.5,
+            "total": 156.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_change": {
+            "current_line": "SJU -9.5",
+            "current_observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
+            "current_total": 156.5,
+            "previous_line": "SJU -9.5",
+            "previous_observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+            "previous_total": 155.5,
+            "provider": "DraftKings",
+            "sharp_action_verified": false,
+            "source_retrieval_differences_only": true
+          },
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "SJU -9.5",
+              "total": 155.5
+            },
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "SJU -9.5",
+              "total": 156.5
+            }
+          ],
           "start_et": "2026-11-24T22:30:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 10:30 PM EST",
@@ -869,7 +1056,7 @@
         }
       ],
       "line_reference_count": 10,
-      "observed_at_utc": "2026-11-24T11:41:12.883772+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.768442+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -901,12 +1088,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.833655+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.703536+00:00",
             "spread_details": "EMU -5.5",
             "total": 46.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.833655+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "EMU -5.5",
+              "total": 46.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -937,12 +1136,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.833655+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.703536+00:00",
             "spread_details": "WMU -6.5",
             "total": 45.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.833655+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "WMU -6.5",
+              "total": 45.5
+            }
+          ],
           "start_et": "2026-11-24T19:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 7:00 PM EST",
@@ -950,7 +1161,7 @@
         }
       ],
       "line_reference_count": 2,
-      "observed_at_utc": "2026-11-24T11:41:12.833655+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.703536+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -958,7 +1169,7 @@
       "game_count": 0,
       "games": [],
       "line_reference_count": 0,
-      "observed_at_utc": "2026-11-24T11:41:12.722562+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.511713+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "NO_GAMES_LISTED"
     },
@@ -990,12 +1201,24 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:12.792327+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.601986+00:00",
             "spread_details": "VGK -118",
             "total": 6.5,
             "under_price": null
           },
           "period": 0.0,
+          "reference_history": [
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T11:41:12.792327+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "VGK -118",
+              "total": 6.5
+            }
+          ],
           "start_et": "2026-11-24T20:00:00-05:00",
           "status": "pre",
           "status_detail": "11/24 - 8:00 PM EST",
@@ -1003,7 +1226,7 @@
         }
       ],
       "line_reference_count": 1,
-      "observed_at_utc": "2026-11-24T11:41:12.792327+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.601986+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     },
@@ -1035,18 +1258,18 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "spread_details": "AVL +115",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
+            "spread_details": "AVL +120",
             "total": 3.5,
             "under_price": null
           },
           "period": null,
           "reference_change": {
-            "current_line": "AVL +115",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "current_line": "AVL +120",
+            "current_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "current_total": 3.5,
-            "previous_line": "AVL +120",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
+            "previous_line": "AVL +115",
+            "previous_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
             "previous_total": 3.5,
             "provider": "DraftKings",
             "sharp_action_verified": false,
@@ -1071,6 +1294,16 @@
               "provider": "DraftKings",
               "sharp_action_verified": false,
               "spread_details": "AVL +115",
+              "total": 3.5
+            },
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "AVL +120",
               "total": 3.5
             }
           ],
@@ -1104,23 +1337,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "BODO -250",
             "total": 3.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "BODO -250",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 3.5,
-            "previous_line": "BODO -200",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 3.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1173,23 +1395,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "FCP +110",
             "total": 2.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "FCP +110",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 2.5,
-            "previous_line": "FCP +120",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 2.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1242,23 +1453,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "ARS -220",
             "total": 2.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "ARS -220",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 2.5,
-            "previous_line": "ARS -230",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 2.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1311,23 +1511,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "COMO -350",
             "total": 3.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "COMO -350",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 3.5,
-            "previous_line": "COMO -390",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 3.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1380,23 +1569,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "BET -360",
             "total": 3.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "BET -360",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 3.5,
-            "previous_line": "BET -390",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 3.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1449,18 +1627,18 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "spread_details": "RMA -700",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
+            "spread_details": "RMA -750",
             "total": 4.5,
             "under_price": null
           },
           "period": null,
           "reference_change": {
-            "current_line": "RMA -700",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "current_line": "RMA -750",
+            "current_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "current_total": 4.5,
-            "previous_line": "RMA -600",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
+            "previous_line": "RMA -700",
+            "previous_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
             "previous_total": 4.5,
             "provider": "DraftKings",
             "sharp_action_verified": false,
@@ -1485,6 +1663,16 @@
               "provider": "DraftKings",
               "sharp_action_verified": false,
               "spread_details": "RMA -700",
+              "total": 4.5
+            },
+            {
+              "checkout_verified": false,
+              "moneyline_away": null,
+              "moneyline_home": null,
+              "observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
+              "provider": "DraftKings",
+              "sharp_action_verified": false,
+              "spread_details": "RMA -750",
               "total": 4.5
             }
           ],
@@ -1518,23 +1706,12 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "RBL -280",
             "total": 3.5,
             "under_price": null
           },
           "period": null,
-          "reference_change": {
-            "current_line": "RBL -280",
-            "current_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
-            "current_total": 3.5,
-            "previous_line": "RBL -255",
-            "previous_observed_at_utc": "2026-11-24T05:08:34.845490+00:00",
-            "previous_total": 3.5,
-            "provider": "DraftKings",
-            "sharp_action_verified": false,
-            "source_retrieval_differences_only": true
-          },
           "reference_history": [
             {
               "checkout_verified": false,
@@ -1587,7 +1764,7 @@
             "moneyline_home": null,
             "over_price": null,
             "provider": "DraftKings",
-            "source_observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+            "source_observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
             "spread_details": "MNC -340",
             "total": 3.5,
             "under_price": null
@@ -1612,7 +1789,7 @@
         }
       ],
       "line_reference_count": 9,
-      "observed_at_utc": "2026-11-24T11:41:13.002364+00:00",
+      "observed_at_utc": "2026-11-24T12:18:17.939425+00:00",
       "source": "ESPN public scoreboard; provider label only, no checkout",
       "status": "ESPN_PUBLIC_OBSERVED"
     }
