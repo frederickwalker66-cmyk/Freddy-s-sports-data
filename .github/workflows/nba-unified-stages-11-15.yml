@@ -92,6 +92,11 @@ jobs:
           print(max(candidates)[1])
           PY
           )
+          for kind in props odds; do
+            if [[ -f "unified/validated_$kind.json" ]]; then
+              python research/nba_provider_event_reconciliation.py --forecasts "$latest" --provider "unified/validated_$kind.json" --output "unified/reconciled_$kind.json"
+            fi
+          done
           args=()
           [[ ! -f unified/validated_props.json ]] || args+=(--props unified/validated_props.json)
           [[ ! -f unified/validated_odds.json ]] || args+=(--odds unified/validated_odds.json)
