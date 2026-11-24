@@ -25,7 +25,9 @@ class FiveLegResearchTriggerTests(unittest.TestCase):
             self.assertIn("'[run-five-leg]'",condition)
         self.assertNotIn("params+=(--sgo-archive-dir saved_sgo_archives)", self.workflow)
         self.assertNotIn("Retrieve last completed SportsGameOdds source artifact", self.workflow)
-        self.assertNotIn("--sgo-archive-dir saved_sgo_archives", self.workflow)
+        self.assertIn("--sgo-archive-dir saved_sgo_archives", self.workflow)
+        self.assertIn("Retrieve existing SportsGameOdds research archives", self.workflow)
+        self.assertNotIn("python v8_sgo_collect", self.workflow)
         self.assertNotIn("github.event_name == 'push' && 'run_mixed_market'",self.workflow)
 
 
