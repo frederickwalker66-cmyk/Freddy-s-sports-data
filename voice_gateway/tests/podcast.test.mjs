@@ -8,7 +8,7 @@ test("podcast page is host-only, without employee avatars or auto-publishing",()
  assert.match(h,/Record audio/);
  assert.match(h,/Audience questions/);
  assert.match(h,/Invite a guest/);
- for(const label of ["Bella","David","Cassidy","Roger","Sarah","Adam Stone","agent_","api key"])assert.ok(!h.includes(label),"Unexpected employee or credential: "+label);
+ for(const label of ["Command Center Manager","Sports Data Analyst","Sharp Edge Analyst","Parlay Builder","Risk Manager","Audit Engineer","agent_","api key"])assert.ok(!h.includes(label),"Unexpected employee or credential: "+label);
 });
 test("podcast recording is click-initiated and never automatically uploads",()=>{
  const s=read("podcast.js");
