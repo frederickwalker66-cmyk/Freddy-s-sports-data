@@ -10,7 +10,7 @@ $("copy-layout").onclick=async()=>{const s="You Talking to Me? Podcast OBS setup
 $("copy-promo").onclick=async()=>{const t=$("show-title").value.trim()||"You Talking to Me?";const s=t+" — Freddy and Bella are debating today's topics. Bella is a live AI avatar. Drop your questions and join the conversation! #YouTalkingToMe #Podcast #FreddyAndBella";try{await navigator.clipboard.writeText(s);set("broadcast-status","Promo draft copied. Posting is not automatic.")}catch{set("broadcast-status",s)}};
 $("review").onclick=()=>{const gates=[...document.querySelectorAll(".gate")];set("review-status",gates.every(x=>x.checked)?"Pre-publication checklist completed. Nothing was uploaded or posted.":"Review incomplete: verify consent, sound/captions, AI disclosure, and publication rights.")};
 const video=$("source-video"),canvas=$("vertical-preview"),ctx=canvas.getContext("2d");
-let videoUrl=null,clipUrl=null,exporting=false,recorder=null,audioCtx=null,capture=null,drawId=null;
+let videoUrl=null,clipUrl=null,exporting=false,recorder=null,audioCtx=null,sourceNode=null,capture=null,drawId=null;
 function drawFrame(){
  ctx.fillStyle="#080c14";ctx.fillRect(0,0,canvas.width,canvas.height);
  if(video.videoWidth&&video.videoHeight){
@@ -31,7 +31,7 @@ drawFrame();
 $("file").onchange=()=>{if(exporting)return;const f=$("file").files?.[0];if(videoUrl){URL.revokeObjectURL(videoUrl);videoUrl=null}if(!f)return;if(!f.type.startsWith("video/")){set("clip-status","Choose a video file.");return}videoUrl=URL.createObjectURL(f);video.src=videoUrl;video.load();video.onloadedmetadata=()=>{const len=Number(video.duration)||0;$("start").max=len;$("end").max=len;$("end").value=Math.min(30,len).toFixed(1);set("clip-status","Loaded "+len.toFixed(1)+"s video. Choose a segment and export; no upload occurs.");drawFrame()};video.onseeked=drawFrame};
 $("caption").oninput=drawFrame;
 function enableExport(on){exporting=on;$("export-clip").disabled=on;$("stop-export").disabled=!on;$("file").disabled=on}
-async function cleanup(){if(drawId!==null){cancelAnimationFrame(drawId);drawId=null}if(capture){capture.getTracks().forEach(t=>t.stop());capture=null}try{await audioCtx?.close()}catch{}audioCtx=null;video.pause();enableExport(false)}
+async function cleanup(){if(drawId!==null){cancelAnimationFrame(drawId);drawId=null}if(capture){capture.getTracks().forEach(t=>t.stop());capture=null}try{sourceNode?.disconnect()}catch{}video.pause();enableExport(false)}
 $("export-clip").onclick=async()=>{
  if(exporting)return;
  if(!videoUrl||!Number.isFinite(video.duration)||!window.MediaRecorder||!canvas.captureStream){set("clip-status","Upload a valid video using a compatible browser first.");return}
@@ -40,8 +40,9 @@ $("export-clip").onclick=async()=>{
  try{
   enableExport(true);if(clipUrl){URL.revokeObjectURL(clipUrl);clipUrl=null}$("clip-download").replaceChildren();
   video.pause();video.currentTime=start;await new Promise((resolve,reject)=>{if(Math.abs(video.currentTime-start)<.1&&video.readyState>=2)return resolve();const cb=()=>{video.removeEventListener("seeked",cb);resolve()};video.addEventListener("seeked",cb,{once:true});setTimeout(()=>{video.removeEventListener("seeked",cb);resolve()},1800)});
-  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  const source=audioCtx.createMediaElementSource(video),dest=audioCtx.createMediaStreamDestination();source.connect(dest);
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(!sourceNode)sourceNode=audioCtx.createMediaElementSource(video);
+  const dest=audioCtx.createMediaStreamDestination();sourceNode.connect(dest);
   await audioCtx.resume();
   drawFrame();const vstream=canvas.captureStream(30);const tracks=[...vstream.getVideoTracks(),...dest.stream.getAudioTracks()];
   capture=new MediaStream(tracks);
@@ -55,4 +56,4 @@ $("export-clip").onclick=async()=>{
  }catch(e){await cleanup();recorder=null;set("clip-status","Export unavailable: "+(e.message||"browser limitation"))}
 };
 $("stop-export").onclick=()=>{if(recorder?.state==="recording"){recorder.stop();set("clip-status","Stopping export…")}else void cleanup()};
-window.addEventListener("pagehide",()=>{if(recorder?.state==="recording")recorder.stop();if(videoUrl)URL.revokeObjectURL(videoUrl);if(clipUrl)URL.revokeObjectURL(clipUrl);void cleanup()});
+window.addEventListener("pagehide",()=>{if(recorder?.state==="recording")recorder.stop();if(videoUrl)URL.revokeObjectURL(videoUrl);if(clipUrl)URL.revokeObjectURL(clipUrl);void cleanup();audioCtx?.close()});
