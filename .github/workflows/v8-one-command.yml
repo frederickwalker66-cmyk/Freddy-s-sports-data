@@ -362,7 +362,7 @@ jobs:
           done
           echo "Missing leagues stay N/A; not an EV betting edge."
       - name: Read actual source-run status for phone health view (no dispatch)
-        if: ${{ inputs.command == 'run_health' }}
+        if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[run-nba]') || contains(github.event.head_commit.message, '[run-nba-best-bets]'))) || github.event_name == 'workflow_run' || inputs.command == 'run_health' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -376,7 +376,7 @@ jobs:
             echo "Metadata unavailable: reporting unknown instead of invented data."
           fi
       - name: Load last completed real source and price audit receipts for certification review
-        if: ${{ inputs.command == 'run_certify' || inputs.command == 'run_audit' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]')) }}
+        if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[run-nba]') || contains(github.event.head_commit.message, '[run-nba-best-bets]'))) || github.event_name == 'workflow_run' || inputs.command == 'run_certify' || inputs.command == 'run_audit' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]')) }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -403,7 +403,7 @@ jobs:
           fi
           echo "Research artifacts loaded if available. No paid API, betting or external certification."
       - name: Reconcile saved outcomes and calibration audits without paid source calls
-        if: ${{ inputs.command == 'run_audit' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]')) }}
+        if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[run-nba]') || contains(github.event.head_commit.message, '[run-nba-best-bets]'))) || github.event_name == 'workflow_run' || inputs.command == 'run_audit' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-audit]')) }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -603,6 +603,21 @@ jobs:
             fi
           fi
           python v8_one_command.py "${params[@]}"
+      - name: NBA unified evidence audit (read-only, separate from frozen Champion)
+        if: ${{ inputs.command == 'run_nba' || inputs.command == 'run_nba_best_bets' || github.event.schedule == '17 21 * * *' || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[run-nba]') || contains(github.event.head_commit.message, '[run-nba-best-bets]'))) || github.event_name == 'workflow_run' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=v8_results/one_command/nba_evidence
+          mkdir -p "$root"
+          python v8_one_command.py --command run_health --days 7 --output-dir "$root/health" --source-runs-json v8_results/source_runs.json
+          params=(--command run_audit --days 7 --output-dir "$root/audit" --certification-source-dir cert_upstream/source --certification-sharp-dir cert_upstream/sharp --audit-outcome-dir audit_upstream/outcome --audit-calibration-dir audit_upstream/calibration)
+          for pair in 'cert_upstream/source_run_id:--certification-source-run-id' 'cert_upstream/sharp_run_id:--certification-sharp-run-id' 'audit_upstream/outcome_run_id:--audit-outcome-run-id' 'audit_upstream/calibration_run_id:--audit-calibration-run-id'; do
+            file=${pair%%:*}; flag=${pair#*:}
+            if [[ -f "$file" ]]; then params+=("$flag" "$(cat "$file")"); fi
+          done
+          python v8_one_command.py "${params[@]}"
+          echo 'NBA evidence audit reports are included in the one-command artifact; job success is not certification.' >> "$GITHUB_STEP_SUMMARY"
       - name: Final NBA eight-leg preflight verdict — no synthetic locks
         if: always()
         shell: bash
