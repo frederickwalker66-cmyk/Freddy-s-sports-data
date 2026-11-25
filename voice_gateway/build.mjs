@@ -26,4 +26,13 @@ for (const file of ["zoom-video.html","zoom-video.css","zoom-video.js"]) {
 for (const file of ["podcast.html","podcast.css","podcast.js"]) {
   await copyFile(join(root,"web",file),join(root,"dist",file));
 }
-console.log("Built protected CEO meeting room and solo podcast studio (no embedded keys)");
+await build({
+  entryPoints:[join(root,"web","podcast-bella.js")],
+  outfile:join(root,"dist","podcast-bella.js"),
+  bundle:true,format:"esm",platform:"browser",target:"es2022",
+  minify:true,logLevel:"warning",
+});
+for(const file of ["podcast-bella.html","podcast-bella.css"]){
+  await copyFile(join(root,"web",file),join(root,"dist",file));
+}
+console.log("Built protected boardroom and Bella AI podcast studio (no embedded keys)");
