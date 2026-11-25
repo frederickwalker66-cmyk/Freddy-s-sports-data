@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS questions (id TEXT PRIMARY KEY, received_at TEXT NOT NULL, display_name TEXT NOT NULL, question TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('pending','approved','dismissed'))); CREATE INDEX IF NOT EXISTS questions_by_status_time ON questions(status,received_at DESC);
