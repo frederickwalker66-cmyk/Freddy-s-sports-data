@@ -439,7 +439,7 @@ test("Anam portrait proxy respects CEO access, role allowlist and media restrict
     roger:"2a900f85-6f8e-4070-825e-07ac8a55b7c4",
     sarah:"2891de34-9f0c-4b47-a7f5-091844dda047",
     adam:"046fd8cf-e5cb-43d6-9f63-729e5b695c5c",
-    "bella-studio":"1957d20f-11c1-494f-bfcf-885925701292",
+    "bella-studio":"71685d55-f53b-4d09-aad3-2c5562bd0916",
     "roger-studio":"0f601e66-ac3f-44f8-9834-6eecdd7d58ff",
     "cassidy-studio":"5d0de80c-7668-4bdc-8e9d-c01a82ec62fe",
   };
