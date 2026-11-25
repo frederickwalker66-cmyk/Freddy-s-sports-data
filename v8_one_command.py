@@ -706,6 +706,8 @@ def main(argv=None):
         snapshot = json.loads(pregame_path.read_text(encoding="utf-8"))
     pregame = run_pregame_five_gate(snapshot)
     report["pregame_five_gate"] = pregame
+    from v8_confidence_risk import confidence_report
+    report["probability_first_risk"] = confidence_report()
     output_path = Path(args.output_dir) / "PREGAME_FIVE_GATE_REPORT.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(pregame, indent=2, sort_keys=True) + "\n", encoding="utf-8")
