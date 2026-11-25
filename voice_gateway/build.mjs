@@ -23,4 +23,7 @@ await copyFile(join(root,"web","style.css"),join(root,"dist","style.css"));
 for (const file of ["zoom-video.html","zoom-video.css","zoom-video.js"]) {
   await copyFile(join(root,"web",file),join(root,"dist",file));
 }
-console.log("Built protected CEO meeting room (no embedded agent IDs or keys)");
+for (const file of ["podcast.html","podcast.css","podcast.js"]) {
+  await copyFile(join(root,"web",file),join(root,"dist",file));
+}
+console.log("Built protected CEO meeting room and solo podcast studio (no embedded keys)");
