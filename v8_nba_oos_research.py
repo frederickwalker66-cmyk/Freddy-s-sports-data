@@ -145,6 +145,8 @@ def benchmark(rows, coverage, now=None):
             "No historical betting ROI, qualified shadows, bets or "
             "actionable positive EV can be inferred."),
     }
+    from v8_challenger_calibration_experiment import evaluate
+    data["challenger_calibration_experiment"] = evaluate(ledger)
     return data, ledger
 
 
