@@ -404,7 +404,8 @@ export async function handleRequest(request, env, fetcher = fetch) {
   }
   const isZoomVideo = path === "/zoom-video.html" ||
     path === "/zoom-video.js" || path === "/zoom-video.css";
-  const isAnamRoom = path === "/anam-room.html" || path === "/anam-room.js" || path === "/anam-room.css" ||\n    path === "/podcast-bella.html" || path === "/podcast-bella.js" || path === "/podcast-bella.css";
+  const isAnamRoom = path === "/anam-room.html" || path === "/anam-room.js" || path === "/anam-room.css" ||
+    path === "/podcast-bella.html" || path === "/podcast-bella.js" || path === "/podcast-bella.css";
   headers.set("Content-Security-Policy",isAnamRoom
     ? "default-src 'self'; img-src 'self' data:; " +
       "connect-src 'self' https://api.anam.ai wss://connect.anam.ai wss://connect-us.anam.ai wss://connect-eu.anam.ai; " +
