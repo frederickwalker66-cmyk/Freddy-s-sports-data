@@ -3,6 +3,7 @@ const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers
 const localOnly = url => /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname);
 export async function handleAudience(request,env,fetcher=fetch){
  const url=new URL(request.url);
+ if(url.pathname==="/public-config"&&request.method==="GET")return reply({turnstileSiteKey:typeof env.TURNSTILE_SITE_KEY==="string"?env.TURNSTILE_SITE_KEY:""});
  if(url.pathname==="/healthz"&&request.method==="GET")
    return reply({status:"up",component:"podcast_audience",storage_configured:!!env.QUESTIONS_DB,turnstile_configured:!!env.TURNSTILE_SECRET_KEY});
  if(url.pathname==="/api/questions"&&request.method==="POST"){
