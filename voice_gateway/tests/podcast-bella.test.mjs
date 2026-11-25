@@ -15,7 +15,7 @@ test("Anam session requests only saved Bella Studio role behind protected Worker
  assert.match(js,/\/api\/anam\/session-token/);
  assert.match(js,/createClient/);
  assert.match(js,/streamToVideoElement/);
- assert.doesNotMatch(js,/xi-api-key|Bearer\\s+|localStorage\\.setItem\\(.*sessionToken/);
+ assert.ok(!js.includes("xi-api-key") && !js.includes("Authorization: Bearer") && !js.includes("localStorage.setItem(\"sessionToken\""));
 });
 test("recording requires explicit browser screen share and download",()=>{
  const js=read("podcast-bella.js");
