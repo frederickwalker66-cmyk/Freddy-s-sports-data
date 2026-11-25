@@ -35,4 +35,7 @@ await build({
 for(const file of ["podcast-bella.html","podcast-bella.css"]){
   await copyFile(join(root,"web",file),join(root,"dist",file));
 }
-console.log("Built protected boardroom and Bella AI podcast studio (no embedded keys)");
+for(const file of ["podcast-producer.html","podcast-producer.css","podcast-producer.js"]){
+  await copyFile(join(root,"web",file),join(root,"dist",file));
+}
+console.log("Built protected boardroom, Bella live studio and producer toolkit (no embedded keys)");
