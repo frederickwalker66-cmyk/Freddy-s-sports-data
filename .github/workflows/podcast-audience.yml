@@ -1,0 +1,35 @@
+name: Podcast Audience — Safety & Syntax
+on:
+  pull_request:
+    paths:
+      - "podcast_audience/**"
+      - "voice_gateway/**"
+      - ".github/workflows/podcast-audience.yml"
+  push:
+    branches: [main]
+    paths:
+      - "podcast_audience/**"
+      - "voice_gateway/**"
+      - ".github/workflows/podcast-audience.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test public-question validation and private control boundary
+        run: node --test podcast_audience/tests/*.test.mjs
+      - name: Check public site and private UI scripts
+        run: |
+          node --check podcast_audience/src/worker.js
+          node --check podcast_audience/public/form.js
+          node --check voice_gateway/web/podcast-producer.js
+          node --check voice_gateway/src/worker.js
+          test -f podcast_audience/migrations/0001_questions.sql
+          test -f voice_gateway/web/podcast-producer.html
