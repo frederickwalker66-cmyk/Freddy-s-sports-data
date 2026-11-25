@@ -348,6 +348,57 @@ export async function handleRequest(request, env, fetcher = fetch) {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
     return json(readinessReport(env));
   }
+  // The public audience Worker is a different origin. Only verified CEO sessions
+  // can retrieve or moderate pending viewer questions; keys stay server-side.
+  if (path === "/api/podcast/questions-config") {
+    if(request.method!=="GET")return json({error:"method_not_allowed"},405);
+    let publicUrl=null;
+    try {
+      const u=new URL(env.PUBLIC_PODCAST_QUESTIONS_URL||"");
+      if(u.protocol==="https:" && u.username==="" && u.password==="" &&
+          u.pathname==="/" && u.search==="" && u.hash==="" &&
+          u.origin!==new URL(request.url).origin) publicUrl=u.href;
+    } catch {}
+    return json({public_question_form_url:publicUrl,guest_room_configured:!!validatedZoomJoinUrl(env),
+      auto_streaming_configured:false,auto_publishing_configured:false});
+  }
+  if(path==="/api/podcast/questions" || path==="/api/podcast/questions/status"){
+    if(!["GET","POST"].includes(request.method)||
+       (path.endsWith("/status") && request.method!=="POST")||
+       (path.endsWith("/questions") && request.method!=="GET"))
+      return json({error:"method_not_allowed"},405);
+    const key=env.PODCAST_QUESTIONS_ADMIN_KEY;
+    let base;
+    try {base=new URL(env.PODCAST_QUESTIONS_SERVICE_URL);
+      if(base.protocol!=="https:"||base.username||base.password||base.search||base.hash||
+         base.pathname!=="/" || base.origin===new URL(request.url).origin||
+         !base.hostname.endsWith(".workers.dev")) throw Error();
+    } catch {return json({error:"public_question_service_not_configured"},503)}
+    if(typeof key!=="string"||key.length<24)return json({error:"public_question_service_not_configured"},503);
+    const upstream=path.endsWith("/status") ? "/api/admin/questions/status" : "/api/admin/questions";
+    let body;
+    if(request.method==="POST"){
+      if(request.headers.get("Origin")!==new URL(request.url).origin||
+          !String(request.headers.get("Content-Type")||"").startsWith("application/json"))
+        return json({error:"same_origin_post_required"},403);
+      const raw=await request.text();if(raw.length>500)return json({error:"body_too_large"},413);
+      try {const req=JSON.parse(raw);if(!/^[a-f0-9-]{36}$/i.test(String(req?.id||"")) ||
+          !["approved","dismissed"].includes(req?.status))return json({error:"invalid_status"},400)}
+      catch{return json({error:"invalid_json"},400)}
+      body=raw;
+    }
+    try {
+      const result=await fetcher(base.origin+upstream,{
+         method:request.method,
+         headers:{"Authorization":"Bearer "+key,"Accept":"application/json",
+           ...(body?{"Content-Type":"application/json"}:{})},
+         ...(body?{body}:{}),
+      });
+      if(!result.ok)return json({error:"question_service_unavailable"},503);
+      const data=await result.json();
+      return json(data);
+    }catch{return json({error:"question_service_unavailable"},503)}
+  }
   if (path === "/api/integrations") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
     const zoomUrl = validatedZoomJoinUrl(env);
