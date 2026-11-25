@@ -1,0 +1,35 @@
+name: Solo Podcast Studio — Security and Build
+on:
+  pull_request:
+    paths:
+      - 'voice_gateway/**'
+      - '.github/workflows/solo-podcast-studio.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'voice_gateway/**'
+      - '.github/workflows/solo-podcast-studio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: voice_gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run private voice and solo podcast tests; build Cloudflare assets
+        run: npm run check
+      - name: Confirm packaged solo podcast is present
+        run: |
+          test -s dist/podcast.html
+          test -s dist/podcast.js
+          test -s dist/podcast.css
