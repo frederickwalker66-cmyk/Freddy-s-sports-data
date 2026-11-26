@@ -27,5 +27,24 @@ class LiveTicketTests(unittest.TestCase):
         self.assertEqual(report["legs"][2]["remaining"],36)
         self.assertFalse(report["sportsbook_settlement_verified"])
 
+    def test_provider_fields(self):
+        game={"id":"fixture","state":"in","completed":False,"teams":[
+            {"team":{"abbreviation":"CHI"},"score":"0"},
+            {"team":{"abbreviation":"DET"},"score":"3"}],
+            "players":[{"name":"Colston Loveland","category":"receiving","stats":{"receivingYards":"5"}},
+                       {"name":"Amon-Ra St. Brown","category":"receiving","stats":{"receivingYards":"46"}}]}
+        rows=track({"games":[game]})["legs"]
+        self.assertEqual(rows[0]["remaining"],48)
+        self.assertEqual(rows[2]["remaining"],36)
+
+    def test_touchdown_evidence(self):
+        game={"id":"fixture","state":"in","completed":False,"teams":[
+            {"team":{"abbreviation":"KC"},"score":"0"},
+            {"team":{"abbreviation":"BUF"},"score":"7"}],
+            "players":[{"name":"James Cook","category":"passing","stats":{"passingTouchdowns":"1"}}]}
+        self.assertEqual(track({"games":[game]})["legs"][5]["status"],"UNKNOWN")
+        game["players"].append({"name":"James Cook","category":"rushing","stats":{"rushingTouchdowns":"1"}})
+        self.assertEqual(track({"games":[game]})["legs"][5]["status"],"TARGET_MET")
+
 if __name__=="__main__":
     unittest.main()
