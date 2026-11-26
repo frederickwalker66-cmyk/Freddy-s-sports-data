@@ -1,0 +1,251 @@
+{
+  "arbitrage_research": null,
+  "betting_readiness": null,
+  "by_league": {
+    "nba": {
+      "completed_published_games": 258,
+      "data_verified_for_model_training": false,
+      "failed_source_days": 0,
+      "research_forecast_count": 0,
+      "status": "genuine_pregame_forecast_research_only",
+      "successful_source_days": 35
+    }
+  },
+  "certification_review": null,
+  "certified_positive_ev_bets": 0,
+  "champion_001_modified": false,
+  "command": "run_nba_forward",
+  "comprehensive_audit": null,
+  "forward_calibration": null,
+  "forward_leaderboard": null,
+  "historical_data_only_not_trainable": false,
+  "historical_end_et": "2026-11-24",
+  "independently_verified_model_predictions": 0,
+  "metrics_health": null,
+  "mixed_market_research": null,
+  "model_training_data_independently_qualified": false,
+  "money_wagered_usd": 0,
+  "nba_always_sharp_edge": null,
+  "nba_five_leg_preflight": null,
+  "nba_forward_grading": null,
+  "nba_forward_research": {
+    "automated_wagers": 0,
+    "bet_ready": false,
+    "captured_at_utc": "2026-11-26T03:01:06.725556+00:00",
+    "certified_positive_ev_bets": 0,
+    "champion_001_modified": false,
+    "forward_games_with_rest_and_form_context": 0,
+    "forward_research_probabilities_recorded_before_tipoff": 0,
+    "future_schedule_events_seen": 0,
+    "github_action_run_id_self_reported": "45746075255",
+    "github_action_sha_self_reported": "7a8d7f1390f3b51e5cc36539b8c7f1439730e778",
+    "history_collection_started_at_utc": "2026-11-26T03:00:55.615264+00:00",
+    "history_games_retrieved": 258,
+    "hold_reasons": {},
+    "independently_certified_v8_predictions": 0,
+    "independently_verified_draftkings_checkout_odds": 0,
+    "matured_NBA_history_games": 255,
+    "nba_rest_and_form_feature_version": "nba-rest-b2b-last5-last10-research-v1",
+    "original_champion_001_predictions_certified": 0,
+    "original_github_actions_receipt_external_verification": false,
+    "recent_form_features_are_model_inputs_not_fitted_coefficients": true,
+    "research_lane": "v8-nba-elo-forward-research-v0-fixed-k20-ha60",
+    "schedule_original_sha256_local_receipts": {
+      "2026-11-25": "240043078625a366d2d2b9c959386996b15a3b9824066cc3401017bb1a892a67",
+      "2026-11-26": "3ed3f28a625d933cbbaaebbdffdf19bc4462ed92ea1cdf7916c20e3a38c9e1b4"
+    },
+    "source_days_attempted": 35,
+    "source_days_failed": 0,
+    "source_days_succeeded": 35,
+    "stage": "v8_elo_genuine_forward_clocktime_research_only",
+    "v8_research_forward_predictions": 0,
+    "warning": "Forecasts recorded before kickoff are research-only in a separate V8 Elo lane. History contains published ESPN scores captured now, and assumes 48h game-result maturity. A local digest and GitHub timestamp are not publisher-signed independent model/source authentication. No independent calibration, injuries or executable sportsbook prices. B2B and last-5/10 form features are saved but not weighted into Elo. Champion-001 shadows=0."
+  },
+  "nba_local_clv_receipt_status": null,
+  "nba_oos_research": null,
+  "nba_prop_capture_readiness": null,
+  "nba_slate_best_bets": null,
+  "nba_training_intake": null,
+  "next_sport_forward_research": null,
+  "nfl_and_player_props_edge_research": null,
+  "nfl_nhl_forward_board": null,
+  "pregame_five_gate": {
+    "counts": {
+      "HOLD": 0,
+      "PASS": 0,
+      "TAKE": 0
+    },
+    "evaluated_at": "2026-11-26T03:01:06.753834+00:00",
+    "requested_sport": "run_nba_forward",
+    "rows": [],
+    "status": "HOLD_UNTIL_TRUSTED_FEEDS_AND_MODEL_RECEIPTS",
+    "warning": "Untrusted snapshot values and flags cannot certify wagers. No bets placed."
+  },
+  "probability_first_risk": {
+    "certified_bets": 0,
+    "champion_modified": false,
+    "historical_backtest_verified": false,
+    "minimum_ev": 0.03,
+    "minimum_probability_by_legs": {
+      "1": 0.75,
+      "2": 0.6,
+      "3": 0.55,
+      "4_to_8": 0.5
+    },
+    "native_probability_verified": false,
+    "parlay_probability_requires_joint_model": true,
+    "reason": "no independently authenticated market-level evidence supplied",
+    "status": "HOLD",
+    "straight_first": true,
+    "version_comparison_verified": false
+  },
+  "probability_sharp_edge_dashboard": {
+    "certified_positive_ev_bets": 0,
+    "champion_001_modified": false,
+    "command": "run_nba_forward",
+    "decision": "PASS_NO_QUALIFIED_EDGE",
+    "last_sharpapi_archived_quote_utc": null,
+    "market_movement_watchlist": [],
+    "market_side_rows": [],
+    "market_side_rows_total": 0,
+    "market_types_supported": [
+      "moneyline",
+      "point_spread",
+      "total_points",
+      "player_prop"
+    ],
+    "native_model_probability_is_not_no_vig_market_probability": true,
+    "nba_player_prop_archived_paired_markets": 0,
+    "nba_player_prop_game_coverage": [],
+    "nba_player_prop_identity_verified": false,
+    "nba_player_prop_preview_stat_families": [],
+    "nba_player_prop_requested_stat_families": [],
+    "notes": [
+      "Model p% means original model forecast only when actually supplied.",
+      "No-vig market p% and break-even p% come from quoted bookmaker prices, not model predictions.",
+      "Model edge (pp) = model p% minus break-even p%. EV ROI% uses decimal payout and model p.",
+      "Line movement in percentage points is not verified sharp money or bettor handle.",
+      "No betting recommendation without exact-market independently calibrated model, fresh authenticated price, player/game identity and pregame receipt.",
+      "N/A denotes unavailable evidence; it never means a zero-probability event or zero edge."
+    ],
+    "probability_coverage": {
+      "break_even_probability_rows_visible": 0,
+      "no_vig_market_probability_rows_visible": 0,
+      "research_model_probability_rows_visible": 0,
+      "verified_champion_001_probability_rows_visible": 0,
+      "verified_native_model_ev_rows_visible": 0,
+      "visible_market_rows": 0
+    },
+    "report_type": "FREDDYS_UNIVERSAL_PROBABILITY_SHARP_EDGE_RESEARCH_VIEW",
+    "sharp_bettor_handle_percentage": null,
+    "sharp_bettor_handle_percentage_verified": false
+  },
+  "requested_days_per_sport": 35,
+  "requested_leagues": [
+    "nba"
+  ],
+  "research_edge_candidates": [],
+  "research_forward_probability_rows": [],
+  "season_to_date_all_leagues": null,
+  "sharp_archive": null,
+  "sharp_edge_calibration": null,
+  "sharp_edge_certification_gap": {
+    "authenticated_market_receipts_in_this_run": 0,
+    "certification_status": "BLOCKED_UNTIL_INDEPENDENTLY_VERIFIED",
+    "certified_takes_in_this_run": 0,
+    "displayed_decisions": {
+      "HOLD": 0,
+      "PASS": 0,
+      "TAKE": 0
+    },
+    "displayed_research_candidates": 0,
+    "native_champion_001_certified_forecasts_in_this_run": 0,
+    "next_action": "Connect trusted, independently authenticated market and native-model receipts before TAKE can be issued",
+    "no_self_attested_take": true,
+    "required_gates": [
+      {
+        "gate": "authenticated_sportsbook_quote",
+        "status": "NOT_VERIFIED"
+      },
+      {
+        "gate": "verified_event_and_roster",
+        "status": "NOT_VERIFIED"
+      },
+      {
+        "gate": "native_champion_001_probability",
+        "status": "NOT_VERIFIED"
+      },
+      {
+        "gate": "independent_model_verification",
+        "status": "NOT_VERIFIED"
+      },
+      {
+        "gate": "verified_positive_expected_value",
+        "status": "NOT_VERIFIED"
+      },
+      {
+        "gate": "pregame_timestamp",
+        "status": "NOT_VERIFIED"
+      }
+    ]
+  },
+  "sharp_edge_clv": null,
+  "sharp_edge_source_readiness": {
+    "archive_market_receipts_authenticated": 0,
+    "certified_takes": 0,
+    "integration_status": "ARCHIVE_SUMMARY_ONLY_NO_VERIFIED_MARKET_ROWS",
+    "markets": [],
+    "read_only": true,
+    "rows_examined": 0,
+    "sgo_archive_summary_available": true,
+    "status": "HOLD_UNTIL_AUTHENTICATED_SOURCE_AND_MODEL_EVIDENCE"
+  },
+  "sharp_full_game_markets": null,
+  "sharp_player_props": null,
+  "source_collection_health": null,
+  "sportsbook_api_requests": 0,
+  "sportsgameodds_archive_research": {
+    "archive_files_found": 1,
+    "bet_ready": false,
+    "certified_positive_ev_bets": 0,
+    "champion_001_modified": false,
+    "decision": "HOLD_PROVIDER_DATA_NOT_NATIVE_MODEL_OR_VERIFIED_CHECKOUT",
+    "excluded_rows": {},
+    "independently_validated_native_model_probabilities": 0,
+    "max_fresh_quote_age_seconds": 120,
+    "provider_event_and_player_identities_crosschecked": false,
+    "recent_upcoming_quote_reference_count": 0,
+    "recent_upcoming_quote_references": [],
+    "report_type": "V8_SGO_SEPARATE_ARCHIVE_RESEARCH_ONLY",
+    "rows_examined": 990,
+    "source_labeled_not_bookmaker_authenticated": true,
+    "source_labeled_quotes_by_market": {
+      "nba_moneyline": 10,
+      "nba_player_prop": 940,
+      "nba_point_spread": 10,
+      "nba_total_points": 30
+    },
+    "source_primary_market_status_authenticated": false,
+    "stake_usd": 0,
+    "status": "sgo_archived_quotes_research_only"
+  },
+  "universal_sharp_edge_board": {
+    "command": "run_nba_forward",
+    "decision_counts": {
+      "HOLD": 0,
+      "PASS": 0,
+      "TAKE": 0
+    },
+    "no_candidates_reason": "No authenticated or compatible market selections in this run",
+    "probability_fields": {
+      "break_even_probability_percent": "market-derived, not model prediction",
+      "champion_001_probability_percent": "N/A until native model output independently verified",
+      "verified_ev_percent": "N/A until verified odds and native probability"
+    },
+    "requested_leagues": [
+      "nba"
+    ],
+    "rows": [],
+    "status": "RESEARCH_ONLY_NO_AUTHENTICATED_CERTIFICATION"
+  }
+}
