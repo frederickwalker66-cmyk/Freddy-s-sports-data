@@ -46,5 +46,13 @@ class LiveTicketTests(unittest.TestCase):
         game["players"].append({"name":"James Cook","category":"rushing","stats":{"rushingTouchdowns":"1"}})
         self.assertEqual(track({"games":[game]})["legs"][5]["status"],"TARGET_MET")
 
+    def test_failover(self):
+        from v8_nfl_live_failover import collect_with_failover
+        bad=lambda: {"status":"PARTIAL","games":[]}
+        good=lambda: {"status":"SOURCE_RESPONSE_RECEIVED","games":[{"state":"pre"}],"errors":[]}
+        self.assertEqual(collect_with_failover(bad,good)["provider_attempts"][-1]["provider"],"backup")
+        self.assertEqual(collect_with_failover(bad,bad)["status"],"HOLD")
+        self.assertEqual(collect_with_failover(bad)["status"],"HOLD")
+
 if __name__=="__main__":
     unittest.main()
