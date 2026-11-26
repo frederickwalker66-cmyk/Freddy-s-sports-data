@@ -42,9 +42,18 @@ class LiveTicketTests(unittest.TestCase):
             {"team":{"abbreviation":"KC"},"score":"0"},
             {"team":{"abbreviation":"BUF"},"score":"7"}],
             "players":[{"name":"James Cook","category":"passing","stats":{"passingTouchdowns":"1"}}]}
-        self.assertEqual(track({"games":[game]})["legs"][5]["status"],"UNKNOWN")
+        self.assertEqual(track({"games":[game]})["legs"][5]["last_observed_status"],"UNKNOWN")
         game["players"].append({"name":"James Cook","category":"rushing","stats":{"rushingTouchdowns":"1"}})
-        self.assertEqual(track({"games":[game]})["legs"][5]["status"],"TARGET_MET")
+        self.assertEqual(track({"games":[game]})["legs"][5]["last_observed_status"],"TARGET_MET")
+
+    def test_freshness(self):
+        from datetime import datetime, timezone, timedelta
+        from v8_nfl_live_ticket import freshness
+        now=datetime.now(timezone.utc)
+        self.assertEqual(freshness({},now),"UNVERIFIED")
+        self.assertEqual(freshness({"observed_utc":(now-timedelta(seconds=61)).isoformat()},now),"STALE")
+        self.assertEqual(freshness({"observed_utc":now.isoformat()},now),"FRESH")
+        self.assertEqual(freshness({"observed_utc":(now+timedelta(seconds=1)).isoformat()},now),"STALE")
 
     def test_failover(self):
         from v8_nfl_live_failover import collect_with_failover
