@@ -21,9 +21,10 @@ def integer(value):
     except (TypeError,ValueError):
         return None
 
-def track(feed):
+def track(feed, legs=None):
+    legs = LEGS if legs is None else legs
     rows=[]
-    for away,home,name,market,target in LEGS:
+    for away,home,name,market,target in legs:
         row={"selection":name,"market":market,"target":target,"status":"UNKNOWN"}
         games=[g for g in feed.get("games",[]) if
                {t.get("team",{}).get("abbreviation") for t in g["teams"]}=={away,home}]
@@ -63,4 +64,11 @@ def track(feed):
             "champion_modified":False}
 
 if __name__=="__main__":
-    print(json.dumps(track(collect(date(2026,11,26))),indent=2))
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--ticket", required=True, help="JSON file containing selection tuples")
+    parser.add_argument("--date", type=date.fromisoformat)
+    args=parser.parse_args()
+    with open(args.ticket, encoding="utf-8") as handle:
+        legs=json.load(handle)
+    print(json.dumps(track(collect(args.date), legs),indent=2))
