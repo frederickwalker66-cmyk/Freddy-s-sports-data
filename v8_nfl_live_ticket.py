@@ -1,6 +1,6 @@
 """Read-only ticket tracking; missing observations remain unknown."""
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from v8_nfl_live_feed import collect
 from v8_nfl_live_grading import grade_prop, grade_spread
 
@@ -20,6 +20,15 @@ def integer(value):
         return int(value)
     except (TypeError,ValueError):
         return None
+
+def freshness(game, now=None):
+    # Retrieval time is not proof of provider observation time.
+    try:
+        stamp=datetime.fromisoformat(game["observed_utc"].replace("Z","+00:00"))
+        age=((now or datetime.now(timezone.utc))-stamp).total_seconds()
+        return "FRESH" if 0 <= age <= 60 else "STALE"
+    except (KeyError, TypeError, ValueError):
+        return "UNVERIFIED"
 
 def track(feed, legs=None):
     legs = LEGS if legs is None else legs
@@ -58,6 +67,11 @@ def track(feed, legs=None):
                         value=integer(s.get({"receiving":"receivingYards","rushing":"rushingYards","passing":"passingYards"}[market],s.get("yards",s.get("YDS"))))
                         row.update(grade_prop(value,target,final))
             row["final_game"]=final
+            row["freshness"]=freshness(g) if g.get("state")!="pre" else "PREGAME"
+            if not final and g.get("state")!="pre" and row["freshness"]!="FRESH":
+                row["last_observed_status"]=row["status"]
+                row["status"]="STALE" if row["freshness"]=="STALE" else "HOLD"
+            row["sportsbook_settlement_verified"]=False
         rows.append(row)
     return {"legs":rows,"source":feed.get("source"),"retrieved_utc":feed.get("retrieved_utc"),
             "feed_status":feed.get("status"),"sportsbook_settlement_verified":False,
