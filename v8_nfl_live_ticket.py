@@ -42,7 +42,14 @@ def track(feed):
                 stats=[p for p in g.get("players",[]) if p["name"]==name]
                 if market=="touchdown":
                     # Require explicit rushing and receiving TD counts; other scoring types need review.
-                    row["reason"]="anytime_touchdown_requires_scoring_play_verification"
+                    keys={"rushing":"rushingTouchdowns","receiving":"receivingTouchdowns",
+                          "kickReturns":"kickReturnTouchdowns","puntReturns":"puntReturnTouchdowns",
+                          "defensive":"defensiveTouchdowns"}
+                    counts=[integer(p["stats"].get(keys[p["category"]])) for p in stats if p["category"] in keys]
+                    if any(v is not None and v>0 for v in counts):
+                        row.update(grade_prop(1,1,final))
+                    else:
+                        row["reason"]="no_positive_td_evidence_complete_scoring_review_required"
                 else:
                     matches=[p for p in stats if p["category"]==market]
                     if len(matches)==1:
