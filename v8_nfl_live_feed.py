@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/"
 def fetch(endpoint, params):
     url = BASE + endpoint + "?" + urlencode(params)
-    with urlopen(Request(url, headers={"User-Agent": "FreddysLiveResearch/1.0"}), timeout=12) as response:
+    with urlopen(Request(url, headers={"User-Agent": "FreddysLiveResearch/1.0", "Cache-Control":"no-cache", "Pragma":"no-cache"}), timeout=12) as response:
         return json.load(response)
 
 def collect(day=None, getter=fetch):
@@ -32,7 +32,19 @@ def collect(day=None, getter=fetch):
             report["games"].append(game)
             if game["state"] == "pre":
                 continue
-            box = getter("summary", {"event":game["id"]})["boxscore"]
+            summary = getter("summary", {"event":game["id"]})
+            box = summary["boxscore"]
+            # Keep score and player data from the same response when available.
+            header = summary.get("header", {}).get("competitions", [])
+            if header and str(header[0].get("id")) == game["id"]:
+                h=header[0]
+                hs=h.get("status", {})
+                game.update(teams=h.get("competitors",game["teams"]),
+                            clock=hs.get("displayClock",game["clock"]),
+                            period=hs.get("period",game["period"]),
+                            state=hs.get("type",{}).get("state",game["state"]),
+                            completed=hs.get("type",{}).get("completed",game["completed"]))
+            game["boxscore_retrieved_utc"]=datetime.now(timezone.utc).isoformat()
             for team in box.get("players", []):
                 for category in team.get("statistics", []):
                     labels = category.get("keys") or category.get("labels") or []
