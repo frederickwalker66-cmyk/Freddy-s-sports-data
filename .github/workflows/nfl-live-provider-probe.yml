@@ -1,0 +1,21 @@
+name: NFL live provider probe
+on:
+  pull_request:
+    paths:
+      - 'v8_nfl_live_*.py'
+      - '.github/workflows/nfl-live-provider-probe.yml'
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python v8_nfl_live_probe.py > nfl-live-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nfl-live-provider-report
+          path: nfl-live-report.json
