@@ -47,7 +47,7 @@ def track(feed):
                     matches=[p for p in stats if p["category"]==market]
                     if len(matches)==1:
                         s=matches[0]["stats"]
-                        value=integer(s.get("yards",s.get("YDS")))
+                        value=integer(s.get({"receiving":"receivingYards","rushing":"rushingYards","passing":"passingYards"}[market],s.get("yards",s.get("YDS"))))
                         row.update(grade_prop(value,target,final))
             row["final_game"]=final
         rows.append(row)
