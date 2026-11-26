@@ -50,7 +50,7 @@ from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_shar
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
-COMMANDS = ("run", "run_nba", "run_nba_best_bets", "run_nba_nfl", "run_all", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
+COMMANDS = ("run_nfl_live", "run", "run_nba", "run_nba_best_bets", "run_nba_nfl", "run_all", "run_sports", "run_season_form", "run_nfl", "run_nhl", "run_mlb",
             "run_ncaaf", "run_ncaab", "run_mls", "run_uefa", "run_edge", "run_sharp", "run_nfl_props_edge", "run_mixed_market", "run_arbitrage", "run_health", "run_readiness", "run_certify", "run_audit", "run_nba_train", "run_nba_oos", "run_nba_forward", "run_nba_grade", "run_leaderboard", "run_calibration", "run_nfl_forward", "run_nhl_forward", "run_sport_board", "model_status")
 COMMAND_LEAGUES = {
     "run": SPORTS, "run_nba": ("nba",), "run_nba_best_bets": ("nba",), "run_nba_nfl": ("nba", "nfl"), "run_all": SPORTS, "run_season_form": SPORTS, "run_nba_forward": ("nba",), "run_nba_grade": ("nba",),
@@ -92,6 +92,15 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
             audit_calibration_dir=None, audit_outcome_run_id=None,
             audit_calibration_run_id=None, nba_best_bets_runner=None,
             season_archive_dir=None):
+    if command == "run_nfl_live":
+        from v8_nfl_live_probe import probe
+        report = probe()
+        report.update(command=command, champion_001_modified=False,
+                      certified_positive_ev_bets=0, money_wagered_usd=0)
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "nfl_live_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        return report
     leagues = selected(command)
     if type(days) is not int or not 1 <= days <= 35:
         raise ValueError("days_must_be_1_to_35")
