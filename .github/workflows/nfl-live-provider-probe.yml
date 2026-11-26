@@ -19,3 +19,6 @@ jobs:
         with:
           name: nfl-live-provider-report
           path: nfl-live-report.json
+
+      - name: Inspect live player schema
+        run: python v8_nfl_live_schema_probe.py
