@@ -6,7 +6,7 @@
   "certified_champion_001_shadows": 0,
   "certified_positive_ev_bets": 0,
   "champion_001_modified": false,
-  "generated_at_utc": "2026-11-26T23:13:00.991396+00:00",
+  "generated_at_utc": "2026-11-27T03:18:01.160324+00:00",
   "graded_research_games": 28,
   "last_synchronization": {
     "due_forecast_rows_checked": 0,
@@ -15,7 +15,7 @@
     "new_NFL_ties_excluded_from_binary_grading": 0,
     "new_conflicting_event_ids_quarantined": 0,
     "new_original_forecasts": 0,
-    "original_source_receipt_files_saved": 0
+    "original_source_receipt_files_saved": 11
   },
   "matured_date_queries_deferred_due_to_budget": 0,
   "original_game_identity_conflicts_quarantined": 0,
@@ -60,12 +60,13 @@
       45092778693,
       45330052985,
       45542023426,
-      45746726522
+      45746726522,
+      45933173591
     ],
     "source_exclusions": {
-      "later_forecast_ignored": 211
+      "later_forecast_ignored": 223
     },
-    "source_forward_rows_loaded": 255
+    "source_forward_rows_loaded": 267
   },
   "sport": "nfl",
   "status": "HOLD_Fewer_than_50_research_forward_grades_per_model",
