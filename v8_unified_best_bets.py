@@ -28,3 +28,24 @@ def rank(candidates):
                        "decision":"HOLD","model_probability":None,"ev":None})
     return sorted(ranked,key=lambda r:(r["historical_rank_score"],
         r["history"]["windows"]["L10"]["hit_rate"]),reverse=True)
+
+def price_freshness(quote, as_of_utc):
+    """Research-only gate; provider observation is not checkout authentication."""
+    from v8_unified_hit_rate import timestamp
+    try:
+        if quote.get("sportsbook") != "draftkings":
+            return "HOLD_WRONG_BOOK"
+        now = timestamp(as_of_utc)
+        captured = timestamp(quote["last_capture_utc"])
+        published = timestamp(quote["provider_quote_utc"])
+        start = timestamp(quote["start_utc"])
+        if not published <= captured <= now < start:
+            return "HOLD_INVALID_CHRONOLOGY"
+        if (now-published).total_seconds() > 300:
+            return "HOLD_STALE_PRICE"
+        odds = quote["american_odds"]
+        if type(odds) is not int or abs(odds) < 100:
+            return "HOLD_INVALID_PRICE"
+        return "FRESH_RESEARCH_ONLY"
+    except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
+        return "HOLD_MISSING_PRICE_EVIDENCE"
