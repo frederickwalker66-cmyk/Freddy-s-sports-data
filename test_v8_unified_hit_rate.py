@@ -17,7 +17,8 @@ class HitRateTests(unittest.TestCase):
     def test_windows_and_cutoff(self):
         rows=[dict(subject_id="p",opponent_id="o" if i%2 else "x",
             game_id=str(i),season="2026",final=True,PTS=i,
-            settled_utc=f"2026-11-{i:02d}T00:00:00Z") for i in range(1,22)]
+            event_start_utc=f"2026-11-{i:02d}T00:00:00Z",
+            settled_utc=f"2026-11-{i:02d}T03:00:00Z") for i in range(1,22)]
         args=dict(subject_id="p",opponent_id="o",season="2026",
             cutoff="2026-11-21T00:00:00Z",market="PTS",side="OVER",line=15.5)
         report=historical(rows,**args)
@@ -28,6 +29,15 @@ class HitRateTests(unittest.TestCase):
         self.assertEqual(report["decision"],"HOLD")
         with self.assertRaises(ValueError):
             historical(rows+[rows[0]],**args)
+    def test_backfill_uses_event_order(self):
+        rows=[dict(subject_id="p",opponent_id="o",game_id=str(i),
+            season="2026",final=True,PTS=i,
+            event_start_utc=f"2026-11-{i:02d}T00:00:00Z",
+            settled_utc=f"2026-11-{25-i:02d}T03:00:00Z") for i in range(1,11)]
+        report=historical(rows,subject_id="p",opponent_id="o",season="2026",
+            cutoff="2026-11-26T00:00:00Z",market="PTS",side="OVER",line=5.5)
+        self.assertEqual(report["windows"]["L5"]["hit_rate"],1)
+
     def test_missing_combo_component(self):
         with self.assertRaises(KeyError):
             grade({"PTS":20},"PRA","OVER",25.5)
