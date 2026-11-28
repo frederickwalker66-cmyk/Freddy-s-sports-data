@@ -33,7 +33,8 @@ def adapt_team_history(history, cutoff):
             raise ValueError("invalid NBA final score identity")
         for team,opp,points,allowed in ((home,away,hs,aw),(away,home,aw,hs)):
             result.append(dict(subject_id=team,opponent_id=opp,game_id=eid,
-                season=season,final=True,settled_utc=observed.isoformat(),
+                season=season,final=True,event_start_utc=start.isoformat(),
+                settled_utc=observed.isoformat(),
                 team_points=points,opponent_points=allowed,
                 source_authenticated=False))
     return result
