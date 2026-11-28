@@ -48,7 +48,7 @@ from v8_clv_reconciliation import reconcile as reconcile_local_clv
 from v8_season_artifact_view import review as review_season_artifacts
 from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_sharp_edge
 from v8_unified_best_bets import price_freshness
-from v8_unified_player_identity import match_player
+from v8_unified_player_identity import match_player, evidence_gaps
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
@@ -223,6 +223,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                  "prop_stat": row.get("prop_stat"),
                  "line": row.get("line"),
                  "identity_status": match_player(row, {}, {}),
+                 "missing_identity_evidence": evidence_gaps(row)["missing_evidence"],
                  "price_status": price_freshness({
                      "sportsbook": row.get("sportsbook"),
                      "last_capture_utc": row.get("last_capture_utc"),
