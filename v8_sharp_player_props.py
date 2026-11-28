@@ -230,6 +230,8 @@ def summarize_player_props(rows, *, now=None, archive_run_ids=()):
                     over["implied"], under["implied"])
                 current_prop_markets.append({
                     "league": key[0], "provider_event_id": key[1],
+                    "sportsbook": over["raw"]["sportsbook"],
+                    "provider_quote_utc": over["quote"].isoformat(),
                     "player_id": key[2] or None, "player_name": key[3],
                     "player_identity_match_basis": (
                         "provider_id_plus_name_unverified" if key[2]

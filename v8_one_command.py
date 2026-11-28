@@ -47,6 +47,8 @@ from v8_nba_five_leg_preflight import audit_five_leg_preflight
 from v8_clv_reconciliation import reconcile as reconcile_local_clv
 from v8_season_artifact_view import review as review_season_artifacts
 from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_sharp_edge
+from v8_unified_best_bets import price_freshness, prop_quote_evidence
+from v8_unified_player_identity import match_player, evidence_gaps
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
@@ -118,6 +120,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         "nba_prop_capture_readiness": None,
         "sharp_full_game_markets": None,
         "nba_always_sharp_edge": None,
+        "nba_live_price_research_gate": None,
         "mixed_market_research": None,
         "sportsgameodds_archive_research": None,
         "sharp_edge_calibration": None,
@@ -209,6 +212,33 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         report["sharp_full_game_markets"] = full
         always_edge = build_nba_sharp_edge(
             sharp, props, full, calibration, report["season_to_date_all_leagues"])
+        # A market archive observation is never a verified checkout price.
+        # Require the provider's original quote time, not merely collection time.
+        observed_props = (props.get("today_player_prop_market_probability_board") or {}).get("nba", [])
+        research_gate = {
+            "report_type": "NBA_DRAFTKINGS_PROP_FRESHNESS_RESEARCH_GATE",
+            "candidate_count": len(observed_props),
+            "rows": [
+                {"player_name": row.get("player_name"),
+                 "prop_stat": row.get("prop_stat"),
+                 "line": row.get("line"),
+                 "identity_status": match_player(row, {}, {}),
+                 "missing_identity_evidence": evidence_gaps(row)["missing_evidence"],
+                 "price_status": price_freshness(prop_quote_evidence(row, "over"),
+                     (now or datetime.now(timezone.utc)).isoformat()),
+                 "decision": "HOLD",
+                 "model_probability": None, "ev": None}
+                for row in observed_props[:40]
+            ],
+            "independently_verified_checkout_quotes": 0,
+            "verified_player_crosswalks_loaded": 0,
+            "identity_crosswalk_source": "UNAVAILABLE_NOT_INTEGRATED",
+            "certified_positive_ev_bets": 0,
+            "champion_001_modified": False,
+        }
+        report["nba_live_price_research_gate"] = research_gate
+        (out / "NBA_LIVE_PRICE_RESEARCH_GATE.json").write_text(
+            json.dumps(research_gate, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         report["nba_always_sharp_edge"] = always_edge
         save_nba_sharp_edge(always_edge, out)
         report["sharp_edge_clv"] = {

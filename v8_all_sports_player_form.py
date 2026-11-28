@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from statistics import mean
+from math import isfinite
 from zoneinfo import ZoneInfo
 
 from historical_outcomes import LEAGUES, parse_time
@@ -186,6 +187,7 @@ def build_all_player_form(rows, upcoming, as_of_utc, coverage_by_league=None):
             "season_collection_anchor_not_official_opening_day_et":anchor.isoformat(),
             "last5":_window(history,lg,5,full),
             "last10":_window(history,lg,10,full),
+            "last20":_window(history,lg,20,full),
             "as_of_utc":asof.isoformat(),
             "current_roster_status_verified":False,
             "bookmaker_player_ID_crosswalk_verified":False,
@@ -215,7 +217,7 @@ def historical_line_hits(player_record,stat,line,side,n):
     Accepts the original source-box history for one player; never aggregate
     bookmaker ID directly. Pushes are excluded from conditional win/loss %.
     """
-    if type(line) not in (int,float) or side not in ("over","under") or n not in (5,10):
+    if type(line) not in (int,float) or not isfinite(line) or side not in ("over","under") or n not in (5,10,20):
         raise ValueError("invalid_exact_player_prop_line")
     if len(player_record)<n:
         return {"sample_size":len(player_record),
