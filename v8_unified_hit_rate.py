@@ -56,11 +56,14 @@ def historical(rows, *, subject_id, opponent_id, season, cutoff, market, side, l
             continue
         if row.get("season") != season or timestamp(row["settled_utc"]) >= end:
             continue
+        start=timestamp(row["event_start_utc"])
+        if start >= timestamp(row["settled_utc"]):
+            raise ValueError("invalid event chronology")
         ident=row["game_id"]
         if not ident or ident in seen:
             raise ValueError("missing or duplicate game identity")
         seen.add(ident)
-        records.append((timestamp(row["settled_utc"]),row["opponent_id"],grade(row,market,side,line)))
+        records.append((start,row["opponent_id"],grade(row,market,side,line)))
     records.sort(reverse=True)
     results={f"L{n}":summarize([x[2] for x in records[:n]]) for n in (5,10,20)}
     results["season"]=summarize([x[2] for x in records])
