@@ -1,6 +1,12 @@
 import unittest
-from v8_unified_player_identity import match_player
+from v8_unified_player_identity import match_player, evidence_gaps
 class IdentityTests(unittest.TestCase):
+    def test_evidence_gaps(self):
+        missing=evidence_gaps({"league":"nba","player_name":"Test"})["missing_evidence"]
+        self.assertIn("quote.player_id",missing)
+        self.assertIn("crosswalk.independently_verified",missing)
+        self.assertIn("history.current_roster_status_verified",missing)
+
     def test_fail_closed(self):
         q=dict(league="nba",player_id="p",provider_event_id="g",player_identity_independently_verified=True)
         h=dict(historical_espn_player_id="e",scheduled_event_id="n",current_roster_status_verified=True)
