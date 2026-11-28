@@ -1,5 +1,5 @@
 import unittest
-from v8_unified_best_bets import price_freshness, reverse_edge, rank, wilson
+from v8_unified_best_bets import price_freshness, reverse_edge, rank, wilson, prop_quote_evidence
 
 NOW="2026-11-28T12:00:00Z"
 START="2026-11-28T20:00:00Z"
@@ -11,6 +11,15 @@ def quote(odds=-110, stamp="2026-11-28T11:59:00Z"):
                 american_odds=odds)
 
 class SafeguardTests(unittest.TestCase):
+    def test_quote_adapter_preserves_provenance(self):
+        row=dict(sportsbook="draftkings",provider_quote_utc="2026-11-28T11:59:00Z",
+                 last_capture_utc="2026-11-28T11:59:00Z",start_utc=START,
+                 over_american_odds=-110,under_american_odds=105)
+        self.assertEqual(price_freshness(prop_quote_evidence(row),NOW),"FRESH_RESEARCH_ONLY")
+        self.assertEqual(prop_quote_evidence(row,"under")["american_odds"],105)
+        self.assertEqual(price_freshness(prop_quote_evidence({**row,"sportsbook":None}),NOW),"HOLD_WRONG_BOOK")
+        self.assertEqual(price_freshness(prop_quote_evidence({**row,"provider_quote_utc":None}),NOW),"HOLD_MISSING_PRICE_EVIDENCE")
+
     def test_freshness(self):
         self.assertEqual(price_freshness(quote(),NOW),"FRESH_RESEARCH_ONLY")
         self.assertEqual(price_freshness(quote(stamp="2026-11-28T11:54:00Z"),NOW),"HOLD_STALE_PRICE")
