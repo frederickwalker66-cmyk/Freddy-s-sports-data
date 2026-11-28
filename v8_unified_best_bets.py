@@ -49,3 +49,33 @@ def price_freshness(quote, as_of_utc):
         return "FRESH_RESEARCH_ONLY"
     except (KeyError, TypeError, ValueError, AttributeError, OverflowError):
         return "HOLD_MISSING_PRICE_EVIDENCE"
+
+def reverse_edge(previous, current, splits, as_of_utc):
+    """Price-only reverse movement on the identical selection; not sharp proof."""
+    from v8_unified_hit_rate import timestamp
+    from math import isfinite
+    result={"signal":False,"decision":"HOLD","model_probability":None,"ev":None}
+    try:
+        keys=("sportsbook","event_id","market_id","selection_id","line","start_utc")
+        if any(k not in previous or k not in current or k not in splits
+               or previous[k]!=current[k] or current[k]!=splits[k] for k in keys):
+            return dict(result,reason="market_identity_mismatch")
+        if price_freshness(current,as_of_utc)!="FRESH_RESEARCH_ONLY":
+            return dict(result,reason="current_price_unverified")
+        old=timestamp(previous["provider_quote_utc"])
+        new=timestamp(current["provider_quote_utc"])
+        split=timestamp(splits["observed_utc"])
+        if not 0<(new-old).total_seconds()<=3600 or abs((new-split).total_seconds())>60 or split>timestamp(as_of_utc):
+            return dict(result,reason="unsynchronized_observations")
+        tickets=splits["ticket_pct"]
+        if type(tickets) not in (int,float) or not isfinite(tickets) or not 0<=tickets<=100:
+            return dict(result,reason="invalid_ticket_share")
+        def implied(a):
+            if type(a) is not int or abs(a)<100:
+                raise ValueError("invalid odds")
+            return -a/(100-a) if a<0 else 100/(100+a)
+        delta=implied(current["american_odds"])-implied(previous["american_odds"])
+        return dict(result,signal=tickets<50 and delta>0,
+                    implied_price_change=delta,reason="research_only_not_sharp_proof")
+    except (KeyError,TypeError,ValueError,AttributeError,OverflowError):
+        return dict(result,reason="missing_or_invalid_evidence")
