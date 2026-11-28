@@ -238,7 +238,7 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
         }
         report["nba_live_price_research_gate"] = research_gate
         (out / "NBA_LIVE_PRICE_RESEARCH_GATE.json").write_text(
-            json.dumps(research_gate, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+            json.dumps(research_gate, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         report["nba_always_sharp_edge"] = always_edge
         save_nba_sharp_edge(always_edge, out)
         report["sharp_edge_clv"] = {
