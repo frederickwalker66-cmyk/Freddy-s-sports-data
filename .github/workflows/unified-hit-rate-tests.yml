@@ -24,3 +24,33 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest -v test_v8_unified_hit_rate test_v8_unified_best_bets test_v8_unified_player_identity
+      - name: Write sanitized research evidence status
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p research_evidence
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status={
+              "report_type":"FREDDYS_UNIFIED_RESEARCH_CI_EVIDENCE_STATUS",
+              "source":"offline_github_actions_unit_tests",
+              "live_draftkings_checkout_verified":False,
+              "independently_verified_player_crosswalks_loaded":0,
+              "native_champion_001_probabilities_verified":0,
+              "certified_positive_ev_bets":0,
+              "decision":"HOLD",
+              "champion_001_modified":False,
+              "note":"CI checks are synthetic/offline; no live source or private credentials inspected."
+          }
+          Path("research_evidence/RESEARCH_EVIDENCE_STATUS.json").write_text(
+              json.dumps(status,indent=2,sort_keys=True)+"\n")
+          PY
+      - name: Upload sanitized research evidence status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freddys-research-evidence-${{ github.run_id }}
+          path: research_evidence/RESEARCH_EVIDENCE_STATUS.json
+          if-no-files-found: error
+          retention-days: 30
