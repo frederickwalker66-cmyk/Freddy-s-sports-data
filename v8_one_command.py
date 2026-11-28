@@ -48,6 +48,7 @@ from v8_clv_reconciliation import reconcile as reconcile_local_clv
 from v8_season_artifact_view import review as review_season_artifacts
 from v8_nba_always_sharp_edge import build_nba_sharp_edge, save as save_nba_sharp_edge
 from v8_unified_best_bets import price_freshness
+from v8_unified_player_identity import match_player
 from v8_every_sport_bundle import run_full_stack, COMMAND_TO_SPORT as FULL_STACK_COMMANDS
 
 SPORTS = tuple(WINDOW_END)
@@ -221,8 +222,9 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 {"player_name": row.get("player_name"),
                  "prop_stat": row.get("prop_stat"),
                  "line": row.get("line"),
+                 "identity_status": match_player(row, {}, {}),
                  "price_status": price_freshness({
-                     "sportsbook": "draftkings",
+                     "sportsbook": row.get("sportsbook"),
                      "last_capture_utc": row.get("last_capture_utc"),
                      "provider_quote_utc": row.get("provider_quote_utc"),
                      "start_utc": row.get("start_utc"),
@@ -233,6 +235,8 @@ def execute(command, days=7, end_date=None, edge_rows=None, collector=None,
                 for row in observed_props[:40]
             ],
             "independently_verified_checkout_quotes": 0,
+            "verified_player_crosswalks_loaded": 0,
+            "identity_crosswalk_source": "UNAVAILABLE_NOT_INTEGRATED",
             "certified_positive_ev_bets": 0,
             "champion_001_modified": False,
         }
