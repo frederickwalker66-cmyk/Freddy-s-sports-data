@@ -79,3 +79,15 @@ def reverse_edge(previous, current, splits, as_of_utc):
                     implied_price_change=delta,reason="research_only_not_sharp_proof")
     except (KeyError,TypeError,ValueError,AttributeError,OverflowError):
         return dict(result,reason="missing_or_invalid_evidence")
+
+def prop_quote_evidence(row, side="over"):
+    """Adapt validated archived prop board fields; never invent provenance."""
+    if not isinstance(row,dict) or side not in ("over","under"):
+        return {}
+    return {
+        "sportsbook":row.get("sportsbook"),
+        "last_capture_utc":row.get("last_capture_utc"),
+        "provider_quote_utc":row.get("provider_quote_utc"),
+        "start_utc":row.get("start_utc"),
+        "american_odds":row.get(side+"_american_odds"),
+    }
