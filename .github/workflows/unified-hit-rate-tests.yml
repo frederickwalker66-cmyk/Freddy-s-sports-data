@@ -4,6 +4,8 @@ on:
     branches: [research/unified-hit-rate-20261127]
   pull_request:
     paths:
+      - v8_live_evidence_status.py
+      - test_v8_live_evidence_status.py
       - v8_unified_hit_rate.py
       - test_v8_unified_hit_rate.py
       - v8_unified_player_identity.py
@@ -23,7 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest -v test_v8_unified_hit_rate test_v8_unified_best_bets test_v8_unified_player_identity
+      - run: python -m unittest -v test_v8_unified_hit_rate test_v8_unified_best_bets test_v8_unified_player_identity test_v8_live_evidence_status
       - name: Write sanitized research evidence status
         if: always()
         shell: bash
