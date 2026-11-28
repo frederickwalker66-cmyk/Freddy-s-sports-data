@@ -6,6 +6,8 @@ on:
     paths:
       - v8_unified_hit_rate.py
       - test_v8_unified_hit_rate.py
+      - v8_unified_player_identity.py
+      - test_v8_unified_player_identity.py
       - v8_unified_best_bets.py
       - test_v8_unified_best_bets.py
       - v8_all_sports_player_form.py
@@ -21,4 +23,4 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest -v test_v8_unified_hit_rate test_v8_unified_best_bets
+      - run: python -m unittest -v test_v8_unified_hit_rate test_v8_unified_best_bets test_v8_unified_player_identity
